@@ -1,0 +1,29 @@
+[package]
+name = "infomeasure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ndarray = "0.16" # For numerical computations
+kiddo = "5.2.0"  # KDtree
+plotters = "0.3.7"
+
+[dev-dependencies]
+rand = "0.8"      # For random number generation in tests
+rand_distr = "0.4" # For generating different probability distributions in tests
+approx = "0.5"    # For approximate floating-point comparisons in tests
+ndarray = "0.16"  # For numerical computations in tests
+validation = { path = "./tests/validation_crate" }  # Local validation module for Python compatibility testing
+criterion = "0.5"  # For benchmarking
+
+[[bench]]
+name = "discrete_entropy_benchmark"
+harness = false
+
+[[bench]]
+name = "unified_discrete_entropy_benchmark"
+harness = false
+
+[[bench]]
+name = "unified_kernel_entropy_benchmark"
+harness = false
