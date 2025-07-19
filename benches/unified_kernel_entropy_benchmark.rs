@@ -22,9 +22,9 @@ fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Vec<f64> {
 /// Benchmark function for unified kernel entropy calculation
 fn bench_unified_kernel_entropy(c: &mut Criterion) {
     // Define test parameters
-    let sizes = [100, 500, 1000, 2000, 10000];
-    let dimensions = [1, 2, 3, 4];
-    let kernel_types = ["box", "gaussian"];
+    let sizes = [100, 2000, 10000];
+    let dimensions = [1, 4, 8, 18];
+    let kernel_types = ["box"];
     let bandwidth = 0.5;
     let seed = 385;
     let python_num_runs = 5; // Number of runs for Python benchmarking
@@ -41,7 +41,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
             let mut group = c.benchmark_group(&group_name);
 
             // Set measurement time to ensure accurate results
-            group.measurement_time(Duration::from_secs(1));
+            group.measurement_time(Duration::from_secs(3));
 
             for &size in &sizes {
                 // Generate random data
@@ -75,6 +75,16 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                                 bandwidth
                             ).global_value(),
                             4 => Entropy::nd_kernel_with_type::<4>(
+                                black_box(data_array.clone()),
+                                "gaussian".to_string(),
+                                bandwidth
+                            ).global_value(),
+                            8 => Entropy::nd_kernel_with_type::<8>(
+                                black_box(data_array.clone()),
+                                "gaussian".to_string(),
+                                bandwidth
+                            ).global_value(),
+                            18 => Entropy::nd_kernel_with_type::<18>(
                                 black_box(data_array.clone()),
                                 "gaussian".to_string(),
                                 bandwidth
@@ -121,6 +131,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         match kernel_type {
                             "box" => Entropy::nd_kernel::<4>(data_array, bandwidth).global_value(),
                             "gaussian" => Entropy::nd_kernel_with_type::<4>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                            _ => panic!("Unsupported kernel type"),
+                        }
+                    } else if dims == 8 {
+                        // 8D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        match kernel_type {
+                            "box" => Entropy::nd_kernel::<8>(data_array, bandwidth).global_value(),
+                            "gaussian" => Entropy::nd_kernel_with_type::<8>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                            _ => panic!("Unsupported kernel type"),
+                        }
+                    } else if dims == 18 {
+                        // 18D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        match kernel_type {
+                            "box" => Entropy::nd_kernel::<18>(data_array, bandwidth).global_value(),
+                            "gaussian" => Entropy::nd_kernel_with_type::<18>(data_array, "gaussian".to_string(), bandwidth).global_value(),
                             _ => panic!("Unsupported kernel type"),
                         }
                     } else {
@@ -171,6 +197,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         "gaussian" => Entropy::nd_kernel_with_type::<4>(data_array, "gaussian".to_string(), bandwidth).global_value(),
                         _ => panic!("Unsupported kernel type"),
                     }
+                } else if dims == 8 {
+                    // 8D case
+                    let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                    match kernel_type {
+                        "box" => Entropy::nd_kernel::<8>(data_array, bandwidth).global_value(),
+                        "gaussian" => Entropy::nd_kernel_with_type::<8>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                        _ => panic!("Unsupported kernel type"),
+                    }
+                } else if dims == 18 {
+                    // 18D case
+                    let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                    match kernel_type {
+                        "box" => Entropy::nd_kernel::<18>(data_array, bandwidth).global_value(),
+                        "gaussian" => Entropy::nd_kernel_with_type::<18>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                        _ => panic!("Unsupported kernel type"),
+                    }
                 } else {
                     panic!("Unsupported number of dimensions: {}", dims);
                 };
@@ -207,7 +249,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
             // Create a benchmark group for different bandwidths
             let group_name = format!("Unified Kernel Entropy - {} Kernel - {}D - Bandwidth", kernel_type, dims);
             let mut group = c.benchmark_group(&group_name);
-            group.measurement_time(Duration::from_secs(10));
+            group.measurement_time(Duration::from_secs(3));
 
             for &bandwidth in &bandwidths {
                 // Generate random data
@@ -266,6 +308,28 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                             };
                             black_box(entropy.global_value())
                         });
+                    } else if dims == 8 {
+                        // 8D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        b.iter(|| {
+                            let entropy = match kernel_type {
+                                "box" => Entropy::nd_kernel::<8>(black_box(data_array.clone()), bw),
+                                "gaussian" => Entropy::nd_kernel_with_type::<8>(black_box(data_array.clone()), "gaussian".to_string(), bw),
+                                _ => panic!("Unsupported kernel type"),
+                            };
+                            black_box(entropy.global_value())
+                        });
+                    } else if dims == 18 {
+                        // 18D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        b.iter(|| {
+                            let entropy = match kernel_type {
+                                "box" => Entropy::nd_kernel::<18>(black_box(data_array.clone()), bw),
+                                "gaussian" => Entropy::nd_kernel_with_type::<18>(black_box(data_array.clone()), "gaussian".to_string(), bw),
+                                _ => panic!("Unsupported kernel type"),
+                            };
+                            black_box(entropy.global_value())
+                        });
                     } else {
                         panic!("Unsupported number of dimensions: {}", dims);
                     }
@@ -306,6 +370,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         match kernel_type {
                             "box" => Entropy::nd_kernel::<4>(data_array, bandwidth).global_value(),
                             "gaussian" => Entropy::nd_kernel_with_type::<4>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                            _ => panic!("Unsupported kernel type"),
+                        }
+                    } else if dims == 8 {
+                        // 8D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        match kernel_type {
+                            "box" => Entropy::nd_kernel::<8>(data_array, bandwidth).global_value(),
+                            "gaussian" => Entropy::nd_kernel_with_type::<8>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                            _ => panic!("Unsupported kernel type"),
+                        }
+                    } else if dims == 18 {
+                        // 18D case
+                        let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                        match kernel_type {
+                            "box" => Entropy::nd_kernel::<18>(data_array, bandwidth).global_value(),
+                            "gaussian" => Entropy::nd_kernel_with_type::<18>(data_array, "gaussian".to_string(), bandwidth).global_value(),
                             _ => panic!("Unsupported kernel type"),
                         }
                     } else {
@@ -354,6 +434,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                     match kernel_type {
                         "box" => Entropy::nd_kernel::<4>(data_array, bandwidth).global_value(),
                         "gaussian" => Entropy::nd_kernel_with_type::<4>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                        _ => panic!("Unsupported kernel type"),
+                    }
+                } else if dims == 8 {
+                    // 8D case
+                    let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                    match kernel_type {
+                        "box" => Entropy::nd_kernel::<8>(data_array, bandwidth).global_value(),
+                        "gaussian" => Entropy::nd_kernel_with_type::<8>(data_array, "gaussian".to_string(), bandwidth).global_value(),
+                        _ => panic!("Unsupported kernel type"),
+                    }
+                } else if dims == 18 {
+                    // 18D case
+                    let data_array = Array2::from_shape_vec((size, dims), data.clone()).unwrap();
+                    match kernel_type {
+                        "box" => Entropy::nd_kernel::<18>(data_array, bandwidth).global_value(),
+                        "gaussian" => Entropy::nd_kernel_with_type::<18>(data_array, "gaussian".to_string(), bandwidth).global_value(),
                         _ => panic!("Unsupported kernel type"),
                     }
                 } else {

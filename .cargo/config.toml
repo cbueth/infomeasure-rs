@@ -1,0 +1,9 @@
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "target-feature=+neon"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=+neon"]
+
+# For other ARM64 targets that support NEON
+[target.aarch64-unknown-linux-musl]
+rustflags = ["-C", "target-feature=+neon"]
