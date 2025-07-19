@@ -90,7 +90,6 @@ impl<const K: usize> KernelEntropy<K> {
         // Check if we have enough points to make GPU acceleration worthwhile
         // Based on benchmark analysis, GPU is beneficial for Gaussian kernel when dataset size >= 500
         if self.points.len() < 500 {
-            println!("Dataset too small for GPU acceleration, falling back to CPU implementation");
             return self.gaussian_kernel_local_values();
         }
 
@@ -129,7 +128,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Fallback Behavior
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
-    /// - If the dataset has fewer than 2000 points (GPU overhead outweighs benefits)
+    /// - If the dataset has fewer than 5000 points (GPU overhead outweighs benefits)
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn box_kernel_local_values_gpu(&self) -> Array1<f64> {
@@ -140,9 +139,8 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Check if we have enough points to make GPU acceleration worthwhile
-        // Based on benchmark analysis, GPU is beneficial for Box kernel when dataset size >= 2000
-        if self.points.len() < 2000 {
-            println!("Dataset too small for GPU acceleration, falling back to CPU implementation");
+        // Based on benchmark analysis, GPU is beneficial for Box kernel when dataset size >= 5000
+        if self.points.len() < 5000 {
             return self.box_kernel_local_values();
         }
 

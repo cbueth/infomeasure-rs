@@ -24,7 +24,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
     // Define test parameters
     let sizes = [100, 2000, 10000];
     let dimensions = [1, 4, 8, 18];
-    let kernel_types = ["box"];
+    let kernel_types = ["box", "gaussian"];
     let bandwidth = 0.5;
     let seed = 385;
     let python_num_runs = 5; // Number of runs for Python benchmarking
@@ -61,32 +61,32 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         let entropy = match dims {
                             1 => Entropy::nd_kernel_with_type::<1>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             2 => Entropy::nd_kernel_with_type::<2>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             3 => Entropy::nd_kernel_with_type::<3>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             4 => Entropy::nd_kernel_with_type::<4>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             8 => Entropy::nd_kernel_with_type::<8>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             18 => Entropy::nd_kernel_with_type::<18>(
                                 black_box(data_array.clone()),
-                                "gaussian".to_string(),
+                                kernel_type.to_string(),
                                 bandwidth
                             ).global_value(),
                             _ => panic!("Unsupported number of dimensions: {}", dims)
@@ -241,7 +241,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
     }
 
     // Benchmark with different bandwidths
-    let size = 1000;
+    let size = 5000;
     let bandwidths = [0.1, 0.5, 1.0, 2.0];
 
     for &dims in &dimensions {
