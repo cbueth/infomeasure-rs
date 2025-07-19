@@ -1,88 +1,73 @@
 use infomeasure::estimators::entropy::{Entropy, LocalValues};
-use ndarray::Array2;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use rand_distr::{Normal, Distribution};
 use std::time::{Duration, Instant};
 use std::fs::File;
 use std::io::Write;
 
-/// Generate random multi-dimensional data with specified size and dimensions from a normal distribution
-fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f64> {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let normal = Normal::new(0.0, 1.0).unwrap();
+// Import test helper functions
+mod test_helpers;
+use test_helpers::{measure_execution_time, generate_random_nd_data};
 
-    let data: Vec<f64> = (0..size * dims)
-        .map(|_| normal.sample(&mut rng))
-        .collect();
-
-    Array2::from_shape_vec((size, dims), data).unwrap()
-}
 
 /// Measure the performance of the Gaussian kernel entropy calculation
 fn measure_gaussian_kernel_performance(size: usize, dims: usize, bandwidth: f64, seed: u64) -> Duration {
     // Generate random data
     let data = generate_random_nd_data(size, dims, seed);
 
-    // Measure performance
-    let start = Instant::now();
-
-    match dims {
-        1 => {
-            Entropy::nd_kernel_with_type::<1>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        2 => {
-            Entropy::nd_kernel_with_type::<2>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        3 => {
-            Entropy::nd_kernel_with_type::<3>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        4 => {
-            Entropy::nd_kernel_with_type::<4>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        8 => {
-            Entropy::nd_kernel_with_type::<8>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        16 => {
-            Entropy::nd_kernel_with_type::<16>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        32 => {
-            Entropy::nd_kernel_with_type::<32>(
-                data.clone(),
-                "gaussian".to_string(),
-                bandwidth
-            ).global_value()
-        },
-        _ => panic!("Unsupported number of dimensions: {}", dims)
-    };
-
-    let duration = start.elapsed();
-
-    duration
+    // Measure performance using the centralized function
+    measure_execution_time(|| {
+        match dims {
+            1 => {
+                let _ = Entropy::nd_kernel_with_type::<1>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            2 => {
+                let _ = Entropy::nd_kernel_with_type::<2>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            3 => {
+                let _ = Entropy::nd_kernel_with_type::<3>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            4 => {
+                let _ = Entropy::nd_kernel_with_type::<4>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            8 => {
+                let _ = Entropy::nd_kernel_with_type::<8>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            16 => {
+                let _ = Entropy::nd_kernel_with_type::<16>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            32 => {
+                let _ = Entropy::nd_kernel_with_type::<32>(
+                    data.clone(),
+                    "gaussian".to_string(),
+                    bandwidth
+                ).global_value();
+            },
+            _ => panic!("Unsupported number of dimensions: {}", dims)
+        }
+    })
 }
 
 /// Measure the performance of the Box kernel entropy calculation

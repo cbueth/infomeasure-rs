@@ -1,10 +1,12 @@
+use ndarray::Array1;
 use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use validation::python;
-use ndarray::Array1;
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};
-use approx::assert_relative_eq;
+
+// Import test helper functions
+mod test_helpers;
+use test_helpers::assert_entropy_values_close;
 
 /// Helper function to compare discrete entropy between Rust and Python implementations
 ///
@@ -30,20 +32,23 @@ fn compare_discrete_entropy(data: Vec<i32>, test_name: &str) -> (f64, Vec<f64>) 
     println!("{} - Python global entropy (base e): {}", test_name, python_global_entropy);
 
     // Assert that the global entropy values are approximately equal
-    assert_relative_eq!(
+    assert_entropy_values_close(
         rust_global_entropy, 
         python_global_entropy, 
-        epsilon = 1e-10
+        1e-10,
+        1e-6,
+        test_name
     );
 
     // Assert that the local entropy values are approximately equal
     for (rust_val, python_val) in rust_local_entropy.iter()
         .zip(python_local_entropy.iter()) {
-        assert_relative_eq!(
+        assert_entropy_values_close(
             *rust_val, 
             *python_val, 
-            epsilon = 1e-10,
-            max_relative = 1e-6
+            1e-10,
+            1e-6,
+            &format!("{} (local)", test_name)
         );
     }
 

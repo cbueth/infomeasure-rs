@@ -1,10 +1,14 @@
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
-use validation::python;
-use ndarray::{Array1, Array2};
+use approx::assert_relative_eq;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Normal};
-use approx::assert_relative_eq;
+use ndarray::{Array1, Array2};
+use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use validation::python;
+
+// Import test helper functions
+mod test_helpers;
+use test_helpers::generate_gaussian_data;
 
 /// Helper function to compare kernel entropy between Rust and Python implementations
 ///
@@ -274,17 +278,3 @@ fn test_kernel_entropy_gaussian_parameter_combinations() {
     }
 }
 
-/// Helper function to generate Gaussian data with specified parameters
-fn generate_gaussian_data(size: usize, dims: usize, mean: f64, std_dev: f64, seed: u64) -> Array2<f64> {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let normal = Normal::new(mean, std_dev).unwrap();
-
-    // Generate data for each dimension
-    let data: Vec<f64> = (0..size * dims)
-        .map(|_| normal.sample(&mut rng))
-        .collect();
-
-    // Reshape into a 2D array with shape (size, dims)
-    Array2::from_shape_vec((size, dims), data)
-        .expect("Failed to reshape data")
-}

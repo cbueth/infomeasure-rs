@@ -1,22 +1,10 @@
-use infomeasure::estimators::entropy::Entropy;
-use infomeasure::estimators::entropy::LocalValues;
 use ndarray::Array2;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use rand_distr::{Distribution, Normal};
+use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use approx::assert_relative_eq;
 
-/// Generate random multi-dimensional data with specified size and dimensions
-fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f64> {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let normal = Normal::new(0.0, 1.0).unwrap();
-
-    let data: Vec<f64> = (0..size * dims)
-        .map(|_| normal.sample(&mut rng))
-        .collect();
-
-    Array2::from_shape_vec((size, dims), data).unwrap()
-}
+// Import test helper functions
+mod test_helpers;
+use test_helpers::{generate_random_nd_data, measure_execution_time};
 
 /// Test that compares the CPU and GPU implementations of the box kernel
 /// 
@@ -81,11 +69,13 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
     println!("{} - GPU global entropy: {}", test_name, gpu_global_entropy);
     
     // Assert that the global entropy values are approximately equal
+    let epsilon = 1e-6;
+    let max_relative = 1e-3;
     assert_relative_eq!(
         cpu_global_entropy, 
         gpu_global_entropy, 
-        epsilon = 1e-6,
-        max_relative = 1e-3
+        epsilon = epsilon,
+        max_relative = max_relative
     );
     
     // Assert that the local entropy values are approximately equal
@@ -99,11 +89,13 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
             let gpu_val = gpu_local_entropy[i];
             
             if cpu_val.abs() > 1e-6 && gpu_val.abs() > 1e-6 {
+                let epsilon = 1e-6;
+                let max_relative = 1e-3;
                 assert_relative_eq!(
                     cpu_val, 
                     gpu_val, 
-                    epsilon = 1e-6,
-                    max_relative = 1e-3
+                    epsilon = epsilon,
+                    max_relative = max_relative
                 );
             }
         }
@@ -288,7 +280,6 @@ fn measure_box_kernel_performance<const K: usize>(
     bandwidth: f64, 
     num_runs: usize
 ) {
-    use std::time::Instant;
     
     // Create a KernelEntropy instance
     let kernel = Entropy::nd_kernel_with_type::<K>(data.clone(), "box".to_string(), bandwidth);
@@ -296,20 +287,20 @@ fn measure_box_kernel_performance<const K: usize>(
     // Measure CPU time
     let mut cpu_total_time = 0.0;
     for _ in 0..num_runs {
-        let start = Instant::now();
-        let _ = kernel.box_kernel_local_values();
-        let elapsed = start.elapsed();
-        cpu_total_time += elapsed.as_secs_f64() * 1000.0; // Convert to milliseconds
+        let duration = measure_execution_time(|| {
+            let _ = kernel.box_kernel_local_values();
+        });
+        cpu_total_time += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
     }
     let cpu_avg_time = cpu_total_time / num_runs as f64;
     
     // Measure GPU time
     let mut gpu_total_time = 0.0;
     for _ in 0..num_runs {
-        let start = Instant::now();
-        let _ = kernel.local_values();
-        let elapsed = start.elapsed();
-        gpu_total_time += elapsed.as_secs_f64() * 1000.0; // Convert to milliseconds
+        let duration = measure_execution_time(|| {
+            let _ = kernel.local_values();
+        });
+        gpu_total_time += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
     }
     let gpu_avg_time = gpu_total_time / num_runs as f64;
     

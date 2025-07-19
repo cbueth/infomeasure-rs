@@ -1,10 +1,9 @@
 use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use validation::python;
-use ndarray::{Array1, Array2};
-use rand::{Rng, SeedableRng};
+use ndarray::Array2;
+use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Normal};
-use approx::assert_relative_eq;
 
 /// Helper function to generate Gaussian data with specified parameters
 fn generate_gaussian_data(size: usize, dims: usize, mean: f64, std_dev: f64, seed: u64) -> Array2<f64> {

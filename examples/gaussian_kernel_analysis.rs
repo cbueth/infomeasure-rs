@@ -1,6 +1,6 @@
 use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use validation::python;
-use ndarray::{Array1, Array2};
+use ndarray::{Array2};
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};
 use plotters::prelude::*;
