@@ -1,5 +1,17 @@
-use ndarray::Array1;
-use crate::estimators::approaches::{discrete, kernel};
+use ndarray::{Array1, Array2};
+use crate::estimators::approaches::kernel;
+use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+use crate::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
+use crate::estimators::approaches::discrete::shrink::ShrinkEntropy;
+use crate::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
+use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
+use crate::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
+use crate::estimators::approaches::discrete::bonachela::BonachelaEntropy;
+use crate::estimators::approaches::discrete::chao_shen::ChaoShenEntropy;
+use crate::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostEntropy;
+use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
+use crate::estimators::approaches::discrete::nsb::NsbEntropy;
+use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 pub use crate::estimators::traits::LocalValues;
 
 /// Entropy estimation methods for various data types
@@ -19,8 +31,164 @@ impl Entropy {
     /// # Returns
     ///
     /// A discrete entropy estimator configured for the provided data
-    pub fn new_discrete(data: Array1<i32>) -> discrete::DiscreteEntropy {
-        discrete::DiscreteEntropy::new(data)
+    /// Create a Maximum-Likelihood (Shannon) discrete entropy estimator for integer data.
+    ///
+    /// Uses the empirical distribution p_i = n_i / N. Supports local values via LocalValues.
+    pub fn new_discrete(data: Array1<i32>) -> DiscreteEntropy {
+        DiscreteEntropy::new(data)
+    }
+
+    /// Create a Miller–Madow bias-corrected discrete entropy estimator.
+    ///
+    /// Adds (K-1)/(2N) to the MLE estimate; supports local values (uniformly offset).
+    pub fn new_miller_madow(data: Array1<i32>) -> MillerMadowEntropy {
+        MillerMadowEntropy::new(data)
+    }
+
+    /// Create a James–Stein shrinkage discrete entropy estimator.
+    ///
+    /// Shrinks the empirical distribution towards the uniform target using a data-driven
+    /// lambda in [0,1]; supports local values.
+    pub fn new_shrink(data: Array1<i32>) -> ShrinkEntropy {
+        ShrinkEntropy::new(data)
+    }
+
+    /// Create a Grassberger (Gr88) discrete entropy estimator.
+    ///
+    /// Uses digamma-based bias correction per-count; supports local values.
+    pub fn new_grassberger(data: Array1<i32>) -> GrassbergerEntropy {
+        GrassbergerEntropy::new(data)
+    }
+
+    /// Create a Zhang discrete entropy estimator (Lozano 2017 fast formulation).
+    ///
+    /// Efficient series-based correction; supports local values.
+    pub fn new_zhang(data: Array1<i32>) -> ZhangEntropy {
+        ZhangEntropy::new(data)
+    }
+
+    /// Create a Bayesian discrete entropy estimator with Dirichlet prior.
+    ///
+    /// Choose alpha via AlphaParam; optional k_override specifies support size K.
+    /// Global-only (no local values).
+    pub fn new_bayes(
+        data: Array1<i32>,
+        alpha: AlphaParam,
+        k_override: Option<usize>,
+    ) -> BayesEntropy {
+        BayesEntropy::new(data, alpha, k_override)
+    }
+
+    /// Create a Bonachela (de-noised) discrete entropy estimator.
+    ///
+    /// Harmonic-sum based correction; global-only.
+    pub fn new_bonachela(data: Array1<i32>) -> BonachelaEntropy {
+        BonachelaEntropy::new(data)
+    }
+
+    /// Create a Chao–Shen coverage-adjusted discrete entropy estimator.
+    ///
+    /// Good for unseen-mass correction in undersampled regimes; global-only.
+    pub fn new_chao_shen(data: Array1<i32>) -> ChaoShenEntropy {
+        ChaoShenEntropy::new(data)
+    }
+
+    /// Create a Chao–Wang–Jost discrete entropy estimator.
+    ///
+    /// Coverage-based correction using f1, f2 singletons/doubletons; global-only.
+    pub fn new_chao_wang_jost(data: Array1<i32>) -> ChaoWangJostEntropy {
+        ChaoWangJostEntropy::new(data)
+    }
+
+    /// Create an ANSB (asymptotic NSB) discrete entropy estimator.
+    ///
+    /// Requires optional K override and undersampled threshold parameter; global-only.
+    pub fn new_ansb(
+        data: Array1<i32>,
+        k_override: Option<usize>,
+        undersampled_threshold: f64,
+    ) -> AnsbEntropy {
+        AnsbEntropy::new(data, k_override, undersampled_threshold)
+    }
+
+    /// Create an NSB (Nemenman–Shafee–Bialek) discrete entropy estimator.
+    ///
+    /// Prior-averaged estimator via 1/K mixture and numerical integration; global-only.
+    pub fn new_nsb(
+        data: Array1<i32>,
+        k_override: Option<usize>,
+    ) -> NsbEntropy {
+        NsbEntropy::new(data, k_override)
+    }
+
+    // Batch (rows) constructors for 2D integer data
+    // These mirror the per-row constructors found in approaches::<estimator>::from_rows
+    // and provide a convenient facade-level API.
+
+    /// Create a vector of MLE discrete entropy estimators, one per row.
+    pub fn new_discrete_rows(data: Array2<i32>) -> Vec<DiscreteEntropy> {
+        DiscreteEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Miller–Madow estimators, one per row.
+    pub fn new_miller_madow_rows(data: Array2<i32>) -> Vec<MillerMadowEntropy> {
+        MillerMadowEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Shrinkage estimators, one per row.
+    pub fn new_shrink_rows(data: Array2<i32>) -> Vec<ShrinkEntropy> {
+        ShrinkEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Grassberger estimators, one per row.
+    pub fn new_grassberger_rows(data: Array2<i32>) -> Vec<GrassbergerEntropy> {
+        GrassbergerEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Zhang estimators, one per row.
+    pub fn new_zhang_rows(data: Array2<i32>) -> Vec<ZhangEntropy> {
+        ZhangEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Bonachela estimators (global-only), one per row.
+    pub fn new_bonachela_rows(data: Array2<i32>) -> Vec<BonachelaEntropy> {
+        BonachelaEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Chao–Shen estimators (global-only), one per row.
+    pub fn new_chao_shen_rows(data: Array2<i32>) -> Vec<ChaoShenEntropy> {
+        ChaoShenEntropy::from_rows(data)
+    }
+
+    /// Create a vector of Chao–Wang–Jost estimators (global-only), one per row.
+    pub fn new_chao_wang_jost_rows(data: Array2<i32>) -> Vec<ChaoWangJostEntropy> {
+        ChaoWangJostEntropy::from_rows(data)
+    }
+
+    /// Create a vector of ANSB estimators (global-only), one per row.
+    pub fn new_ansb_rows(
+        data: Array2<i32>,
+        k_override: Option<usize>,
+        undersampled_threshold: f64,
+    ) -> Vec<AnsbEntropy> {
+        AnsbEntropy::from_rows(data, k_override, undersampled_threshold)
+    }
+
+    /// Create a vector of Bayesian estimators (global-only), one per row.
+    pub fn new_bayes_rows(
+        data: Array2<i32>,
+        alpha: AlphaParam,
+        k_override: Option<usize>,
+    ) -> Vec<BayesEntropy> {
+        BayesEntropy::from_rows(data, alpha, k_override)
+    }
+
+    /// Create a vector of NSB estimators (global-only), one per row.
+    pub fn new_nsb_rows(
+        data: Array2<i32>,
+        k_override: Option<usize>,
+    ) -> Vec<NsbEntropy> {
+        NsbEntropy::from_rows(data, k_override)
     }
 
     /// Creates a new kernel entropy estimator for 1D data using the default box kernel
@@ -126,5 +294,18 @@ impl Entropy {
         bandwidth: f64
     ) -> kernel::KernelEntropy<K> {
         kernel::KernelEntropy::new_with_kernel_type(data, kernel_type, bandwidth)
+    }
+}
+
+
+impl Entropy {
+    /// Create an Ordinal (permutation) entropy estimator from a 1D series.
+    ///
+    /// Parameters:
+    /// - data: series as f64
+    /// - order: embedding dimension m (temporarily limited to ≤ 12)
+    /// - step_size: step size τ between embedded samples
+    pub fn new_ordinal(data: Array1<f64>, order: usize, step_size: usize) -> OrdinalEntropy {
+        OrdinalEntropy::new(data, order, step_size)
     }
 }

@@ -111,7 +111,7 @@ fn test_kernel_entropy_discrepancies() {
     let std_dev = 1.0; // Fixed standard deviation
     
     // Create a CSV file to store the results
-    let mut file = File::create("kernel_discrepancies.csv").unwrap();
+    let mut file = File::create("../../kernel_discrepancies.csv").unwrap();
     writeln!(file, "Dimensions,Bandwidth,Mean,Size,CPU Global,GPU Global,Global Rel Error,Max Local Rel Error,Avg Local Rel Error,Median Local Rel Error").unwrap();
     
     println!("Testing parameter combinations for discrepancies...");

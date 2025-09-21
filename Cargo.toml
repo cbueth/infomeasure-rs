@@ -11,6 +11,7 @@ wgpu = "26.0"
 pollster = "0.3"  # For blocking on async operations
 futures-intrusive = "0.5"  # For oneshot channel
 bytemuck = { version = "1.14", features = ["derive"] }  # For casting between byte slices and typed slices
+statrs = "0.16"  # For special functions (digamma)
 
 [features]
 default = []
@@ -36,4 +37,8 @@ harness = false
 
 [[bench]]
 name = "unified_kernel_entropy_benchmark"
+harness = false
+
+[[bench]]
+name = "count_frequencies_benchmark"
 harness = false
