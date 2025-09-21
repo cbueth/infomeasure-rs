@@ -12,6 +12,8 @@ use crate::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostEntropy
 use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
 use crate::estimators::approaches::discrete::nsb::NsbEntropy;
 use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
+use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
+use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
 pub use crate::estimators::traits::LocalValues;
 
 /// Entropy estimation methods for various data types
@@ -307,5 +309,25 @@ impl Entropy {
     /// - step_size: step size τ between embedded samples
     pub fn new_ordinal(data: Array1<f64>, order: usize, step_size: usize) -> OrdinalEntropy {
         OrdinalEntropy::new(data, order, step_size)
+    }
+
+    /// Create a Rényi entropy estimator (1D convenience constructor)
+    pub fn new_renyi_1d(data: Array1<f64>, k: usize, alpha: f64) -> RenyiEntropy<1> {
+        RenyiEntropy::<1>::new_1d(data, k, alpha)
+    }
+
+    /// Create a Rényi entropy estimator for N-dimensional data (const-generic K)
+    pub fn renyi_nd<const K: usize>(data: Array2<f64>, k: usize, alpha: f64) -> RenyiEntropy<K> {
+        RenyiEntropy::<K>::new(data, k, alpha)
+    }
+
+    /// Create a Tsallis entropy estimator (1D convenience constructor)
+    pub fn new_tsallis_1d(data: Array1<f64>, k: usize, q: f64) -> TsallisEntropy<1> {
+        TsallisEntropy::<1>::new_1d(data, k, q)
+    }
+
+    /// Create a Tsallis entropy estimator for N-dimensional data (const-generic K)
+    pub fn tsallis_nd<const K: usize>(data: Array2<f64>, k: usize, q: f64) -> TsallisEntropy<K> {
+        TsallisEntropy::<K>::new(data, k, q)
     }
 }
