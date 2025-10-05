@@ -14,6 +14,7 @@ use crate::estimators::approaches::discrete::nsb::NsbEntropy;
 use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
+use crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
 pub use crate::estimators::traits::LocalValues;
 
 /// Entropy estimation methods for various data types
@@ -306,9 +307,8 @@ impl Entropy {
     /// Parameters:
     /// - data: series as f64
     /// - order: embedding dimension m (temporarily limited to ≤ 12)
-    /// - step_size: step size τ between embedded samples
-    pub fn new_ordinal(data: Array1<f64>, order: usize, step_size: usize) -> OrdinalEntropy {
-        OrdinalEntropy::new(data, order, step_size)
+    pub fn new_ordinal(data: Array1<f64>, order: usize) -> OrdinalEntropy {
+        OrdinalEntropy::new(data, order)
     }
 
     /// Create a Rényi entropy estimator (1D convenience constructor)
@@ -329,5 +329,15 @@ impl Entropy {
     /// Create a Tsallis entropy estimator for N-dimensional data (const-generic K)
     pub fn tsallis_nd<const K: usize>(data: Array2<f64>, k: usize, q: f64) -> TsallisEntropy<K> {
         TsallisEntropy::<K>::new(data, k, q)
+    }
+
+    /// Create a Kozachenko–Leonenko entropy estimator (1D convenience constructor)
+    pub fn new_kl_1d(data: Array1<f64>, k: usize) -> KozachenkoLeonenkoEntropy<1> {
+        KozachenkoLeonenkoEntropy::<1>::new_1d(data, k)
+    }
+
+    /// Create a Kozachenko–Leonenko entropy estimator for N-dimensional data (const-generic K)
+    pub fn kl_nd<const K: usize>(data: Array2<f64>, k: usize) -> KozachenkoLeonenkoEntropy<K> {
+        KozachenkoLeonenkoEntropy::<K>::new(data, k)
     }
 }

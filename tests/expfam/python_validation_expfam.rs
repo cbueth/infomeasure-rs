@@ -20,7 +20,7 @@ fn flat_from_array2(a: &Array2<f64>) -> Vec<f64> {
 fn renyi_python_validation_param_grid_nd() {
     // Datasets for dims 1, 2, 3
     let data_1d = Array1::from(vec![0.0, 1.0, 3.0, 6.0, 10.0, 15.0]);
-    let data_1d_2d = data_1d.clone().into_shape((data_1d.len(), 1)).unwrap();
+    let data_1d_2d = data_1d.clone().into_shape_with_order((data_1d.len(), 1)).unwrap();
 
     let data_2d: Array2<f64> = array![
         [0.0, 0.0],
@@ -136,7 +136,7 @@ fn renyi_python_validation_param_grid_nd() {
 fn tsallis_python_validation_param_grid_nd() {
     // Reuse datasets above
     let data_1d = Array1::from(vec![0.0, 1.0, 3.0, 6.0, 10.0, 15.0]);
-    let data_1d_2d = data_1d.clone().into_shape((data_1d.len(), 1)).unwrap();
+    let data_1d_2d = data_1d.clone().into_shape_with_order((data_1d.len(), 1)).unwrap();
 
     let data_2d: Array2<f64> = array![
         [0.0, 0.0],

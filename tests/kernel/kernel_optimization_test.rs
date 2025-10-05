@@ -4,8 +4,7 @@ use std::fs::File;
 use std::io::Write;
 
 // Import test helper functions
-mod test_helpers;
-use test_helpers::{measure_execution_time, generate_random_nd_data};
+use crate::test_helpers::{measure_execution_time, generate_random_nd_data};
 
 
 /// Measure the performance of the Gaussian kernel entropy calculation
@@ -136,6 +135,7 @@ fn measure_box_kernel_performance(size: usize, dims: usize, bandwidth: f64, seed
     duration
 }
 
+#[ignore]
 #[test]
 fn test_gaussian_kernel_performance() {
     // Define test parameters

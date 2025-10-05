@@ -3,8 +3,7 @@ use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use approx::assert_relative_eq;
 
 // Import test helper functions
-mod test_helpers;
-use test_helpers::{generate_random_nd_data, measure_execution_time};
+use crate::test_helpers::{generate_random_nd_data, measure_execution_time};
 
 /// Test that compares the CPU and GPU implementations of the box kernel
 /// 

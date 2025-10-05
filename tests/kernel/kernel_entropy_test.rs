@@ -7,8 +7,7 @@ use infomeasure::estimators::entropy::{Entropy, LocalValues};
 use validation::python;
 
 // Import test helper functions
-mod test_helpers;
-use test_helpers::generate_gaussian_data;
+use crate::test_helpers::generate_gaussian_data;
 
 /// Helper function to compare kernel entropy between Rust and Python implementations
 ///

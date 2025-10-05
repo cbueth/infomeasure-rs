@@ -1,1 +1,16 @@
+mod ansb_sanity;
+mod bayes_sanity;
+mod bonachela_sanity;
+mod chao_shen_sanity;
+mod chao_wang_jost_sanity;
+mod discrete_batch_sanity;
+mod discrete_entropy_test;
+mod discrete_gpu_smoke;
+mod discrete_sanity;
+mod grassberger_sanity;
+mod miller_madow_cross_entropy_sanity;
+mod miller_madow_sanity;
+mod nsb_sanity;
 mod ordinal_entropy;
+mod shrink_sanity;
+mod zhang_sanity;

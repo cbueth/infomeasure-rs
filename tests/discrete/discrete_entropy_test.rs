@@ -5,8 +5,7 @@ use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};
 
 // Import test helper functions
-mod test_helpers;
-use test_helpers::assert_entropy_values_close;
+use crate::test_helpers::assert_entropy_values_close;
 
 /// Helper function to compare discrete entropy between Rust and Python implementations
 ///

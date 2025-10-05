@@ -4,3 +4,4 @@
 pub mod utils;
 pub mod renyi;
 pub mod tsallis;
+pub mod kozachenko_leonenko;

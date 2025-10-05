@@ -45,43 +45,68 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
     acc as u64
 }
 
-/// Convert a time series into integer ordinal pattern codes using permutation patterns.
+/// Remap u64 codes to compact i32 IDs for use with discrete estimators.
+/// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
+fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
+    use std::collections::HashMap;
+    let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
+    let mut next_id: i32 = 0;
+    let mut out = Vec::with_capacity(codes.len());
+    for &c in codes.iter() {
+        let id = *map.entry(c).or_insert_with(|| {
+            let v = next_id;
+            next_id = next_id.checked_add(1).expect("Too many unique patterns to fit into i32");
+            v
+        });
+        out.push(id);
+    }
+    Array1::from(out)
+}
+
+/// Convert a time series into compact i32 ordinal pattern codes.
+/// 
+/// This is a thin wrapper around `symbolize_series_u64` that remaps the raw Lehmer codes
+/// to a compact i32 index space for integration with discrete estimators.
 ///
 /// - order (m) ≥ 1
-/// - step_size (τ) ≥ 1
-/// - For minimal integration with existing discrete pipeline, we cap order ≤ 12 (so m! ≤ i32::MAX).
-///   This can be generalized later by adopting u64 keys in discrete utilities.
+/// - step_size (τ) ≥ 1  
+/// - Supports orders up to 20 (Lehmer code fits in u64)
+///
+/// For parity testing against Python, use `symbolize_series_u64` instead.
+pub fn symbolize_series_compact(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<i32> {
+    let codes_u64 = symbolize_series_u64(series, order, step_size, stable);
+    remap_u64_to_i32(&codes_u64)
+}
+
+/// Legacy alias for `symbolize_series_compact` to maintain compatibility.
+/// 
+/// **Deprecated**: Use `symbolize_series_compact` for new code, or `symbolize_series_u64` 
+/// for parity testing against Python.
 pub fn symbolize_series(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<i32> {
+    symbolize_series_compact(series, order, step_size, stable)
+}
+
+/// Return raw Lehmer codes (u64) for permutation patterns without remapping.
+/// Useful for parity tests against Python utils.symbolize_series(to_int=True).
+pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<u64> {
     if order < 1 { panic!("The embedding order must be a positive integer."); }
     if step_size < 1 { panic!("The step_size must be a positive integer."); }
-    if order > 12 { panic!("Temporary limitation: order must be ≤ 12 to fit pattern IDs into i32."); }
+    if order > 20 { panic!("For embedding dimensions larger than 20, the integer will be too large for u64."); }
 
     let n = series.len();
-    if n == 0 { return Array1::<i32>::zeros(0); }
+    if n == 0 { return Array1::<u64>::zeros(0); }
 
     let span = (order - 1) * step_size;
-    if n <= span { return Array1::<i32>::zeros(0); }
+    if n <= span { return Array1::<u64>::zeros(0); }
 
     let n_windows = n - span;
-    let mut out: Vec<i32> = Vec::with_capacity(n_windows);
-
-    // Build each window, compute permutation (argsort), map to Lehmer code, store as i32
+    let mut out: Vec<u64> = Vec::with_capacity(n_windows);
     for t in 0..n_windows {
-        // Extract window values at positions t + j*step_size
         let mut w: Vec<f64> = Vec::with_capacity(order);
         for j in 0..order { w.push(series[t + j * step_size]); }
-        // Permutation via (stable) argsort
-        let perm = if stable { stable_argsort(&w) } else { 
-            // Not-stable variant: same comparator, but instability not strictly guaranteed in Rust
-            // However, using stable sort here too is acceptable; parity issues arise only on ties.
-            stable_argsort(&w)
-        };
+        let perm = if stable { stable_argsort(&w) } else { stable_argsort(&w) };
         let code_u64 = lehmer_code(&perm);
-        if code_u64 > i32::MAX as u64 {
-            panic!("Pattern code exceeds i32 range. Reduce order or generalize key type.");
-        }
-        out.push(code_u64 as i32);
+        out.push(code_u64);
     }
-
     Array1::from(out)
 }

@@ -859,6 +859,7 @@ dependencies = [
  "pollster",
  "rand",
  "rand_distr",
+ "serde_json",
  "statrs",
  "validation",
  "wgpu",

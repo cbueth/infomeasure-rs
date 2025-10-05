@@ -569,6 +569,7 @@ pub fn calculate_local_entropy_float_nd(data: &[f64], dims: usize, approach: &st
     calculate_local_entropy_generic(&data_vec, approach, kwargs)
 }
 
+
 /// Benchmarks the Python infomeasure package's discrete entropy calculation.
 ///
 /// # Arguments
