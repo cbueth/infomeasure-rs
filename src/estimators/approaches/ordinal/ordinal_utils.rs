@@ -78,14 +78,6 @@ pub fn symbolize_series_compact(series: &Array1<f64>, order: usize, step_size: u
     remap_u64_to_i32(&codes_u64)
 }
 
-/// Legacy alias for `symbolize_series_compact` to maintain compatibility.
-/// 
-/// **Deprecated**: Use `symbolize_series_compact` for new code, or `symbolize_series_u64` 
-/// for parity testing against Python.
-pub fn symbolize_series(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<i32> {
-    symbolize_series_compact(series, order, step_size, stable)
-}
-
 /// Return raw Lehmer codes (u64) for permutation patterns without remapping.
 /// Useful for parity tests against Python utils.symbolize_series(to_int=True).
 pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<u64> {

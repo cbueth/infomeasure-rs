@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 
-use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series, symbolize_series_u64};
+use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_compact, symbolize_series_u64};
 
 fn run_python_symbolize(series: &[f64], emb_dim: usize, step_size: usize, to_int: bool, stable: bool) -> Vec<i64> {
     // Call Python's utils.symbolize_series via micromamba environment and return integer codes
@@ -74,7 +74,7 @@ fn parity_symbolize_series_stable_false_no_ties() {
     for &m in &embedding_dims {
         for &tau in &steps {
             if series.len() <= (m - 1) * tau { continue; }
-            let rust_codes = symbolize_series(&series, m, tau, false)
+            let rust_codes = symbolize_series_compact(&series, m, tau, false)
                 .iter().map(|&x| x as i64).collect::<Vec<_>>();
             let py_codes = run_python_symbolize(series.as_slice().unwrap(), m, tau, true, false);
             assert_eq!(rust_codes.len(), py_codes.len());
