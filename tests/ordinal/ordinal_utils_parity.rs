@@ -1,6 +1,4 @@
-use approx::assert_abs_diff_eq;
 use ndarray::Array1;
-
 use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_compact, symbolize_series_u64};
 
 fn run_python_symbolize(series: &[f64], emb_dim: usize, step_size: usize, to_int: bool, stable: bool) -> Vec<i64> {
@@ -77,9 +75,9 @@ fn parity_symbolize_series_stable_false_no_ties() {
             let rust_codes = symbolize_series_compact(&series, m, tau, false)
                 .iter().map(|&x| x as i64).collect::<Vec<_>>();
             let py_codes = run_python_symbolize(series.as_slice().unwrap(), m, tau, true, false);
-            assert_eq!(rust_codes.len(), py_codes.len());
-            for (r, p) in rust_codes.iter().zip(py_codes.iter()) {
-                assert_eq!(*r, *p);
+            assert_eq!(rust_codes.len(), py_codes.len(), "length mismatch for m={}, tau={}", m, tau);
+            for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
+                assert_eq!(*r, *p, "code mismatch at idx {} for m={}, tau={}", i, m, tau);
             }
         }
     }
