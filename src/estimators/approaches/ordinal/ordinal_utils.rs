@@ -1,4 +1,5 @@
 use ndarray::Array1;
+use std::collections::HashMap;
 
 /// Stable argsort for f64 values within a window.
 ///
@@ -99,6 +100,34 @@ pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize
         let perm = if stable { stable_argsort(&w) } else { stable_argsort(&w) };
         let code_u64 = lehmer_code(&perm);
         out.push(code_u64);
+    }
+    Array1::from(out)
+}
+
+/// Reduce multiple code arrays (aligned by index) into a single compact joint code space.
+///
+/// Given k arrays of equal length containing compact i32 codes, this function produces a
+/// single Array1<i32> where each position's tuple of codes is mapped to a unique compact i32 ID.
+/// The mapping preserves first-occurrence order for determinism.
+pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
+    if code_arrays.is_empty() { return Array1::zeros(0); }
+    let len = code_arrays[0].len();
+    for arr in code_arrays.iter() {
+        assert_eq!(arr.len(), len, "All code arrays must have the same length for joint reduction");
+    }
+    let mut map: HashMap<Vec<i32>, i32> = HashMap::new();
+    let mut next_id: i32 = 0;
+    let mut out: Vec<i32> = Vec::with_capacity(len);
+    let k = code_arrays.len();
+    for i in 0..len {
+        let mut key: Vec<i32> = Vec::with_capacity(k);
+        for arr in code_arrays.iter() { key.push(arr[i]); }
+        let id = *map.entry(key).or_insert_with(|| {
+            let v = next_id;
+            next_id = next_id.checked_add(1).expect("Too many unique joint patterns to fit into i32");
+            v
+        });
+        out.push(id);
     }
     Array1::from(out)
 }
