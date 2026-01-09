@@ -82,3 +82,48 @@ fn parity_symbolize_series_stable_false_no_ties() {
         }
     }
 }
+
+#[test]
+fn test_remap_u64_to_i32_parametrized() {
+    let test_cases: [(&str, Array1<u64>, Array1<i32>); 6] = [
+        (
+            "basic",
+            array![100, 200, 100, 300, 200, 400],
+            array![0, 1, 0, 2, 1, 3]
+        ),
+        (
+            "empty",
+            Array1::<u64>::zeros(0),
+            Array1::<i32>::zeros(0)
+        ),
+        (
+            "all_same",
+            Array1::from_elem(5, 42u64),
+            Array1::from_elem(5, 0i32)
+        ),
+        (
+            "all_unique",
+            array![10, 20, 30, 40, 50],
+            array![0, 1, 2, 3, 4]
+        ),
+        (
+            "first_occurrence_order",
+            array![50, 10, 50, 30, 10, 30],
+            array![0, 1, 0, 2, 1, 2]
+        ),
+        (
+            "large_values",
+            array![u64::MAX, u64::MIN, u64::MAX, 1234567890123456789u64],
+            array![0, 1, 0, 2]
+        ),
+    ];
+
+    for (name, input, expected) in test_cases.iter() {
+        assert_eq!(
+            remap_u64_to_i32(input),
+            *expected,
+            "test case {:?} failed",
+            name
+        );
+    }
+}
