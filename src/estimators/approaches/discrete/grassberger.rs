@@ -5,9 +5,9 @@ use statrs::function::gamma::digamma;
 
 /// Grassberger (Gr88) entropy estimator for discrete data.
 ///
-/// Per-count correction using digamma functions with an alternating term: for count n_i,
-/// local contribution is ln N - ψ(n_i) - (-1)^{n_i}/(n_i+1). Supports local values.
-/// Suitable for moderate undersampling.
+/// Per-count correction using digamma functions with an alternating term:
+/// for count $n_i$, local contribution is $\ln N - \psi(n_i) - (-1)^{n_i}/(n_i+1)$.
+/// Supports local values. Suitable for moderate undersampling.
 pub struct GrassbergerEntropy {
     dataset: DiscreteDataset,
 }

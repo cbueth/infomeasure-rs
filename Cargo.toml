@@ -28,6 +28,9 @@ serde_json = "1.0" # For JSON interop in Python parity tests
 validation = { path = "./tests/validation_crate" }  # Local validation module for Python compatibility testing
 criterion = "0.5"  # For benchmarking
 
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", "katex-header.html" ]  # Using katex@0.16.27
+
 [[bench]]
 name = "discrete_entropy_benchmark"
 harness = false
