@@ -311,6 +311,36 @@ impl Entropy {
         OrdinalEntropy::new(data, order)
     }
 
+    /// Create an Ordinal entropy estimator with a configurable step size (delay).
+    pub fn new_ordinal_with_step(data: Array1<f64>, order: usize, step_size: usize) -> OrdinalEntropy {
+        OrdinalEntropy::new_with_step(data, order, step_size)
+    }
+
+    /// Create an Ordinal entropy estimator with a configurable step size and stability.
+    pub fn new_ordinal_with_step_and_stable(data: Array1<f64>, order: usize, step_size: usize, stable: bool) -> OrdinalEntropy {
+        OrdinalEntropy::new_with_step_and_stable(data, order, step_size, stable)
+    }
+
+    /// Compute joint ordinal entropy for multiple 1D series.
+    pub fn ordinal_joint_entropy(series_list: &[Array1<f64>], order: usize, step_size: usize) -> f64 {
+        OrdinalEntropy::joint_entropy(series_list, order, step_size, true)
+    }
+
+    /// Compute joint ordinal entropy with configurable stability.
+    pub fn ordinal_joint_entropy_with_stable(series_list: &[Array1<f64>], order: usize, step_size: usize, stable: bool) -> f64 {
+        OrdinalEntropy::joint_entropy(series_list, order, step_size, stable)
+    }
+
+    /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
+    pub fn ordinal_cross_entropy(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize) -> f64 {
+        OrdinalEntropy::cross_entropy(x, y, order, step_size, true)
+    }
+
+    /// Compute ordinal cross-entropy with configurable stability.
+    pub fn ordinal_cross_entropy_with_stable(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> f64 {
+        OrdinalEntropy::cross_entropy(x, y, order, step_size, stable)
+    }
+
     /// Create a Rényi entropy estimator (1D convenience constructor)
     pub fn new_renyi_1d(data: Array1<f64>, k: usize, alpha: f64) -> RenyiEntropy<1> {
         RenyiEntropy::<1>::new_1d(data, k, alpha)

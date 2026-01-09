@@ -4,10 +4,12 @@
 //! the Python infomeasure package.
 
 use ndarray::Array1;
-use std::process::Command;
-use std::path::Path;
-use serde::Serialize;
 use rand::{Rng, thread_rng};
+use serde::Serialize;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+use std::process::Command;
 
 /// Checks if the micromamba environment exists.
 ///
@@ -15,15 +17,13 @@ use rand::{Rng, thread_rng};
 ///
 /// `true` if the environment exists, `false` otherwise.
 fn environment_exists() -> bool {
-    let output = Command::new("micromamba")
-        .args(["env", "list"])
-        .output();
+    let output = Command::new("micromamba").args(["env", "list"]).output();
 
     match output {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             stdout.contains("infomeasure-rs-validation")
-        },
+        }
         Err(_) => false,
     }
 }
@@ -41,29 +41,25 @@ fn ensure_environment() -> bool {
     // Get the path to the environment.yml file
     let env_file = Path::new("tests/validation_crate/environment.yml");
     if !env_file.exists() {
-        eprintln!("environment.yml file not found at {:?}", env_file);
+        eprintln!("environment.yml not found at {:?}", env_file);
         return false;
     }
-
-    println!("Creating micromamba environment 'infomeasure-rs-validation'...");
-    let output = Command::new("micromamba")
+    match Command::new("micromamba")
         .args(["env", "create", "-f", env_file.to_str().unwrap()])
-        .output();
-
-    match output {
-        Ok(output) => {
-            if output.status.success() {
-                println!("Environment created successfully.");
-                true
-            } else {
-                eprintln!("Failed to create environment: {}", String::from_utf8_lossy(&output.stderr));
-                false
-            }
-        },
+        .output()
+    {
+        Ok(o) if o.status.success() => true,
+        Ok(o) => {
+            eprintln!(
+                "Failed to create env: {}",
+                String::from_utf8_lossy(&o.stderr)
+            );
+            false
+        }
         Err(e) => {
             eprintln!("Failed to execute micromamba: {}", e);
             false
-        },
+        }
     }
 }
 
@@ -77,20 +73,19 @@ fn ensure_environment() -> bool {
 ///
 /// The output of the command
 fn run_in_environment(args: &[&str]) -> Result<String, String> {
-    // Get the path to the micromamba executable
-    let micromamba_path = which_micromamba().map_err(|e| e.to_string())?;
-
-    // Run the command in the micromamba environment
-    let output = Command::new(&micromamba_path)
+    let micromamba = which_micromamba()?;
+    let out = Command::new(&micromamba)
         .args(["run", "-n", "infomeasure-rs-validation"])
         .args(args)
         .output()
-        .map_err(|e| format!("Failed to execute command: {}", e))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        .map_err(|e| format!("failed to execute: {}", e))?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).to_string())
     } else {
-        Err(format!("Command failed: {}", String::from_utf8_lossy(&output.stderr)))
+        Err(format!(
+            "Command failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ))
     }
 }
 
@@ -100,16 +95,14 @@ fn run_in_environment(args: &[&str]) -> Result<String, String> {
 ///
 /// The path to the micromamba executable
 fn which_micromamba() -> Result<String, String> {
-    let output = Command::new("which")
+    let out = Command::new("which")
         .arg("micromamba")
         .output()
-        .map_err(|e| format!("Failed to execute 'which micromamba': {}", e))?;
-
-    if output.status.success() {
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(path)
+        .map_err(|e| format!("which micromamba failed: {}", e))?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     } else {
-        Err("micromamba not found in PATH".to_string())
+        Err("micromamba not found".into())
     }
 }
 
@@ -125,25 +118,21 @@ fn which_micromamba() -> Result<String, String> {
 fn save_data_to_temp_file<T: Serialize>(data: &[T]) -> Result<std::path::PathBuf, String> {
     // Create a temporary file with a unique identifier
     let temp_dir = std::env::temp_dir();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let random_component = thread_rng().r#gen::<u64>();
-    let unique_id = format!("{}_{}", timestamp, random_component);
-    let file_path = temp_dir.join(format!("data_{}.npy", unique_id));
-
-    // Serialize the data to JSON
-    let json_data = serde_json::to_string(data)
-        .map_err(|e| format!("Failed to serialize data to JSON: {}", e))?;
-
-    // Write the data to the file
-    std::fs::write(&file_path, json_data)
-        .map_err(|e| format!("Failed to write data to temporary file: {}", e))?;
-
-    Ok(file_path)
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let path = temp_dir.join(format!("infomeasure_data_{}.json", uid));
+    let json = serde_json::to_string(data).map_err(|e| format!("serialize failed: {}", e))?;
+    let mut f = File::create(&path).map_err(|e| format!("create temp file failed: {}", e))?;
+    f.write_all(json.as_bytes())
+        .map_err(|e| format!("write temp file failed: {}", e))?;
+    Ok(path)
 }
-
 
 /// Calculates entropy using the Python infomeasure package with generic data type.
 ///
@@ -173,62 +162,51 @@ fn save_data_to_temp_file<T: Serialize>(data: &[T]) -> Result<std::path::PathBuf
 /// ];
 /// let entropy = calculate_entropy_generic(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_entropy_generic<T: Serialize>(data: &[T], approach: &str, kwargs: &[(String, String)]) -> Result<f64, String> {
+pub fn calculate_entropy_generic<T: Serialize>(
+    data: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Save data to a temporary file
-    let data_file_path = save_data_to_temp_file(data)?;
-
-    // Create a temporary Python script with a unique identifier
+    let data_file = save_data_to_temp_file(data)?;
     let temp_dir = std::env::temp_dir();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let random_component = thread_rng().r#gen::<u64>();
-    let unique_id = format!("{}_{}", timestamp, random_component);
-    let script_path = temp_dir.join(format!("calculate_entropy_{}.py", unique_id));
-
-    // Build kwargs string
-    let kwargs_str = kwargs.iter()
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_entropy_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(", ");
-
-    let script_content = format!(r#"
-import infomeasure as im
-import sys
-import json
-import numpy as np
-
-# Load data from file
-with open("{}", "r") as f:
+    let script = format!(
+        r#"
+import infomeasure as im, json
+with open("{df}", "r") as f:
     data = json.load(f)
-
-est = im.estimator(data, measure="h", approach="{}", base="e", {})
-result = est.result()
-print(result)
-"#, data_file_path.to_str().unwrap(), approach, kwargs_str);
-
-    std::fs::write(&script_path, script_content)
-        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-
-    // Run the script in the micromamba environment
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])
-        .map_err(|e| format!("Failed to run Python script: {}", e))?;
-
-    // Parse the output as a float
-    let result = output.trim().parse::<f64>()
-        .map_err(|e| format!("Failed to parse output as float: {}", e))?;
-
-    // Clean up the temporary files
+est = im.estimator(data, measure="h", approach="{ap}", base="e", {kw})
+print(est.result())
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
-    let _ = std::fs::remove_file(data_file_path);
-
-    Ok(result)
+    let _ = std::fs::remove_file(data_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
 }
 
 /// Calculates entropy using the Python infomeasure package.
@@ -259,7 +237,11 @@ print(result)
 /// ];
 /// let entropy = calculate_entropy(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_entropy(data: &[i32], approach: &str, kwargs: &[(String, String)]) -> Result<f64, String> {
+pub fn calculate_entropy(
+    data: &[i32],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
     calculate_entropy_generic(data, approach, kwargs)
 }
 
@@ -288,7 +270,11 @@ pub fn calculate_entropy(data: &[i32], approach: &str, kwargs: &[(String, String
 /// ];
 /// let entropy = calculate_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_entropy_float(data: &[f64], approach: &str, kwargs: &[(String, String)]) -> Result<f64, String> {
+pub fn calculate_entropy_float(
+    data: &[f64],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
     calculate_entropy_generic(data, approach, kwargs)
 }
 
@@ -320,62 +306,49 @@ pub fn calculate_entropy_float(data: &[f64], approach: &str, kwargs: &[(String, 
 /// ];
 /// let local_entropy = calculate_local_entropy_generic(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_local_entropy_generic<T: Serialize>(data: &[T], approach: &str, kwargs: &[(String, String)]) -> Result<Vec<f64>, String> {
+pub fn calculate_local_entropy_generic<T: Serialize>(
+    data: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Save data to a temporary file
-    let data_file_path = save_data_to_temp_file(data)?;
-
-    // Create a temporary Python script with a unique identifier
+    let data_file = save_data_to_temp_file(data)?;
     let temp_dir = std::env::temp_dir();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let random_component = thread_rng().r#gen::<u64>();
-    let unique_id = format!("{}_{}", timestamp, random_component);
-    let script_path = temp_dir.join(format!("calculate_local_entropy_{}.py", unique_id));
-
-    // Build kwargs string
-    let kwargs_str = kwargs.iter()
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_local_entropy_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(", ");
-
-    let script_content = format!(r#"
-import infomeasure as im
-import sys
-import json
-import numpy as np
-
-# Load data from file
-with open("{}", "r") as f:
+    let script = format!(
+        r#"
+import infomeasure as im, json
+with open("{df}", "r") as f:
     data = json.load(f)
-
-est = im.estimator(data, measure="h", approach="{}", base="e", {})
-local_vals = est.local_vals()
-print(json.dumps(local_vals.tolist()))
-"#, data_file_path.to_str().unwrap(), approach, kwargs_str);
-
-    std::fs::write(&script_path, script_content)
-        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-
-    // Run the script in the micromamba environment
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])
-        .map_err(|e| format!("Failed to run Python script: {}", e))?;
-
-    // Parse the output as a JSON array of floats
-    let local_vals: Vec<f64> = serde_json::from_str(&output.trim())
-        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))?;
-
-    // Clean up the temporary files
+est = im.estimator(data, measure="h", approach="{ap}", base="e", {kw})
+print(json.dumps(est.local_vals().tolist()))
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
-    let _ = std::fs::remove_file(data_file_path);
-
-    Ok(local_vals)
+    let _ = std::fs::remove_file(data_file);
+    serde_json::from_str::<Vec<f64>>(output.trim())
+        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))
 }
 
 /// Calculates local entropy values using the Python infomeasure package.
@@ -406,7 +379,11 @@ print(json.dumps(local_vals.tolist()))
 /// ];
 /// let local_entropy = calculate_local_entropy(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_local_entropy(data: &[i32], approach: &str, kwargs: &[(String, String)]) -> Result<Vec<f64>, String> {
+pub fn calculate_local_entropy(
+    data: &[i32],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
     calculate_local_entropy_generic(data, approach, kwargs)
 }
 
@@ -435,7 +412,11 @@ pub fn calculate_local_entropy(data: &[i32], approach: &str, kwargs: &[(String, 
 /// ];
 /// let local_entropy = calculate_local_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_local_entropy_float(data: &[f64], approach: &str, kwargs: &[(String, String)]) -> Result<Vec<f64>, String> {
+pub fn calculate_local_entropy_float(
+    data: &[f64],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
     calculate_local_entropy_generic(data, approach, kwargs)
 }
 
@@ -490,31 +471,28 @@ pub fn convert_array_to_base2(entropy: &Array1<f64>) -> Array1<f64> {
 /// ];
 /// let entropy = calculate_entropy_float_nd(&data, 2, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_entropy_float_nd(data: &[f64], dims: usize, approach: &str, kwargs: &[(String, String)]) -> Result<f64, String> {
+pub fn calculate_entropy_float_nd(
+    data: &[f64],
+    dims: usize,
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Check if data length is divisible by dims
     if data.len() % dims != 0 {
-        return Err(format!("Data length ({}) is not divisible by the number of dimensions ({})", data.len(), dims));
+        return Err(format!(
+            "Data length ({}) is not divisible by the number of dimensions ({})",
+            data.len(),
+            dims
+        ));
     }
-
-    // Calculate the number of samples
-    let n_samples = data.len() / dims;
-
-    // Reshape the flat array into a Vec<Vec<f64>> with shape (n_samples, dims)
-    let data_vec: Vec<Vec<f64>> = (0..n_samples)
-        .map(|i| {
-            (0..dims)
-                .map(|j| data[i * dims + j])
-                .collect()
-        })
+    let n = data.len() / dims;
+    let rows: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..dims).map(|j| data[i * dims + j]).collect())
         .collect();
-
-    // Use the generic function to calculate entropy
-    calculate_entropy_generic(&data_vec, approach, kwargs)
+    calculate_entropy_generic(&rows, approach, kwargs)
 }
 
 /// Calculates local entropy values using the Python infomeasure package with n-dimensional float data.
@@ -542,33 +520,29 @@ pub fn calculate_entropy_float_nd(data: &[f64], dims: usize, approach: &str, kwa
 /// ];
 /// let local_entropy = calculate_local_entropy_float_nd(&data, 2, "kernel", &kernel_kwargs).unwrap();
 /// ```
-pub fn calculate_local_entropy_float_nd(data: &[f64], dims: usize, approach: &str, kwargs: &[(String, String)]) -> Result<Vec<f64>, String> {
+pub fn calculate_local_entropy_float_nd(
+    data: &[f64],
+    dims: usize,
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Check if data length is divisible by dims
     if data.len() % dims != 0 {
-        return Err(format!("Data length ({}) is not divisible by the number of dimensions ({})", data.len(), dims));
+        return Err(format!(
+            "Data length ({}) is not divisible by the number of dimensions ({})",
+            data.len(),
+            dims
+        ));
     }
-
-    // Calculate the number of samples
-    let n_samples = data.len() / dims;
-
-    // Reshape the flat array into a Vec<Vec<f64>> with shape (n_samples, dims)
-    let data_vec: Vec<Vec<f64>> = (0..n_samples)
-        .map(|i| {
-            (0..dims)
-                .map(|j| data[i * dims + j])
-                .collect()
-        })
+    let n = data.len() / dims;
+    let rows: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..dims).map(|j| data[i * dims + j]).collect())
         .collect();
-
-    // Use the generic function to calculate local entropy values
-    calculate_local_entropy_generic(&data_vec, approach, kwargs)
+    calculate_local_entropy_generic(&rows, approach, kwargs)
 }
-
 
 /// Benchmarks the Python infomeasure package's discrete entropy calculation.
 ///
@@ -581,59 +555,44 @@ pub fn calculate_local_entropy_float_nd(data: &[f64], dims: usize, approach: &st
 ///
 /// The average execution time in seconds
 pub fn benchmark_entropy(data: &[i32], num_runs: usize) -> Result<f64, String> {
-    // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Create a temporary Python script with a unique identifier
     let temp_dir = std::env::temp_dir();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let random_component = thread_rng().r#gen::<u64>();
-    let unique_id = format!("{}_{}", timestamp, random_component);
-    let script_path = temp_dir.join(format!("benchmark_entropy_{}.py", unique_id));
-    let data_str = data.iter().map(|&x| x.to_string()).collect::<Vec<_>>().join(", ");
-
-    let script_content = format!(r#"
-import infomeasure as im
-import timeit
-import sys
-
-# Define the data
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("benchmark_entropy_{}.py", uid));
+    let data_str = data
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, timeit
 data = [{data_str}]
-
-# Define the function to benchmark
-def run_entropy_calculation():
-    est = im.estimator(data, measure="h", approach="discrete", base="e")
+def run():
+    est = im.estimator(data, measure='h', approach='discrete', base='e')
     return est.result()
-
-# Use timeit for more accurate benchmarking
-# This automatically handles multiple runs and provides better timing accuracy
-timer = timeit.Timer(run_entropy_calculation)
-avg_time = timer.timeit(number={num_runs}) / {num_runs}
-
-# Print the result (will be captured by Rust)
-print(avg_time)
-"#);
-
-    std::fs::write(&script_path, script_content)
-        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-
-    // Run the script in the micromamba environment
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])
-        .map_err(|e| format!("Failed to run Python script: {}", e))?;
-
-    // Parse the output as a float (execution time in seconds)
-    let result = output.trim().parse::<f64>()
-        .map_err(|e| format!("Failed to parse output as float: {}", e))?;
-
-    // Clean up the temporary script
+timer = timeit.Timer(run)
+print(timer.timeit(number={num})/{num})
+"#,
+        data_str = data_str,
+        num = num_runs
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
-
-    Ok(result)
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as float: {}", e))
 }
 
 /// Benchmarks the Python infomeasure package's entropy calculation with generic data and approach.
@@ -648,109 +607,289 @@ print(avg_time)
 /// # Returns
 ///
 /// The average execution time in seconds
-pub fn benchmark_entropy_generic<T: Serialize>(data: &[T], approach: &str, kwargs: &[(String, String)], num_runs: usize) -> Result<f64, String> {
+pub fn benchmark_entropy_generic<T: Serialize>(
+    data: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+    num_runs: usize,
+) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Save data to a temporary file
-    let data_file_path = save_data_to_temp_file(data)?;
-
-    // Build kwargs string
-    let kwargs_str = kwargs.iter()
+    let data_file = save_data_to_temp_file(data)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("benchmark_entropy_generic_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(", ");
-
-    // Create a temporary Python script with a unique identifier
-    let temp_dir = std::env::temp_dir();
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let random_component = thread_rng().r#gen::<u64>();
-    let unique_id = format!("{}_{}", timestamp, random_component);
-    let script_path = temp_dir.join(format!("benchmark_entropy_generic_{}.py", unique_id));
-
-    let script_content = format!(r#"
-import infomeasure as im
-import timeit
-import sys
-import json
-
-# Load data from file
-with open("{}", "r") as f:
+    let script = format!(
+        r#"
+import infomeasure as im, timeit, json
+with open("{df}", "r") as f:
     data = json.load(f)
-
-# Define the function to benchmark
-def run_entropy_calculation():
-    est = im.estimator(data, measure="h", approach="{}", base="e", {})
+def run():
+    est = im.estimator(data, measure='h', approach='{ap}', base='e', {kw})
     return est.result()
-
-# Use timeit for more accurate benchmarking
-# This automatically handles multiple runs and provides better timing accuracy
-timer = timeit.Timer(run_entropy_calculation)
-avg_time = timer.timeit(number={}) / {}
-
-# Print the result (will be captured by Rust)
-print(avg_time)
-"#, data_file_path.to_str().unwrap(), approach, kwargs_str, num_runs, num_runs);
-
-    std::fs::write(&script_path, script_content)
-        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-
-    // Run the script in the micromamba environment
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])
-        .map_err(|e| format!("Failed to run Python script: {}", e))?;
-
-    // Parse the output as a float (execution time in seconds)
-    let result = output.trim().parse::<f64>()
-        .map_err(|e| format!("Failed to parse output as float: {}", e))?;
-
-    // Clean up the temporary files
+timer = timeit.Timer(run)
+print(timer.timeit(number={num})/{num})
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str,
+        num = num_runs
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
-    let _ = std::fs::remove_file(data_file_path);
-
-    Ok(result)
+    let _ = std::fs::remove_file(data_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as float: {}", e))
 }
 
-/// Benchmarks the Python infomeasure package's entropy calculation with multi-dimensional float data.
+/// Benchmarks the entropy computation for multi-dimensional float data using a specified approach.
+///
+/// # Parameters
+/// - `data`: A slice of floating-point numbers (`f64`) representing the input data.
+///           The data must be structured such that it is divided evenly into `dims` dimensions.
+/// - `dims`: The number of dimensions for the input data. Each row of the dataset will have `dims` elements.
+/// - `approach`: A string specifying the approach or method to be used for entropy calculation.
+///               The actual implementation of the entropy computation corresponding to the approach
+///               should be provided via the `benchmark_entropy_generic` function.
+/// - `kwargs`: A set of key-value pairs (tuples of `String`) representing additional parameters
+///             or configurations required by the specified entropy computation approach.
+/// - `num_runs`: The number of times to run the entropy calculation for benchmarking purposes.
+///               This helps in measuring the average computation performance over multiple runs.
+///
+/// # Returns
+/// This function returns a `Result`:
+/// - `Ok(f64)`: The average runtime for the entropy computation over `num_runs` iterations if completed successfully.
+/// - `Err(String)`: An error message if an issue arises, such as when the length of the input data is not divisible by `dims`.
+///
+/// # Errors
+/// - If the input data length is not divisible by `dims`, an error `Err(String)` is returned.
+///
+/// # Panics
+/// This function does not expect to panic if used as intended, provided the given parameters are valid.
+///
+/// # Example
+/// ```
+/// let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+/// let dims = 2;
+/// let approach = "method";
+/// let kwargs = vec![("param1".to_string(), "value1".to_string())];
+/// let num_runs = 10;
+///
+/// match benchmark_entropy_float_nd(&data, dims, &approach, &kwargs, num_runs) {
+///     Ok(result) => println!("Benchmark completed successfully: {}", result),
+///     Err(e) => eprintln!("Error: {}", e),
+/// }
+/// ```
+///
+/// # Implementation Details
+/// - The function checks if the data is evenly divisible into `dims` dimensions.
+/// - Converts the 1D input data slice into a 2D vector where each inner vector represents a row with `dims` elements.
+/// - Uses the `benchmark_entropy_generic` function to compute the entropy based on the provided approach and parameters.
+/// - The benchmark computes the runtime across `num_runs` iterations and returns the average runtime.
+pub fn benchmark_entropy_float_nd(
+    data: &[f64],
+    dims: usize,
+    approach: &str,
+    kwargs: &[(String, String)],
+    num_runs: usize,
+) -> Result<f64, String> {
+    if data.len() % dims != 0 {
+        return Err(format!(
+            "Data length ({}) is not divisible by the number of dimensions ({})",
+            data.len(),
+            dims
+        ));
+    }
+    let n = data.len() / dims;
+    let rows: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..dims).map(|j| data[i * dims + j]).collect())
+        .collect();
+    benchmark_entropy_generic(&rows, approach, kwargs, num_runs)
+}
+
+/// Calculates the ordinal joint entropy between two floating-point sequences.
+///
+/// This function accepts two slices of floating-point numbers and calculates their
+/// ordinal joint entropy using the Python `infomeasure` library.
+///
+/// # Arguments
+/// * `x` - A slice of `f64` containing the first data sequence.
+/// * `y` - A slice of `f64` containing the second data sequence.
+/// * `kwargs` - A slice of tuples containing keyword arguments (as `(String, String)` pairs)
+///   to be passed into the Python script for configuring the entropy calculation.
+///
+/// # Returns
+/// * `Ok(f64)` containing the calculated ordinal joint entropy if successful.
+/// * `Err(String)` containing an error message if the calculation fails at any step.
+///
+/// # Example
+/// ```rust
+/// use std::collections::HashMap;
+///
+/// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = vec![5.0, 4.0, 3.0, 2.0, 1.0];
+/// let kwargs = vec![("embedding_dim".to_string(), "2".to_string())];
+///
+/// match calculate_ordinal_joint_entropy_two_float(&x, &y, &kwargs) {
+///     Ok(result) => println!("Ordinal joint entropy: {}", result),
+///     Err(e) => println!("Error: {}", e),
+/// }
+/// ```
+pub fn calculate_ordinal_joint_entropy_two_float(
+    x: &[f64],
+    y: &[f64],
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let x_file = save_data_to_temp_file(x)?;
+    let y_file = save_data_to_temp_file(y)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("ordinal_joint_entropy_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import json, numpy as np, infomeasure as im
+from infomeasure.estimators.utils.ordinal import symbolize_series, reduce_joint_space
+with open("{x_path}", "r") as f:
+    x = np.array(json.load(f), dtype=float)
+with open("{y_path}", "r") as f:
+    y = np.array(json.load(f), dtype=float)
+kwargs = dict({kwargs})
+_ = im.estimator(x, measure='h', approach='ordinal', base='e', **kwargs)
+_ = im.estimator(y, measure='h', approach='ordinal', base='e', **kwargs)
+m = int(kwargs.get('embedding_dim'))
+stable = bool(kwargs.get('stable', True))
+sx = symbolize_series(x, m, 1, to_int=True, stable=stable)
+sy = symbolize_series(y, m, 1, to_int=True, stable=stable)
+joint = reduce_joint_space((sx, sy))
+est_joint = im.estimator(joint, measure='h', approach='discrete', base='e')
+print(est_joint.result())
+"#,
+        x_path = x_file.to_str().unwrap(),
+        y_path = y_file.to_str().unwrap(),
+        kwargs = kwargs_str
+    );
+    std::fs::write(&script_path, script)
+        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(x_file);
+    let _ = std::fs::remove_file(y_file);
+    output.trim().parse::<f64>().map_err(|e| {
+        format!(
+            "Failed to parse Python output as f64: {} (output='{}')",
+            e, output
+        )
+    })
+}
+
+/// Calculate the ordinal cross-entropy between two float arrays.
 ///
 /// # Arguments
 ///
-/// * `data` - The flat array of float data
-/// * `dims` - The number of dimensions in the data
-/// * `approach` - The approach to use for entropy calculation (e.g., "kernel")
-/// * `kwargs` - Additional keyword arguments for the specified approach
-/// * `num_runs` - The number of times to run the calculation for more accurate timing
+/// * `x` - A slice of `f64` representing the first input dataset.
+/// * `y` - A slice of `f64` representing the second input dataset.
+/// * `kwargs` - A slice of key-value pairs (`Vec<(String, String)>`) that represent
+///          additional parameters to be passed into the Python script for computation.
 ///
 /// # Returns
 ///
-/// The average execution time in seconds
-pub fn benchmark_entropy_float_nd(data: &[f64], dims: usize, approach: &str, kwargs: &[(String, String)], num_runs: usize) -> Result<f64, String> {
-    // Ensure the environment exists
+/// * `Ok(f64)` - The computed ordinal cross-entropy value if the calculation succeeds.
+/// * `Err(String)` - An error message if the calculation fails at any step.
+///
+pub fn calculate_ordinal_cross_entropy_two_float(
+    x: &[f64],
+    y: &[f64],
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".to_string());
+        return Err("Failed to ensure micromamba environment exists".into());
     }
-
-    // Check if data length is divisible by dims
-    if data.len() % dims != 0 {
-        return Err(format!("Data length ({}) is not divisible by the number of dimensions ({})", data.len(), dims));
-    }
-
-    // Calculate the number of samples
-    let n_samples = data.len() / dims;
-
-    // Reshape the flat array into a Vec<Vec<f64>> with shape (n_samples, dims)
-    let data_vec: Vec<Vec<f64>> = (0..n_samples)
-        .map(|i| {
-            (0..dims)
-                .map(|j| data[i * dims + j])
-                .collect()
-        })
-        .collect();
-
-    // Use the generic function to benchmark entropy calculation
-    benchmark_entropy_generic(&data_vec, approach, kwargs, num_runs)
+    let x_file = save_data_to_temp_file(x)?;
+    let y_file = save_data_to_temp_file(y)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("ordinal_cross_entropy_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import json, numpy as np, infomeasure as im
+from collections import Counter
+from infomeasure.estimators.utils.ordinal import symbolize_series
+with open("{x_path}", "r") as f:
+    x = np.array(json.load(f), dtype=float)
+with open("{y_path}", "r") as f:
+    y = np.array(json.load(f), dtype=float)
+kwargs = dict({kwargs})
+_ = im.estimator(x, measure='h', approach='ordinal', base='e', **kwargs)
+_ = im.estimator(y, measure='h', approach='ordinal', base='e', **kwargs)
+m = int(kwargs.get('embedding_dim'))
+stable = bool(kwargs.get('stable', True))
+sx = symbolize_series(x, m, 1, to_int=True, stable=stable)
+sy = symbolize_series(y, m, 1, to_int=True, stable=stable)
+def probs(a):
+    c = Counter(a.tolist()); n = float(sum(c.values())); return {{k: v/n for k, v in c.items()}}
+px = probs(sx); qy = probs(sy)
+keys = set(px.keys()) & set(qy.keys())
+import math
+print(0.0 if len(keys)==0 else sum([-px[k]*math.log(qy[k]) for k in keys if px[k]>0.0 and qy[k]>0.0]))
+"#,
+        x_path = x_file.to_str().unwrap(),
+        y_path = y_file.to_str().unwrap(),
+        kwargs = kwargs_str
+    );
+    std::fs::write(&script_path, script)
+        .map_err(|e| format!("Failed to write temporary script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(x_file);
+    let _ = std::fs::remove_file(y_file);
+    output.trim().parse::<f64>().map_err(|e| {
+        format!(
+            "Failed to parse Python output as f64: {} (output='{}')",
+            e, output
+        )
+    })
 }
