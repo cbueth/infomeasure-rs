@@ -1,20 +1,59 @@
 use ndarray::Array1;
 use std::collections::HashMap;
 
-/// Stable argsort for f64 values within a window.
+/// Argsort for f64 values.
 ///
-/// Returns indices that would sort the slice in ascending order. Ties are
-/// resolved by the original index order (stable), matching numpy.argsort(stable=True).
-pub fn stable_argsort(window: &[f64]) -> Vec<usize> {
-    let mut idx: Vec<usize> = (0..window.len()).collect();
-    idx.sort_by(|&i, &j| {
-        match window[i].partial_cmp(&window[j]) {
-            Some(core::cmp::Ordering::Less) => core::cmp::Ordering::Less,
-            Some(core::cmp::Ordering::Greater) => core::cmp::Ordering::Greater,
-            Some(core::cmp::Ordering::Equal) | None => i.cmp(&j),
-        }
-    });
-    idx
+/// Returns indices that would sort the slice in ascending order.
+/// If stable is true, ties are resolved by the original index order (stable),
+/// matching numpy.argsort(stable=True).
+/// If stable is false, ties are resolved arbitrarily (unstable).
+pub fn argsort(window: &[f64], idx: &mut [usize], stable: bool) {
+    for (i, val) in idx.iter_mut().enumerate() {
+        *val = i;
+    }
+    if stable {
+        idx.sort_by(|&i, &j| {
+            let a = window[i];
+            let b = window[j];
+            match a.partial_cmp(&b) {
+                Some(ord) => {
+                    if ord == core::cmp::Ordering::Equal {
+                        i.cmp(&j)
+                    } else {
+                        ord
+                    }
+                }
+                None => {
+                    // One or both are NaN. 
+                    // To be consistent, NaNs are "greater" than everything.
+                    if a.is_nan() && b.is_nan() {
+                        i.cmp(&j)
+                    } else if a.is_nan() {
+                        core::cmp::Ordering::Greater
+                    } else {
+                        core::cmp::Ordering::Less
+                    }
+                }
+            }
+        });
+    } else {
+        idx.sort_unstable_by(|&i, &j| {
+            let a = window[i];
+            let b = window[j];
+            match a.partial_cmp(&b) {
+                Some(ord) => ord,
+                None => {
+                    if a.is_nan() && b.is_nan() {
+                        core::cmp::Ordering::Equal
+                    } else if a.is_nan() {
+                        core::cmp::Ordering::Greater
+                    } else {
+                        core::cmp::Ordering::Less
+                    }
+                }
+            }
+        });
+    }
 }
 
 /// Compute the Lehmer code (factoradic ranking) for a given permutation.
