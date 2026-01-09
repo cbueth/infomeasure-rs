@@ -72,6 +72,7 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
     for i in 1..n {
         fact[i] = fact[i - 1] * (i as u128);
     }
+    
     let mut acc: u128 = 0;
     for i in 0..n {
         let mut c = 0u128;
@@ -82,6 +83,21 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
         acc += c * weight;
     }
     // Fit into u64 (guaranteed for n <= 20)
+    acc as u64
+}
+
+/// Internal version of lehmer_code that avoids recomputing factorials.
+fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
+    let n = perm.len();
+    let mut acc: u128 = 0;
+    for i in 0..n {
+        let mut c = 0u128;
+        for j in (i + 1)..n {
+            if perm[i] > perm[j] { c += 1; }
+        }
+        let weight = fact[n - 1 - i];
+        acc += c * weight;
+    }
     acc as u64
 }
 
@@ -107,6 +123,10 @@ pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
 /// 
 /// This is a thin wrapper around `symbolize_series_u64` that remaps the raw Lehmer codes
 /// to a compact i32 index space for integration with discrete estimators.
+/// 
+/// Note: The remapping is based on first-occurrence order, so the resulting IDs
+/// will NOT match raw Lehmer codes and may differ from Python's symbolization
+/// values (which use raw Lehmer codes or value-sorted remapping).
 ///
 /// - order (m) ≥ 1
 /// - step_size (τ) ≥ 1  
@@ -133,11 +153,24 @@ pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize
 
     let n_windows = n - span;
     let mut out: Vec<u64> = Vec::with_capacity(n_windows);
+
+    // Reuse buffers to avoid repeated allocations
+    let mut w: Vec<f64> = vec![0.0; order];
+    let mut idx: Vec<usize> = (0..order).collect();
+
+    // Precompute factorials up to order
+    let mut fact: Vec<u128> = vec![1u128; order];
+    for i in 1..order {
+        fact[i] = fact[i - 1] * (i as u128);
+    }
+
     for t in 0..n_windows {
-        let mut w: Vec<f64> = Vec::with_capacity(order);
-        for j in 0..order { w.push(series[t + j * step_size]); }
-        let perm = if stable { stable_argsort(&w) } else { stable_argsort(&w) };
-        let code_u64 = lehmer_code(&perm);
+        for j in 0..order {
+            w[j] = series[t + j * step_size];
+        }
+
+        argsort(&w, &mut idx, stable);
+        let code_u64 = lehmer_code_with_fact(&idx, &fact);
         out.push(code_u64);
     }
     Array1::from(out)

@@ -1,5 +1,5 @@
-use ndarray::Array1;
-use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_compact, symbolize_series_u64};
+use ndarray::{Array1, array};
+use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_u64, remap_u64_to_i32};
 
 fn run_python_symbolize(series: &[f64], emb_dim: usize, step_size: usize, to_int: bool, stable: bool) -> Vec<i64> {
     // Call Python's utils.symbolize_series via micromamba environment and return integer codes
@@ -37,7 +37,7 @@ fn parity_symbolize_series_grid_stable_true() {
     let series_list: Vec<Vec<f64>> = vec![
         vec![0., 1., 2., 3., 4., 5., 6., 7.],
         vec![0., 7., 2., 3., 45., 7.5, 1., 8., 4., 5., 2.5, 7.2, 8.1],
-        vec![3., 1., 4., 1.5, 5., 9., 2., 6., 5., 3.5, 5., 8., 9.7, 3.],
+        vec![3., 1., 4., 1.5, 5., 9., 2., 6., 2., 5., 3.5, 5., 8., 9.7, 3.],
     ];
     let embedding_dims = [2usize, 3, 4, 5];
     let steps = [1usize, 2, 3];
@@ -64,15 +64,15 @@ fn parity_symbolize_series_grid_stable_true() {
 
 #[test]
 fn parity_symbolize_series_stable_false_no_ties() {
-    // Use strictly increasing data to avoid ties; stable flag should not matter
-    let series = Array1::from(vec![0., 1., 2., 3., 4., 5., 6.]);
+    // data without ties to avoid ambiguity when stable=False
+    let series = Array1::from(vec![4., 1., 3.2, 99., 3., 2., 9., 6., 7., 3.1]);
     let embedding_dims = [2usize, 3, 4];
-    let steps = [1usize, 2];
+    let steps = [1usize, 2, 3];
 
     for &m in &embedding_dims {
         for &tau in &steps {
             if series.len() <= (m - 1) * tau { continue; }
-            let rust_codes = symbolize_series_compact(&series, m, tau, false)
+            let rust_codes = symbolize_series_u64(&series, m, tau, false)
                 .iter().map(|&x| x as i64).collect::<Vec<_>>();
             let py_codes = run_python_symbolize(series.as_slice().unwrap(), m, tau, true, false);
             assert_eq!(rust_codes.len(), py_codes.len(), "length mismatch for m={}, tau={}", m, tau);
