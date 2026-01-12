@@ -87,6 +87,7 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
 }
 
 /// Internal version of lehmer_code that avoids recomputing factorials.
+#[allow(dead_code)]
 fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
     let n = perm.len();
     let mut acc: u128 = 0;
@@ -101,10 +102,10 @@ fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
     acc as u64
 }
 
+
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
 pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
-    use std::collections::HashMap;
     let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
     let mut next_id: i32 = 0;
     let mut out = Vec::with_capacity(codes.len());
@@ -120,16 +121,16 @@ pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
 }
 
 /// Convert a time series into compact i32 ordinal pattern codes.
-/// 
+///
 /// This is a thin wrapper around `symbolize_series_u64` that remaps the raw Lehmer codes
 /// to a compact i32 index space for integration with discrete estimators.
-/// 
+///
 /// Note: The remapping is based on first-occurrence order, so the resulting IDs
 /// will NOT match raw Lehmer codes and may differ from Python's symbolization
 /// values (which use raw Lehmer codes or value-sorted remapping).
 ///
 /// - order (m) ≥ 1
-/// - step_size (τ) ≥ 1  
+/// - step_size (τ) ≥ 1
 /// - Supports orders up to 20 (Lehmer code fits in u64)
 ///
 /// For parity testing against Python, use `symbolize_series_u64` instead.
@@ -158,19 +159,13 @@ pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize
     let mut w: Vec<f64> = vec![0.0; order];
     let mut idx: Vec<usize> = (0..order).collect();
 
-    // Precompute factorials up to order
-    let mut fact: Vec<u128> = vec![1u128; order];
-    for i in 1..order {
-        fact[i] = fact[i - 1] * (i as u128);
-    }
-
     for t in 0..n_windows {
         for j in 0..order {
             w[j] = series[t + j * step_size];
         }
 
         argsort(&w, &mut idx, stable);
-        let code_u64 = lehmer_code_with_fact(&idx, &fact);
+        let code_u64 = lehmer_code(&idx);
         out.push(code_u64);
     }
     Array1::from(out)

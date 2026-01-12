@@ -1,8 +1,8 @@
 use ndarray::Array1;
 
-use crate::estimators::traits::LocalValues;
+use crate::estimators::traits::{CrossEntropy, JointEntropy, LocalValues};
 use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
-use crate::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_compact, lehmer_code, reduce_joint_space_compact};
+use crate::estimators::approaches::ordinal::ordinal_utils::{lehmer_code, symbolize_series_compact};
 use ndarray::s;
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 
@@ -19,6 +19,50 @@ pub struct OrdinalEntropy {
     pub order: usize,
     pub step_size: usize,
     pub stable: bool,
+}
+
+impl CrossEntropy for OrdinalEntropy {
+    /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
+    /// Uses only the intersection of supports; if disjoint, returns 0.0 (parity with Python semantics).
+    fn cross_entropy(&self, other: &OrdinalEntropy) -> f64 {
+        // We assume they might have different data but they should ideally have same order/step/stable
+        // for the comparison to be meaningful, but the trait just takes &other.
+        // We use self's parameters for both if we want strict H(P||Q) where P and Q are same type of estimator.
+        // But here we'll just use their respective internal DiscreteEntropy.
+        self.inner.cross_entropy(&other.inner)
+    }
+}
+
+impl JointEntropy for OrdinalEntropy {
+    type Source = Array1<f64>;
+    type Params = (usize, usize, bool); // order, step_size, stable
+
+    /// Compute joint ordinal entropy for multiple 1D series.
+    /// Aligns windowed codes by truncating to the minimum length across series.
+    fn joint_entropy(series_list: &[Self::Source], params: Self::Params) -> f64 {
+        let (order, step_size, stable) = params;
+        if series_list.is_empty() { return 0.0; }
+        // Symbolize each series
+        let mut code_arrays: Vec<Array1<i32>> = Vec::with_capacity(series_list.len());
+        let mut min_len = usize::MAX;
+        for s in series_list.iter() {
+            let codes = symbolize_series_compact(s, order, step_size, stable);
+            min_len = min_len.min(codes.len());
+            code_arrays.push(codes);
+        }
+        if min_len == 0 { return 0.0; }
+        // Truncate to min length to align windows
+        for arr in code_arrays.iter_mut() {
+            if arr.len() > min_len {
+                let view = arr.slice(s![..min_len]).to_owned();
+                *arr = view;
+            }
+        }
+        // Reduce to joint compact space
+        let joint_codes = reduce_joint_space_compact(&code_arrays);
+        let disc = DiscreteEntropy::new(joint_codes);
+        disc.global_value()
+    }
 }
 
 impl OrdinalEntropy {
@@ -63,17 +107,10 @@ impl OrdinalEntropy {
                         _other => {
                             // Should be unreachable due to transitivity of <; fallback to per-window stable argsort
                             let w = [x0, x1, x2];
+                            use crate::estimators::approaches::ordinal::ordinal_utils::argsort;
                             // Use a simple stable sort on indices 0..3
                             let mut idx = [0usize, 1usize, 2usize];
-                            idx.sort_by(|&i, &j| {
-                                match w[i].partial_cmp(&w[j]) {
-                                    Some(core::cmp::Ordering::Less) => core::cmp::Ordering::Less,
-                                    Some(core::cmp::Ordering::Greater) => core::cmp::Ordering::Greater,
-                                    Some(core::cmp::Ordering::Equal) | None => {
-                                        if stable { i.cmp(&j) } else { core::cmp::Ordering::Equal }
-                                    },
-                                }
-                            });
+                            argsort(&w, &mut idx, stable);
                             idx
                         }
                     };
@@ -92,60 +129,18 @@ impl OrdinalEntropy {
 
     /// Compute joint ordinal entropy for multiple 1D series.
     /// Aligns windowed codes by truncating to the minimum length across series.
+    #[deprecated(note = "Use JointEntropy::joint_entropy instead")]
     pub fn joint_entropy(series_list: &[Array1<f64>], order: usize, step_size: usize, stable: bool) -> f64 {
-        if series_list.is_empty() { return 0.0; }
-        // Symbolize each series
-        let mut code_arrays: Vec<Array1<i32>> = Vec::with_capacity(series_list.len());
-        let mut min_len = usize::MAX;
-        for s in series_list.iter() {
-            let codes = symbolize_series_compact(s, order, step_size, stable);
-            min_len = min_len.min(codes.len());
-            code_arrays.push(codes);
-        }
-        if min_len == 0 { return 0.0; }
-        // Truncate to min length to align windows
-        for arr in code_arrays.iter_mut() {
-            if arr.len() > min_len {
-                let view = arr.slice(s![..min_len]).to_owned();
-                *arr = view;
-            }
-        }
-        // Reduce to joint compact space
-        let joint_codes = reduce_joint_space_compact(&code_arrays);
-        let disc = DiscreteEntropy::new(joint_codes);
-        disc.global_value()
+        <Self as JointEntropy>::joint_entropy(series_list, (order, step_size, stable))
     }
 
     /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
     /// Uses only the intersection of supports; if disjoint, returns 0.0 (parity with Python semantics).
+    #[deprecated(note = "Use CrossEntropy::cross_entropy instead")]
     pub fn cross_entropy(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> f64 {
-        fn counts_to_probs(codes: &Array1<i32>) -> HashMap<i32, f64> {
-            let mut map: HashMap<i32, usize> = HashMap::new();
-            for &c in codes.iter() { *map.entry(c).or_insert(0) += 1; }
-            let n = codes.len() as f64;
-            let mut out: HashMap<i32, f64> = HashMap::with_capacity(map.len());
-            for (k, v) in map.into_iter() { out.insert(k, (v as f64) / n); }
-            out
-        }
-
-        let cx = symbolize_series_compact(x, order, step_size, stable);
-        let cy = symbolize_series_compact(y, order, step_size, stable);
-
-        if cx.is_empty() || cy.is_empty() { return 0.0; }
-
-        let px = counts_to_probs(&cx);
-        let qy = counts_to_probs(&cy);
-        let mut h = 0.0_f64;
-        let mut has_overlap = false;
-        for (code, p) in px.iter() {
-            if let Some(&q) = qy.get(code) {
-                if *p > 0.0 && q > 0.0 {
-                    h -= p * q.ln();
-                    has_overlap = true;
-                }
-            }
-        }
-        if has_overlap { h } else { 0.0 }
+        let ex = Self::new_with_step_and_stable(x.clone(), order, step_size, stable);
+        let ey = Self::new_with_step_and_stable(y.clone(), order, step_size, stable);
+        ex.cross_entropy(&ey)
     }
 }
 
