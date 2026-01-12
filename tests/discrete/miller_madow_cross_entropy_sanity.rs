@@ -1,6 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::MillerMadowEntropy;
+use infomeasure::estimators::traits::CrossEntropy;
 
 #[test]
 fn miller_madow_cross_entropy_basic() {
@@ -10,7 +11,7 @@ fn miller_madow_cross_entropy_basic() {
     let est_p = MillerMadowEntropy::new(p);
     let est_q = MillerMadowEntropy::new(q);
 
-    let h_cx = est_p.cross_entropy_with(&est_q);
+    let h_cx = est_p.cross_entropy(&est_q);
 
     // Manual ML cross-entropy + correction
     // ML: P: p(1)=0.5, p(2)=0.5; Q: q(1)=0.25, q(2)=0.5, q(3)=0.25

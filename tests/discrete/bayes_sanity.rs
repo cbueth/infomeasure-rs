@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
-use infomeasure::estimators::traits::GlobalValue;
+use infomeasure::estimators::traits::{GlobalValue, CrossEntropy};
 
 #[test]
 fn bayes_entropy_laplace_basic() {
@@ -32,7 +32,7 @@ fn bayes_cross_entropy_intersection() {
     let est_p = BayesEntropy::new(p, AlphaParam::Laplace, None);
     let est_q = BayesEntropy::new(q, AlphaParam::Laplace, None);
 
-    let h_cx = est_p.cross_entropy_with(&est_q);
+    let h_cx = est_p.cross_entropy(&est_q);
 
     // Expected manual calculation (intersection {1,2})
     // P probs with Kp=2: counts (1:2,2:2) => p = (2+1)/(4+2) = 0.5 for both
