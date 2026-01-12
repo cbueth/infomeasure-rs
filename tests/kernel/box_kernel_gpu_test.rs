@@ -69,7 +69,7 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
     
     // Assert that the global entropy values are approximately equal
     let epsilon = 1e-6;
-    let max_relative = 1e-3;
+    let max_relative = 1e-6;
     assert_relative_eq!(
         cpu_global_entropy, 
         gpu_global_entropy, 
@@ -89,7 +89,7 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
             
             if cpu_val.abs() > 1e-6 && gpu_val.abs() > 1e-6 {
                 let epsilon = 1e-6;
-                let max_relative = 1e-3;
+                let max_relative = 1e-5;
                 assert_relative_eq!(
                     cpu_val, 
                     gpu_val, 
@@ -204,7 +204,7 @@ fn test_box_kernel_fallback<const K: usize>(
             cpu_global_entropy, 
             gpu_global_entropy, 
             epsilon = 1e-6,
-            max_relative = 1e-3
+            max_relative = 1e-6
         );
         
         // Assert that the local entropy values are approximately equal
@@ -222,7 +222,7 @@ fn test_box_kernel_fallback<const K: usize>(
                         cpu_val, 
                         gpu_val, 
                         epsilon = 1e-6,
-                        max_relative = 1e-3
+                        max_relative = 1e-5
                     );
                 }
             }
