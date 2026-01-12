@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2, array};
 
 use infomeasure::estimators::approaches::expfam::renyi::RenyiEntropy;
 use infomeasure::estimators::approaches::expfam::tsallis::TsallisEntropy;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::GlobalValue;
 use validation::python;
 
 fn flat_from_array2(a: &Array2<f64>) -> Vec<f64> {
@@ -49,7 +49,7 @@ fn renyi_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_1d_2d.nrows() - 1 { continue; }
         for &alpha in &alphas {
-            let est = RenyiEntropy::<1>::new(data_1d_2d.clone(), k, alpha);
+            let est = RenyiEntropy::<1>::new(data_1d_2d.clone(), k, alpha, 0.0);
             let h_rust = est.global_value();
             // call Python via validation crate
             let flat = flat_from_array2(&data_1d_2d);
@@ -63,7 +63,7 @@ fn renyi_python_validation_param_grid_nd() {
         }
         // Shannon limit alpha->1
         let alpha1 = 1.0_f64;
-        let est = RenyiEntropy::<1>::new(data_1d_2d.clone(), k, alpha1);
+        let est = RenyiEntropy::<1>::new(data_1d_2d.clone(), k, alpha1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
@@ -79,7 +79,7 @@ fn renyi_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_2d.nrows() - 1 { continue; }
         for &alpha in &alphas {
-            let est = RenyiEntropy::<2>::new(data_2d.clone(), k, alpha);
+            let est = RenyiEntropy::<2>::new(data_2d.clone(), k, alpha, 0.0);
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_2d);
             let kwargs = vec![
@@ -91,7 +91,7 @@ fn renyi_python_validation_param_grid_nd() {
             assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-8);
         }
         let alpha1 = 1.0_f64;
-        let est = RenyiEntropy::<2>::new(data_2d.clone(), k, alpha1);
+        let est = RenyiEntropy::<2>::new(data_2d.clone(), k, alpha1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
@@ -107,7 +107,7 @@ fn renyi_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_3d.nrows() - 1 { continue; }
         for &alpha in &alphas {
-            let est = RenyiEntropy::<3>::new(data_3d.clone(), k, alpha);
+            let est = RenyiEntropy::<3>::new(data_3d.clone(), k, alpha, 0.0);
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_3d);
             let kwargs = vec![
@@ -119,7 +119,7 @@ fn renyi_python_validation_param_grid_nd() {
             assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-7);
         }
         let alpha1 = 1.0_f64;
-        let est = RenyiEntropy::<3>::new(data_3d.clone(), k, alpha1);
+        let est = RenyiEntropy::<3>::new(data_3d.clone(), k, alpha1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![
@@ -163,7 +163,7 @@ fn tsallis_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_1d_2d.nrows() - 1 { continue; }
         for &q in &qs {
-            let est = TsallisEntropy::<1>::new(data_1d_2d.clone(), k, q);
+            let est = TsallisEntropy::<1>::new(data_1d_2d.clone(), k, q, 0.0);
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_1d_2d);
             let kwargs = vec![
@@ -176,7 +176,7 @@ fn tsallis_python_validation_param_grid_nd() {
         }
         // Shannon limit q->1
         let q1 = 1.0_f64;
-        let est = TsallisEntropy::<1>::new(data_1d_2d.clone(), k, q1);
+        let est = TsallisEntropy::<1>::new(data_1d_2d.clone(), k, q1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
@@ -192,7 +192,7 @@ fn tsallis_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_2d.nrows() - 1 { continue; }
         for &q in &qs {
-            let est = TsallisEntropy::<2>::new(data_2d.clone(), k, q);
+            let est = TsallisEntropy::<2>::new(data_2d.clone(), k, q, 0.0);
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_2d);
             let kwargs = vec![
@@ -204,7 +204,7 @@ fn tsallis_python_validation_param_grid_nd() {
             assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-8);
         }
         let q1 = 1.0_f64;
-        let est = TsallisEntropy::<2>::new(data_2d.clone(), k, q1);
+        let est = TsallisEntropy::<2>::new(data_2d.clone(), k, q1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
@@ -220,7 +220,7 @@ fn tsallis_python_validation_param_grid_nd() {
     for &k in &ks {
         if k > data_3d.nrows() - 1 { continue; }
         for &q in &qs {
-            let est = TsallisEntropy::<3>::new(data_3d.clone(), k, q);
+            let est = TsallisEntropy::<3>::new(data_3d.clone(), k, q, 0.0);
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_3d);
             let kwargs = vec![
@@ -232,7 +232,7 @@ fn tsallis_python_validation_param_grid_nd() {
             assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-7);
         }
         let q1 = 1.0_f64;
-        let est = TsallisEntropy::<3>::new(data_3d.clone(), k, q1);
+        let est = TsallisEntropy::<3>::new(data_3d.clone(), k, q1, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![

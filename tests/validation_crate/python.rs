@@ -544,6 +544,89 @@ pub fn calculate_local_entropy_float_nd(
     calculate_local_entropy_generic(&rows, approach, kwargs)
 }
 
+/// Calculates cross-entropy using the Python infomeasure package with n-dimensional float data.
+///
+/// # Arguments
+///
+/// * `data_p` - The flat array of float data for the first distribution (P)
+/// * `data_q` - The flat array of float data for the second distribution (Q)
+/// * `dims` - The number of dimensions in the data
+/// * `approach` - The approach to use for entropy calculation (e.g., "kernel", "kl")
+/// * `kwargs` - Additional keyword arguments for the specified approach
+///
+/// # Returns
+///
+/// The cross-entropy value H(P||Q) calculated by the Python infomeasure package
+pub fn calculate_cross_entropy_float_nd(
+    data_p: &[f64],
+    data_q: &[f64],
+    dims: usize,
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    // Ensure the environment exists
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    if data_p.len() % dims != 0 || data_q.len() % dims != 0 {
+        return Err(format!(
+            "Data length is not divisible by the number of dimensions ({})",
+            dims
+        ));
+    }
+    let n_p = data_p.len() / dims;
+    let n_q = data_q.len() / dims;
+    let rows_p: Vec<Vec<f64>> = (0..n_p)
+        .map(|i| (0..dims).map(|j| data_p[i * dims + j]).collect())
+        .collect();
+    let rows_q: Vec<Vec<f64>> = (0..n_q)
+        .map(|i| (0..dims).map(|j| data_q[i * dims + j]).collect())
+        .collect();
+
+    let p_file = save_data_to_temp_file(&rows_p)?;
+    let q_file = save_data_to_temp_file(&rows_q)?;
+
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_cross_entropy_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json
+with open("{pf}", "r") as f:
+    p = json.load(f)
+with open("{qf}", "r") as f:
+    q = json.load(f)
+est = im.estimator(p, q, measure="h", approach="{ap}", base="e", {kw})
+print(est.result())
+"#,
+        pf = p_file.to_str().unwrap(),
+        qf = q_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(p_file);
+    let _ = std::fs::remove_file(q_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
 /// Benchmarks the Python infomeasure package's discrete entropy calculation.
 ///
 /// # Arguments

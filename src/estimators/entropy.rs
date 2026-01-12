@@ -43,7 +43,7 @@ impl Entropy {
 
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
-    /// Adds (K-1)/(2N) to the MLE estimate; supports local values (uniformly offset).
+    /// Adds $(K-1)/(2N)$ to the MLE estimate; supports local values (uniformly offset).
     pub fn new_miller_madow(data: Array1<i32>) -> MillerMadowEntropy {
         MillerMadowEntropy::new(data)
     }
@@ -51,7 +51,7 @@ impl Entropy {
     /// Create a James–Stein shrinkage discrete entropy estimator.
     ///
     /// Shrinks the empirical distribution towards the uniform target using a data-driven
-    /// lambda in [0,1]; supports local values.
+    /// lambda in $\[0,1\]$; supports local values.
     pub fn new_shrink(data: Array1<i32>) -> ShrinkEntropy {
         ShrinkEntropy::new(data)
     }
@@ -342,32 +342,32 @@ impl Entropy {
     }
 
     /// Create a Rényi entropy estimator (1D convenience constructor)
-    pub fn new_renyi_1d(data: Array1<f64>, k: usize, alpha: f64) -> RenyiEntropy<1> {
-        RenyiEntropy::<1>::new_1d(data, k, alpha)
+    pub fn new_renyi_1d(data: Array1<f64>, k: usize, alpha: f64, noise_level: f64) -> RenyiEntropy<1> {
+        RenyiEntropy::<1>::new_1d(data, k, alpha, noise_level)
     }
 
     /// Create a Rényi entropy estimator for N-dimensional data (const-generic K)
-    pub fn renyi_nd<const K: usize>(data: Array2<f64>, k: usize, alpha: f64) -> RenyiEntropy<K> {
-        RenyiEntropy::<K>::new(data, k, alpha)
+    pub fn renyi_nd<const K: usize>(data: Array2<f64>, k: usize, alpha: f64, noise_level: f64) -> RenyiEntropy<K> {
+        RenyiEntropy::<K>::new(data, k, alpha, noise_level)
     }
 
     /// Create a Tsallis entropy estimator (1D convenience constructor)
-    pub fn new_tsallis_1d(data: Array1<f64>, k: usize, q: f64) -> TsallisEntropy<1> {
-        TsallisEntropy::<1>::new_1d(data, k, q)
+    pub fn new_tsallis_1d(data: Array1<f64>, k: usize, q: f64, noise_level: f64) -> TsallisEntropy<1> {
+        TsallisEntropy::<1>::new_1d(data, k, q, noise_level)
     }
 
     /// Create a Tsallis entropy estimator for N-dimensional data (const-generic K)
-    pub fn tsallis_nd<const K: usize>(data: Array2<f64>, k: usize, q: f64) -> TsallisEntropy<K> {
-        TsallisEntropy::<K>::new(data, k, q)
+    pub fn tsallis_nd<const K: usize>(data: Array2<f64>, k: usize, q: f64, noise_level: f64) -> TsallisEntropy<K> {
+        TsallisEntropy::<K>::new(data, k, q, noise_level)
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator (1D convenience constructor)
-    pub fn new_kl_1d(data: Array1<f64>, k: usize) -> KozachenkoLeonenkoEntropy<1> {
-        KozachenkoLeonenkoEntropy::<1>::new_1d(data, k)
+    pub fn new_kl_1d(data: Array1<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<1> {
+        KozachenkoLeonenkoEntropy::<1>::new_1d(data, k, noise_level)
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator for N-dimensional data (const-generic K)
-    pub fn kl_nd<const K: usize>(data: Array2<f64>, k: usize) -> KozachenkoLeonenkoEntropy<K> {
-        KozachenkoLeonenkoEntropy::<K>::new(data, k)
+    pub fn kl_nd<const K: usize>(data: Array2<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<K> {
+        KozachenkoLeonenkoEntropy::<K>::new(data, k, noise_level)
     }
 }

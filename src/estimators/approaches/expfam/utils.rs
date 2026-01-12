@@ -1,6 +1,19 @@
 use ndarray::{Array2, ArrayView2};
 use kiddo::{ImmutableKdTree, SquaredEuclidean};
 use std::num::NonZeroUsize;
+use rand::prelude::*;
+use rand_distr::Normal;
+
+/// Add Gaussian noise to a 2D array.
+pub fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
+    if noise_level <= 0.0 { return data; }
+    let mut rng = thread_rng();
+    let normal = Normal::new(0.0, noise_level).unwrap();
+    for x in data.iter_mut() {
+        *x += normal.sample(&mut rng);
+    }
+    data
+}
 
 /// Compute the volume of the unit m-ball in R^m.
 /// c_m = pi^{m/2} / Gamma(m/2 + 1)
@@ -34,40 +47,71 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
     points
 }
 
-/// Compute kNN radii (Euclidean distances to the k-th nearest neighbor), excluding self.
+/// Compute kNN radii (Euclidean distances to the k-th nearest neighbor).
 ///
-/// - data is shape (N, K) with K known at compile-time
-/// - k >= 1 and must be <= N-1
-/// - Returns a Vec of length N with the distance to the k-th nearest neighbor for each row
-pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
+/// If `at` is None, it computes distances within the same dataset `data` (excluding self).
+/// If `at` is Some(target), it computes distances from points in `target` to their k-th neighbors in `data`.
+///
+/// - data is shape (N, K)
+/// - target is shape (M, K)
+/// - k >= 1
+pub fn knn_radii_at<const K: usize>(data: ArrayView2<'_, f64>, k: usize, at: Option<ArrayView2<'_, f64>>) -> Vec<f64> {
     assert!(k >= 1, "k must be >= 1");
     assert!(data.ncols() == K, "data.ncols() must equal K");
     let n = data.nrows();
     if n == 0 { return Vec::new(); }
-    assert!(k <= n - 1, "k must be <= N-1 when querying within the same dataset");
 
     let points = to_points::<K>(data);
     let tree: ImmutableKdTree<f64, K> = ImmutableKdTree::new_from_slice(&points);
 
-    // Query k+1 neighbors (including self), take index k (0-based) and sqrt distance
-    let mut radii = Vec::with_capacity(n);
-    for p in points.iter() {
-        let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
-        let kth = neigh.remove(k);
-        let (dist2, _idx): (f64, u64) = kth.into();
-        radii.push(dist2.sqrt());
+    if let Some(target_data) = at {
+        assert!(target_data.ncols() == K, "target_data.ncols() must equal K");
+        let m = target_data.nrows();
+        let target_points = to_points::<K>(target_data);
+        let mut radii = Vec::with_capacity(m);
+        for p in target_points.iter() {
+            // No need to exclude self if we are querying another dataset
+            let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k).unwrap());
+            let kth = neigh.remove(k - 1);
+            let (dist2, _idx): (f64, u64) = kth.into();
+            radii.push(dist2.sqrt());
+        }
+        radii
+    } else {
+        assert!(k <= n - 1, "k must be <= N-1 when querying within the same dataset");
+        // Query k+1 neighbors (including self), take index k (0-based) and sqrt distance
+        let mut radii = Vec::with_capacity(n);
+        for p in points.iter() {
+            let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
+            let kth = neigh.remove(k);
+            let (dist2, _idx): (f64, u64) = kth.into();
+            radii.push(dist2.sqrt());
+        }
+        radii
     }
-    radii
+}
+
+/// Compute kNN radii (Euclidean distances to the k-th nearest neighbor), excluding self.
+pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
+    knn_radii_at::<K>(data, k, None)
 }
 
 /// Compute common components used by exponential-family kNN estimators.
-/// Mirrors Python calculate_common_entropy_components for the self-evaluation case.
-pub fn calculate_common_entropy_components<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> (f64, Vec<f64>, usize, usize) {
-    assert!(data.ncols() == K, "data.ncols() must equal K");
-    let n = data.nrows();
+/// Mirrors Python calculate_common_entropy_components.
+pub fn calculate_common_entropy_components_at<const K: usize>(
+    data: ArrayView2<'_, f64>, 
+    k: usize, 
+    at: Option<ArrayView2<'_, f64>>
+) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume(K);
-    let rho_k = knn_radii::<K>(data, k);
+    let rho_k = knn_radii_at::<K>(data, k, at);
+    let n = rho_k.len(); // N if at is None, M if at is Some(target)
     (v_m, rho_k, n, K)
+}
+
+/// Compute common components used by exponential-family kNN estimators for self-evaluation.
+pub fn calculate_common_entropy_components<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> (f64, Vec<f64>, usize, usize) {
+    calculate_common_entropy_components_at::<K>(data, k, None)
 }
 
 /// Helper to ensure 2D view from 1D or 2D input (placeholder for future API generalization).

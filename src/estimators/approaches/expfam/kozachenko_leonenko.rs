@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use kiddo::SquaredEuclidean;
 use std::num::NonZeroUsize;
 
-use crate::estimators::traits::LocalValues;
+use crate::estimators::traits::{LocalValues, CrossEntropy, JointEntropy};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use super::utils::unit_ball_volume;
 
@@ -15,30 +15,94 @@ pub struct KozachenkoLeonenkoEntropy<const K: usize> {
     pub nd: NdDataset<K>,
     pub k: usize,
     pub base: f64,
+    pub noise_level: f64,
+}
+
+impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
+    type Source = Array1<f64>;
+    type Params = (usize, f64); // k, noise_level
+
+    fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
+        assert_eq!(series.len(), K, "Number of series must match dimensionality K");
+        if series.is_empty() { return 0.0; }
+        
+        let n_samples = series[0].len();
+        let mut data = Array2::zeros((n_samples, K));
+        for (j, s) in series.iter().enumerate() {
+            for i in 0..n_samples {
+                data[[i, j]] = s[i];
+            }
+        }
+
+        let estimator = KozachenkoLeonenkoEntropy::<K>::new(data, params.0, params.1);
+        estimator.global_value()
+    }
+}
+
+impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
+    fn cross_entropy(&self, other: &KozachenkoLeonenkoEntropy<K>) -> f64 {
+        use statrs::function::gamma::digamma;
+        use super::utils::calculate_common_entropy_components_at;
+        
+        // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
+        let (v_m, rho_k, _n_p, dimension) = calculate_common_entropy_components_at::<K>(
+            other.nd.view(), 
+            self.k, 
+            Some(self.nd.view())
+        );
+
+        let n_q = other.nd.n as f64;
+        let ln_base = self.base.ln();
+
+        let mut sum_ln_rho = 0.0;
+        let mut count = 0usize;
+        for &r in &rho_k {
+            if r > 0.0 {
+                sum_ln_rho += r.ln();
+                count += 1;
+            }
+        }
+
+        if count == 0 { return 0.0; }
+
+        // Parity with Python implementation: uses n_q (M) in digamma and denominator
+        let hx = -digamma(self.k as f64) 
+            + digamma(n_q) 
+            + v_m.ln() 
+            + (dimension as f64) * sum_ln_rho / n_q;
+        
+        hx / ln_base
+    }
 }
 
 impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     /// Construct from 2D data (rows = samples, cols = dimensions)
-    pub fn new(data: Array2<f64>, k: usize) -> Self {
+    pub fn new(data: Array2<f64>, k: usize, noise_level: f64) -> Self {
         assert!(data.ncols() == K, "data.ncols() must equal K");
+        let data = super::utils::add_noise(data, noise_level);
         let nd = NdDataset::<K>::from_array2(data);
         assert!(nd.n == 0 || k <= nd.n - 1, "k must be <= N-1 for self-queries");
-        Self { nd, k, base: std::f64::consts::E }
+        Self { nd, k, base: std::f64::consts::E, noise_level }
     }
 
     /// Construct from 1D data (convenience)
-    pub fn new_1d(data: Array1<f64>, k: usize) -> KozachenkoLeonenkoEntropy<1> {
-        let nd = NdDataset::<1>::from_array1(data);
-        assert!(nd.n == 0 || k <= nd.n - 1, "k must be <= N-1 for self-queries");
-        KozachenkoLeonenkoEntropy { nd, k, base: std::f64::consts::E }
+    pub fn new_1d(data: Array1<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<1> {
+        let n = data.len();
+        let a2 = data.into_shape_with_order((n, 1)).expect("reshape 1d->2d");
+        KozachenkoLeonenkoEntropy::new(a2, k, noise_level)
     }
 
     /// Construct from a vector of K-dimensional points (already materialized)
-    pub fn from_points(points: Vec<[f64; K]>, k: usize) -> Self {
+    pub fn from_points(points: Vec<[f64; K]>, k: usize, noise_level: f64) -> Self {
         assert!(k >= 1);
-        let nd = NdDataset::<K>::from_points(points);
-        assert!(nd.n == 0 || k <= nd.n - 1, "k must be <= N-1 for self-queries");
-        Self { nd, k, base: std::f64::consts::E }
+        let n = points.len();
+        let mut data = Array2::zeros((n, K));
+        for i in 0..n {
+            for j in 0..K {
+                data[[i, j]] = points[i][j];
+            }
+        }
+        Self::new(data, k, noise_level)
     }
 
     /// Set logarithm base (default e)

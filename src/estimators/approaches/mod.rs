@@ -17,7 +17,13 @@ pub use discrete::miller_madow::MillerMadowEntropy;
 pub use discrete::nsb::NsbEntropy;
 pub use discrete::shrink::ShrinkEntropy;
 pub use discrete::zhang::ZhangEntropy;
+pub use discrete::mle::DiscreteEntropy;
 
 // Exponential family estimators
 pub use expfam::renyi::RenyiEntropy;
 pub use expfam::tsallis::TsallisEntropy;
+pub use expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
+
+// Kernel and Ordinal
+pub use kernel::KernelEntropy;
+pub use ordinal::ordinal::OrdinalEntropy;

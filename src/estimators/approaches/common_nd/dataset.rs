@@ -1,6 +1,25 @@
 use ndarray::{Array1, Array2, ArrayView2};
 use kiddo::{ImmutableKdTree, SquaredEuclidean, Manhattan};
+use kiddo::traits::DistanceMetric;
 use std::num::NonZeroUsize;
+
+/// Chebyshev distance metric (L-infinity norm) for kiddo.
+pub struct Chebyshev;
+
+impl<const K: usize> DistanceMetric<f64, K> for Chebyshev {
+    fn dist(a: &[f64; K], b: &[f64; K]) -> f64 {
+        let mut max = 0.0;
+        for i in 0..K {
+            let diff = (a[i] - b[i]).abs();
+            if diff > max { max = diff; }
+        }
+        max
+    }
+
+    fn dist1(a: f64, b: f64) -> f64 {
+        (a - b).abs()
+    }
+}
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 pub struct NdDataset<const K: usize> {
@@ -26,6 +45,13 @@ impl<const K: usize> NdDataset<K> {
         let n = data.len();
         let a2 = data.into_shape_with_order((n, 1)).expect("reshape 1d->2d");
         NdDataset::<1>::from_array2(a2)
+    }
+
+    /// Return a view of the dataset as a 2D array (samples x dimensions)
+    pub fn view(&self) -> ArrayView2<'_, f64> {
+        unsafe {
+            ArrayView2::from_shape_ptr((self.n, K), self.points.as_ptr() as *const f64)
+        }
     }
 
     fn to_points(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {

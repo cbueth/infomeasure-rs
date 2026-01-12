@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2, array};
 
 use infomeasure::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
 use validation::python;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 
 fn flat_from_array2(a: &Array2<f64>) -> Vec<f64> {
     let mut v = Vec::with_capacity(a.len());
@@ -46,7 +46,7 @@ fn kl_python_parity_param_grid_nd() {
     // 1D
     for &k in &ks {
         if k > data_1d_2d.nrows() - 1 { continue; }
-        let est = KozachenkoLeonenkoEntropy::<1>::new(data_1d_2d.clone(), k);
+        let est = KozachenkoLeonenkoEntropy::<1>::new(data_1d_2d.clone(), k, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
@@ -61,7 +61,7 @@ fn kl_python_parity_param_grid_nd() {
     // 2D
     for &k in &ks {
         if k > data_2d.nrows() - 1 { continue; }
-        let est = KozachenkoLeonenkoEntropy::<2>::new(data_2d.clone(), k);
+        let est = KozachenkoLeonenkoEntropy::<2>::new(data_2d.clone(), k, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
@@ -76,7 +76,7 @@ fn kl_python_parity_param_grid_nd() {
     // 3D
     for &k in &ks {
         if k > data_3d.nrows() - 1 { continue; }
-        let est = KozachenkoLeonenkoEntropy::<3>::new(data_3d.clone(), k);
+        let est = KozachenkoLeonenkoEntropy::<3>::new(data_3d.clone(), k, 0.0);
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![
