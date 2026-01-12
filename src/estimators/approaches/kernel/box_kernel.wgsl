@@ -39,24 +39,26 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Get the query point
     let query_point = points[idx];
     
-    // Count neighbors within bandwidth/2 (Manhattan distance)
+    // Count neighbors within bandwidth/2 (L-infinity distance)
     var neighbor_count: f32 = 0.0;
+    let r = bandwidth_info.value / 2.0;
+    let r_eps = r + 1e-6; // Using slightly larger epsilon for f32
     
     // Loop through all other points
     for (var i: u32 = 0; i < config.point_count; i = i + 1) {
         // Get the neighbor point
         let neighbor_point = points[i];
         
-        // Calculate Manhattan distance
-        var manhattan_dist: f32 = 0.0;
-        
+        var in_box: bool = true;
         for (var dim: u32 = 0; dim < config.dim_count; dim = dim + 1) {
             let diff = abs(query_point.values[dim] - neighbor_point.values[dim]);
-            manhattan_dist += diff;
+            if (diff > r_eps) {
+                in_box = false;
+                break;
+            }
         }
         
-        // Check if the point is within the hypercube (bandwidth/2)
-        if (manhattan_dist <= bandwidth_info.value / 2.0) {
+        if (in_box) {
             neighbor_count += 1.0;
         }
     }
