@@ -36,8 +36,8 @@
 //!
 //! 2. **Gaussian Kernel**: A smooth kernel based on the normal distribution. Provides smoother
 //!    density estimates but is more computationally intensive. The Gaussian kernel implementation
-//!    scales the bandwidth by the standard deviation of the data in each dimension, matching the
-//!    behavior of scipy.stats.gaussian_kde.
+//!    now uses the full covariance matrix of the data, matching the behavior of scipy.stats.gaussian_kde
+//!    exactly. This accounts for correlations between dimensions.
 //!
 //! ## Bandwidth Selection
 //!
@@ -50,8 +50,8 @@
 //! ## Implementation Details
 //!
 //! This implementation uses a KD-tree for efficient nearest-neighbor queries, making it
-//! suitable for large datasets. The Gaussian kernel implementation includes proper
-//! dimension-dependent normalization and bandwidth scaling by standard deviation to match
+//! Suitable for large datasets. The Gaussian kernel implementation includes full covariance
+//! handling, proper dimension-dependent normalization, and bandwidth scaling to match
 //! the behavior of scipy.stats.gaussian_kde.
 //!
 //! When compiled with the `simd_support` feature flag, this implementation uses SIMD
@@ -72,23 +72,27 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
-use ndarray::{Array1, Array2};
-use kiddo::{ImmutableKdTree, Manhattan, SquaredEuclidean};
+use ndarray::{Array1, Array2, Axis};
+use ndarray_stats::CorrelationExt;
+use ndarray_linalg::{Cholesky, UPLO, Inverse};
+use kiddo::{ImmutableKdTree, SquaredEuclidean};
 #[cfg(feature = "simd_support")]
 use std::simd::{StdFloat, f64x4, f64x8};
 #[cfg(feature = "simd_support")]
 use std::simd::num::SimdFloat;
-use crate::estimators::traits::LocalValues;
+#[cfg(feature = "simd_support")]
+use std::simd::cmp::SimdPartialOrd;
+use crate::estimators::traits::{LocalValues, CrossEntropy, JointEntropy};
 
 /// Input data representation for kernel entropy estimation
 ///
 /// This enum allows the kernel entropy estimator to accept both 1D and 2D data arrays,
 /// providing flexibility in how data is passed to the estimator.
 pub enum KernelData {
-    /// One-dimensional data: Array1<f64> where each element is a data point
+    /// One-dimensional data: `Array1<f64>` where each element is a data point
     OneDimensional(Array1<f64>),
 
-    /// Two-dimensional data: Array2<f64> where rows are data points and columns are dimensions
+    /// Two-dimensional data: `Array2<f64>` where rows are data points and columns are dimensions
     /// First dimension (rows) = samples, second dimension (columns) = features/dimensions
     TwoDimensional(Array2<f64>),
 }
@@ -127,9 +131,9 @@ impl From<Array2<f64>> for KernelData {
 /// - **Box Kernel**: Uses the raw bandwidth value without scaling. The bandwidth directly
 ///   determines the size of the hypercube within which points are counted.
 ///
-/// - **Gaussian Kernel**: Scales the bandwidth by the standard deviation of the data in each
-///   dimension, matching the behavior of scipy.stats.gaussian_kde. This makes the estimator
-///   adaptive to the scale of the data in each dimension.
+/// - **Gaussian Kernel**: Scales the full covariance matrix of the data by the squared bandwidth,
+///   matching the behavior of scipy.stats.gaussian_kde. This makes the estimator
+///   adaptive to the scale and correlation of the data across all dimensions.
 ///
 /// # GPU Acceleration
 ///
@@ -180,6 +184,114 @@ pub struct KernelEntropy<const K: usize> {
     pub tree: ImmutableKdTree<f64, K>,
     /// Standard deviations of the data in each dimension (used for Gaussian kernel scaling)
     pub std_devs: [f64; K],
+    /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2)
+    pub cholesky_factor: Option<Array2<f64>>,
+    /// Precision matrix (inverse of scaled covariance matrix) for GPU or direct Mahalanobis distance
+    pub precision_matrix: Option<Array2<f64>>,
+    /// Largest eigenvalue of the scaled covariance matrix, used for KD-tree search radius
+    pub max_eigenvalue: f64,
+}
+impl<const K: usize> CrossEntropy for KernelEntropy<K> {
+    fn cross_entropy(&self, other: &KernelEntropy<K>) -> f64 {
+        // H(P||Q) = -1/N_p * sum(ln q(x_i))
+        // where q(x_i) is the kernel density estimate of the second distribution (other)
+        // evaluated at the points of the first distribution (self).
+
+        let mut sum_ln_q = 0.0;
+        let n_q = other.n_samples as f64;
+        let bw = other.bandwidth;
+
+        // Pre-calculate normalization for other if it's Gaussian
+        let (normalization_q, adaptive_radius_q) = if other.kernel_type == "gaussian" {
+            let det_scaled_cov_q = if let Some(ref l) = other.cholesky_factor {
+                let diag_prod: f64 = l.diag().iter().product();
+                diag_prod * diag_prod
+            } else {
+                other.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
+            };
+            let norm = (n_q as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov_q.sqrt();
+            let radius = if other.n_samples > 5000 {
+                36.0 * other.max_eigenvalue
+            } else {
+                64.0 * other.max_eigenvalue
+            };
+            (norm, radius)
+        } else {
+            (0.0, 0.0)
+        };
+
+        for query_point in &self.points {
+            let density = if other.kernel_type == "gaussian" {
+                // Gaussian kernel density at query_point using other's covariance
+                let mut local_density = 0.0;
+                
+                let neighbors = other.tree.within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius_q);
+                for neighbor in neighbors {
+                    let neighbor_point = &other.points[neighbor.item as usize];
+                    let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
+                    local_density += (-0.5 * dist_sq).exp();
+                }
+
+                local_density / normalization_q
+            } else {
+                // Box kernel density at query_point
+                let r = bw / 2.0;
+                let r_eps = r + 1e-15;
+                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
+                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+
+                let candidates = other.tree.within_unsorted::<SquaredEuclidean>(
+                    query_point,
+                    circumscribed_radius_sq
+                );
+
+                let mut count = 0usize;
+                for candidate in candidates {
+                    let p = &other.points[candidate.item as usize];
+                    if other.is_in_box(query_point, p, r_eps) {
+                        count += 1;
+                    }
+                }
+                let vol = bw.powi(K as i32);
+                (count as f64) / (n_q * vol)
+            };
+
+            if density > 0.0 {
+                sum_ln_q += density.ln();
+            } else {
+                // Parity with Python: points with zero density contribute 0.0 to the sum of logs.
+                // This is effectively ignoring them in the average calculation.
+                sum_ln_q += 0.0; 
+            }
+        }
+
+        -sum_ln_q / (self.n_samples as f64)
+    }
+}
+
+impl<const K: usize> JointEntropy for KernelEntropy<K> {
+    type Source = Array1<f64>;
+    type Params = (String, f64); // kernel_type, bandwidth
+
+    fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
+        assert_eq!(series.len(), K, "Number of series must match dimensionality K");
+        if series.is_empty() { return 0.0; }
+        
+        let n_samples = series[0].len();
+        for s in series {
+            assert_eq!(s.len(), n_samples, "All series must have the same length");
+        }
+
+        let mut data = Array2::zeros((n_samples, K));
+        for (j, s) in series.iter().enumerate() {
+            for i in 0..n_samples {
+                data[[i, j]] = s[i];
+            }
+        }
+
+        let estimator = KernelEntropy::<K>::new_with_kernel_type(data, params.0, params.1);
+        estimator.global_value()
+    }
 }
 impl<const K: usize> KernelEntropy<K> {
     /// Creates a new KernelEntropy estimator with the default "box" kernel
@@ -268,14 +380,13 @@ impl<const K: usize> KernelEntropy<K> {
         let n_samples = points.len();
         let tree = ImmutableKdTree::new_from_slice(&points);
 
-        // Calculate standard deviations for each dimension
+        // Calculate standard deviations and covariance for kernels
         let mut std_devs = [0.0; K];
+        let mut cholesky_factor = None;
+        let mut precision_matrix = None;
+
+        // Calculate standard deviations (always done as it's cheap and used by Box kernel too)
         for dim in 0..K {
-            // // Calculate mean for this dimension
-            // let mean = points.iter().map(|p| p[dim]).sum::<f64>() / n_samples as f64;
-            // // Calculate variance for this dimension
-            // let variance = points.iter().map(|p| (p[dim] - mean).powi(2)).sum::<f64>() / n_samples as f64;
-            // Single-pass Welford's algorithm
             let mut mean = 0.0;
             let mut m2 = 0.0;
             let mut count = 0.0;
@@ -286,11 +397,57 @@ impl<const K: usize> KernelEntropy<K> {
                 let delta2 = point[dim] - mean;
                 m2 += delta * delta2;
             }
-            let variance = if count < 2.0 { 0.0 } else { m2 / count };
+            let variance = if count < 2.0 { 0.0 } else { m2 / (count - 1.0) };
             std_devs[dim] = variance.sqrt();
         }
 
-        Self { points, n_samples, kernel_type, bandwidth, tree, std_devs }
+        // Max eigenvalue for search radius (ensures KD-tree captures all neighbors in the ellipsoid)
+        let max_eigenvalue = if kernel_type == "gaussian" {
+            // Convert points to Array2 for full covariance calculation
+            // Shape: (K, n_samples) where K is number of variables
+            let mut data_for_cov = Array2::<f64>::zeros((K, n_samples));
+            for (i, point) in points.iter().enumerate() {
+                for dim in 0..K {
+                    data_for_cov[[dim, i]] = point[dim];
+                }
+            }
+
+            // Calculate covariance matrix
+            let cov = data_for_cov.view().cov(1.0).expect("Failed to calculate covariance matrix");
+            
+            // Scale covariance matrix by bandwidth squared
+            let scaled_cov = cov * (bandwidth * bandwidth);
+
+            // Cholesky decomposition (Lower triangular L)
+            // L * L^T = Σ_scaled
+            let l = scaled_cov.cholesky(UPLO::Lower)
+                .expect("Covariance matrix must be positive definite. Check for redundant dimensions or duplicate data.");
+            cholesky_factor = Some(l);
+
+            // Precision matrix (inverse of scaled covariance) for GPU
+            let inv = scaled_cov.inv().expect("Failed to invert covariance matrix");
+            precision_matrix = Some(inv);
+
+            use ndarray_linalg::EigValsh;
+            let eigenvalues = scaled_cov.eigvalsh(UPLO::Lower).expect("Failed to calculate eigenvalues");
+            eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+        } else {
+            // For Box kernel, use the max standard deviation to maintain consistency with previous scaling behavior
+            let max_std = std_devs.iter().cloned().fold(0.0f64, f64::max);
+            (max_std * bandwidth).powi(2)
+        };
+
+        Self { 
+            points, 
+            n_samples, 
+            kernel_type, 
+            bandwidth, 
+            tree, 
+            std_devs,
+            cholesky_factor,
+            precision_matrix,
+            max_eigenvalue
+        }
     }
 
     /// Convenience constructor for 1D data
@@ -313,6 +470,105 @@ impl<const K: usize> KernelEntropy<K> {
     /// * `bandwidth` - Bandwidth parameter
     pub fn new_2d(data: Array2<f64>, kernel_type: String, bandwidth: f64) -> Self {
         Self::new_with_kernel_type(KernelData::TwoDimensional(data), kernel_type, bandwidth)
+    }
+
+    /// Helper to check if a point is within the hypercube (L-infinity distance)
+    #[inline(always)]
+    pub fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
+        #[cfg(feature = "simd_support")]
+        {
+            let mut dim = 0;
+            if K >= 8 {
+                let r_eps_vec8 = f64x8::splat(r_eps);
+                while dim + 8 <= K {
+                    let q_vec = f64x8::from_array([
+                        query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3],
+                        query_point[dim+4], query_point[dim+5], query_point[dim+6], query_point[dim+7]
+                    ]);
+                    let p_vec = f64x8::from_array([
+                        p[dim], p[dim+1], p[dim+2], p[dim+3],
+                        p[dim+4], p[dim+5], p[dim+6], p[dim+7]
+                    ]);
+                    let diff = (q_vec - p_vec).abs();
+                    if !diff.simd_le(r_eps_vec8).all() {
+                        return false;
+                    }
+                    dim += 8;
+                }
+            }
+            if K >= 4 {
+                let r_eps_vec4 = f64x4::splat(r_eps);
+                while dim + 4 <= K {
+                    let q_vec = f64x4::from_array([
+                        query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3]
+                    ]);
+                    let p_vec = f64x4::from_array([
+                        p[dim], p[dim+1], p[dim+2], p[dim+3]
+                    ]);
+                    let diff = (q_vec - p_vec).abs();
+                    if !diff.simd_le(r_eps_vec4).all() {
+                        return false;
+                    }
+                    dim += 4;
+                }
+            }
+            while dim < K {
+                if (query_point[dim] - p[dim]).abs() > r_eps {
+                    return false;
+                }
+                dim += 1;
+            }
+            true
+        }
+        #[cfg(not(feature = "simd_support"))]
+        {
+            for dim in 0..K {
+                if (query_point[dim] - p[dim]).abs() > r_eps {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+
+    /// Calculates the squared Mahalanobis distance between two points
+    /// 
+    /// If full covariance is available (for Gaussian kernel), it computes:
+    /// d_M^2 = (p1 - p2)^T Σ_scaled^-1 (p1 - p2) = ||L^-1 (p1 - p2)||^2
+    /// where L is the lower triangular Cholesky factor.
+    /// 
+    /// If only diagonal covariance is available, it falls back to scaled Euclidean distance.
+    pub fn calculate_mahalanobis_distance(&self, p1: &[f64; K], p2: &[f64; K]) -> f64 {
+        if let Some(ref l) = self.cholesky_factor {
+            // Solve L z = (p1 - p2) using forward substitution
+            let mut diff = [0.0; K];
+            for dim in 0..K {
+                diff[dim] = p1[dim] - p2[dim];
+            }
+
+            let mut z = [0.0; K];
+            for i in 0..K {
+                let mut sum = 0.0;
+                for j in 0..i {
+                    sum += l[[i, j]] * z[j];
+                }
+                z[i] = (diff[i] - sum) / l[[i, i]];
+            }
+
+            // dist_sq = ||z||^2
+            z.iter().map(|&val| val * val).sum()
+        } else {
+            // Fallback to diagonal scaled Euclidean distance
+            let mut sum = 0.0;
+            for dim in 0..K {
+                let scale = self.bandwidth * self.std_devs[dim];
+                if scale > 0.0 {
+                    let diff = (p1[dim] - p2[dim]) / scale;
+                    sum += diff * diff;
+                }
+            }
+            sum
+        }
     }
 
     /// Computes local entropy values using a box (uniform) kernel
@@ -360,18 +616,31 @@ impl<const K: usize> KernelEntropy<K> {
                 // Create arrays to store neighbor counts for each point in the batch
                 let mut neighbor_counts = [0.0f64; 4];
 
+                let r = self.bandwidth / 2.0;
+                let r_eps = r + 1e-15;
+                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
+                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+
                 // Process each point in the batch
                 for i in 0..batch_size {
                     let idx = start_idx + i;
                     let query_point = &self.points[idx];
 
                     // Find neighbors (this part remains scalar as it depends on the KD-tree)
-                    let neighbors = self.tree.within_unsorted::<Manhattan>(
+                    let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
                         query_point,
-                        self.bandwidth / 2.0f64
+                        circumscribed_radius_sq
                     );
 
-                    neighbor_counts[i] = neighbors.len() as f64;
+                    let mut count = 0usize;
+                    for candidate in candidates {
+                        let p = &self.points[candidate.item as usize];
+                        if self.is_in_box(query_point, p, r_eps) {
+                            count += 1;
+                        }
+                    }
+
+                    neighbor_counts[i] = count as f64;
                 }
 
                 // Use SIMD for the normalization and log transform
@@ -411,33 +680,59 @@ impl<const K: usize> KernelEntropy<K> {
                 // local_values.mapv_inplace(|x| -(x / n_volume).ln());
                 //
                 // local_values
+                let r = self.bandwidth / 2.0;
+                let r_eps = r + 1e-15;
+                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
+                // within_unsorted uses squared distance for SquaredEuclidean.
+                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+
                 for i in 0..batch_size {
                     let idx = start_idx + i;
                     let query_point = &self.points[idx];
 
-                    let neighbors = self.tree.within_unsorted::<Manhattan>(
+                    let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
                         query_point,
-                        self.bandwidth / 2.0f64
+                        circumscribed_radius_sq
                     );
 
-                    local_values[idx] = neighbors.len() as f64;
+                    let mut count = 0usize;
+                    for candidate in candidates {
+                        let p = &self.points[candidate.item as usize];
+                        if self.is_in_box(query_point, p, r_eps) {
+                            count += 1;
+                        }
+                    }
+                    local_values[idx] = count as f64;
                 }
             }
         }
 
         // Process remaining points
+        let r = self.bandwidth / 2.0;
+        let r_eps = r + 1e-15;
+        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+
         for i in (num_batches * batch_size)..self.n_samples {
             let query_point = &self.points[i];
-            let neighbors = self.tree.within_unsorted::<Manhattan>(
+            
+            let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
                 query_point,
-                self.bandwidth / 2.0f64
+                circumscribed_radius_sq
             );
-            local_values[i] = neighbors.len() as f64;
+
+            let mut count = 0usize;
+            for candidate in candidates {
+                let p = &self.points[candidate.item as usize];
+                if self.is_in_box(query_point, p, r_eps) {
+                    count += 1;
+                }
+            }
+            local_values[i] = count as f64;
         }
 
         // Apply normalization and log transform to remaining points
         #[cfg(not(feature = "simd_support"))]
-        local_values.mapv_inplace(|x| -(x / n_volume).ln());
+        local_values.mapv_inplace(|x| if x > 0.0 { -(x / n_volume).ln() } else { 0.0 });
 
         local_values
     }
@@ -472,82 +767,75 @@ impl<const K: usize> KernelEntropy<K> {
     ///
     /// Points beyond this distance have a negligible contribution to the density estimate.
     ///
-    /// # Bandwidth Scaling
+    /// # Bandwidth Scaling and Covariance
     ///
-    /// Unlike the box kernel, the Gaussian kernel scales the bandwidth by the standard
-    /// deviation of the data in each dimension. This makes the estimator adaptive to the
-    /// scale of the data in each dimension, matching the behavior of scipy.stats.gaussian_kde.
+    /// Unlike the box kernel, the Gaussian kernel uses the full covariance matrix
+    /// of the data, scaled by the squared bandwidth. This makes the estimator adaptive to 
+    /// both the scale and the correlation of the data in each dimension, matching the 
+    /// behavior of scipy.stats.gaussian_kde exactly.
     ///
-    /// The scaling is applied in two places:
-    /// 1. When calculating the search radius for finding neighbors
-    /// 2. When calculating the scaled distance for the Gaussian kernel
+    /// The scaling is applied in three places:
+    /// 1. When calculating the search radius for finding neighbors (using the largest eigenvalue)
+    /// 2. When calculating the Mahalanobis distance for the Gaussian kernel
+    /// 3. When calculating the normalization factor (using the determinant of the covariance matrix)
     ///
-    /// # Dimension-Dependent Normalization
+    /// # Normalization
     ///
-    /// The Gaussian kernel entropy includes a dimension-dependent normalization factor:
-    /// (d/2) * ln(2π), where d is the dimensionality of the data. This ensures that
-    /// the entropy estimate is consistent with the theoretical definition of differential
-    /// entropy for a multivariate Gaussian distribution.
+    /// The Gaussian kernel entropy includes a proper normalization factor based on the 
+    /// determinant of the scaled covariance matrix: (2π)^(d/2) * sqrt(det(Σ_scaled)). 
+    /// This ensures that the entropy estimate is consistent with the theoretical 
+    /// definition of differential entropy for a multivariate Gaussian distribution.
     pub fn gaussian_kernel_local_values(&self) -> Array1<f64> {
         let n = self.points.len();
 
-        // Pre-compute scale factors once for all query points
-        // This is an optimization to avoid recomputing these for each query point
-        let scale_factors: Vec<f64> = (0..K).map(|dim| self.bandwidth * self.std_devs[dim]).collect();
-
-        // Calculate the product of scale factors for normalization
-        // This is equivalent to the determinant of the covariance matrix in scipy.stats.gaussian_kde
-        // where the covariance is a diagonal matrix with (bandwidth * std_dev)^2 on the diagonal
-        let scaled_bandwidth_product = scale_factors.iter().fold(1.0, |product, &factor| product * factor);
-
-        // Normalization factor: N * (h*σ)^d
-        // This is the denominator in the KDE formula: f̂(x) = (1/Nh^d) ∑ K((x - x_i)/h)
-        // where we've scaled h by σ in each dimension
-        let normalization = (n as f64) * scaled_bandwidth_product;
-
-        // Calculate max scaled bandwidth for search radius
-        // We need to use the largest scaled bandwidth to ensure we don't miss any points
-        // that might have a significant contribution to the density estimate
-        let max_scaled_bandwidth = scale_factors.iter().fold(0.0f64, |max_val, &val| max_val.max(val));
-
-        // Determine adaptive radius based on data density
-        let adaptive_radius = if self.n_samples > 5000 {
-            9.0 * max_scaled_bandwidth.powi(2) // 3σ | (3*h)^2 for large datasets
+        // Calculate normalization factor: N * sqrt(det(2πΣ_scaled))
+        // det(2πΣ_scaled) = (2π)^K * det(Σ_scaled)
+        // det(Σ_scaled) = det(L * L^T) = det(L)^2
+        // Since L is lower triangular, det(L) is the product of its diagonal elements.
+        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
+            let diag_prod: f64 = l.diag().iter().product();
+            diag_prod * diag_prod
         } else {
-            16.0 * max_scaled_bandwidth.powi(2) // 4σ | (4*h)^2 for smaller datasets
+            // Fallback to diagonal covariance if cholesky_factor is None
+            self.std_devs.iter().map(|&s| (self.bandwidth * s).powi(2)).product()
+        };
+
+        // Normalization: N * (2π)^(K/2) * sqrt(det(Σ_scaled))
+        let normalization = (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+
+        // Determine adaptive radius based on data density using max_eigenvalue
+        // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
+        let adaptive_radius = if self.n_samples > 5000 {
+            36.0 * self.max_eigenvalue // 6σ
+        } else {
+            64.0 * self.max_eigenvalue // 8σ
         };
 
         let mut local_values = Array1::<f64>::zeros(n);
 
         // For each point, calculate its contribution to the density estimate
         for (i, query_point) in self.points.iter().enumerate() {
-            // Get all points within reasonable distance
-            // The squared distance cutoff is (4*max_scaled_bandwidth)^2 = 16*max_scaled_bandwidth^2
-            // Points beyond this distance have negligible contribution to the density estimate
+            // Get all points within reasonable distance using SquaredEuclidean as a bounding sphere
             let neighbors = self.tree.within_unsorted::<SquaredEuclidean>(
                 query_point,
                 adaptive_radius
             );
 
-            // Calculate Gaussian kernel contribution from each neighbor
-            // K((x - x_i)/h) = exp(-(||x - x_i||/h)²/2)
-            // where we scale the distance by the bandwidth and standard deviation in each dimension
+            // Calculate Gaussian kernel contribution from each neighbor using Mahalanobis distance
             let density: f64 = neighbors.iter().map(|&neighbor| {
                 let (_dist, idx) = neighbor.into();
-
-                // Use the optimized SIMD calculation with pre-computed scale factors
-                let scaled_dist = self.calculate_scaled_distance_with_factors(
+                
+                // Calculate squared Mahalanobis distance
+                let dist_sq = self.calculate_mahalanobis_distance(
                     query_point, 
-                    &self.points[idx as usize], 
-                    &scale_factors
+                    &self.points[idx as usize]
                 );
 
-                // Gaussian kernel function: exp(-scaled_dist/2)
-                // Use fast approximation for exponential function
+                // Gaussian kernel function: exp(-dist_sq/2)
                 #[cfg(feature = "fast_exp")]
-                { self.fast_exp(-scaled_dist / 2.0) }
+                { self.fast_exp(-dist_sq / 2.0) }
                 #[cfg(not(feature = "fast_exp"))]
-                { (-scaled_dist / 2.0).exp() }
+                { (-dist_sq / 2.0).exp() }
             }).sum::<f64>();
 
             // Normalize the density estimate by the normalization factor
@@ -555,97 +843,11 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Apply log transform for entropy calculation: H = -E[log(f(x))]
-        // Handle the case where density is zero (should not happen in practice)
         local_values.mapv_inplace(|x| if x > 0.0 { -x.ln() } else { 0.0 });
 
-        // Apply dimension-dependent normalization factor
-        // For a Gaussian kernel in d dimensions, we need to add ln((2π)^(d/2))
-        // which equals (d/2) * ln(2π)
-        // This ensures consistency with the theoretical differential entropy formula
-        let dim_factor = (K as f64 / 2.0) * (2.0 * std::f64::consts::PI).ln();
-        local_values.mapv_inplace(|x| x + dim_factor);
         local_values
     }
 
-
-    /// Optimized scaled distance calculation using pre-computed scale factors
-    fn calculate_scaled_distance_with_factors(&self, query_point: &[f64; K], neighbor_point: &[f64; K], scale_factors: &[f64]) -> f64 {
-        match K {
-            // Optimized SIMD paths for common dimensions
-            1 => {
-                let diff = query_point[0] - neighbor_point[0];
-                (diff / scale_factors[0]).powi(2)
-            },
-            2 => {
-                let diff0 = query_point[0] - neighbor_point[0];
-                let diff1 = query_point[1] - neighbor_point[1];
-                let scaled0 = diff0 / scale_factors[0];
-                let scaled1 = diff1 / scale_factors[1];
-                scaled0 * scaled0 + scaled1 * scaled1
-            },
-            3 => {
-                let diff0 = query_point[0] - neighbor_point[0];
-                let diff1 = query_point[1] - neighbor_point[1];
-                let diff2 = query_point[2] - neighbor_point[2];
-                let scaled0 = diff0 / scale_factors[0];
-                let scaled1 = diff1 / scale_factors[1];
-                let scaled2 = diff2 / scale_factors[2];
-                scaled0 * scaled0 + scaled1 * scaled1 + scaled2 * scaled2
-            },
-            #[cfg(feature = "simd_support")]
-            4 => {
-                // SIMD implementation for K=4
-                let query_vec = f64x4::from_array([
-                    query_point[0], query_point[1], query_point[2], query_point[3]
-                ]);
-                let point_vec = f64x4::from_array([
-                    neighbor_point[0], neighbor_point[1], neighbor_point[2], neighbor_point[3]
-                ]);
-                let scale_vec = f64x4::from_array([
-                    scale_factors[0], scale_factors[1], scale_factors[2], scale_factors[3]
-                ]);
-
-                let diff_vec = query_vec - point_vec;
-                let scaled_vec = diff_vec / scale_vec;
-                let squared_vec = scaled_vec * scaled_vec;
-                squared_vec.reduce_sum()
-            },
-            #[cfg(feature = "simd_support")]
-            8 => {
-                // SIMD implementation for K=8
-                let query_vec = f64x8::from_array([
-                    query_point[0], query_point[1], query_point[2], query_point[3],
-                    query_point[4], query_point[5], query_point[6], query_point[7]
-                ]);
-                let point_vec = f64x8::from_array([
-                    neighbor_point[0], neighbor_point[1], neighbor_point[2], neighbor_point[3],
-                    neighbor_point[4], neighbor_point[5], neighbor_point[6], neighbor_point[7]
-                ]);
-                let scale_vec = f64x8::from_array([
-                    scale_factors[0], scale_factors[1], scale_factors[2], scale_factors[3],
-                    scale_factors[4], scale_factors[5], scale_factors[6], scale_factors[7]
-                ]);
-
-                let diff_vec = query_vec - point_vec;
-                let scaled_vec = diff_vec / scale_vec;
-                let squared_vec = scaled_vec * scaled_vec;
-                squared_vec.reduce_sum()
-            },
-            _ => {
-                // Generic SIMD implementation for larger dimensions
-                #[cfg(feature = "simd_support")]
-                { self.calculate_scaled_distance_generic(query_point, neighbor_point, scale_factors) }
-                #[cfg(not(feature = "simd_support"))]
-                {
-                    // Fallback scalar implementation
-                    (0..K).map(|dim| {
-                        let diff = query_point[dim] - neighbor_point[dim];
-                        (diff / scale_factors[dim]).powi(2)
-                    }).sum::<f64>()
-                }
-            }
-        }
-    }
 
     /// Fast approximation of the exponential function
     /// 
@@ -696,68 +898,6 @@ impl<const K: usize> KernelEntropy<K> {
         // exp(x) ≈ 1 / (1 - x + x²/2 - x³/6 + x⁴/24 - x⁵/120 + x⁶/720)
         1.0 / (1.0 - x + x*x/2.0 - x*x*x/6.0 + x*x*x*x/24.0 - x*x*x*x*x/120.0 + x*x*x*x*x*x/720.0)
     }
-
-    /// Generic SIMD implementation that processes dimensions in chunks
-    #[cfg(feature = "simd_support")]
-    fn calculate_scaled_distance_generic(&self, query_point: &[f64; K], neighbor_point: &[f64; K], scale_factors: &[f64]) -> f64 {
-        let mut sum = 0.0;
-        let mut dim = 0;
-
-        // Process 8 dimensions at a time with f64x8
-        while dim + 8 <= K {
-            let query_vec = f64x8::from_array([
-                query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3],
-                query_point[dim+4], query_point[dim+5], query_point[dim+6], query_point[dim+7]
-            ]);
-            let point_vec = f64x8::from_array([
-                neighbor_point[dim], neighbor_point[dim+1], neighbor_point[dim+2], neighbor_point[dim+3],
-                neighbor_point[dim+4], neighbor_point[dim+5], neighbor_point[dim+6], neighbor_point[dim+7]
-            ]);
-            let scale_vec = f64x8::from_array([
-                scale_factors[dim], scale_factors[dim+1], scale_factors[dim+2], scale_factors[dim+3],
-                scale_factors[dim+4], scale_factors[dim+5], scale_factors[dim+6], scale_factors[dim+7]
-            ]);
-
-            let diff_vec = query_vec - point_vec;
-            let scaled_vec = diff_vec / scale_vec;
-            let squared_vec = scaled_vec * scaled_vec;
-            sum += squared_vec.reduce_sum();
-
-            dim += 8;
-        }
-
-        // Process 4 dimensions at a time with f64x4
-        while dim + 4 <= K {
-            let query_vec = f64x4::from_array([
-                query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3]
-            ]);
-            let point_vec = f64x4::from_array([
-                neighbor_point[dim], neighbor_point[dim+1], neighbor_point[dim+2], neighbor_point[dim+3]
-            ]);
-            let scale_vec = f64x4::from_array([
-                scale_factors[dim], scale_factors[dim+1], scale_factors[dim+2], scale_factors[dim+3]
-            ]);
-
-            let diff_vec = query_vec - point_vec;
-            let scaled_vec = diff_vec / scale_vec;
-            let squared_vec = scaled_vec * scaled_vec;
-            sum += squared_vec.reduce_sum()
-            ;
-
-            dim += 4;
-        }
-
-        // Process remaining dimensions scalar
-        while dim < K {
-            let diff = query_point[dim] - neighbor_point[dim];
-            let scaled = diff / scale_factors[dim];
-            sum += scaled * scaled;
-            dim += 1;
-        }
-
-        sum
-    }
-
 
 }
 

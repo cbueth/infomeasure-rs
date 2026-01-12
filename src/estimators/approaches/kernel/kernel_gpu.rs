@@ -16,11 +16,11 @@ struct GpuPoint {
     _padding: [f32; 0], // No padding needed
 }
 
-// Define a struct for the scale factors that can be sent to the GPU (for Gaussian kernel)
+// Define a struct for the precision matrix that can be sent to the GPU (for Gaussian kernel)
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-struct GpuScaleFactors {
-    values: [f32; 32], // Support up to 32 dimensions
+struct GpuPrecisionMatrix {
+    values: [f32; 1024], // Support up to 32x32 dimensions
     dim_count: u32,    // Actual number of dimensions
     _padding: [u32; 3], // Padding to ensure 16-byte alignment
 }
@@ -171,34 +171,29 @@ impl<const K: usize> KernelEntropy<K> {
     /// - `Ok(Array1<f64>)`: Array of local entropy values if the GPU calculation succeeds
     /// - `Err(Box<dyn std::error::Error>)`: Error if any step of the GPU calculation fails
     fn run_gaussian_gpu_calculation(&self) -> Result<Array1<f64>, Box<dyn std::error::Error>> {
-        // Pre-compute scale factors once for all query points
-        let scale_factors: Vec<f64> = (0..K).map(|dim| self.bandwidth * self.std_devs[dim]).collect();
+        let n = self.points.len();
 
-        // Calculate the product of scale factors for normalization
-        let scaled_bandwidth_product = scale_factors.iter().fold(1.0, |product, &factor| product * factor);
-
-        // Normalization factor: N * (h*σ)^d
-        let normalization = (self.points.len() as f64) * scaled_bandwidth_product;
-
-        // Calculate max scaled bandwidth for search radius
-        let max_scaled_bandwidth = scale_factors.iter().fold(0.0f64, |max_val, &val| max_val.max(val));
-
-        // Determine adaptive radius based on data density and bandwidth
-        // For small bandwidths, we need a larger radius to ensure enough neighbors are included
-        let adaptive_radius = if self.bandwidth < 0.5 {
-            // For small bandwidths, use a larger radius to ensure enough neighbors
-            if self.n_samples > 5000 {
-                16.0 * max_scaled_bandwidth.powi(2) // 4σ | (4*h)^2 for large datasets with small bandwidth
-            } else {
-                25.0 * max_scaled_bandwidth.powi(2) // 5σ | (5*h)^2 for smaller datasets with small bandwidth
-            }
+        // Calculate normalization factor: N * sqrt(det(2πΣ_scaled))
+        // det(2πΣ_scaled) = (2π)^K * det(Σ_scaled)
+        // det(Σ_scaled) = det(L * L^T) = det(L)^2
+        // Since L is lower triangular, det(L) is the product of its diagonal elements.
+        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
+            let diag_prod: f64 = l.diag().iter().product();
+            diag_prod * diag_prod
         } else {
-            // For normal bandwidths, use the standard radius
-            if self.n_samples > 5000 {
-                9.0 * max_scaled_bandwidth.powi(2) // 3σ | (3*h)^2 for large datasets
-            } else {
-                16.0 * max_scaled_bandwidth.powi(2) // 4σ | (4*h)^2 for smaller datasets
-            }
+            // Fallback to diagonal covariance if cholesky_factor is None
+            self.std_devs.iter().map(|&s| (self.bandwidth * s).powi(2)).product()
+        };
+
+        // Normalization: N * (2π)^(K/2) * sqrt(det(Σ_scaled))
+        let normalization = (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+
+        // Determine adaptive radius based on data density and max_eigenvalue
+        // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
+        let adaptive_radius = if self.n_samples > 5000 {
+            36.0 * self.max_eigenvalue // 6σ
+        } else {
+            64.0 * self.max_eigenvalue // 8σ
         };
 
         // Initialize wgpu
@@ -241,19 +236,29 @@ impl<const K: usize> KernelEntropy<K> {
             gpu_points.push(gpu_point);
         }
 
-        // Prepare scale factors for GPU
-        let mut gpu_scale_factors = GpuScaleFactors {
-            values: [0.0; 32],
+        // Prepare precision matrix for GPU
+        let mut gpu_precision_matrix = GpuPrecisionMatrix {
+            values: [0.0; 1024],
             dim_count: K as u32,
             _padding: [0; 3],
         };
 
-        // Copy scale factors to GPU scale factors
-        for (i, &factor) in scale_factors.iter().enumerate() {
-            gpu_scale_factors.values[i] = factor as f32;
+        if let Some(ref prec) = self.precision_matrix {
+            for r in 0..K {
+                for c in 0..K {
+                    // Store in row-major order with 32 columns for easy GPU indexing
+                    gpu_precision_matrix.values[r * 32 + c] = prec[[r, c]] as f32;
+                }
+            }
+        } else {
+            // Fallback to diagonal precision
+            for i in 0..K {
+                let scale = self.bandwidth * self.std_devs[i];
+                if scale > 0.0 {
+                    gpu_precision_matrix.values[i * 32 + i] = (1.0 / (scale * scale)) as f32;
+                }
+            }
         }
-
-
         
         let gpu_config = GpuConfig {
             point_count: self.points.len() as u32,
@@ -269,9 +274,9 @@ impl<const K: usize> KernelEntropy<K> {
             usage: wgpu::BufferUsages::STORAGE,
         });
 
-        let scale_factors_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Scale Factors Buffer"),
-            contents: bytemuck::bytes_of(&gpu_scale_factors),
+        let precision_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Precision Matrix Buffer"),
+            contents: bytemuck::bytes_of(&gpu_precision_matrix),
             usage: wgpu::BufferUsages::STORAGE,
         });
 
@@ -376,7 +381,7 @@ impl<const K: usize> KernelEntropy<K> {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: scale_factors_buffer.as_entire_binding(),
+                    resource: precision_matrix_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -444,10 +449,6 @@ impl<const K: usize> KernelEntropy<K> {
             for (i, &val) in result.iter().enumerate() {
                 local_values[i] = val as f64;
             }
-
-            // Apply dimension-dependent normalization factor
-            let dim_factor = (K as f64 / 2.0) * (2.0 * std::f64::consts::PI).ln();
-            local_values.mapv_inplace(|x| x + dim_factor);
 
             Ok(local_values)
         } else {
