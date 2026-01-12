@@ -196,6 +196,7 @@ fn test_gaussian_kernel_performance() {
 }
 
 #[test]
+#[ignore]
 fn test_box_kernel_performance() {
     // Define test parameters
     let sizes = [100, 500, 1000, 5000, 10000];

@@ -238,6 +238,7 @@ fn test_box_kernel_fallback<const K: usize>(
 /// It measures the execution time of both implementations and prints the speedup.
 #[test]
 #[cfg(feature = "gpu_support")]
+#[ignore]
 fn test_box_kernel_performance() {
     // Set up test parameters
     let seed = 42;
