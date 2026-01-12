@@ -1,12 +1,20 @@
 use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{LocalValues, OptionalLocalValues, JointEntropy};
 
 /// Zhang entropy estimator for discrete data (Lozano 2017 fast formulation).
 ///
 /// Implements an efficient series expansion that corrects the MLE bias by summing
 /// a per-count term t2(n_i) over the support; supports local values which map each
 /// sample to its symbol's contribution.
+///
+/// Cross-entropy is not implemented for Zhang estimator due to
+/// theoretical inconsistencies in applying bias corrections from
+/// different distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
 pub struct ZhangEntropy {
     dataset: DiscreteDataset,
 }
@@ -57,6 +65,18 @@ impl LocalValues for ZhangEntropy {
     }
 
     // global_value uses default mean(local_values)
+}
+
+impl JointEntropy for ZhangEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = ZhangEntropy::new(joint_codes);
+        disc.global_value()
+    }
 }
 
 impl OptionalLocalValues for ZhangEntropy {

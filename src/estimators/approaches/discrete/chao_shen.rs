@@ -1,13 +1,24 @@
 use ndarray::{Array1, Array2};
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
 
 /// Chao–Shen coverage-adjusted entropy estimator for discrete data (natural log base).
 ///
 /// Adjusts empirical probabilities by sample coverage C = 1 - f1/N and compensates for
 /// unseen mass via the leave-one-out estimator λ = 1 - (1 - C p)^N in the denominator.
 /// Recommended for undersampled data with many singletons; global-only.
+///
+/// Cross-entropy is not implemented for Chao Shen estimator.
+/// The Chao Shen correction creates theoretical inconsistencies when applied to cross-entropy
+/// due to fundamental issues with mixing bias corrections from different distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
+///
+/// Local values are not supported for the Chao Shen estimator.
+/// The Chao Shen correction is only defined for the global entropy.
 pub struct ChaoShenEntropy {
     dataset: DiscreteDataset,
 }
@@ -56,6 +67,18 @@ impl GlobalValue for ChaoShenEntropy {
 impl OptionalLocalValues for ChaoShenEntropy {
     fn supports_local(&self) -> bool { false }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Chao-Shen estimator")
+        Err("Local values are not supported for Chao-Shen estimator as it's only defined for global entropy.")
+    }
+}
+
+impl JointEntropy for ChaoShenEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = ChaoShenEntropy::new(joint_codes);
+        disc.global_value()
     }
 }

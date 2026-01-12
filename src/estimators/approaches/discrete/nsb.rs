@@ -1,15 +1,26 @@
 use ndarray::{Array1, Array2};
 use std::f64::{INFINITY, NAN};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
 use statrs::function::gamma::{digamma, ln_gamma};
-// Try to use trigamma from statrs if available; otherwise we could add another crate.
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
 ///
 /// A Bayesian estimator that averages over Dirichlet priors via a 1/K mixture, leading to
 /// numerically integrating expectations over β ∈ (0, ln K). This implementation uses adaptive
 /// Simpson integration and safeguards near β=0. Optionally override K when known. Global-only.
+///
+/// Cross-entropy is not implemented for NSB estimator.
+/// The NSB estimator is designed for single distribution entropy estimation
+/// and cross-entropy creates a theoretical inconsistency.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
+///
+/// Local values are not supported for the NSB estimator.
+/// The NSB estimator is based on Bayesian integration over the entire
+/// distribution and local values cannot be meaningfully extracted.
 pub struct NsbEntropy {
     dataset: DiscreteDataset,
     k_override: Option<usize>,
@@ -103,7 +114,14 @@ impl GlobalValue for NsbEntropy {
         let k = self.k_override.unwrap_or(k_obs);
         if n == 0 || k == 0 { return NAN; }
         let counts = self.counts_vec();
-        let coincidences = n.saturating_sub(k);
+        let coincidences = (n as i64) - (k as i64);
+        // If coincidences <= 0, NSB is still defined as long as k > 0 and n > 0.
+        // However, Python returns NaN for coincidences == 0 in some cases, but not others.
+        // Actually, looking at Python NSB tests: 
+        // test_nsb_k_parameter_no_coincidences_with_k:
+        // result_k10 (K=10, N=5) -> works
+        // result_k5 (K=5, N=5) -> NaN
+        // result_k3 (K=3, N=5) -> works
         if coincidences == 0 { return NAN; }
 
         // Integration bounds (mirror Python code): 0 .. ln K
@@ -131,7 +149,19 @@ impl GlobalValue for NsbEntropy {
 impl OptionalLocalValues for NsbEntropy {
     fn supports_local(&self) -> bool { false }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for NSB estimator")
+        Err("Local values are not supported for NSB estimator as it averages over Dirichlet priors.")
+    }
+}
+
+impl JointEntropy for NsbEntropy {
+    type Source = Array1<i32>;
+    type Params = Option<usize>; // k_override
+
+    fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = NsbEntropy::new(joint_codes, params);
+        disc.global_value()
     }
 }
 

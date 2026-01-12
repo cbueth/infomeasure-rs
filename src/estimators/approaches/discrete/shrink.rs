@@ -1,13 +1,23 @@
 use ndarray::{Array1, Array2};
 use std::collections::HashMap;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{LocalValues, OptionalLocalValues, JointEntropy};
 
 /// Shrinkage (James–Stein) entropy estimator for discrete data (natural log base).
 ///
 /// Forms a convex combination between the empirical distribution and the uniform target
-/// with a data-driven shrinkage intensity λ ∈ [0,1]. This reduces variance and bias
-/// in undersampled regimes. Supports local values via -ln p_shrink(x).
+/// with a data-driven shrinkage intensity $λ ∈ \[0,1\]$. This reduces variance and bias
+/// in undersampled regimes. Supports local values via $-\ln p_\mathrm{shrink}(x)$.
+///
+/// Cross-entropy is not implemented for shrinkage estimator.
+/// The shrinkage correction is designed for bias correction in entropy
+/// estimation using a specific shrinkage target, and cross-entropy mixes
+/// probabilities from one distribution with corrections from another,
+/// creating a theoretical inconsistency.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
 pub struct ShrinkEntropy {
     dataset: DiscreteDataset,
 }
@@ -78,6 +88,19 @@ impl LocalValues for ShrinkEntropy {
             if p > 0.0 { h -= p * p.ln(); }
         }
         h
+    }
+}
+
+
+impl JointEntropy for ShrinkEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = ShrinkEntropy::new(joint_codes);
+        disc.global_value()
     }
 }
 

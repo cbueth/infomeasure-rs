@@ -1,14 +1,17 @@
 use ndarray::{Array1, Array2};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues};
+use crate::estimators::traits::{LocalValues, OptionalLocalValues, CrossEntropy, JointEntropy};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 
 /// Standard Shannon entropy estimator for discrete data using maximum likelihood (natural log base).
 ///
 /// This baseline estimator computes H = -Σ p_i ln p_i from empirical probabilities p_i = n_i/N.
 /// It supports local values via LocalValues, where each sample contributes -ln p(x).
 ///
-/// Suitable as a reference and for well-sampled regimes; for small N or large K consider
-/// bias-corrected estimators (Miller–Madow, Grassberger, Zhang) or coverage-based ones (Chao–Shen).
+/// Cross-entropy is supported between two distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
 ///
 /// GPU acceleration (optional): When compiled with the `gpu_support` feature, `from_rows` may
 /// use a WGSL compute shader to accelerate dense per-row histogramming for 2D inputs with a small
@@ -61,6 +64,42 @@ impl LocalValues for DiscreteEntropy {
             h -= if p > 0.0 { p * p.ln() } else { 0.0 };
         }
         h
+    }
+}
+
+impl CrossEntropy for DiscreteEntropy {
+    /// Cross-entropy H(P||Q) = -Σ_x p(x) ln q(x)
+    fn cross_entropy(&self, other: &DiscreteEntropy) -> f64 {
+        use std::collections::HashSet;
+        // Build sets of supports
+        let supp_p: HashSet<i32> = self.dataset.counts.keys().cloned().collect();
+        let supp_q: HashSet<i32> = other.dataset.counts.keys().cloned().collect();
+        let inter: HashSet<i32> = supp_p.intersection(&supp_q).cloned().collect();
+        if inter.is_empty() {
+            return 0.0;
+        }
+
+        let p_map = &self.dataset.dist;
+        let q_map = &other.dataset.dist;
+        let mut h = 0.0_f64;
+        for v in inter {
+            if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v)) {
+                if p > 0.0 && q > 0.0 { h -= p * q.ln(); }
+            }
+        }
+        h
+    }
+}
+
+impl JointEntropy for DiscreteEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = DiscreteEntropy::new(joint_codes);
+        disc.global_value()
     }
 }
 

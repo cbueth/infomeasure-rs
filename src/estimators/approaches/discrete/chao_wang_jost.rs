@@ -2,13 +2,25 @@ use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
 
 /// Chao–Wang–Jost entropy estimator for discrete data (natural log base).
 ///
 /// Combines digamma-based terms with coverage corrections using the singleton (f1)
 /// and doubleton (f2) counts via parameter a. Effective with moderate undersampling;
 /// global-only.
+///
+/// Cross-entropy is not implemented for Chao Wang Jost estimator.
+/// The Chao Wang Jost correction creates theoretical inconsistencies when applied to cross-entropy
+/// due to fundamental issues with mixing bias corrections from different distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
+///
+/// Local values are not supported for the Chao Wang Jost estimator.
+/// The Chao Wang Jost correction involves global sample statistics (singletons, doubletons)
+/// and local values are not theoretically well-defined.
 pub struct ChaoWangJostEntropy {
     dataset: DiscreteDataset,
 }
@@ -69,6 +81,18 @@ impl GlobalValue for ChaoWangJostEntropy {
 impl OptionalLocalValues for ChaoWangJostEntropy {
     fn supports_local(&self) -> bool { false }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Chao-Wang-Jost estimator")
+        Err("Local values are not supported for Chao-Wang-Jost estimator as it's only defined for global entropy.")
+    }
+}
+
+impl JointEntropy for ChaoWangJostEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = ChaoWangJostEntropy::new(joint_codes);
+        disc.global_value()
     }
 }

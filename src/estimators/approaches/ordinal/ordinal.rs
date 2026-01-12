@@ -4,7 +4,7 @@ use crate::estimators::traits::LocalValues;
 use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
 use crate::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_compact, lehmer_code, reduce_joint_space_compact};
 use ndarray::s;
-use std::collections::HashMap;
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 
 /// Ordinal (permutation) entropy estimator.
 ///

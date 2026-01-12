@@ -1,12 +1,18 @@
 use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{LocalValues, OptionalLocalValues, CrossEntropy, JointEntropy};
 
 /// Miller–Madow entropy estimator for discrete data (natural log base).
 ///
 /// Adds the small-sample bias correction (K-1)/(2N) to the MLE (Shannon) estimate.
 /// Local values are the MLE local values uniformly offset by the correction.
 /// Useful when K is moderate relative to N and a simple analytical correction suffices.
+///
+/// Cross-entropy is supported between two distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
 pub struct MillerMadowEntropy {
     dataset: DiscreteDataset,
 }
@@ -49,10 +55,10 @@ impl LocalValues for MillerMadowEntropy {
     }
 }
 
-impl MillerMadowEntropy {
+impl CrossEntropy for MillerMadowEntropy {
     /// Cross-entropy H_MM(P, Q) = -Σ_x p(x) ln q(x) + correction
     /// where correction = (((Kp + Kq)/2) - 1) / (Np + Nq)
-    pub fn cross_entropy_with(&self, other: &MillerMadowEntropy) -> f64 {
+    fn cross_entropy(&self, other: &MillerMadowEntropy) -> f64 {
         use std::collections::HashSet;
         // Build sets of supports
         let supp_p: HashSet<i32> = self.dataset.counts.keys().cloned().collect();
@@ -73,6 +79,18 @@ impl MillerMadowEntropy {
         let n_total = (self.dataset.n + other.dataset.n) as f64;
         let k_avg_minus1 = ((self.dataset.k + other.dataset.k) as f64) / 2.0 - 1.0;
         h + (k_avg_minus1 / n_total)
+    }
+}
+
+impl JointEntropy for MillerMadowEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = MillerMadowEntropy::new(joint_codes);
+        disc.global_value()
     }
 }
 

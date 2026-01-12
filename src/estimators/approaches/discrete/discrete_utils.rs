@@ -103,3 +103,31 @@ pub fn count_frequencies_slice(data: &[i32]) -> HashMap<i32, usize> {
 pub fn rows_as_vec(data: Array2<i32>) -> Vec<Array1<i32>> {
     data.axis_iter(Axis(0)).map(|row| row.to_owned()).collect()
 }
+
+/// Reduce multiple code arrays (aligned by index) into a single compact joint code space.
+///
+/// Given k arrays of equal length containing compact i32 codes, this function produces a
+/// single `Array1<i32>` where each position's tuple of codes is mapped to a unique compact i32 ID.
+/// The mapping preserves first-occurrence order for determinism.
+pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
+    if code_arrays.is_empty() { return Array1::zeros(0); }
+    let len = code_arrays[0].len();
+    for arr in code_arrays.iter() {
+        assert_eq!(arr.len(), len, "All code arrays must have the same length for joint reduction");
+    }
+    let mut map: HashMap<Vec<i32>, i32> = HashMap::new();
+    let mut next_id: i32 = 0;
+    let mut out: Vec<i32> = Vec::with_capacity(len);
+    let k = code_arrays.len();
+    for i in 0..len {
+        let mut key: Vec<i32> = Vec::with_capacity(k);
+        for arr in code_arrays.iter() { key.push(arr[i]); }
+        let id = *map.entry(key).or_insert_with(|| {
+            let v = next_id;
+            next_id = next_id.checked_add(1).expect("Too many unique joint patterns to fit into i32");
+            v
+        });
+        out.push(id);
+    }
+    Array1::from(out)
+}

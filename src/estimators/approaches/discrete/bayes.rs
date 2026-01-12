@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use ndarray::{Array1, Array2};
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, CrossEntropy, JointEntropy};
 
 /// Choices for the Dirichlet concentration parameter alpha
 #[derive(Clone, Debug)]
@@ -24,12 +25,42 @@ pub enum AlphaParam {
 ///
 /// Computes entropy from the posterior mean probabilities (n_i + α)/(N + Kα).
 /// Choose α via AlphaParam (Jeffrey, Laplace, Schürmann–Grassberger, Minimax, or explicit).
-/// Optionally override support size K for unobserved categories. Global-only (no local values).
+/// Optionally, override support size K for unobserved categories. Global-only.
+///
+/// Cross-entropy is supported between two distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
+///
+/// Local values are not implemented for Bayes estimator as it is a Bayesian
+/// estimator that averages over Dirichlet priors.
 pub struct BayesEntropy {
     dataset: DiscreteDataset,
     alpha: AlphaParam,
     /// Optional override for support size K
     k_override: Option<usize>,
+}
+
+impl CrossEntropy for BayesEntropy {
+    /// Cross-entropy H(P, Q) = -Σ_x p_bayes(x) log q_bayes(x) over common support
+    fn cross_entropy(&self, other: &BayesEntropy) -> f64 {
+        // Build Bayesian distributions (value -> prob)
+        let (p_probs, p_uniq) = self.bayes_probs();
+        let (q_probs, q_uniq) = other.bayes_probs();
+        let p_map: HashMap<i32, f64> = p_uniq.into_iter().zip(p_probs.into_iter()).collect();
+        let q_map: HashMap<i32, f64> = q_uniq.into_iter().zip(q_probs.into_iter()).collect();
+
+        // Intersection of supports
+        let mut h = 0.0_f64;
+        for (&val, &pval) in &p_map {
+            if let Some(&qval) = q_map.get(&val) {
+                if pval > 0.0 && qval > 0.0 {
+                    h -= pval * qval.ln();
+                }
+            }
+        }
+        h
+    }
 }
 
 impl BayesEntropy {
@@ -72,26 +103,6 @@ impl BayesEntropy {
             }
         }
     }
-
-    /// Cross-entropy H(P, Q) = -Σ_x p_bayes(x) log q_bayes(x) over common support
-    pub fn cross_entropy_with(&self, other: &BayesEntropy) -> f64 {
-        // Build Bayesian distributions (value -> prob)
-        let (p_probs, p_uniq) = self.bayes_probs();
-        let (q_probs, q_uniq) = other.bayes_probs();
-        let p_map: HashMap<i32, f64> = p_uniq.into_iter().zip(p_probs.into_iter()).collect();
-        let q_map: HashMap<i32, f64> = q_uniq.into_iter().zip(q_probs.into_iter()).collect();
-
-        // Intersection of supports
-        let mut h = 0.0_f64;
-        for (&val, &pval) in &p_map {
-            if let Some(&qval) = q_map.get(&val) {
-                if pval > 0.0 && qval > 0.0 {
-                    h -= pval * qval.ln();
-                }
-            }
-        }
-        h
-    }
 }
 
 impl GlobalValue for BayesEntropy {
@@ -106,9 +117,21 @@ impl GlobalValue for BayesEntropy {
     }
 }
 
+impl JointEntropy for BayesEntropy {
+    type Source = Array1<i32>;
+    type Params = (AlphaParam, Option<usize>);
+
+    fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = BayesEntropy::new(joint_codes, params.0, params.1);
+        disc.global_value()
+    }
+}
+
 impl OptionalLocalValues for BayesEntropy {
     fn supports_local(&self) -> bool { false }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Bayes estimator")
+        Err("Local values are not supported for Bayes estimator as it is a Bayesian estimator that averages over Dirichlet priors.")
     }
 }

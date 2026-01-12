@@ -1,12 +1,23 @@
 use ndarray::{Array1, Array2};
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
 
 /// Bonachela entropy estimator for discrete data (natural log base).
 ///
 /// De-biases the MLE via a harmonic-sum correction using counts (n_i + 1) Σ_{j=n_i+2}^{N+2} 1/j,
 /// then normalizes by (N+2). Recommended when the distribution is undersampled; global-only.
+///
+/// Cross-entropy is not implemented for Bonachela estimator due to
+/// theoretical inconsistencies in applying bias corrections from
+/// different distributions.
+///
+/// Joint entropy is supported by reducing the joint space of multiple variables to a single
+/// discrete representation before estimation.
+///
+/// Local values are not implemented for Bonachela estimator due to
+/// theoretical inconsistencies in the mathematical foundation.
 pub struct BonachelaEntropy {
     dataset: DiscreteDataset,
 }
@@ -46,6 +57,18 @@ impl GlobalValue for BonachelaEntropy {
 impl OptionalLocalValues for BonachelaEntropy {
     fn supports_local(&self) -> bool { false }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Bonachela estimator")
+        Err("Local values are not supported for Bonachela estimator as it's only defined for global entropy.")
+    }
+}
+
+impl JointEntropy for BonachelaEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = BonachelaEntropy::new(joint_codes);
+        disc.global_value()
     }
 }

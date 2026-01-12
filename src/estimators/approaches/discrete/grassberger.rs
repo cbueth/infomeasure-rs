@@ -1,6 +1,7 @@
 use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::traits::{LocalValues, OptionalLocalValues, JointEntropy};
 use statrs::function::gamma::digamma;
 
 /// Grassberger (Gr88) entropy estimator for discrete data.
@@ -8,6 +9,11 @@ use statrs::function::gamma::digamma;
 /// Per-count correction using digamma functions with an alternating term:
 /// for count $n_i$, local contribution is $\ln N - \psi(n_i) - (-1)^{n_i}/(n_i+1)$.
 /// Supports local values. Suitable for moderate undersampling.
+///
+/// Cross-entropy is not implemented for Grassberger estimator.
+/// The Grassberger correction is designed for bias correction in entropy
+/// estimation, and cross-entropy mixes probabilities from one distribution
+/// with corrections from another, creating a theoretical inconsistency.
 pub struct GrassbergerEntropy {
     dataset: DiscreteDataset,
 }
@@ -33,6 +39,18 @@ impl LocalValues for GrassbergerEntropy {
             let sign = if n_i % 2 == 0 { 1.0 } else { -1.0 };
             n_total_ln - digamma(n_if) - sign / (n_if + 1.0)
         })
+    }
+}
+
+impl JointEntropy for GrassbergerEntropy {
+    type Source = Array1<i32>;
+    type Params = ();
+
+    fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
+        if series.is_empty() { return 0.0; }
+        let joint_codes = reduce_joint_space_compact(series);
+        let disc = GrassbergerEntropy::new(joint_codes);
+        disc.global_value()
     }
 }
 
