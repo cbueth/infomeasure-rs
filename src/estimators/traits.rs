@@ -26,3 +26,20 @@ pub trait OptionalLocalValues {
     fn supports_local(&self) -> bool;
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str>;
 }
+
+/// Interface for estimators that support cross-entropy $H(P||Q)$.
+pub trait CrossEntropy<Rhs = Self> {
+    /// Compute the cross-entropy between this distribution (P) and another (Q).
+    fn cross_entropy(&self, other: &Rhs) -> f64;
+}
+
+/// Interface for estimators that support joint entropy $H(X_1, X_2, \dots, X_n)$.
+pub trait JointEntropy {
+    /// Data type for a single series/variable.
+    type Source;
+    /// Additional parameters for the estimator.
+    type Params;
+
+    /// Compute the joint entropy of multiple variables.
+    fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64;
+}
