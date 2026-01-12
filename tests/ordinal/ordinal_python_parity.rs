@@ -4,7 +4,7 @@ use ndarray::Array1;
 use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use infomeasure::estimators::traits::LocalValues;
 
-fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> f64 {
+fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Vec<f64>>) {
     // Use validation crate to call Python infomeasure ordinal estimator directly (no numpy dependency)
     use validation::python;
     let data = series.as_slice().unwrap();
@@ -13,8 +13,17 @@ fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> f64 {
         ("embedding_dim".to_string(), order.to_string()),
         ("stable".to_string(), "True".to_string()),
     ];
-    python::calculate_entropy_float(data, "ordinal", &kwargs)
-        .expect("python ordinal failed")
+    let h = python::calculate_entropy_float(data, "ordinal", &kwargs)
+        .expect("python ordinal failed");
+    
+    // Python implementation fails for order=1 local values
+    let locals = if order > 1 {
+        Some(python::calculate_local_entropy_float(data, "ordinal", &kwargs)
+            .expect("python local ordinal failed"))
+    } else {
+        None
+    };
+    (h, locals)
 }
 
 #[test]
@@ -34,11 +43,21 @@ fn ordinal_python_parity_basic_sets() {
         let series = Array1::from(data.clone());
         let rust_est = OrdinalEntropy::new(series.clone(), order);
         let h_rust = rust_est.global_value();
-        let h_py = python_ordinal_entropy(&series, order);
+        let (h_py, locals_py_opt) = python_ordinal_entropy(&series, order);
+        
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
-        // local mean parity
-        if rust_est.local_values().len() > 0 {
-            assert_abs_diff_eq!(h_rust, rust_est.local_values().mean().unwrap(), epsilon = 1e-12);
+        
+        if let Some(locals_py) = locals_py_opt {
+            let locals_rust = rust_est.local_values();
+            assert_eq!(locals_rust.len(), locals_py.len());
+            for (lr, lp) in locals_rust.iter().zip(locals_py.iter()) {
+                assert_abs_diff_eq!(*lr, *lp, epsilon = 1e-10);
+            }
+
+            // local mean parity
+            if locals_rust.len() > 0 {
+                assert_abs_diff_eq!(h_rust, locals_rust.mean().unwrap(), epsilon = 1e-12);
+            }
         }
     }
 }
@@ -53,7 +72,15 @@ fn ordinal_python_parity_param_grid() {
     for &m in &orders {
         let rust_est = OrdinalEntropy::new(series.clone(), m);
         let h_rust = rust_est.global_value();
-        let h_py = python_ordinal_entropy(&series, m);
+        let (h_py, locals_py_opt) = python_ordinal_entropy(&series, m);
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
+        
+        if let Some(locals_py) = locals_py_opt {
+            let locals_rust = rust_est.local_values();
+            assert_eq!(locals_rust.len(), locals_py.len());
+            for (lr, lp) in locals_rust.iter().zip(locals_py.iter()) {
+                assert_abs_diff_eq!(*lr, *lp, epsilon = 1e-10);
+            }
+        }
     }
 }
