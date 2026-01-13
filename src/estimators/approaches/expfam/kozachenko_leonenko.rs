@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use kiddo::SquaredEuclidean;
 use std::num::NonZeroUsize;
 
-use crate::estimators::traits::{LocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{LocalValues, CrossEntropy, GlobalValue, JointEntropy};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use super::utils::unit_ball_volume;
 
@@ -43,7 +43,7 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
     fn cross_entropy(&self, other: &KozachenkoLeonenkoEntropy<K>) -> f64 {
         use statrs::function::gamma::digamma;
         use super::utils::calculate_common_entropy_components_at;
-        
+
         // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
         let (v_m, rho_k, _n_p, dimension) = calculate_common_entropy_components_at::<K>(
             other.nd.view(), 
@@ -109,6 +109,45 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     pub fn with_base(mut self, base: f64) -> Self { self.base = base; self }
 }
 
+impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
+    fn global_value(&self) -> f64 {
+        use statrs::function::gamma::digamma;
+        if self.nd.n == 0 {
+            return 0.0;
+        }
+        let v_m = unit_ball_volume(K);
+
+        // Gather kNN radii
+        let mut sum_ln_r = 0.0f64;
+        let mut cnt = 0usize;
+        for p in self.nd.points.iter() {
+            let mut neigh = self
+                .nd
+                .tree
+                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
+            let kth = neigh.remove(self.k);
+            let (dist2, _idx): (f64, u64) = kth.into();
+            let r = dist2.sqrt();
+            if r > 0.0 {
+                sum_ln_r += r.ln();
+                cnt += 1;
+            }
+        }
+        if cnt == 0 {
+            return 0.0;
+        }
+
+        let n_f = self.nd.n as f64;
+        let ln_base = self.base.ln();
+        let log_b = |x: f64| -> f64 { x.ln() / ln_base };
+
+        let term_digamma = (digamma(n_f) - digamma(self.k as f64)) / ln_base;
+        let term_volume = log_b(v_m);
+        let term_radii = (K as f64) * (sum_ln_r / (cnt as f64)) / ln_base; // average ln(r)
+        term_digamma + term_volume + term_radii
+    }
+}
+
 impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
     fn local_values(&self) -> Array1<f64> {
         // Local values often exposed as -ln f_hat(x_i); here we return per-sample
@@ -139,32 +178,5 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
             }
         }
         out
-    }
-
-    fn global_value(&self) -> f64 {
-        use statrs::function::gamma::digamma;
-        if self.nd.n == 0 { return 0.0; }
-        let v_m = unit_ball_volume(K);
-
-        // Gather kNN radii
-        let mut sum_ln_r = 0.0f64;
-        let mut cnt = 0usize;
-        for p in self.nd.points.iter() {
-            let mut neigh = self.nd.tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
-            let kth = neigh.remove(self.k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            let r = dist2.sqrt();
-            if r > 0.0 { sum_ln_r += r.ln(); cnt += 1; }
-        }
-        if cnt == 0 { return 0.0; }
-
-        let n_f = self.nd.n as f64;
-        let ln_base = self.base.ln();
-        let log_b = |x: f64| -> f64 { x.ln() / ln_base };
-
-        let term_digamma = (digamma(n_f) - digamma(self.k as f64)) / ln_base;
-        let term_volume = log_b(v_m);
-        let term_radii = (K as f64) * (sum_ln_r / (cnt as f64)) / ln_base; // average ln(r)
-        term_digamma + term_volume + term_radii
     }
 }

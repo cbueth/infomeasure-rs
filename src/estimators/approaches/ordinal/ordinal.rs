@@ -1,6 +1,6 @@
 use ndarray::Array1;
 
-use crate::estimators::traits::{CrossEntropy, JointEntropy, LocalValues};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
 use crate::estimators::approaches::ordinal::ordinal_utils::{lehmer_code, symbolize_series_compact};
 use ndarray::s;
@@ -61,7 +61,7 @@ impl JointEntropy for OrdinalEntropy {
         // Reduce to joint compact space
         let joint_codes = reduce_joint_space_compact(&code_arrays);
         let disc = DiscreteEntropy::new(joint_codes);
-        disc.global_value()
+        GlobalValue::global_value(&disc)
     }
 }
 
@@ -144,11 +144,14 @@ impl OrdinalEntropy {
     }
 }
 
+impl GlobalValue for OrdinalEntropy {
+    fn global_value(&self) -> f64 {
+        self.inner.global_value()
+    }
+}
+
 impl LocalValues for OrdinalEntropy {
     fn local_values(&self) -> Array1<f64> {
         self.inner.local_values()
-    }
-    fn global_value(&self) -> f64 {
-        self.inner.global_value()
     }
 }

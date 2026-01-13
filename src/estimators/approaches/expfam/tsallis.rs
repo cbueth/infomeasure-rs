@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use kiddo::SquaredEuclidean;
 use std::num::NonZeroUsize;
 
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use super::utils::{unit_ball_volume, calculate_common_entropy_components_at};
 
@@ -43,7 +43,7 @@ impl<const K: usize> CrossEntropy for TsallisEntropy<K> {
         let (v_m, rho_k, m_samples, dimension) = calculate_common_entropy_components_at::<K>(
             other.nd.view(), 
             self.k, 
-            Some(self.nd.view())
+            Some(self.nd.view()),
         );
 
         let ln_base = self.base.ln();
@@ -86,6 +86,20 @@ impl<const K: usize> TsallisEntropy<K> {
         let nd = NdDataset::<K>::from_array2(data);
         assert!(nd.n == 0 || k <= nd.n - 1, "k must be <= N-1 for self-queries");
         Self { nd, k, q, base: std::f64::consts::E, noise_level }
+    }
+
+    /// Build a vector of TsallisEntropy estimators, one per row of a 2D array.
+    pub fn from_rows(data: Array2<f64>, k: usize, q: f64, noise_level: f64) -> Vec<Self> {
+        let n_rows = data.nrows();
+        let mut out = Vec::with_capacity(n_rows);
+        for row in data.axis_iter(ndarray::Axis(0)) {
+            let row_a2 = row
+                .to_owned()
+                .into_shape_with_order((1, K))
+                .expect("reshape row");
+            out.push(Self::new(row_a2, k, q, noise_level));
+        }
+        out
     }
 
     /// Construct from 1D data (convenience)
@@ -160,6 +174,12 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
         let i_q = prefactor * sum_term / (rho_k.len() as f64);
         if i_q <= 0.0 { return 0.0; }
         (i_q - 1.0) / (1.0 - q)
+    }
+}
+
+impl<const K: usize> LocalValues for TsallisEntropy<K> {
+    fn local_values(&self) -> Array1<f64> {
+        Array1::zeros(0)
     }
 }
 

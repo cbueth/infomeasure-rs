@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2, ArrayView2};
+use ndarray::{Array1, Array2, ArrayView2, Axis};
 use kiddo::{ImmutableKdTree, SquaredEuclidean, Manhattan};
 use kiddo::traits::DistanceMetric;
 use std::num::NonZeroUsize;
@@ -135,5 +135,18 @@ impl<const K: usize> NdDataset<K> {
             out.push(dists[k - 1]);
         }
         out
+    }
+
+    /// Split a 2D array into a Vec of owned [f64; K] points for batch processing.
+    pub fn points_as_vec(data: Array2<f64>) -> Vec<[f64; K]> {
+        data.axis_iter(Axis(0))
+            .map(|row| {
+                let mut pt = [0.0; K];
+                for j in 0..K {
+                    pt[j] = row[j];
+                }
+                pt
+            })
+            .collect()
     }
 }
