@@ -5,7 +5,7 @@
 
 use ndarray::Array1;
 use rand::{Rng, thread_rng};
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -207,6 +207,173 @@ print(est.result())
         .trim()
         .parse::<f64>()
         .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Calculates mutual information using the Python infomeasure package.
+pub fn calculate_mi_float<T: Serialize>(
+    series: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    calculate_mi(series, approach, kwargs)
+}
+
+/// Calculates local mutual information values using the Python infomeasure package.
+pub fn calculate_local_mi_float<T: Serialize>(
+    series: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    calculate_local_mi(series, approach, kwargs)
+}
+
+/// Calculates conditional mutual information using the Python infomeasure package.
+pub fn calculate_cmi_float<T: Serialize>(
+    series: &[Vec<T>],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    calculate_cmi(series, cond, approach, kwargs)
+}
+
+/// Calculates local conditional mutual information values using the Python infomeasure package.
+pub fn calculate_local_cmi_float<T: Serialize>(
+    series: &[Vec<T>],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    calculate_local_cmi(series, cond, approach, kwargs)
+}
+
+/// Calculates transfer entropy using the Python infomeasure package.
+pub fn calculate_te_float<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    calculate_te(source, dest, approach, kwargs)
+}
+
+/// Calculates local transfer entropy values using the Python infomeasure package.
+pub fn calculate_local_te_float<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_local_te_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+est = im.estimator(src, dst, measure="te", approach="{ap}", base="e", {kw})
+print(json.dumps(est.local_vals().tolist()))
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    serde_json::from_str::<Vec<f64>>(output.trim())
+        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))
+}
+
+/// Calculates conditional transfer entropy using the Python infomeasure package.
+pub fn calculate_cte_float<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    calculate_cte(source, dest, cond, approach, kwargs)
+}
+
+/// Calculates local conditional transfer entropy values using the Python infomeasure package.
+pub fn calculate_local_cte_float<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let cnd_file = save_data_to_temp_file(cond)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_local_cte_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+with open("{cf}", "r") as f:
+    cnd = np.array(json.load(f))
+est = im.estimator(src, dst, cond=cnd, measure="te", approach="{ap}", base="e", {kw})
+print(json.dumps(est.local_vals().tolist()))
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        cf = cnd_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    let _ = std::fs::remove_file(cnd_file);
+    serde_json::from_str::<Vec<f64>>(output.trim())
+        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))
 }
 
 /// Calculates entropy using the Python infomeasure package.
@@ -975,4 +1142,452 @@ print(0.0 if len(keys)==0 else sum([-px[k]*math.log(qy[k]) for k in keys if px[k
             e, output
         )
     })
+}
+
+/// Calculates mutual information using the Python infomeasure package.
+pub fn calculate_mi<T: Serialize>(
+    series: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_mi_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{df}", "r") as f:
+    data = json.load(f)
+# Convert nested lists to numpy arrays for im.estimator
+# If data[i] is a list of lists (multi-D RV), np.array(data[i]).T makes it (N, D)
+data_arrays = [np.array(s).T for s in data]
+est = im.estimator(*data_arrays, measure="mi", approach="{ap}", base="e", {kw})
+print(est.result())
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Calculates local mutual information values using the Python infomeasure package.
+pub fn calculate_local_mi<T: Serialize>(
+    series: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_local_mi_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{df}", "r") as f:
+    data = json.load(f)
+data_arrays = [np.array(s) for s in data]
+est = im.estimator(*data_arrays, measure="mi", approach="{ap}", base="e", {kw})
+print(json.dumps(est.local_vals().tolist()))
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    serde_json::from_str::<Vec<f64>>(output.trim())
+        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))
+}
+
+/// Calculates conditional mutual information using the Python infomeasure package.
+pub fn calculate_cmi<T: Serialize>(
+    series: &[Vec<T>],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let cond_file = save_data_to_temp_file(cond)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_cmi_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{df}", "r") as f:
+    data = json.load(f)
+with open("{cf}", "r") as f:
+    cond = json.load(f)
+data_arrays = [np.array(s) for s in data]
+cond_array = np.array(cond)
+est = im.estimator(*data_arrays, cond=cond_array, measure="cmi", approach="{ap}", base="e", {kw})
+print(est.result())
+"#,
+        df = data_file.to_str().unwrap(),
+        cf = cond_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    let _ = std::fs::remove_file(cond_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Calculates local conditional mutual information values using the Python infomeasure package.
+pub fn calculate_local_cmi<T: Serialize>(
+    series: &[Vec<T>],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<Vec<f64>, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let cond_file = save_data_to_temp_file(cond)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_local_cmi_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{df}", "r") as f:
+    data = json.load(f)
+with open("{cf}", "r") as f:
+    cond = json.load(f)
+data_arrays = [np.array(s) for s in data]
+cond_array = np.array(cond)
+est = im.estimator(*data_arrays, cond=cond_array, measure="cmi", approach="{ap}", base="e", {kw})
+print(json.dumps(est.local_vals().tolist()))
+"#,
+        df = data_file.to_str().unwrap(),
+        cf = cond_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    let _ = std::fs::remove_file(cond_file);
+    serde_json::from_str::<Vec<f64>>(output.trim())
+        .map_err(|e| format!("Failed to parse output as JSON array: {}", e))
+}
+
+/// Calculates te_observations using the Python infomeasure package.
+pub fn calculate_te_observations<T: Serialize + DeserializeOwned>(
+    source: &[T],
+    dest: &[T],
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    step_size: usize,
+) -> Result<(Vec<Vec<T>>, Vec<Vec<T>>, Vec<T>), String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_te_obs_{}.py", uid));
+
+    let script = format!(
+        r#"
+import json, numpy as np
+from infomeasure.estimators.utils.te_slicing import te_observations
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+src_hist, dest_hist, dest_future = te_observations(src, dst, src_hist_len={sh}, dest_hist_len={dh}, step_size={ss}, construct_joint_spaces=False)
+print(json.dumps((src_hist.tolist(), dest_hist.tolist(), dest_future.flatten().tolist())))
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        sh = src_hist_len,
+        dh = dest_hist_len,
+        ss = step_size,
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    serde_json::from_str::<(Vec<Vec<T>>, Vec<Vec<T>>, Vec<T>)>(output.trim()).map_err(|e| {
+        format!(
+            "Failed to parse output as JSON: {} (output='{}')",
+            e, output
+        )
+    })
+}
+
+/// Calculates cte_observations using the Python infomeasure package.
+pub fn calculate_cte_observations<T: Serialize + DeserializeOwned>(
+    source: &[T],
+    dest: &[T],
+    cond: &[T],
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    cond_hist_len: usize,
+    step_size: usize,
+) -> Result<(Vec<Vec<T>>, Vec<Vec<T>>, Vec<T>, Vec<Vec<T>>), String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let cond_file = save_data_to_temp_file(cond)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_cte_obs_{}.py", uid));
+
+    let script = format!(
+        r#"
+import json, numpy as np
+from infomeasure.estimators.utils.te_slicing import cte_observations
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+with open("{cf}", "r") as f:
+    cnd = np.array(json.load(f))
+src_hist, dest_hist, dest_future, cond_hist = cte_observations(src, dst, cnd, src_hist_len={sh}, dest_hist_len={dh}, cond_hist_len={ch}, step_size={ss}, construct_joint_spaces=False)
+print(json.dumps((src_hist.tolist(), dest_hist.tolist(), dest_future.flatten().tolist(), cond_hist.tolist())))
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        cf = cond_file.to_str().unwrap(),
+        sh = src_hist_len,
+        dh = dest_hist_len,
+        ch = cond_hist_len,
+        ss = step_size,
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    let _ = std::fs::remove_file(cond_file);
+    serde_json::from_str::<(Vec<Vec<T>>, Vec<Vec<T>>, Vec<T>, Vec<Vec<T>>)>(output.trim()).map_err(
+        |e| {
+            format!(
+                "Failed to parse output as JSON: {} (output='{}')",
+                e, output
+            )
+        },
+    )
+}
+
+/// Calculates transfer entropy using the Python infomeasure package.
+pub fn calculate_te<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_te_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+# Filter out 'base' from kwargs if present to avoid conflict with explicit base
+kw_dict = {{{kw_dict_str}}}
+explicit_base = kw_dict.pop("base", "e")
+est = im.estimator(src, dst, measure="te", approach="{ap}", base=explicit_base, **kw_dict)
+print(est.result())
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        ap = approach,
+        kw_dict_str = kwargs
+            .iter()
+            .map(|(k, v)| format!("'{}': {}", k, v))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Calculates conditional transfer entropy using the Python infomeasure package.
+pub fn calculate_cte<T: Serialize>(
+    source: &[T],
+    dest: &[T],
+    cond: &[T],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let src_file = save_data_to_temp_file(source)?;
+    let dst_file = save_data_to_temp_file(dest)?;
+    let cond_file = save_data_to_temp_file(cond)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_cte_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{sf}", "r") as f:
+    src = np.array(json.load(f))
+with open("{df}", "r") as f:
+    dst = np.array(json.load(f))
+with open("{cf}", "r") as f:
+    cnd = np.array(json.load(f))
+# Filter out 'base' from kwargs if present to avoid conflict with explicit base
+kw_dict = {{{kw_dict_str}}}
+explicit_base = kw_dict.pop("base", "e")
+est = im.estimator(src, dst, cond=cnd, measure="te", approach="{ap}", base=explicit_base, **kw_dict)
+print(est.result())
+"#,
+        sf = src_file.to_str().unwrap(),
+        df = dst_file.to_str().unwrap(),
+        cf = cond_file.to_str().unwrap(),
+        ap = approach,
+        kw_dict_str = kwargs
+            .iter()
+            .map(|(k, v)| format!("'{}': {}", k, v))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(src_file);
+    let _ = std::fs::remove_file(dst_file);
+    let _ = std::fs::remove_file(cond_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
 }
