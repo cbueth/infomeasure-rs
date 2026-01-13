@@ -130,4 +130,8 @@ pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
         out.push(id);
     }
     Array1::from(out)
+}/// Reduce a 2D array (samples x dimensions) into a single compact 1D code array.
+pub fn reduce_array2_compact(data: &Array2<i32>) -> Array1<i32> {
+    let columns: Vec<Array1<i32>> = data.axis_iter(Axis(1)).map(|col| col.to_owned()).collect();
+    reduce_joint_space_compact(&columns)
 }
