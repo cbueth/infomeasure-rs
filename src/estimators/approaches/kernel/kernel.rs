@@ -82,7 +82,542 @@ use std::simd::{StdFloat, f64x4, f64x8};
 use std::simd::num::SimdFloat;
 #[cfg(feature = "simd_support")]
 use std::simd::cmp::SimdPartialOrd;
-use crate::estimators::traits::{LocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{
+    ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
+    MutualInformationEstimator, TransferEntropyEstimator,
+};
+use crate::estimators::traits::{
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+};
+use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
+
+/// Kernel-based transfer entropy estimator.
+///
+/// $TE(X \to Y) = I(Y_{future}; X_{past} | Y_{past})$
+///
+/// # Const Generics
+/// - `SRC_HIST`: Number of past source observations to include.
+/// - `DEST_HIST`: Number of past destination observations to include.
+/// - `STEP_SIZE`: Delay between observations.
+/// - `D_SOURCE`: Dimensionality of source variable.
+/// - `D_TARGET`: Dimensionality of destination variable.
+/// - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
+/// - `D_XP_YP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
+/// - `D_YP`: $DEST\_HIST \times D_{target}$
+/// - `D_YF_YP`: $D_{target} + (DEST\_HIST \times D_{target})$
+///
+/// # Note on Dimensions
+/// These dimensions must satisfy the mathematical relations defined by the slicing logic.
+/// It is recommended to use the `new_kernel_te!` macro to instantiate this struct,
+/// as it handles the dimension calculations automatically.
+pub struct KernelTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> {
+    pub kernel_type: String,
+    pub bandwidth: f64,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub force_cpu: bool,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+>
+    KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    /// Creates a new `KernelTransferEntropy` estimator.
+    ///
+    /// # Arguments
+    /// * `source`: Source time series.
+    /// * `dest`: Destination time series.
+    /// * `_src_hist_len`: Source history length (unused, rely on const generic).
+    /// * `_dest_hist_len`: Destination history length (unused, rely on const generic).
+    /// * `_step_size`: Step size (unused, rely on const generic).
+    /// * `kernel_type`: "box" or "gaussian".
+    /// * `bandwidth`: Kernel bandwidth.
+    pub fn new(
+        source: &Array2<f64>,
+        dest: &Array2<f64>,
+        _src_hist_len: usize,
+        _dest_hist_len: usize,
+        _step_size: usize,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> Self {
+        Self {
+            kernel_type,
+            bandwidth,
+            source: source.clone(),
+            dest: dest.clone(),
+            force_cpu: false,
+        }
+    }
+
+    /// Sets whether to force CPU implementation even if GPU support is available.
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
+    }
+
+    /// Helper method to compute density for a multi-dimensional dataset.
+    fn compute_density<const D: usize>(&self, data: Array2<f64>) -> Array1<f64> {
+        let mut est = KernelEntropy::<D>::new_with_kernel_type(
+            data,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        );
+        est.set_force_cpu(self.force_cpu);
+        est.kde_probability_density()
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> GlobalValue
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        self.local_values().mean().unwrap_or(0.0)
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> OptionalLocalValues
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        true
+    }
+
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> TransferEntropyEstimator
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> LocalValues
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    /// Computes local transfer entropy values.
+    fn local_values(&self) -> Array1<f64> {
+        let (yf, yp, xp) = te_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >(&self.source, &self.dest, false);
+
+        let joint_all = concatenate(Axis(1), &[yf.view(), xp.view(), yp.view()]).unwrap();
+        let xp_yp = concatenate(Axis(1), &[xp.view(), yp.view()]).unwrap();
+        let yf_yp = concatenate(Axis(1), &[yf.view(), yp.view()]).unwrap();
+
+        let p_joint_all = self.compute_density::<D_JOINT>(joint_all);
+        let p_yp = self.compute_density::<D_YP>(yp);
+        let p_xp_yp = self.compute_density::<D_XP_YP>(xp_yp);
+        let p_yf_yp = self.compute_density::<D_YF_YP>(yf_yp);
+
+        let n = p_joint_all.len();
+        let mut local_te = Array1::zeros(n);
+        for i in 0..n {
+            let num = p_joint_all[i] * p_yp[i];
+            let den = p_xp_yp[i] * p_yf_yp[i];
+            if num > 0.0 && den > 0.0 {
+                local_te[i] = (num / den).ln();
+            }
+        }
+        local_te
+    }
+}
+
+/// Kernel-based conditional transfer entropy estimator.
+///
+/// $CTE(X \to Y | Z) = I(Y_{future}; X_{past} | Y_{past}, Z_{past})$
+///
+/// # Const Generics
+/// - `SRC_HIST`, `DEST_HIST`, `COND_HIST`: History lengths.
+/// - `STEP_SIZE`: Delay between observations.
+/// - `D_SOURCE`, `D_TARGET`, `D_COND`: Input dimensionality.
+/// - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+/// - `D_XP_YP_ZP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+/// - `D_YP_ZP`: $(DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+/// - `D_YF_YP_ZP`: $D_{target} + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+///
+/// # Note on Dimensions
+/// These dimensions must satisfy the mathematical relations defined by the slicing logic.
+/// It is recommended to use the `new_kernel_cte!` macro to instantiate this struct,
+/// as it handles the dimension calculations automatically.
+pub struct KernelConditionalTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> {
+    pub kernel_type: String,
+    pub bandwidth: f64,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub cond: Array2<f64>,
+    pub force_cpu: bool,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+>
+    KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    /// Creates a new `KernelConditionalTransferEntropy` estimator.
+    ///
+    /// # Arguments
+    /// * `source`: Source time series.
+    /// * `dest`: Destination time series.
+    /// * `cond`: Conditioning time series.
+    /// * `_src_hist_len`, `_dest_hist_len`, `_cond_hist_len`, `_step_size`: (Unused, rely on const generics).
+    /// * `kernel_type`: "box" or "gaussian".
+    /// * `bandwidth`: Kernel bandwidth.
+    pub fn new(
+        source: &Array2<f64>,
+        dest: &Array2<f64>,
+        cond: &Array2<f64>,
+        _src_hist_len: usize,
+        _dest_hist_len: usize,
+        _cond_hist_len: usize,
+        _step_size: usize,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> Self {
+        Self {
+            kernel_type,
+            bandwidth,
+            source: source.clone(),
+            dest: dest.clone(),
+            cond: cond.clone(),
+            force_cpu: false,
+        }
+    }
+
+    /// Sets whether to force CPU implementation even if GPU support is available.
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
+    }
+
+    /// Helper method to compute density for a multi-dimensional dataset.
+    fn compute_density<const D: usize>(&self, data: Array2<f64>) -> Array1<f64> {
+        let mut est = KernelEntropy::<D>::new_with_kernel_type(
+            data,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        );
+        est.set_force_cpu(self.force_cpu);
+        est.kde_probability_density()
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> GlobalValue
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        self.local_values().mean().unwrap_or(0.0)
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> OptionalLocalValues
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        true
+    }
+
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> ConditionalTransferEntropyEstimator
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> LocalValues
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    /// Computes local conditional transfer entropy values.
+    fn local_values(&self) -> Array1<f64> {
+        let (yf, yp, xp, zp) = cte_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >(&self.source, &self.dest, &self.cond, false);
+
+        let joint_all =
+            concatenate(Axis(1), &[yf.view(), xp.view(), yp.view(), zp.view()]).unwrap();
+        let xp_yp_zp = concatenate(Axis(1), &[xp.view(), yp.view(), zp.view()]).unwrap();
+        let yp_zp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
+        let yf_yp_zp = concatenate(Axis(1), &[yf.view(), yp.view(), zp.view()]).unwrap();
+
+        let p_joint_all = self.compute_density::<D_JOINT>(joint_all);
+        let p_xp_yp_zp = self.compute_density::<D_XP_YP_ZP>(xp_yp_zp);
+        let p_yp_zp = self.compute_density::<D_YP_ZP>(yp_zp);
+        let p_yf_yp_zp = self.compute_density::<D_YF_YP_ZP>(yf_yp_zp);
+
+        let n = p_joint_all.len();
+        let mut local_cte = Array1::zeros(n);
+        for i in 0..n {
+            let num = p_joint_all[i] * p_yp_zp[i];
+            let den = p_xp_yp_zp[i] * p_yf_yp_zp[i];
+            if num > 0.0 && den > 0.0 {
+                local_cte[i] = (num / den).ln();
+            }
+        }
+        local_cte
+    }
+}
+
 macro_rules! impl_kernel_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("Kernel-based mutual information estimator for ", stringify!($num_rvs), " random variables")]
