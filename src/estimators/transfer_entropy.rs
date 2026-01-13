@@ -104,17 +104,150 @@ macro_rules! new_kernel_cte {
 pub struct TransferEntropy;
 
 impl TransferEntropy {
-    // pub fn new_discrete(data_source: Vec<i32>, data_dest: Vec<i32>) -> discrete::DiscreteTransferEntropy {
-    //     discrete::DiscreteTransferEntropy::new(data_source, data_dest)
-    // }
-    // 
-    // pub fn new_kernel(data_source: Vec<f64>, data_dest: Vec<f64>) -> kernel::KernelTransferEntropy {
-    //     kernel::KernelTransferEntropy::new(data_source, data_dest)
-    // }
-    // 
-    // pub fn new_ordinal(data_source: Vec<i32>, data_dest: Vec<i32>) -> ordinal::OrdinalTransferEntropy {
-    //     ordinal::OrdinalTransferEntropy::new(data_source, data_dest)
-    // }
+    /// Create a Maximum-Likelihood (Shannon) discrete transfer entropy estimator.
+    pub fn new_discrete_mle(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteTransferEntropy<DiscreteEntropy> {
+        DiscreteTransferEntropy::new(
+            source,
+            destination,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            DiscreteEntropy::new,
+        )
+    }
+
+    /// Create a Kernel-based transfer entropy estimator.
+    pub fn new_kernel(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        bandwidth: f64,
+    ) -> KernelTransferEntropy<1, 1, 1, 1, 1, 3, 2, 1, 2> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let dest_2d = destination.clone().insert_axis(Axis(1));
+        KernelTransferEntropy::new(
+            &source_2d,
+            &dest_2d,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            "box".to_string(),
+            bandwidth,
+        )
+    }
+
+    /// Create a Kernel-based transfer entropy estimator with specific kernel type.
+    pub fn new_kernel_with_type(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> KernelTransferEntropy<1, 1, 1, 1, 1, 3, 2, 1, 2> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let dest_2d = destination.clone().insert_axis(Axis(1));
+        KernelTransferEntropy::new(
+            &source_2d,
+            &dest_2d,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            kernel_type,
+            bandwidth,
+        )
+    }
+
+    /// Create a Multi-dimensional Kernel-based transfer entropy estimator.
+    pub fn nd_kernel<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_JOINT: usize,
+        const D_XP_YP: usize,
+        const D_YP: usize,
+        const D_YF_YP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        bandwidth: f64,
+    ) -> KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    > {
+        KernelTransferEntropy::new(
+            source,
+            destination,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            "box".to_string(),
+            bandwidth,
+        )
+    }
+
+    /// Create a Multi-dimensional Kernel-based transfer entropy estimator with specific kernel type.
+    pub fn nd_kernel_with_type<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_JOINT: usize,
+        const D_XP_YP: usize,
+        const D_YP: usize,
+        const D_YF_YP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    > {
+        KernelTransferEntropy::new(
+            source,
+            destination,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            kernel_type,
+            bandwidth,
+        )
+    }
+
     /// Create a James-Stein shrinkage discrete transfer entropy estimator.
     pub fn new_discrete_shrink(
         source: &Array1<i32>,
@@ -395,6 +528,102 @@ impl TransferEntropy {
     }
 
     /// Create a Multi-dimensional Kernel-based conditional transfer entropy estimator.
+    pub fn nd_cte_kernel<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const COND_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_COND: usize,
+        const D_JOINT: usize,
+        const D_XP_YP_ZP: usize,
+        const D_YP_ZP: usize,
+        const D_YF_YP_ZP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        condition: &Array2<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+        bandwidth: f64,
+    ) -> KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    > {
+        KernelConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            "box".to_string(),
+            bandwidth,
+        )
+    }
+
+    /// Create a Multi-dimensional Kernel-based conditional transfer entropy estimator with specific kernel type.
+    pub fn nd_cte_kernel_with_type<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const COND_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_COND: usize,
+        const D_JOINT: usize,
+        const D_XP_YP_ZP: usize,
+        const D_YP_ZP: usize,
+        const D_YF_YP_ZP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        condition: &Array2<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    > {
+        KernelConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            kernel_type,
+            bandwidth,
+        )
+    }
+
     /// Create a Miller-Madow bias-corrected discrete conditional transfer entropy estimator.
     pub fn new_cte_discrete_miller_madow(
         source: &Array1<i32>,

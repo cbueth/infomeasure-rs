@@ -1,4 +1,4 @@
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::{Entropy, GlobalValue};
 use std::time::{Duration, Instant};
 use std::fs::File;
 use std::io::Write;

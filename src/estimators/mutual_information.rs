@@ -12,6 +12,12 @@ use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
 use crate::estimators::approaches::discrete::{
     DiscreteConditionalMutualInformation, DiscreteMutualInformation,
 };
+use ndarray::{Array1, Array2, Axis};
+
+use crate::estimators::approaches::kernel::{
+    KernelConditionalMutualInformation, KernelMutualInformation2, KernelMutualInformation3,
+    KernelMutualInformation4, KernelMutualInformation5, KernelMutualInformation6,
+};
 
 /// Macro for creating a new `KernelMutualInformation` estimator.
 ///
@@ -340,5 +346,40 @@ impl MutualInformation {
         DiscreteConditionalMutualInformation::new(series, cond, |data| {
             BayesEntropy::new(data, AlphaParam::Jeffrey, None)
         })
+    }
+    /// Create a 3-variable Multi-dimensional Kernel-based mutual information estimator.
+    pub fn nd_kernel3<const D_JOINT: usize, const D1: usize, const D2: usize, const D3: usize>(
+        series: &[Array2<f64>],
+        bandwidth: f64,
+    ) -> KernelMutualInformation3<D_JOINT, D1, D2, D3> {
+        KernelMutualInformation3::new(series, "box".to_string(), bandwidth)
+    }
+
+    /// Create a 3-variable Multi-dimensional Kernel-based mutual information estimator with specific kernel type.
+    pub fn nd_kernel3_with_type<
+        const D_JOINT: usize,
+        const D1: usize,
+        const D2: usize,
+        const D3: usize,
+    >(
+        series: &[Array2<f64>],
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> KernelMutualInformation3<D_JOINT, D1, D2, D3> {
+        KernelMutualInformation3::new(series, kernel_type, bandwidth)
+    }
+
+    /// Create a 4-variable Multi-dimensional Kernel-based mutual information estimator.
+    pub fn nd_kernel4<
+        const D_JOINT: usize,
+        const D1: usize,
+        const D2: usize,
+        const D3: usize,
+        const D4: usize,
+    >(
+        series: &[Array2<f64>],
+        bandwidth: f64,
+    ) -> KernelMutualInformation4<D_JOINT, D1, D2, D3, D4> {
+        KernelMutualInformation4::new(series, "box".to_string(), bandwidth)
     }
 }

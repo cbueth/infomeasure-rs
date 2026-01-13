@@ -1,5 +1,5 @@
 use approx::assert_relative_eq;
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::{Entropy, GlobalValue, LocalValues};
 use ndarray::{Array1, Array2};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

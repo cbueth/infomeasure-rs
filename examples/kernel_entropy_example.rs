@@ -1,4 +1,4 @@
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
 use ndarray::{array, Array1};
 use rand::prelude::*;
 use rand_distr::{Distribution, Normal};
