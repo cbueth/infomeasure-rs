@@ -185,6 +185,153 @@ impl_kernel_mi!(
     (0, 1, 2, 3, 4, 5)
 );
 
+/// Kernel-based conditional mutual information estimator for continuous data
+///
+/// # Const Generics
+/// - `D1`, `D2`, `D_COND`: Dimensions of input variables.
+/// - `D_JOINT`: $D_1 + D_2 + D_{cond}$
+/// - `D1_COND`: $D_1 + D_{cond}$
+/// - `D2_COND`: $D_2 + D_{cond}$
+pub struct KernelConditionalMutualInformation<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> {
+    pub kernel_type: String,
+    pub bandwidth: f64,
+    pub series: Vec<Array2<f64>>,
+    pub cond: Array2<f64>,
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> KernelConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
+{
+    /// Create a new KernelConditionalMutualInformation estimator.
+    pub fn new(
+        series: &[Array2<f64>],
+        cond: &Array2<f64>,
+        _kernel_type: String,
+        _bandwidth: f64,
+    ) -> Self {
+        Self {
+            kernel_type: _kernel_type,
+            bandwidth: _bandwidth,
+            series: series.to_vec(),
+            cond: cond.clone(),
+        }
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> GlobalValue for KernelConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
+{
+    fn global_value(&self) -> f64 {
+        self.local_values().mean().unwrap_or(0.0)
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> OptionalLocalValues
+    for KernelConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
+{
+    fn supports_local(&self) -> bool {
+        true
+    }
+
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> ConditionalMutualInformationEstimator
+    for KernelConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
+{
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D1_COND: usize,
+    const D2_COND: usize,
+> LocalValues for KernelConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
+{
+    fn local_values(&self) -> Array1<f64> {
+        let mut all_data_vec = self.series.iter().map(|d| d.view()).collect::<Vec<_>>();
+        all_data_vec.push(self.cond.view());
+        let all_data = concatenate(Axis(1), &all_data_vec).unwrap();
+
+        let p_joint_all = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+            all_data,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+
+        let p_cond = KernelEntropy::<D_COND>::new_with_kernel_type(
+            self.cond.clone(),
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+
+        let xi_z1 = concatenate(Axis(1), &[self.series[0].view(), self.cond.view()]).unwrap();
+        let p_marg1 = KernelEntropy::<D1_COND>::new_with_kernel_type(
+            xi_z1,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+
+        let xi_z2 = concatenate(Axis(1), &[self.series[1].view(), self.cond.view()]).unwrap();
+        let p_marg2 = KernelEntropy::<D2_COND>::new_with_kernel_type(
+            xi_z2,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+
+        let n = p_joint_all.len();
+        let mut local_cmi = Array1::zeros(n);
+        for i in 0..n {
+            let num = p_joint_all[i] * p_cond[i];
+            let den = p_marg1[i] * p_marg2[i];
+            if p_joint_all[i] > 0.0 && p_cond[i] > 0.0 && den > 0.0 {
+                local_cmi[i] = (num / den).ln();
+            }
+        }
+        local_cmi
+    }
+}
 
 /// Input data representation for kernel entropy estimation
 ///
