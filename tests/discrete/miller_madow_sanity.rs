@@ -1,11 +1,13 @@
-use ndarray::Array1;
 use approx::assert_abs_diff_eq;
-use infomeasure::estimators::approaches::discrete::{mle::DiscreteEntropy, miller_madow::MillerMadowEntropy};
+use infomeasure::estimators::approaches::discrete::{
+    miller_madow::MillerMadowEntropy, mle::DiscreteEntropy,
+};
 use infomeasure::estimators::{GlobalValue, LocalValues};
+use ndarray::Array1;
 
 #[test]
 fn miller_madow_known_example() {
-    let data = Array1::from(vec![1,1,2,3,3,4,5]);
+    let data = Array1::from(vec![1, 1, 2, 3, 3, 4, 5]);
     let mle = DiscreteEntropy::new(data.clone());
     let mm = MillerMadowEntropy::new(data.clone());
 

@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
-use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], "uniform 5")]

@@ -1,18 +1,18 @@
 // GPU-accelerated implementation of kernel entropy calculation
 // This module is only included when the `gpu_support` feature flag is enabled
 
-use ndarray::Array1;
 use crate::estimators::approaches::kernel::KernelEntropy;
-use wgpu::util::DeviceExt;
 use bytemuck::{Pod, Zeroable};
 use futures_intrusive::channel::shared::oneshot_channel;
+use ndarray::Array1;
 use pollster::block_on;
+use wgpu::util::DeviceExt;
 
 // Define a struct for the point data that can be sent to the GPU
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct GpuPoint {
-    values: [f32; 32], // Support up to 32 dimensions
+    values: [f32; 32],  // Support up to 32 dimensions
     _padding: [f32; 0], // No padding needed
 }
 
@@ -21,16 +21,16 @@ struct GpuPoint {
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct GpuPrecisionMatrix {
     values: [f32; 1024], // Support up to 32x32 dimensions
-    dim_count: u32,    // Actual number of dimensions
-    _padding: [u32; 3], // Padding to ensure 16-byte alignment
+    dim_count: u32,      // Actual number of dimensions
+    _padding: [u32; 3],  // Padding to ensure 16-byte alignment
 }
 
 // Define a struct for the bandwidth that can be sent to the GPU (for Box kernel)
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct GpuBandwidth {
-    value: f32,        // Single bandwidth value for all dimensions
-    dim_count: u32,    // Actual number of dimensions
+    value: f32,         // Single bandwidth value for all dimensions
+    dim_count: u32,     // Actual number of dimensions
     _padding: [u32; 2], // Padding to ensure 16-byte alignment
 }
 
@@ -119,7 +119,9 @@ impl<const K: usize> KernelEntropy<K> {
     pub fn gaussian_kernel_local_values_gpu(&self) -> Array1<f64> {
         // Check if dimensions are within supported range
         if K > 32 {
-            println!("GPU implementation only supports up to 32 dimensions, falling back to CPU implementation");
+            println!(
+                "GPU implementation only supports up to 32 dimensions, falling back to CPU implementation"
+            );
             return self.gaussian_kernel_local_values();
         }
 
@@ -133,12 +135,15 @@ impl<const K: usize> KernelEntropy<K> {
         match self.run_gaussian_gpu_calculation() {
             Ok(result) => result,
             Err(e) => {
-                println!("GPU calculation failed: {}, falling back to CPU implementation", e);
+                println!(
+                    "GPU calculation failed: {}, falling back to CPU implementation",
+                    e
+                );
                 self.gaussian_kernel_local_values()
             }
         }
     }
-    
+
     /// Computes local entropy values using a box kernel with GPU acceleration
     ///
     /// This implementation uses the GPU via wgpu to accelerate the calculation of
@@ -170,7 +175,9 @@ impl<const K: usize> KernelEntropy<K> {
     pub fn box_kernel_local_values_gpu(&self) -> Array1<f64> {
         // Check if dimensions are within supported range
         if K > 32 {
-            println!("GPU implementation only supports up to 32 dimensions, falling back to CPU implementation");
+            println!(
+                "GPU implementation only supports up to 32 dimensions, falling back to CPU implementation"
+            );
             return self.box_kernel_local_values();
         }
 
@@ -184,7 +191,10 @@ impl<const K: usize> KernelEntropy<K> {
         match self.run_box_gpu_calculation() {
             Ok(result) => result,
             Err(e) => {
-                println!("GPU calculation failed: {}, falling back to CPU implementation", e);
+                println!(
+                    "GPU calculation failed: {}, falling back to CPU implementation",
+                    e
+                );
                 self.box_kernel_local_values()
             }
         }
@@ -218,11 +228,15 @@ impl<const K: usize> KernelEntropy<K> {
             diag_prod * diag_prod
         } else {
             // Fallback to diagonal covariance if cholesky_factor is None
-            self.std_devs.iter().map(|&s| (self.bandwidth * s).powi(2)).product()
+            self.std_devs
+                .iter()
+                .map(|&s| (self.bandwidth * s).powi(2))
+                .product()
         };
 
         // Normalization: N * (2π)^(K/2) * sqrt(det(Σ_scaled))
-        let normalization = (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+        let normalization =
+            (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
 
         // Determine adaptive radius based on data density and max_eigenvalue
         // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
@@ -246,15 +260,13 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         // Create device and queue
-        let (device, queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Gaussian Kernel Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-                trace: wgpu::Trace::default(),
-            },
-        ))?;
+        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("Gaussian Kernel Device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::default(),
+        }))?;
 
         // Prepare data for GPU
         let mut gpu_points = Vec::with_capacity(self.points.len());
@@ -295,7 +307,7 @@ impl<const K: usize> KernelEntropy<K> {
                 }
             }
         }
-        
+
         let gpu_config = GpuConfig {
             point_count: self.points.len() as u32,
             dim_count: K as u32,
@@ -310,11 +322,12 @@ impl<const K: usize> KernelEntropy<K> {
             usage: wgpu::BufferUsages::STORAGE,
         });
 
-        let precision_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Precision Matrix Buffer"),
-            contents: bytemuck::bytes_of(&gpu_precision_matrix),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let precision_matrix_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Precision Matrix Buffer"),
+                contents: bytemuck::bytes_of(&gpu_precision_matrix),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
         let config_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Config Buffer"),
@@ -471,7 +484,9 @@ impl<const K: usize> KernelEntropy<K> {
         });
 
         // Wait for the GPU to finish
-        device.poll(wgpu::PollType::Wait).expect("Failed to poll device");
+        device
+            .poll(wgpu::PollType::Wait)
+            .expect("Failed to poll device");
 
         // Get the mapped data
         if let Some(Ok(())) = block_on(receiver.receive()) {
@@ -532,15 +547,13 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         // Create device and queue
-        let (device, queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Box Kernel Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-                trace: wgpu::Trace::default(),
-            },
-        ))?;
+        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("Box Kernel Device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::default(),
+        }))?;
 
         // Prepare data for GPU
         let mut gpu_points = Vec::with_capacity(self.points.len());
@@ -740,7 +753,9 @@ impl<const K: usize> KernelEntropy<K> {
         });
 
         // Wait for the GPU to finish
-        device.poll(wgpu::PollType::Wait).expect("Failed to poll device");
+        device
+            .poll(wgpu::PollType::Wait)
+            .expect("Failed to poll device");
 
         // Get the mapped data
         if let Some(Ok(())) = block_on(receiver.receive()) {

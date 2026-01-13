@@ -1,6 +1,6 @@
 use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
-use std::collections::HashMap;
 use ndarray::array;
+use std::collections::HashMap;
 
 fn main() {
     // Example discrete data - a sequence of integers

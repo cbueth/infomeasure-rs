@@ -10,7 +10,9 @@ fn python_renyi_entropy(data: &Array2<f64>, k: usize, alpha: f64) -> f64 {
     // Serialize data as JSON 2D array
     let rows = data.nrows();
     let mut vec2d: Vec<Vec<f64>> = Vec::with_capacity(rows);
-    for i in 0..rows { vec2d.push(data.row(i).to_vec()); }
+    for i in 0..rows {
+        vec2d.push(data.row(i).to_vec());
+    }
     let data_json = serde_json::to_string(&vec2d).unwrap();
 
     {
@@ -34,7 +36,7 @@ fn python_renyi_entropy(data: &Array2<f64>, k: usize, alpha: f64) -> f64 {
 fn renyi_python_parity_1d() {
     // Simple 1D dataset
     let x = Array1::from(vec![0.0, 1.0, 3.0, 6.0, 10.0, 15.0]);
-    let data = x.into_shape_with_order((6,1)).unwrap();
+    let data = x.into_shape_with_order((6, 1)).unwrap();
 
     for &(k, alpha) in &[(1usize, 0.5f64), (2, 0.5), (1, 2.0), (3, 2.0)] {
         let est = RenyiEntropy::<1>::new(data.clone(), k, alpha, 0.0);
@@ -49,13 +51,11 @@ fn renyi_python_parity_1d() {
 #[test]
 fn renyi_python_parity_2d() {
     // Simple 2D dataset
-    let data = Array2::from_shape_vec((5, 2), vec![
-        0.0, 0.0,
-        1.0, 0.0,
-        0.0, 1.0,
-        1.0, 1.0,
-        2.0, 2.0,
-    ]).unwrap();
+    let data = Array2::from_shape_vec(
+        (5, 2),
+        vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0],
+    )
+    .unwrap();
 
     for &(k, alpha) in &[(1usize, 0.5f64), (2, 0.5), (1, 2.0)] {
         let est = RenyiEntropy::<2>::new(data.clone(), k, alpha, 0.0);
@@ -81,12 +81,12 @@ fn flat_from_array2(a: &Array2<f64>) -> Vec<f64> {
 fn renyi_joint_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
     let x = Array1::from(vec![0.0, 1.0, 3.0, 6.0, 10.0, 15.0, 21.0, 28.0]);
     let y = Array1::from(vec![0.1, 1.2, 2.9, 6.1, 9.8, 15.2, 21.1, 27.9]);
-    
+
     let series = [x.clone(), y.clone()];
-    
+
     // Rust Joint Entropy
     let h_rust = RenyiEntropy::<2>::joint_entropy(&series, (k, alpha, 0.0));
-    
+
     // Python Joint Entropy
     let mut joined = Array2::zeros((x.len(), 2));
     for i in 0..x.len() {
@@ -100,7 +100,7 @@ fn renyi_joint_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
     ];
     let h_py = python::calculate_entropy_float_nd(&flat, 2, "renyi", &kwargs)
         .expect("python renyi failed");
-        
+
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-8);
 }
 
@@ -110,12 +110,12 @@ fn renyi_joint_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
 fn renyi_cross_python_parity_1d(#[case] k: usize, #[case] alpha: f64) {
     let p_data = Array1::from(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
     let q_data = Array1::from(vec![0.1, 1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1]);
-    
+
     let est_p = RenyiEntropy::<1>::new_1d(p_data.clone(), k, alpha, 0.0);
     let est_q = RenyiEntropy::<1>::new_1d(q_data.clone(), k, alpha, 0.0);
-    
+
     let h_rust = est_p.cross_entropy(&est_q);
-    
+
     let kwargs = vec![
         ("k".to_string(), format!("{}", k)),
         ("alpha".to_string(), format!("{}", alpha)),
@@ -125,9 +125,10 @@ fn renyi_cross_python_parity_1d(#[case] k: usize, #[case] alpha: f64) {
         q_data.as_slice().unwrap(),
         1,
         "renyi",
-        &kwargs
-    ).expect("python cross renyi failed");
-    
+        &kwargs,
+    )
+    .expect("python cross renyi failed");
+
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-8);
 }
 
@@ -136,31 +137,40 @@ fn renyi_cross_python_parity_1d(#[case] k: usize, #[case] alpha: f64) {
 #[case(5, 2.0)]
 fn renyi_cross_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
     let p_data: Array2<f64> = ndarray::array![
-        [0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0], [4.0, 4.0], [5.0, 5.0], [6.0, 6.0], [7.0, 7.0]
+        [0.0, 0.0],
+        [1.0, 1.0],
+        [2.0, 2.0],
+        [3.0, 3.0],
+        [4.0, 4.0],
+        [5.0, 5.0],
+        [6.0, 6.0],
+        [7.0, 7.0]
     ];
     let q_data: Array2<f64> = ndarray::array![
-        [0.1, 0.1], [1.1, 1.1], [2.1, 2.1], [3.1, 3.1], [4.1, 4.1], [5.1, 5.1], [6.1, 6.1], [7.1, 7.1]
+        [0.1, 0.1],
+        [1.1, 1.1],
+        [2.1, 2.1],
+        [3.1, 3.1],
+        [4.1, 4.1],
+        [5.1, 5.1],
+        [6.1, 6.1],
+        [7.1, 7.1]
     ];
-    
+
     let est_p = RenyiEntropy::<2>::new(p_data.clone(), k, alpha, 0.0);
     let est_q = RenyiEntropy::<2>::new(q_data.clone(), k, alpha, 0.0);
-    
+
     let h_rust = est_p.cross_entropy(&est_q);
-    
+
     let flat_p = flat_from_array2(&p_data);
     let flat_q = flat_from_array2(&q_data);
-    
+
     let kwargs = vec![
         ("k".to_string(), format!("{}", k)),
         ("alpha".to_string(), format!("{}", alpha)),
     ];
-    let h_py = python::calculate_cross_entropy_float_nd(
-        &flat_p,
-        &flat_q,
-        2,
-        "renyi",
-        &kwargs
-    ).expect("python cross renyi failed");
-    
+    let h_py = python::calculate_cross_entropy_float_nd(&flat_p, &flat_q, 2, "renyi", &kwargs)
+        .expect("python cross renyi failed");
+
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-8);
 }

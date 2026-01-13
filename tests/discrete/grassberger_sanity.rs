@@ -1,17 +1,19 @@
-use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::GrassbergerEntropy;
 use infomeasure::estimators::{GlobalValue, LocalValues};
+use ndarray::Array1;
 use std::collections::HashMap;
 
 #[test]
 fn grassberger_local_values_match_formula() {
-    let data = Array1::from(vec![1,1,2,3,3,4,5]);
+    let data = Array1::from(vec![1, 1, 2, 3, 3, 4, 5]);
     let est = GrassbergerEntropy::new(data.clone());
 
     // Compute expected locals manually from counts
     let mut counts: HashMap<i32, usize> = HashMap::new();
-    for &v in data.iter() { *counts.entry(v).or_insert(0) += 1; }
+    for &v in data.iter() {
+        *counts.entry(v).or_insert(0) += 1;
+    }
     let n = data.len() as f64;
     let n_ln = n.ln();
 

@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use ndarray::{Array1, Array2};
 
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+};
 
 /// Choices for the Dirichlet concentration parameter alpha
 #[derive(Clone, Debug)]
@@ -66,12 +68,19 @@ impl CrossEntropy for BayesEntropy {
 impl BayesEntropy {
     pub fn new(data: Array1<i32>, alpha: AlphaParam, k_override: Option<usize>) -> Self {
         let dataset = DiscreteDataset::from_data(data);
-        Self { dataset, alpha, k_override }
+        Self {
+            dataset,
+            alpha,
+            k_override,
+        }
     }
 
     /// Build a vector of BayesEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>, alpha: AlphaParam, k_override: Option<usize>) -> Vec<Self> {
-        rows_as_vec(data).into_iter().map(|row| Self::new(row, alpha.clone(), k_override)).collect()
+        rows_as_vec(data)
+            .into_iter()
+            .map(|row| Self::new(row, alpha.clone(), k_override))
+            .collect()
     }
 
     /// Compute Bayesian probabilities (n + alpha) / (N + K * alpha)
@@ -96,10 +105,18 @@ impl BayesEntropy {
             AlphaParam::Jeffrey => 0.5,
             AlphaParam::Laplace => 1.0,
             AlphaParam::SchGrass => {
-                if k == 0 { 0.0 } else { 1.0 / k as f64 }
+                if k == 0 {
+                    0.0
+                } else {
+                    1.0 / k as f64
+                }
             }
             AlphaParam::MinMax => {
-                if k == 0 { 0.0 } else { (n as f64).sqrt() / k as f64 }
+                if k == 0 {
+                    0.0
+                } else {
+                    (n as f64).sqrt() / k as f64
+                }
             }
         }
     }
@@ -111,7 +128,9 @@ impl GlobalValue for BayesEntropy {
         let (probs, _uniq) = self.bayes_probs();
         let mut h = 0.0_f64;
         for p in probs.into_iter() {
-            if p > 0.0 { h -= p * p.ln(); }
+            if p > 0.0 {
+                h -= p * p.ln();
+            }
         }
         h
     }
@@ -122,7 +141,9 @@ impl JointEntropy for BayesEntropy {
     type Params = (AlphaParam, Option<usize>);
 
     fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = BayesEntropy::new(joint_codes, params.0, params.1);
         disc.global_value()
@@ -136,8 +157,12 @@ impl LocalValues for BayesEntropy {
 }
 
 impl OptionalLocalValues for BayesEntropy {
-    fn supports_local(&self) -> bool { false }
+    fn supports_local(&self) -> bool {
+        false
+    }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Bayes estimator as it is a Bayesian estimator that averages over Dirichlet priors.")
+        Err(
+            "Local values are not supported for Bayes estimator as it is a Bayesian estimator that averages over Dirichlet priors.",
+        )
     }
 }

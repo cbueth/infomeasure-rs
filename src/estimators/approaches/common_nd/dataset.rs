@@ -1,6 +1,6 @@
-use ndarray::{Array1, Array2, ArrayView2, Axis};
-use kiddo::{ImmutableKdTree, SquaredEuclidean, Manhattan};
 use kiddo::traits::DistanceMetric;
+use kiddo::{ImmutableKdTree, Manhattan, SquaredEuclidean};
+use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
 
 /// Chebyshev distance metric (L-infinity norm) for kiddo.
@@ -11,7 +11,9 @@ impl<const K: usize> DistanceMetric<f64, K> for Chebyshev {
         let mut max = 0.0;
         for i in 0..K {
             let diff = (a[i] - b[i]).abs();
-            if diff > max { max = diff; }
+            if diff > max {
+                max = diff;
+            }
         }
         max
     }
@@ -49,9 +51,7 @@ impl<const K: usize> NdDataset<K> {
 
     /// Return a view of the dataset as a 2D array (samples x dimensions)
     pub fn view(&self) -> ArrayView2<'_, f64> {
-        unsafe {
-            ArrayView2::from_shape_ptr((self.n, K), self.points.as_ptr() as *const f64)
-        }
+        unsafe { ArrayView2::from_shape_ptr((self.n, K), self.points.as_ptr() as *const f64) }
     }
 
     fn to_points(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
@@ -67,7 +67,9 @@ impl<const K: usize> NdDataset<K> {
         } else {
             for r in 0..n {
                 let mut p = [0.0; K];
-                for c in 0..K { p[c] = data[(r, c)]; }
+                for c in 0..K {
+                    p[c] = data[(r, c)];
+                }
                 points.push(p);
             }
         }
@@ -77,12 +79,16 @@ impl<const K: usize> NdDataset<K> {
     /// Euclidean metric (p=2): distance to k-th neighbor per point (self-excluded)
     pub fn kth_neighbor_radii_euclidean(&self, k: usize) -> Vec<f64> {
         assert!(k >= 1);
-        if self.n == 0 { return Vec::new(); }
+        if self.n == 0 {
+            return Vec::new();
+        }
         assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
         for p in self.points.iter() {
-            let mut neigh = self.tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
+            let mut neigh = self
+                .tree
+                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
             let kth = neigh.remove(k);
             let (dist2, _idx): (f64, u64) = kth.into();
             radii.push(dist2.sqrt());
@@ -93,12 +99,16 @@ impl<const K: usize> NdDataset<K> {
     /// Manhattan metric (p=1): distance to k-th neighbor per point (self-excluded)
     pub fn kth_neighbor_radii_manhattan(&self, k: usize) -> Vec<f64> {
         assert!(k >= 1);
-        if self.n == 0 { return Vec::new(); }
+        if self.n == 0 {
+            return Vec::new();
+        }
         assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
         for p in self.points.iter() {
-            let mut neigh = self.tree.nearest_n::<Manhattan>(p, NonZeroUsize::new(k + 1).unwrap());
+            let mut neigh = self
+                .tree
+                .nearest_n::<Manhattan>(p, NonZeroUsize::new(k + 1).unwrap());
             let kth = neigh.remove(k);
             let (dist, _idx): (f64, u64) = kth.into();
             // Manhattan metric returns actual L1 distance (not squared)
@@ -111,12 +121,18 @@ impl<const K: usize> NdDataset<K> {
     pub fn kth_neighbor_radii_minkowski(&self, p: f64, k: usize) -> Vec<f64> {
         assert!(p.is_finite() && p > 0.0, "Minkowski p must be > 0");
         assert!(k >= 1);
-        if self.n == 0 { return Vec::new(); }
+        if self.n == 0 {
+            return Vec::new();
+        }
         assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
 
         // Fast paths for p≈1 and p≈2 using KD-tree
-        if (p - 1.0).abs() < 1e-12 { return self.kth_neighbor_radii_manhattan(k); }
-        if (p - 2.0).abs() < 1e-12 { return self.kth_neighbor_radii_euclidean(k); }
+        if (p - 1.0).abs() < 1e-12 {
+            return self.kth_neighbor_radii_manhattan(k);
+        }
+        if (p - 2.0).abs() < 1e-12 {
+            return self.kth_neighbor_radii_euclidean(k);
+        }
 
         // Brute-force compute Lp distances row-wise
         let mut out = Vec::with_capacity(self.n);
@@ -125,9 +141,13 @@ impl<const K: usize> NdDataset<K> {
             let mut dists: Vec<f64> = Vec::with_capacity(self.n - 1);
             let xi = &self.points[i];
             for j in 0..self.n {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let mut acc = 0.0f64;
-                for dim in 0..K { acc += (xi[dim] - self.points[j][dim]).abs().powf(p); }
+                for dim in 0..K {
+                    acc += (xi[dim] - self.points[j][dim]).abs().powf(p);
+                }
                 dists.push(acc.powf(1.0 / p));
             }
             // Select k-th smallest

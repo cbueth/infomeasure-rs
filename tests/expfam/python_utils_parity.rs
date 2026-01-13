@@ -1,10 +1,8 @@
 use approx::assert_abs_diff_eq;
-use ndarray::{array, Array2};
+use ndarray::{Array2, array};
 
 use infomeasure::estimators::approaches::expfam::utils::{
-    unit_ball_volume,
-    knn_radii,
-    calculate_common_entropy_components,
+    calculate_common_entropy_components, knn_radii, unit_ball_volume,
 };
 use std::process::Command;
 
@@ -15,10 +13,7 @@ fn run_py(args: &[&str]) -> String {
         .output()
         .expect("failed to run micromamba python");
     if !status.status.success() {
-        panic!(
-            "Python failed: {}",
-            String::from_utf8_lossy(&status.stderr)
-        );
+        panic!("Python failed: {}", String::from_utf8_lossy(&status.stderr));
     }
     String::from_utf8_lossy(&status.stdout).to_string()
 }
@@ -34,7 +29,9 @@ fn py_unit_ball_volume(m: usize) -> f64 {
 
 fn py_knn_radii(data: &Array2<f64>, k: usize) -> Vec<f64> {
     let mut rows = Vec::with_capacity(data.nrows());
-    for r in 0..data.nrows() { rows.push(data.row(r).to_vec()); }
+    for r in 0..data.nrows() {
+        rows.push(data.row(r).to_vec());
+    }
     let json = serde_json::to_string(&rows).unwrap();
     let code = r#"
 import sys, json
@@ -51,7 +48,9 @@ print(json.dumps(list(map(float, res))))
 
 fn py_common_components(data: &Array2<f64>, k: usize) -> (f64, Vec<f64>, usize, usize) {
     let mut rows = Vec::with_capacity(data.nrows());
-    for r in 0..data.nrows() { rows.push(data.row(r).to_vec()); }
+    for r in 0..data.nrows() {
+        rows.push(data.row(r).to_vec());
+    }
     let json = serde_json::to_string(&rows).unwrap();
     let code = r#"
 import sys, json
@@ -67,8 +66,13 @@ print(json.dumps({"V_m": float(V_m), "rho_k": list(map(float, rho_k)), "N": int(
     let v_m = v.get("V_m").and_then(|x| x.as_f64()).expect("V_m f64");
     let n = v.get("N").and_then(|x| x.as_u64()).unwrap() as usize;
     let m = v.get("m").and_then(|x| x.as_u64()).unwrap() as usize;
-    let rho_k = v.get("rho_k").and_then(|x| x.as_array()).unwrap()
-        .iter().map(|e| e.as_f64().unwrap()).collect::<Vec<_>>();
+    let rho_k = v
+        .get("rho_k")
+        .and_then(|x| x.as_array())
+        .unwrap()
+        .iter()
+        .map(|e| e.as_f64().unwrap())
+        .collect::<Vec<_>>();
     (v_m, rho_k, n, m)
 }
 
@@ -81,30 +85,29 @@ fn parity_unit_ball_volume_against_python() {
     }
 }
 
-
 #[test]
 fn parity_common_components_against_python() {
     // 1D sample
-    let d1: Array2<f64> = array![[0.0],[1.0],[3.0],[6.0],[10.0]];
+    let d1: Array2<f64> = array![[0.0], [1.0], [3.0], [6.0], [10.0]];
     let (v_m_r, rho_r, n_r, m_r) = calculate_common_entropy_components::<1>(d1.view(), 2);
     let (v_m_p, rho_p, n_p, m_p) = py_common_components(&d1, 2);
     assert_abs_diff_eq!(v_m_r, v_m_p, epsilon = 1e-12);
     assert_eq!(n_r, n_p);
     assert_eq!(m_r, m_p);
     assert_eq!(rho_r.len(), rho_p.len());
-    for (a,b) in rho_r.iter().zip(rho_p.iter()) {
+    for (a, b) in rho_r.iter().zip(rho_p.iter()) {
         assert_abs_diff_eq!(*a, *b, epsilon = 1e-12);
     }
 
     // 2D sample
-    let d2: Array2<f64> = array![[0.0,0.0],[1.0,0.0],[0.0,1.0],[1.0,1.0]];
+    let d2: Array2<f64> = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
     let (v_m_r2, rho_r2, n_r2, m_r2) = calculate_common_entropy_components::<2>(d2.view(), 2);
     let (v_m_p2, rho_p2, n_p2, m_p2) = py_common_components(&d2, 2);
     assert_abs_diff_eq!(v_m_r2, v_m_p2, epsilon = 1e-12);
     assert_eq!(n_r2, n_p2);
     assert_eq!(m_r2, m_p2);
     assert_eq!(rho_r2.len(), rho_p2.len());
-    for (a,b) in rho_r2.iter().zip(rho_p2.iter()) {
+    for (a, b) in rho_r2.iter().zip(rho_p2.iter()) {
         assert_abs_diff_eq!(*a, *b, epsilon = 1e-12);
     }
 }

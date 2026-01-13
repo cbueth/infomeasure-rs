@@ -1,9 +1,9 @@
-use ndarray::{Array1, Array2};
-use std::f64::{INFINITY, NAN};
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy, LocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use ndarray::{Array1, Array2};
 use statrs::function::gamma::{digamma, ln_gamma};
+use std::f64::{INFINITY, NAN};
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
 ///
@@ -31,7 +31,12 @@ pub struct NsbEntropy {
 impl NsbEntropy {
     pub fn new(data: Array1<i32>, k_override: Option<usize>) -> Self {
         let dataset = DiscreteDataset::from_data(data);
-        Self { dataset, k_override, tol: 1e-6, max_recursion: 12 }
+        Self {
+            dataset,
+            k_override,
+            tol: 1e-6,
+            max_recursion: 12,
+        }
     }
 
     fn counts_vec(&self) -> Vec<usize> {
@@ -80,7 +85,10 @@ impl NsbEntropy {
         let step = (upper - 0.1_f64) / (steps as f64);
         for _ in 0..steps {
             let v = func(t).abs();
-            if v < best_val { best_val = v; best_k0 = t; }
+            if v < best_val {
+                best_val = v;
+                best_k0 = t;
+            }
             t += step;
         }
         let extremum_beta = best_k0 / (k as f64);
@@ -112,21 +120,27 @@ impl GlobalValue for NsbEntropy {
         let n = self.dataset.n as usize;
         let k_obs = self.dataset.k;
         let k = self.k_override.unwrap_or(k_obs);
-        if n == 0 || k == 0 { return NAN; }
+        if n == 0 || k == 0 {
+            return NAN;
+        }
         let counts = self.counts_vec();
         let coincidences = (n as i64) - (k as i64);
         // If coincidences <= 0, NSB is still defined as long as k > 0 and n > 0.
         // However, Python returns NaN for coincidences == 0 in some cases, but not others.
-        // Actually, looking at Python NSB tests: 
+        // Actually, looking at Python NSB tests:
         // test_nsb_k_parameter_no_coincidences_with_k:
         // result_k10 (K=10, N=5) -> works
         // result_k5 (K=5, N=5) -> NaN
         // result_k3 (K=3, N=5) -> works
-        if coincidences == 0 { return NAN; }
+        if coincidences == 0 {
+            return NAN;
+        }
 
         // Integration bounds (mirror Python code): 0 .. ln K
         let upper = (k as f64).ln();
-        if !upper.is_finite() || upper <= 0.0 { return NAN; }
+        if !upper.is_finite() || upper <= 0.0 {
+            return NAN;
+        }
 
         let l0 = self.find_l0(k, n);
         let neg_log_rho = |beta: f64| self.neg_log_rho(beta, k, n, &counts);
@@ -141,7 +155,9 @@ impl GlobalValue for NsbEntropy {
         let num = self.simpson(&f_num, a, upper, self.tol, self.max_recursion);
         let den = self.simpson(&f_den, a, upper, self.tol, self.max_recursion);
 
-        if den == 0.0 || !den.is_finite() { return NAN; }
+        if den == 0.0 || !den.is_finite() {
+            return NAN;
+        }
         num / den
     }
 }
@@ -157,19 +173,22 @@ impl JointEntropy for NsbEntropy {
     type Params = Option<usize>; // k_override
 
     fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = NsbEntropy::new(joint_codes, params);
         disc.global_value()
     }
 }
 
-
 /// Trigamma function ψ1(x) = d^2/dx^2 ln Γ(x)
 /// Implementation using recurrence to x>=8 plus asymptotic series expansion.
 fn trigamma(mut x: f64) -> f64 {
     // Our use cases have x > 0 (1 + beta, 1 + K*beta), but guard minimal values
-    if !x.is_finite() { return f64::NAN; }
+    if !x.is_finite() {
+        return f64::NAN;
+    }
     let mut acc = 0.0_f64;
     // Use recurrence: ψ1(x) = ψ1(x+1) + 1/x^2, so accumulate 1/x^2 while increasing x
     while x < 8.0 {
@@ -179,20 +198,22 @@ fn trigamma(mut x: f64) -> f64 {
     // Asymptotic expansion at large x
     let z = 1.0 / x;
     let z2 = z * z;
-    let mut series = z + 0.5 * z2 + (1.0/6.0) * z2 * z; // 1/x + 1/(2x^2) + 1/(6x^3)
-    let z5 = z2 * z2 * z;   // 1/x^5
-    let z7 = z5 * z2;       // 1/x^7
-    let z9 = z7 * z2;       // 1/x^9
-    let z11 = z9 * z2;      // 1/x^11
-    series += -(1.0/30.0) * z5 + (1.0/42.0) * z7 - (1.0/30.0) * z9 + (5.0/66.0) * z11;
+    let mut series = z + 0.5 * z2 + (1.0 / 6.0) * z2 * z; // 1/x + 1/(2x^2) + 1/(6x^3)
+    let z5 = z2 * z2 * z; // 1/x^5
+    let z7 = z5 * z2; // 1/x^7
+    let z9 = z7 * z2; // 1/x^9
+    let z11 = z9 * z2; // 1/x^11
+    series += -(1.0 / 30.0) * z5 + (1.0 / 42.0) * z7 - (1.0 / 30.0) * z9 + (5.0 / 66.0) * z11;
     acc + series
 }
-
 
 impl NsbEntropy {
     /// Build a vector of NsbEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>, k_override: Option<usize>) -> Vec<Self> {
-        rows_as_vec(data).into_iter().map(|row| Self::new(row, k_override)).collect()
+        rows_as_vec(data)
+            .into_iter()
+            .map(|row| Self::new(row, k_override))
+            .collect()
     }
 }
 

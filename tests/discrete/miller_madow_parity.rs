@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
+use infomeasure::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
+use infomeasure::estimators::traits::{GlobalValue, LocalValues};
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
 use ndarray::Array1;
-use infomeasure::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
-use infomeasure::estimators::traits::{GlobalValue, LocalValues};
-use validation::python;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], "uniform")]
@@ -21,8 +21,8 @@ fn miller_madow_entropy_python_parity(#[case] data: Vec<i32>, #[case] _descripti
     let h_rust = rust_est.global_value();
     let locals_rust = rust_est.local_values();
 
-    let h_py = python::calculate_entropy(&data, "miller_madow", &[])
-        .expect("python miller_madow failed");
+    let h_py =
+        python::calculate_entropy(&data, "miller_madow", &[]).expect("python miller_madow failed");
     let locals_py = python::calculate_local_entropy(&data, "miller_madow", &[])
         .expect("python local miller_madow failed");
 

@@ -1,8 +1,8 @@
-use ndarray::Array1;
 use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
-use validation::python;
+use ndarray::Array1;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};
+use validation::python;
 
 // Import test helper functions
 use crate::test_helpers::assert_entropy_values_close;
@@ -27,27 +27,32 @@ fn compare_discrete_entropy(data: Vec<i32>, test_name: &str) -> (f64, Vec<f64>) 
     let python_local_entropy = python::calculate_local_entropy(&data, "discrete", &[]).unwrap();
 
     // Compare the results
-    println!("{} - Rust global entropy (base e): {}", test_name, rust_global_entropy);
-    println!("{} - Python global entropy (base e): {}", test_name, python_global_entropy);
+    println!(
+        "{} - Rust global entropy (base e): {}",
+        test_name, rust_global_entropy
+    );
+    println!(
+        "{} - Python global entropy (base e): {}",
+        test_name, python_global_entropy
+    );
 
     // Assert that the global entropy values are approximately equal
     assert_entropy_values_close(
-        rust_global_entropy, 
-        python_global_entropy, 
+        rust_global_entropy,
+        python_global_entropy,
         1e-10,
         1e-6,
-        test_name
+        test_name,
     );
 
     // Assert that the local entropy values are approximately equal
-    for (rust_val, python_val) in rust_local_entropy.iter()
-        .zip(python_local_entropy.iter()) {
+    for (rust_val, python_val) in rust_local_entropy.iter().zip(python_local_entropy.iter()) {
         assert_entropy_values_close(
-            *rust_val, 
-            *python_val, 
+            *rust_val,
+            *python_val,
             1e-10,
             1e-6,
-            &format!("{} (local)", test_name)
+            &format!("{} (local)", test_name),
         );
     }
 
@@ -101,8 +106,8 @@ fn test_discrete_entropy_gaussian() {
 
     // Define different Gaussian parameters to test: (mean, std_dev)
     let gaussian_params = [
-        (0.0, 1.0),   // Standard normal distribution
-        (10.0, 2.0),  // Mean 10, std 2
+        (0.0, 1.0),  // Standard normal distribution
+        (10.0, 2.0), // Mean 10, std 2
     ];
 
     for &(mean, std_dev) in &gaussian_params {

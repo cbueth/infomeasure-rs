@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
-use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::chao_shen::ChaoShenEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], "uniform 5")]
@@ -21,8 +21,7 @@ fn chao_shen_entropy_python_parity(#[case] data: Vec<i32>, #[case] _description:
     let rust_est = ChaoShenEntropy::new(arr);
     let h_rust = rust_est.global_value();
 
-    let h_py = python::calculate_entropy(&data, "chao_shen", &[])
-        .expect("python chao_shen failed");
+    let h_py = python::calculate_entropy(&data, "chao_shen", &[]).expect("python chao_shen failed");
 
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
 }

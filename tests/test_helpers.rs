@@ -1,11 +1,11 @@
 use std::time::{Duration, Instant};
 
 // Import and re-export commonly used items
-pub use ndarray::Array2;
-pub use rand::{SeedableRng, Rng};
-pub use rand::rngs::StdRng;
-pub use rand_distr::{Distribution, Normal};
 pub use approx::assert_relative_eq;
+pub use ndarray::Array2;
+pub use rand::rngs::StdRng;
+pub use rand::{Rng, SeedableRng};
+pub use rand_distr::{Distribution, Normal};
 
 /// Generate random n-dimensional data (used in multiple files)
 pub fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f64> {
@@ -20,14 +20,17 @@ pub fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f6
 }
 
 /// Generate Gaussian distributed data (duplicated in 4+ files)
-pub fn generate_gaussian_data(size: usize, dims: usize, mean: f64, std_dev: f64, seed: u64) -> Array2<f64> {
+pub fn generate_gaussian_data(
+    size: usize,
+    dims: usize,
+    mean: f64,
+    std_dev: f64,
+    seed: u64,
+) -> Array2<f64> {
     let mut rng = StdRng::seed_from_u64(seed);
     let normal = Normal::new(mean, std_dev).unwrap();
-    let data: Vec<f64> = (0..size * dims)
-        .map(|_| normal.sample(&mut rng))
-        .collect();
-    Array2::from_shape_vec((size, dims), data)
-        .expect("Failed to reshape data")
+    let data: Vec<f64> = (0..size * dims).map(|_| normal.sample(&mut rng)).collect();
+    Array2::from_shape_vec((size, dims), data).expect("Failed to reshape data")
 }
 
 /// Common tolerance values for different kernel types
@@ -45,14 +48,17 @@ pub fn assert_entropy_values_close(
     python_val: f64,
     epsilon: f64,
     max_relative: f64,
-    test_name: &str
+    test_name: &str,
 ) {
     // Print comparison info before assertion
-    println!("Comparing in {}: Rust={}, Python={}", test_name, rust_val, python_val);
+    println!(
+        "Comparing in {}: Rust={}, Python={}",
+        test_name, rust_val, python_val
+    );
 
     assert_relative_eq!(
-        rust_val, 
-        python_val, 
+        rust_val,
+        python_val,
         epsilon = epsilon,
         max_relative = max_relative
     );

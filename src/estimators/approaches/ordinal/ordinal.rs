@@ -1,10 +1,12 @@
 use ndarray::Array1;
 
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
-use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
-use crate::estimators::approaches::ordinal::ordinal_utils::{lehmer_code, symbolize_series_compact};
-use ndarray::s;
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+use crate::estimators::approaches::ordinal::ordinal_utils::{
+    lehmer_code, symbolize_series_compact,
+};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
+use ndarray::s;
 
 /// Ordinal (permutation) entropy estimator.
 ///
@@ -41,7 +43,9 @@ impl JointEntropy for OrdinalEntropy {
     /// Aligns windowed codes by truncating to the minimum length across series.
     fn joint_entropy(series_list: &[Self::Source], params: Self::Params) -> f64 {
         let (order, step_size, stable) = params;
-        if series_list.is_empty() { return 0.0; }
+        if series_list.is_empty() {
+            return 0.0;
+        }
         // Symbolize each series
         let mut code_arrays: Vec<Array1<i32>> = Vec::with_capacity(series_list.len());
         let mut min_len = usize::MAX;
@@ -50,7 +54,9 @@ impl JointEntropy for OrdinalEntropy {
             min_len = min_len.min(codes.len());
             code_arrays.push(codes);
         }
-        if min_len == 0 { return 0.0; }
+        if min_len == 0 {
+            return 0.0;
+        }
         // Truncate to min length to align windows
         for arr in code_arrays.iter_mut() {
             if arr.len() > min_len {
@@ -80,12 +86,19 @@ impl OrdinalEntropy {
     }
 
     /// Build from a single 1D time series with configurable step size and stability.
-    pub fn new_with_step_and_stable(data: Array1<f64>, order: usize, step_size: usize, stable: bool) -> Self {
+    pub fn new_with_step_and_stable(
+        data: Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> Self {
         // Special-case m=3 to match Python estimator's optimized path and tie semantics
         // Note: currently fast path always uses stable-like matching
         let codes: Array1<i32> = if order == 3 && step_size == 1 {
             let n = data.len();
-            if n < 3 { Array1::zeros(0) } else {
+            if n < 3 {
+                Array1::zeros(0)
+            } else {
                 let mut out: Vec<i32> = Vec::with_capacity(n - 2);
                 for t in 0..(n - 2) {
                     let x0 = data[t];
@@ -96,11 +109,11 @@ impl OrdinalEntropy {
                     let gt3 = x0 < x2; // 0 < 2
                     // Map booleans to permutation as in Python fast path
                     let perm: [usize; 3] = match (gt1, gt2, gt3) {
-                        (true,  true,  true)  => [0, 1, 2],
-                        (true,  false, true)  => [0, 2, 1],
-                        (false, true,  true)  => [1, 0, 2],
-                        (true,  false, false) => [1, 2, 0],
-                        (false, true,  false) => [2, 0, 1],
+                        (true, true, true) => [0, 1, 2],
+                        (true, false, true) => [0, 2, 1],
+                        (false, true, true) => [1, 0, 2],
+                        (true, false, false) => [1, 2, 0],
+                        (false, true, false) => [2, 0, 1],
                         (false, false, false) => [2, 1, 0],
                         // The remaining combinations (true,true,false) and (false,false,true)
                         // are not realizable with strict < comparisons.
@@ -124,20 +137,36 @@ impl OrdinalEntropy {
             symbolize_series_compact(&data, order, step_size, stable)
         };
         let inner = DiscreteEntropy::new(codes);
-        Self { inner, order, step_size, stable }
+        Self {
+            inner,
+            order,
+            step_size,
+            stable,
+        }
     }
 
     /// Compute joint ordinal entropy for multiple 1D series.
     /// Aligns windowed codes by truncating to the minimum length across series.
     #[deprecated(note = "Use JointEntropy::joint_entropy instead")]
-    pub fn joint_entropy(series_list: &[Array1<f64>], order: usize, step_size: usize, stable: bool) -> f64 {
+    pub fn joint_entropy(
+        series_list: &[Array1<f64>],
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> f64 {
         <Self as JointEntropy>::joint_entropy(series_list, (order, step_size, stable))
     }
 
     /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
     /// Uses only the intersection of supports; if disjoint, returns 0.0 (parity with Python semantics).
     #[deprecated(note = "Use CrossEntropy::cross_entropy instead")]
-    pub fn cross_entropy(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> f64 {
+    pub fn cross_entropy(
+        x: &Array1<f64>,
+        y: &Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> f64 {
         let ex = Self::new_with_step_and_stable(x.clone(), order, step_size, stable);
         let ey = Self::new_with_step_and_stable(y.clone(), order, step_size, stable);
         ex.cross_entropy(&ey)

@@ -143,7 +143,7 @@ impl MutualInformation {
     pub fn new_discrete_shrink(series: &[Array1<i32>]) -> DiscreteMutualInformation<ShrinkEntropy> {
         DiscreteMutualInformation::new(series, ShrinkEntropy::new)
     }
-    
+
     /// Create a Maximum-Likelihood (Shannon) discrete conditional mutual information estimator.
     pub fn new_cmi_discrete_mle(
         series: &[Array1<i32>],

@@ -1,7 +1,9 @@
-use ndarray::{Array1, Array2};
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+};
+use ndarray::{Array1, Array2};
 
 /// Miller–Madow entropy estimator for discrete data (natural log base).
 ///
@@ -75,7 +77,9 @@ impl CrossEntropy for MillerMadowEntropy {
         let mut h = 0.0_f64;
         for v in inter {
             if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v)) {
-                if p > 0.0 && q > 0.0 { h -= p * q.ln(); }
+                if p > 0.0 && q > 0.0 {
+                    h -= p * q.ln();
+                }
             }
         }
         let n_total = (self.dataset.n + other.dataset.n) as f64;
@@ -89,7 +93,9 @@ impl JointEntropy for MillerMadowEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = MillerMadowEntropy::new(joint_codes);
         GlobalValue::global_value(&disc)
@@ -97,6 +103,10 @@ impl JointEntropy for MillerMadowEntropy {
 }
 
 impl OptionalLocalValues for MillerMadowEntropy {
-    fn supports_local(&self) -> bool { true }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> { Ok(self.local_values()) }
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
 }

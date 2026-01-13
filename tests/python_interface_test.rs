@@ -1,9 +1,9 @@
-use validation::python;
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
+use approx::assert_relative_eq;
 use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
 use ndarray::{Array1, Array2};
-use approx::assert_relative_eq;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use validation::python;
 
 /// Test to verify that the Python interface works correctly by comparing
 /// the Python implementation with the Rust implementation.
@@ -15,9 +15,7 @@ fn test_python_interface_works() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size)
-        .map(|_| rng.gen_range(0..10) as i32)
-        .collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -51,9 +49,7 @@ fn test_calculate_entropy_float() {
     let size = 10;
 
     // Generate random floats between 0.0 and 10.0
-    let data: Vec<f64> = (0..size)
-        .map(|_| rng.gen_range(0.0..10.0))
-        .collect();
+    let data: Vec<f64> = (0..size).map(|_| rng.gen_range(0.0..10.0)).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -66,7 +62,7 @@ fn test_calculate_entropy_float() {
     // Calculate entropy using the Python implementation with kernel approach
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), bandwidth.to_string())
+        ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let python_entropy = python::calculate_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 
@@ -92,9 +88,7 @@ fn test_calculate_local_entropy() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size)
-        .map(|_| rng.gen_range(0..10) as i32)
-        .collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -112,12 +106,7 @@ fn test_calculate_local_entropy() {
 
     // Assert that the local entropy values from both implementations are approximately equal
     for (rust_val, python_val) in rust_local_entropy.iter().zip(python_local_entropy.iter()) {
-        assert_relative_eq!(
-            *rust_val,
-            *python_val,
-            epsilon = 1e-10,
-            max_relative = 1e-6
-        );
+        assert_relative_eq!(*rust_val, *python_val, epsilon = 1e-10, max_relative = 1e-6);
     }
 }
 
@@ -130,9 +119,7 @@ fn test_calculate_local_entropy_float() {
     let size = 10;
 
     // Generate random floats between 0.0 and 10.0
-    let data: Vec<f64> = (0..size)
-        .map(|_| rng.gen_range(0.0..10.0))
-        .collect();
+    let data: Vec<f64> = (0..size).map(|_| rng.gen_range(0.0..10.0)).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -145,9 +132,10 @@ fn test_calculate_local_entropy_float() {
     // Calculate local entropy using the Python implementation with kernel approach
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), bandwidth.to_string())
+        ("bandwidth".to_string(), bandwidth.to_string()),
     ];
-    let python_local_entropy = python::calculate_local_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
+    let python_local_entropy =
+        python::calculate_local_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 
     // Print the results to verify both implementations
     println!("Rust local kernel entropy: {:?}", rust_local_entropy);
@@ -155,12 +143,7 @@ fn test_calculate_local_entropy_float() {
 
     // Assert that the local entropy values from both implementations are approximately equal
     for (rust_val, python_val) in rust_local_entropy.iter().zip(python_local_entropy.iter()) {
-        assert_relative_eq!(
-            *rust_val,
-            *python_val,
-            epsilon = 1e-6,
-            max_relative = 1e-3
-        );
+        assert_relative_eq!(*rust_val, *python_val, epsilon = 1e-6, max_relative = 1e-3);
     }
 }
 
@@ -192,9 +175,10 @@ fn test_calculate_entropy_float_nd() {
     // Calculate entropy using the Python implementation with n-dimensional functions
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), bandwidth.to_string())
+        ("bandwidth".to_string(), bandwidth.to_string()),
     ];
-    let python_entropy = python::calculate_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs).unwrap();
+    let python_entropy =
+        python::calculate_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs).unwrap();
 
     // Print the results to verify both implementations
     println!("Rust 2D kernel entropy: {}", rust_entropy);
@@ -237,9 +221,11 @@ fn test_calculate_local_entropy_float_nd() {
     // Calculate local entropy using the Python implementation with n-dimensional functions
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), bandwidth.to_string())
+        ("bandwidth".to_string(), bandwidth.to_string()),
     ];
-    let python_local_entropy = python::calculate_local_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs).unwrap();
+    let python_local_entropy =
+        python::calculate_local_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs)
+            .unwrap();
 
     // Print the results to verify both implementations
     println!("Rust 2D local kernel entropy: {:?}", rust_local_entropy);
@@ -255,12 +241,7 @@ fn test_calculate_local_entropy_float_nd() {
             let python_val = python_local_entropy[i];
 
             if rust_val.abs() > 1e-6 && python_val.abs() > 1e-6 {
-                assert_relative_eq!(
-                    rust_val,
-                    python_val,
-                    epsilon = 1e-6,
-                    max_relative = 0.3
-                );
+                assert_relative_eq!(rust_val, python_val, epsilon = 1e-6, max_relative = 0.3);
             }
         }
     }
@@ -275,9 +256,7 @@ fn test_benchmark_entropy() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size)
-        .map(|_| rng.gen_range(0..10) as i32)
-        .collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
 
     // Benchmark the Python implementation
     let num_runs = 5;
@@ -298,20 +277,23 @@ fn test_benchmark_entropy_float_nd() {
     let dims = 2;
 
     // Generate random 2D data as a flat array
-    let flat_data: Vec<f64> = (0..size * dims)
-        .map(|_| rng.gen_range(0.0..10.0))
-        .collect();
+    let flat_data: Vec<f64> = (0..size * dims).map(|_| rng.gen_range(0.0..10.0)).collect();
 
     // Benchmark the Python implementation
     let num_runs = 5;
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), "1.0".to_string())
+        ("bandwidth".to_string(), "1.0".to_string()),
     ];
-    let python_time = python::benchmark_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs, num_runs).unwrap();
+    let python_time =
+        python::benchmark_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs, num_runs)
+            .unwrap();
 
     // Verify that the benchmark returns a positive time value
-    println!("Python benchmark time for float_nd: {} seconds", python_time);
+    println!(
+        "Python benchmark time for float_nd: {} seconds",
+        python_time
+    );
     assert!(python_time > 0.0, "Benchmark time should be positive");
 }
 
@@ -324,17 +306,16 @@ fn test_benchmark_entropy_generic() {
     let size = 10;
 
     // Generate random floats between 0.0 and 10.0
-    let data: Vec<f64> = (0..size)
-        .map(|_| rng.gen_range(0.0..10.0))
-        .collect();
+    let data: Vec<f64> = (0..size).map(|_| rng.gen_range(0.0..10.0)).collect();
 
     // Benchmark the Python implementation
     let num_runs = 5;
     let kernel_kwargs = [
         ("kernel".to_string(), "\"box\"".to_string()),
-        ("bandwidth".to_string(), "1.0".to_string())
+        ("bandwidth".to_string(), "1.0".to_string()),
     ];
-    let python_time = python::benchmark_entropy_generic(&data, "kernel", &kernel_kwargs, num_runs).unwrap();
+    let python_time =
+        python::benchmark_entropy_generic(&data, "kernel", &kernel_kwargs, num_runs).unwrap();
 
     // Verify that the benchmark returns a positive time value
     println!("Python benchmark time for generic: {} seconds", python_time);

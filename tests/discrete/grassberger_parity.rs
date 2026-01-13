@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
+use infomeasure::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use ndarray::Array1;
-use infomeasure::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
 use infomeasure::estimators::{GlobalValue, LocalValues};
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], "uniform")]
@@ -21,8 +21,8 @@ fn grassberger_entropy_python_parity(#[case] data: Vec<i32>, #[case] _descriptio
     let h_rust = rust_est.global_value();
     let locals_rust = rust_est.local_values();
 
-    let h_py = python::calculate_entropy(&data, "grassberger", &[])
-        .expect("python grassberger failed");
+    let h_py =
+        python::calculate_entropy(&data, "grassberger", &[]).expect("python grassberger failed");
     let locals_py = python::calculate_local_entropy(&data, "grassberger", &[])
         .expect("python local grassberger failed");
 

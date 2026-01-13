@@ -1,23 +1,27 @@
-use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::ZhangEntropy;
 use infomeasure::estimators::{GlobalValue, LocalValues};
+use ndarray::Array1;
 use std::collections::HashMap;
 
 #[test]
 fn zhang_local_and_global_consistency() {
-    let data = Array1::from(vec![1,1,2,3,3,4,5]);
+    let data = Array1::from(vec![1, 1, 2, 3, 3, 4, 5]);
     let est = ZhangEntropy::new(data.clone());
 
     // Local mapping should match per-count computed t2 contributions
     // Compute counts first
     let mut counts: HashMap<i32, usize> = HashMap::new();
-    for &v in data.iter() { *counts.entry(v).or_insert(0) += 1; }
+    for &v in data.iter() {
+        *counts.entry(v).or_insert(0) += 1;
+    }
     let N = data.len();
 
     // Helper: compute t2 for a count
     fn t2_for_count(n: usize, N: usize) -> f64 {
-        if n == 0 || n >= N { return 0.0; }
+        if n == 0 || n >= N {
+            return 0.0;
+        }
         let nf = n as f64;
         let n_minus_1 = nf - 1.0;
         let n_total = N as f64;

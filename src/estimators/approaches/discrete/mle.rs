@@ -1,7 +1,9 @@
-use ndarray::{Array1, Array2};
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+};
+use ndarray::{Array1, Array2};
 
 /// Standard Shannon entropy estimator for discrete data using maximum likelihood (natural log base).
 ///
@@ -31,13 +33,21 @@ impl DiscreteEntropy {
     pub fn from_rows(data: Array2<i32>) -> Vec<Self> {
         #[cfg(feature = "gpu_support")]
         {
-            if let Some(counts_per_row) = crate::estimators::approaches::discrete::discrete_gpu::gpu_histogram_rows_dense(&data) {
+            if let Some(counts_per_row) =
+                crate::estimators::approaches::discrete::discrete_gpu::gpu_histogram_rows_dense(
+                    &data,
+                )
+            {
                 // Build using precomputed counts to avoid CPU histogram work
                 let rows = rows_as_vec(data.clone());
-                return rows.into_iter().zip(counts_per_row.into_iter()).map(|(row, counts)| {
-                    let dataset = DiscreteDataset::from_counts_and_data(row, counts);
-                    Self { dataset }
-                }).collect();
+                return rows
+                    .into_iter()
+                    .zip(counts_per_row.into_iter())
+                    .map(|(row, counts)| {
+                        let dataset = DiscreteDataset::from_counts_and_data(row, counts);
+                        Self { dataset }
+                    })
+                    .collect();
             }
         }
         // Fallback to CPU path
@@ -85,7 +95,9 @@ impl CrossEntropy for DiscreteEntropy {
         let mut h = 0.0_f64;
         for v in inter {
             if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v)) {
-                if p > 0.0 && q > 0.0 { h -= p * q.ln(); }
+                if p > 0.0 && q > 0.0 {
+                    h -= p * q.ln();
+                }
             }
         }
         h
@@ -97,7 +109,9 @@ impl JointEntropy for DiscreteEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = DiscreteEntropy::new(joint_codes);
         GlobalValue::global_value(&disc)
@@ -105,7 +119,9 @@ impl JointEntropy for DiscreteEntropy {
 }
 
 impl OptionalLocalValues for DiscreteEntropy {
-    fn supports_local(&self) -> bool { true }
+    fn supports_local(&self) -> bool {
+        true
+    }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
         Ok(self.local_values())
     }

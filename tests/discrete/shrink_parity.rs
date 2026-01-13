@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
+use infomeasure::estimators::approaches::discrete::shrink::ShrinkEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
+use infomeasure::estimators::traits::{GlobalValue, LocalValues};
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
 use ndarray::Array1;
-use infomeasure::estimators::approaches::discrete::shrink::ShrinkEntropy;
-use infomeasure::estimators::traits::{GlobalValue, LocalValues};
-use validation::python;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], "uniform")]
@@ -22,10 +22,9 @@ fn shrink_entropy_python_parity(#[case] data: Vec<i32>, #[case] _description: &s
     let h_rust = rust_est.global_value();
     let locals_rust = rust_est.local_values();
 
-    let h_py = python::calculate_entropy(&data, "shrink", &[])
-        .expect("python shrink failed");
-    let locals_py = python::calculate_local_entropy(&data, "shrink", &[])
-        .expect("python local shrink failed");
+    let h_py = python::calculate_entropy(&data, "shrink", &[]).expect("python shrink failed");
+    let locals_py =
+        python::calculate_local_entropy(&data, "shrink", &[]).expect("python local shrink failed");
 
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
     assert_eq!(locals_rust.len(), locals_py.len());

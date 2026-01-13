@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
-use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::nsb::NsbEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 2], None, "simple [2, 1]")]
@@ -37,11 +37,14 @@ fn nsb_entropy_python_parity(
         kwargs.push(("K".to_string(), k.to_string()));
     }
 
-    let h_py = python::calculate_entropy(&data, "nsb", &kwargs)
-        .expect("python nsb failed");
+    let h_py = python::calculate_entropy(&data, "nsb", &kwargs).expect("python nsb failed");
 
     if h_rust.is_nan() {
-        assert!(h_py.is_nan(), "Rust returned NaN but Python returned {}", h_py);
+        assert!(
+            h_py.is_nan(),
+            "Rust returned NaN but Python returned {}",
+            h_py
+        );
     } else {
         // NSB uses numerical integration; use a looser tolerance
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-5);

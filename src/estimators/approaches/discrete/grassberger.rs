@@ -1,7 +1,7 @@
-use ndarray::{Array1, Array2};
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, LocalValues, OptionalLocalValues, JointEntropy};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
 
 /// Grassberger (Gr88) entropy estimator for discrete data.
@@ -63,7 +63,9 @@ impl JointEntropy for GrassbergerEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = GrassbergerEntropy::new(joint_codes);
         disc.global_value()
@@ -71,6 +73,10 @@ impl JointEntropy for GrassbergerEntropy {
 }
 
 impl OptionalLocalValues for GrassbergerEntropy {
-    fn supports_local(&self) -> bool { true }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> { Ok(self.local_values()) }
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
 }

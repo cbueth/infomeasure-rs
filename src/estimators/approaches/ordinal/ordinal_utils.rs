@@ -24,7 +24,7 @@ pub fn argsort(window: &[f64], idx: &mut [usize], stable: bool) {
                     }
                 }
                 None => {
-                    // One or both are NaN. 
+                    // One or both are NaN.
                     // To be consistent, NaNs are "greater" than everything.
                     if a.is_nan() && b.is_nan() {
                         i.cmp(&j)
@@ -72,12 +72,14 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
     for i in 1..n {
         fact[i] = fact[i - 1] * (i as u128);
     }
-    
+
     let mut acc: u128 = 0;
     for i in 0..n {
         let mut c = 0u128;
         for j in (i + 1)..n {
-            if perm[i] > perm[j] { c += 1; }
+            if perm[i] > perm[j] {
+                c += 1;
+            }
         }
         let weight = fact[n - 1 - i];
         acc += c * weight;
@@ -94,14 +96,15 @@ fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
     for i in 0..n {
         let mut c = 0u128;
         for j in (i + 1)..n {
-            if perm[i] > perm[j] { c += 1; }
+            if perm[i] > perm[j] {
+                c += 1;
+            }
         }
         let weight = fact[n - 1 - i];
         acc += c * weight;
     }
     acc as u64
 }
-
 
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
@@ -112,7 +115,9 @@ pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
     for &c in codes.iter() {
         let id = *map.entry(c).or_insert_with(|| {
             let v = next_id;
-            next_id = next_id.checked_add(1).expect("Too many unique patterns to fit into i32");
+            next_id = next_id
+                .checked_add(1)
+                .expect("Too many unique patterns to fit into i32");
             v
         });
         out.push(id);
@@ -134,23 +139,43 @@ pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
 /// - Supports orders up to 20 (Lehmer code fits in u64)
 ///
 /// For parity testing against Python, use `symbolize_series_u64` instead.
-pub fn symbolize_series_compact(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<i32> {
+pub fn symbolize_series_compact(
+    series: &Array1<f64>,
+    order: usize,
+    step_size: usize,
+    stable: bool,
+) -> Array1<i32> {
     let codes_u64 = symbolize_series_u64(series, order, step_size, stable);
     remap_u64_to_i32(&codes_u64)
 }
 
 /// Return raw Lehmer codes (u64) for permutation patterns without remapping.
 /// Useful for parity tests against Python utils.symbolize_series(to_int=True).
-pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> Array1<u64> {
-    if order < 1 { panic!("The embedding order must be a positive integer."); }
-    if step_size < 1 { panic!("The step_size must be a positive integer."); }
-    if order > 20 { panic!("For embedding dimensions larger than 20, the integer will be too large for u64."); }
+pub fn symbolize_series_u64(
+    series: &Array1<f64>,
+    order: usize,
+    step_size: usize,
+    stable: bool,
+) -> Array1<u64> {
+    if order < 1 {
+        panic!("The embedding order must be a positive integer.");
+    }
+    if step_size < 1 {
+        panic!("The step_size must be a positive integer.");
+    }
+    if order > 20 {
+        panic!("For embedding dimensions larger than 20, the integer will be too large for u64.");
+    }
 
     let n = series.len();
-    if n == 0 { return Array1::<u64>::zeros(0); }
+    if n == 0 {
+        return Array1::<u64>::zeros(0);
+    }
 
     let span = (order - 1) * step_size;
-    if n <= span { return Array1::<u64>::zeros(0); }
+    if n <= span {
+        return Array1::<u64>::zeros(0);
+    }
 
     let n_windows = n - span;
     let mut out: Vec<u64> = Vec::with_capacity(n_windows);
@@ -170,4 +195,3 @@ pub fn symbolize_series_u64(series: &Array1<f64>, order: usize, step_size: usize
     }
     Array1::from(out)
 }
-

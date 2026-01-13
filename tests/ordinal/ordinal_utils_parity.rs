@@ -1,7 +1,15 @@
+use infomeasure::estimators::approaches::ordinal::ordinal_utils::{
+    remap_u64_to_i32, symbolize_series_u64,
+};
 use ndarray::{Array1, array};
-use infomeasure::estimators::approaches::ordinal::ordinal_utils::{symbolize_series_u64, remap_u64_to_i32};
 
-fn run_python_symbolize(series: &[f64], emb_dim: usize, step_size: usize, to_int: bool, stable: bool) -> Vec<i64> {
+fn run_python_symbolize(
+    series: &[f64],
+    emb_dim: usize,
+    step_size: usize,
+    to_int: bool,
+    stable: bool,
+) -> Vec<i64> {
     // Call Python's utils.symbolize_series via micromamba environment and return integer codes
     let json = serde_json::to_string(series).unwrap();
     let code = r#"
@@ -18,14 +26,23 @@ res = symbolize_series(series, emb_dim, step, to_int=to_int, stable=stable)
 print(json.dumps(list(map(int, res.tolist()))))
 "#;
     let out = std::process::Command::new("micromamba")
-        .args(["run", "-n", "infomeasure-rs-validation", "python", "-c", code, &json, &emb_dim.to_string(), &step_size.to_string(), &to_int.to_string(), &stable.to_string()])
+        .args([
+            "run",
+            "-n",
+            "infomeasure-rs-validation",
+            "python",
+            "-c",
+            code,
+            &json,
+            &emb_dim.to_string(),
+            &step_size.to_string(),
+            &to_int.to_string(),
+            &stable.to_string(),
+        ])
         .output()
         .expect("failed to run micromamba python");
     if !out.status.success() {
-        panic!(
-            "Python failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+        panic!("Python failed: {}", String::from_utf8_lossy(&out.stderr));
     }
     let s = String::from_utf8_lossy(&out.stdout).to_string();
     serde_json::from_str::<Vec<i64>>(s.trim()).expect("parse python symbolize_series result")
@@ -37,7 +54,9 @@ fn parity_symbolize_series_grid_stable_true() {
     let series_list: Vec<Vec<f64>> = vec![
         vec![0., 1., 2., 3., 4., 5., 6., 7.],
         vec![0., 7., 2., 3., 45., 7.5, 1., 8., 4., 5., 2.5, 7.2, 8.1],
-        vec![3., 1., 4., 1.5, 5., 9., 2., 6., 2., 5., 3.5, 5., 8., 9.7, 3.],
+        vec![
+            3., 1., 4., 1.5, 5., 9., 2., 6., 2., 5., 3.5, 5., 8., 9.7, 3.,
+        ],
     ];
     let embedding_dims = [2usize, 3, 4, 5];
     let steps = [1usize, 2, 3];
@@ -48,14 +67,28 @@ fn parity_symbolize_series_grid_stable_true() {
             for &tau in &steps {
                 // Skip invalid combos where not enough length
                 let span = (m - 1) * tau;
-                if series.len() <= span { continue; }
+                if series.len() <= span {
+                    continue;
+                }
 
                 let rust_codes = symbolize_series_u64(&series, m, tau, true)
-                    .iter().map(|&x| x as i64).collect::<Vec<_>>();
+                    .iter()
+                    .map(|&x| x as i64)
+                    .collect::<Vec<_>>();
                 let py_codes = run_python_symbolize(series.as_slice().unwrap(), m, tau, true, true);
-                assert_eq!(rust_codes.len(), py_codes.len(), "length mismatch for m={}, tau={}", m, tau);
+                assert_eq!(
+                    rust_codes.len(),
+                    py_codes.len(),
+                    "length mismatch for m={}, tau={}",
+                    m,
+                    tau
+                );
                 for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
-                    assert_eq!(*r, *p, "code mismatch at idx {} for m={}, tau={}", i, m, tau);
+                    assert_eq!(
+                        *r, *p,
+                        "code mismatch at idx {} for m={}, tau={}",
+                        i, m, tau
+                    );
                 }
             }
         }
@@ -71,13 +104,27 @@ fn parity_symbolize_series_stable_false_no_ties() {
 
     for &m in &embedding_dims {
         for &tau in &steps {
-            if series.len() <= (m - 1) * tau { continue; }
+            if series.len() <= (m - 1) * tau {
+                continue;
+            }
             let rust_codes = symbolize_series_u64(&series, m, tau, false)
-                .iter().map(|&x| x as i64).collect::<Vec<_>>();
+                .iter()
+                .map(|&x| x as i64)
+                .collect::<Vec<_>>();
             let py_codes = run_python_symbolize(series.as_slice().unwrap(), m, tau, true, false);
-            assert_eq!(rust_codes.len(), py_codes.len(), "length mismatch for m={}, tau={}", m, tau);
+            assert_eq!(
+                rust_codes.len(),
+                py_codes.len(),
+                "length mismatch for m={}, tau={}",
+                m,
+                tau
+            );
             for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
-                assert_eq!(*r, *p, "code mismatch at idx {} for m={}, tau={}", i, m, tau);
+                assert_eq!(
+                    *r, *p,
+                    "code mismatch at idx {} for m={}, tau={}",
+                    i, m, tau
+                );
             }
         }
     }
@@ -89,32 +136,28 @@ fn test_remap_u64_to_i32_parametrized() {
         (
             "basic",
             array![100, 200, 100, 300, 200, 400],
-            array![0, 1, 0, 2, 1, 3]
+            array![0, 1, 0, 2, 1, 3],
         ),
-        (
-            "empty",
-            Array1::<u64>::zeros(0),
-            Array1::<i32>::zeros(0)
-        ),
+        ("empty", Array1::<u64>::zeros(0), Array1::<i32>::zeros(0)),
         (
             "all_same",
             Array1::from_elem(5, 42u64),
-            Array1::from_elem(5, 0i32)
+            Array1::from_elem(5, 0i32),
         ),
         (
             "all_unique",
             array![10, 20, 30, 40, 50],
-            array![0, 1, 2, 3, 4]
+            array![0, 1, 2, 3, 4],
         ),
         (
             "first_occurrence_order",
             array![50, 10, 50, 30, 10, 30],
-            array![0, 1, 0, 2, 1, 2]
+            array![0, 1, 0, 2, 1, 2],
         ),
         (
             "large_values",
             array![u64::MAX, u64::MIN, u64::MAX, 1234567890123456789u64],
-            array![0, 1, 0, 2]
+            array![0, 1, 0, 2],
         ),
     ];
 

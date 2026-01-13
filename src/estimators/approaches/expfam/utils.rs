@@ -1,12 +1,14 @@
-use ndarray::{Array2, ArrayView2};
 use kiddo::{ImmutableKdTree, SquaredEuclidean};
-use std::num::NonZeroUsize;
+use ndarray::{Array2, ArrayView2};
 use rand::prelude::*;
 use rand_distr::Normal;
+use std::num::NonZeroUsize;
 
 /// Add Gaussian noise to a 2D array.
 pub fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
-    if noise_level <= 0.0 { return data; }
+    if noise_level <= 0.0 {
+        return data;
+    }
     let mut rng = thread_rng();
     let normal = Normal::new(0.0, noise_level).unwrap();
     for x in data.iter_mut() {
@@ -40,7 +42,9 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
     } else {
         for r in 0..n {
             let mut p = [0.0; K];
-            for c in 0..K { p[c] = data[(r, c)]; }
+            for c in 0..K {
+                p[c] = data[(r, c)];
+            }
             points.push(p);
         }
     }
@@ -55,11 +59,17 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
 /// - data is shape (N, K)
 /// - target is shape (M, K)
 /// - k >= 1
-pub fn knn_radii_at<const K: usize>(data: ArrayView2<'_, f64>, k: usize, at: Option<ArrayView2<'_, f64>>) -> Vec<f64> {
+pub fn knn_radii_at<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> Vec<f64> {
     assert!(k >= 1, "k must be >= 1");
     assert!(data.ncols() == K, "data.ncols() must equal K");
     let n = data.nrows();
-    if n == 0 { return Vec::new(); }
+    if n == 0 {
+        return Vec::new();
+    }
 
     let points = to_points::<K>(data);
     let tree: ImmutableKdTree<f64, K> = ImmutableKdTree::new_from_slice(&points);
@@ -78,11 +88,15 @@ pub fn knn_radii_at<const K: usize>(data: ArrayView2<'_, f64>, k: usize, at: Opt
         }
         radii
     } else {
-        assert!(k <= n - 1, "k must be <= N-1 when querying within the same dataset");
+        assert!(
+            k <= n - 1,
+            "k must be <= N-1 when querying within the same dataset"
+        );
         // Query k+1 neighbors (including self), take index k (0-based) and sqrt distance
         let mut radii = Vec::with_capacity(n);
         for p in points.iter() {
-            let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
+            let mut neigh =
+                tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
             let kth = neigh.remove(k);
             let (dist2, _idx): (f64, u64) = kth.into();
             radii.push(dist2.sqrt());
@@ -99,9 +113,9 @@ pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64
 /// Compute common components used by exponential-family kNN estimators.
 /// Mirrors Python calculate_common_entropy_components.
 pub fn calculate_common_entropy_components_at<const K: usize>(
-    data: ArrayView2<'_, f64>, 
-    k: usize, 
-    at: Option<ArrayView2<'_, f64>>
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume(K);
     let rho_k = knn_radii_at::<K>(data, k, at);
@@ -110,11 +124,16 @@ pub fn calculate_common_entropy_components_at<const K: usize>(
 }
 
 /// Compute common components used by exponential-family kNN estimators for self-evaluation.
-pub fn calculate_common_entropy_components<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> (f64, Vec<f64>, usize, usize) {
+pub fn calculate_common_entropy_components<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+) -> (f64, Vec<f64>, usize, usize) {
     calculate_common_entropy_components_at::<K>(data, k, None)
 }
 
 /// Helper to ensure 2D view from 1D or 2D input (placeholder for future API generalization).
-pub fn as_2d(data: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, ndarray::Dim<[usize; 2]>>) -> ArrayView2<'_, f64> {
+pub fn as_2d(
+    data: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, ndarray::Dim<[usize; 2]>>,
+) -> ArrayView2<'_, f64> {
     data.view()
 }

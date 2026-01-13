@@ -1,14 +1,14 @@
 use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
-use ndarray::{array, Array1};
+use ndarray::{Array1, array};
 use rand::prelude::*;
 use rand_distr::{Distribution, Normal};
 
 fn main() {
     // Example 2D data (3 points in 2D space)
     let data = array![
-        [1.0, 1.5],  // Point 1
-        [2.0, 3.0],  // Point 2
-        [4.0, 5.0]   // Point 3
+        [1.0, 1.5], // Point 1
+        [2.0, 3.0], // Point 2
+        [4.0, 5.0]  // Point 3
     ];
 
     // Instantiate the kernel approaches estimator for 2D data
@@ -22,12 +22,11 @@ fn main() {
 
     // println!("Local Entropy Values: {:?}", local_values);
     // println!("Global Entropy Value: {}", global_value);
-    
+
     // Example 1D data (100 points, gaussian data)
     let mut rng = thread_rng();
     let normal = Normal::new(0.0, 1.0).unwrap();
     let data_1d = Array1::from_iter((0..100).map(|_| normal.sample(&mut rng)));
-
 
     // Create kernel entropy estimator for 1D data
     let bandwidth_1d = 0.5;

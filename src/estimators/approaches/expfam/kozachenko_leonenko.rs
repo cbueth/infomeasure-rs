@@ -1,10 +1,10 @@
-use ndarray::{Array1, Array2};
 use kiddo::SquaredEuclidean;
+use ndarray::{Array1, Array2};
 use std::num::NonZeroUsize;
 
-use crate::estimators::traits::{LocalValues, CrossEntropy, GlobalValue, JointEntropy};
-use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use super::utils::unit_ball_volume;
+use crate::estimators::approaches::common_nd::dataset::NdDataset;
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 
 /// Kozachenko–Leonenko (KL) differential entropy estimator (kNN-based, Euclidean metric)
 ///
@@ -23,9 +23,15 @@ impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
     type Params = (usize, f64); // k, noise_level
 
     fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
-        assert_eq!(series.len(), K, "Number of series must match dimensionality K");
-        if series.is_empty() { return 0.0; }
-        
+        assert_eq!(
+            series.len(),
+            K,
+            "Number of series must match dimensionality K"
+        );
+        if series.is_empty() {
+            return 0.0;
+        }
+
         let n_samples = series[0].len();
         let mut data = Array2::zeros((n_samples, K));
         for (j, s) in series.iter().enumerate() {
@@ -41,14 +47,14 @@ impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
 
 impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
     fn cross_entropy(&self, other: &KozachenkoLeonenkoEntropy<K>) -> f64 {
-        use statrs::function::gamma::digamma;
         use super::utils::calculate_common_entropy_components_at;
+        use statrs::function::gamma::digamma;
 
         // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
         let (v_m, rho_k, _n_p, dimension) = calculate_common_entropy_components_at::<K>(
-            other.nd.view(), 
-            self.k, 
-            Some(self.nd.view())
+            other.nd.view(),
+            self.k,
+            Some(self.nd.view()),
         );
 
         let n_q = other.nd.n as f64;
@@ -63,14 +69,16 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
             }
         }
 
-        if count == 0 { return 0.0; }
+        if count == 0 {
+            return 0.0;
+        }
 
         // Parity with Python implementation: uses n_q (M) in digamma and denominator
-        let hx = -digamma(self.k as f64) 
-            + digamma(n_q) 
-            + v_m.ln() 
+        let hx = -digamma(self.k as f64)
+            + digamma(n_q)
+            + v_m.ln()
             + (dimension as f64) * sum_ln_rho / n_q;
-        
+
         hx / ln_base
     }
 }
@@ -81,8 +89,16 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
         assert!(data.ncols() == K, "data.ncols() must equal K");
         let data = super::utils::add_noise(data, noise_level);
         let nd = NdDataset::<K>::from_array2(data);
-        assert!(nd.n == 0 || k <= nd.n - 1, "k must be <= N-1 for self-queries");
-        Self { nd, k, base: std::f64::consts::E, noise_level }
+        assert!(
+            nd.n == 0 || k <= nd.n - 1,
+            "k must be <= N-1 for self-queries"
+        );
+        Self {
+            nd,
+            k,
+            base: std::f64::consts::E,
+            noise_level,
+        }
     }
 
     /// Construct from 1D data (convenience)
@@ -106,7 +122,10 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     }
 
     /// Set logarithm base (default e)
-    pub fn with_base(mut self, base: f64) -> Self { self.base = base; self }
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
 }
 
 impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
@@ -156,17 +175,21 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
         // full local contributions such that their mean equals the global value.
         // H = A + (m/N) * sum ln rho_k,i  => per-sample h_i = A + m * ln rho_k,i
         use statrs::function::gamma::digamma;
-        if self.nd.n == 0 { return Array1::zeros(0); }
+        if self.nd.n == 0 {
+            return Array1::zeros(0);
+        }
         let v_m = unit_ball_volume(K);
         let n_f = self.nd.n as f64;
         let ln_base = self.base.ln();
         let log_b = |x: f64| -> f64 { x.ln() / ln_base };
-        let a_const = (digamma(n_f) - digamma(self.k as f64)) / ln_base
-            + log_b(v_m);
+        let a_const = (digamma(n_f) - digamma(self.k as f64)) / ln_base + log_b(v_m);
 
         let mut out = Array1::<f64>::zeros(self.nd.n);
         for (i, p) in self.nd.points.iter().enumerate() {
-            let mut neigh = self.nd.tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
+            let mut neigh = self
+                .nd
+                .tree
+                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
             let kth = neigh.remove(self.k);
             let (dist2, _idx): (f64, u64) = kth.into();
             let r = dist2.sqrt();

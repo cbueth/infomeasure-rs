@@ -1,19 +1,17 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::Array1;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
-use validation::python;
-use std::time::Duration;
+use rand::{Rng, SeedableRng};
 use std::fs::File;
 use std::io::Write;
+use std::time::Duration;
+use validation::python;
 
 /// Generate random data with specified size and number of possible states
 fn generate_random_data(size: usize, num_states: i32, seed: u64) -> Vec<i32> {
     let mut rng = StdRng::seed_from_u64(seed);
-    (0..size)
-        .map(|_| rng.gen_range(0..num_states))
-        .collect()
+    (0..size).map(|_| rng.gen_range(0..num_states)).collect()
 }
 
 /// Benchmark function for unified discrete entropy calculation
@@ -62,9 +60,8 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
         }
 
         // Calculate average Rust time
-        let rust_time_ns = rust_durations.iter()
-            .map(|d| d.as_nanos())
-            .sum::<u128>() / rust_durations.len() as u128;
+        let rust_time_ns = rust_durations.iter().map(|d| d.as_nanos()).sum::<u128>()
+            / rust_durations.len() as u128;
 
         rust_times.push(rust_time_ns);
 
@@ -84,17 +81,26 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
 
         // Print comparison for this data size
         println!("\n=== Data Size: {} elements ===", size);
-        println!("Rust execution time:   {:.9} seconds ({} ns)", 
-                 rust_time_ns as f64 / 1_000_000_000.0, rust_time_ns);
-        println!("Python execution time: {:.9} seconds ({} ns)", 
-                 python_time, python_time_ns);
+        println!(
+            "Rust execution time:   {:.9} seconds ({} ns)",
+            rust_time_ns as f64 / 1_000_000_000.0,
+            rust_time_ns
+        );
+        println!(
+            "Python execution time: {:.9} seconds ({} ns)",
+            python_time, python_time_ns
+        );
         println!("Speedup (Python/Rust): {:.2}x", speedup);
         println!("Rust entropy value:   {}", rust_entropy);
         println!("Python entropy value: {}", python_entropy);
 
         // Write to CSV
-        writeln!(csv_file, "Data Size,{},{},{},{:.2},{},{}",
-                 size, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy).unwrap();
+        writeln!(
+            csv_file,
+            "Data Size,{},{},{},{:.2},{},{}",
+            size, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy
+        )
+        .unwrap();
     }
     group.finish();
 
@@ -130,9 +136,8 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
         }
 
         // Calculate average Rust time
-        let rust_time_ns = rust_durations.iter()
-            .map(|d| d.as_nanos())
-            .sum::<u128>() / rust_durations.len() as u128;
+        let rust_time_ns = rust_durations.iter().map(|d| d.as_nanos()).sum::<u128>()
+            / rust_durations.len() as u128;
 
         // Benchmark Python implementation
         let python_time = python::benchmark_entropy(&data, python_num_runs).unwrap();
@@ -150,17 +155,26 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
 
         // Print comparison for this number of states
         println!("\n=== Number of States: {} ===", num_states);
-        println!("Rust execution time:   {:.9} seconds ({} ns)", 
-                 rust_time_ns as f64 / 1_000_000_000.0, rust_time_ns);
-        println!("Python execution time: {:.9} seconds ({} ns)", 
-                 python_time, python_time_ns);
+        println!(
+            "Rust execution time:   {:.9} seconds ({} ns)",
+            rust_time_ns as f64 / 1_000_000_000.0,
+            rust_time_ns
+        );
+        println!(
+            "Python execution time: {:.9} seconds ({} ns)",
+            python_time, python_time_ns
+        );
         println!("Speedup (Python/Rust): {:.2}x", speedup);
         println!("Rust entropy value:   {}", rust_entropy);
         println!("Python entropy value: {}", python_entropy);
 
         // Write to CSV
-        writeln!(csv_file, "States,{},{},{},{:.2},{},{}",
-                 num_states, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy).unwrap();
+        writeln!(
+            csv_file,
+            "States,{},{},{},{:.2},{},{}",
+            num_states, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy
+        )
+        .unwrap();
     }
     group.finish();
 

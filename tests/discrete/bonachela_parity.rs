@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
-use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::bonachela::BonachelaEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 2], "simple [2, 1]")]
@@ -25,8 +25,7 @@ fn bonachela_entropy_python_parity(#[case] data: Vec<i32>, #[case] _description:
     let rust_est = BonachelaEntropy::new(arr);
     let h_rust = rust_est.global_value();
 
-    let h_py = python::calculate_entropy(&data, "bonachela", &[])
-        .expect("python bonachela failed");
+    let h_py = python::calculate_entropy(&data, "bonachela", &[]).expect("python bonachela failed");
 
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
 }

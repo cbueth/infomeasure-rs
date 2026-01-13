@@ -1,7 +1,7 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use ndarray::Array1;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -9,7 +9,9 @@ use infomeasure::estimators::approaches::discrete::discrete_utils::count_frequen
 
 fn gen_data(size: usize, num_states: i32, offset: i32, seed: u64) -> Vec<i32> {
     let mut rng = StdRng::seed_from_u64(seed);
-    (0..size).map(|_| rng.gen_range(0..num_states) + offset).collect()
+    (0..size)
+        .map(|_| rng.gen_range(0..num_states) + offset)
+        .collect()
 }
 
 fn bench_count_frequencies(c: &mut Criterion) {
@@ -39,7 +41,10 @@ fn bench_count_frequencies(c: &mut Criterion) {
             // For hashmap path, shift values so min < 0 while keeping same range
             // Choose offset so that min becomes negative by at least 1
             let shift_down = k.min(2048); // keep modest magnitude
-            let data_hash = data_dense.iter().map(|&v| v - shift_down).collect::<Vec<i32>>();
+            let data_hash = data_dense
+                .iter()
+                .map(|&v| v - shift_down)
+                .collect::<Vec<i32>>();
 
             // Warmup
             let _ = count_frequencies_slice(&data_dense);
@@ -63,7 +68,8 @@ fn bench_count_frequencies(c: &mut Criterion) {
                 std::hint::black_box(map.len());
                 durations.push(start.elapsed());
             }
-            let avg_ns_dense: u128 = durations.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
+            let avg_ns_dense: u128 =
+                durations.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
             writeln!(csv, "{},{},{},{}", n, k, "dense", avg_ns_dense).unwrap();
 
             // Benchmark hashmap-forced (min < 0)
@@ -83,7 +89,8 @@ fn bench_count_frequencies(c: &mut Criterion) {
                 std::hint::black_box(map.len());
                 durations_h.push(start.elapsed());
             }
-            let avg_ns_hash: u128 = durations_h.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
+            let avg_ns_hash: u128 =
+                durations_h.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
             writeln!(csv, "{},{},{},{}", n, k, "hashmap", avg_ns_hash).unwrap();
         }
     }

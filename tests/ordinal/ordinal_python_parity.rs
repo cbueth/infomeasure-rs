@@ -13,13 +13,15 @@ fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Ve
         ("embedding_dim".to_string(), order.to_string()),
         ("stable".to_string(), "True".to_string()),
     ];
-    let h = python::calculate_entropy_float(data, "ordinal", &kwargs)
-        .expect("python ordinal failed");
-    
+    let h =
+        python::calculate_entropy_float(data, "ordinal", &kwargs).expect("python ordinal failed");
+
     // Python implementation fails for order=1 local values
     let locals = if order > 1 {
-        Some(python::calculate_local_entropy_float(data, "ordinal", &kwargs)
-            .expect("python local ordinal failed"))
+        Some(
+            python::calculate_local_entropy_float(data, "ordinal", &kwargs)
+                .expect("python local ordinal failed"),
+        )
     } else {
         None
     };
@@ -29,14 +31,18 @@ fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Ve
 #[test]
 fn ordinal_python_parity_basic_sets() {
     let cases: Vec<(Vec<f64>, usize, usize)> = vec![
-        (vec![1.,2.,3.,2.,1.], 1, 1),
-        (vec![1.,2.,3.,2.,1.], 2, 1),
-        (vec![1.,2.,3.,2.,1.], 3, 1),
+        (vec![1., 2., 3., 2., 1.], 1, 1),
+        (vec![1., 2., 3., 2., 1.], 2, 1),
+        (vec![1., 2., 3., 2., 1.], 3, 1),
         (vec![0., 2., 4., 3., 1.], 3, 1),
         (vec![0., 1., 0., 1., 0.], 2, 1),
         (vec![3., 1., 2., 5., 4.], 3, 1),
         (vec![0., 1., 2., 3., 4., 5.], 2, 1),
-        (vec![0., 7., 2., 3., 45., 7., 1., 8., 4., 5., 2., 7., 8.], 2, 1),
+        (
+            vec![0., 7., 2., 3., 45., 7., 1., 8., 4., 5., 2., 7., 8.],
+            2,
+            1,
+        ),
     ];
 
     for (data, order, _step_size) in cases.into_iter() {
@@ -44,9 +50,9 @@ fn ordinal_python_parity_basic_sets() {
         let rust_est = OrdinalEntropy::new(series.clone(), order);
         let h_rust = rust_est.global_value();
         let (h_py, locals_py_opt) = python_ordinal_entropy(&series, order);
-        
+
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
-        
+
         if let Some(locals_py) = locals_py_opt {
             let locals_rust = rust_est.local_values();
             assert_eq!(locals_rust.len(), locals_py.len());
@@ -66,7 +72,9 @@ fn ordinal_python_parity_basic_sets() {
 fn ordinal_python_parity_param_grid() {
     // Parameterized grid over different orders
     let series = Array1::from(vec![
-        46., 43.,  9., 17., 48., 34.,  8., 17., 15., 23., 17.,  1., 13., 43., 40., 28., 12., 45., 37., 20., 25., 44., 25., 26., 12., 33., 36., 11., 25., 23.]);
+        46., 43., 9., 17., 48., 34., 8., 17., 15., 23., 17., 1., 13., 43., 40., 28., 12., 45., 37.,
+        20., 25., 44., 25., 26., 12., 33., 36., 11., 25., 23.,
+    ]);
     let orders = [2usize, 3, 4, 5, 6];
 
     for &m in &orders {
@@ -74,7 +82,7 @@ fn ordinal_python_parity_param_grid() {
         let h_rust = rust_est.global_value();
         let (h_py, locals_py_opt) = python_ordinal_entropy(&series, m);
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
-        
+
         if let Some(locals_py) = locals_py_opt {
             let locals_rust = rust_est.local_values();
             assert_eq!(locals_rust.len(), locals_py.len());

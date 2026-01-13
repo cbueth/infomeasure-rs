@@ -11,24 +11,33 @@ pub struct DiscreteEntropyBatchRows {
 }
 
 impl DiscreteEntropyBatchRows {
-    pub fn new(data: Array2<i32>) -> Self { Self { data } }
+    pub fn new(data: Array2<i32>) -> Self {
+        Self { data }
+    }
 
     /// Compute global entropy for each row in parallel.
     pub fn global_values(&self) -> Array1<f64> {
         let nrows = self.data.nrows();
-        let results: Vec<f64> = (0..nrows).into_iter().map(|i| {
-            let row = self.data.row(i);
-            let slice = row.as_slice().expect("Row should be contiguous in memory");
-            let n = slice.len() as f64;
-            if n == 0.0 { return 0.0; }
-            let counts = count_frequencies_slice(slice);
-            let mut h = 0.0_f64;
-            for &cnt in counts.values() {
-                let p = (cnt as f64) / n;
-                if p > 0.0 { h -= p * p.ln(); }
-            }
-            h
-        }).collect();
+        let results: Vec<f64> = (0..nrows)
+            .into_iter()
+            .map(|i| {
+                let row = self.data.row(i);
+                let slice = row.as_slice().expect("Row should be contiguous in memory");
+                let n = slice.len() as f64;
+                if n == 0.0 {
+                    return 0.0;
+                }
+                let counts = count_frequencies_slice(slice);
+                let mut h = 0.0_f64;
+                for &cnt in counts.values() {
+                    let p = (cnt as f64) / n;
+                    if p > 0.0 {
+                        h -= p * p.ln();
+                    }
+                }
+                h
+            })
+            .collect();
         Array1::from(results)
     }
 }

@@ -128,8 +128,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Plot Rust implementation
     chart
         .draw_series(LineSeries::new(
-        results.iter().map(|(b, r, _)| (*b, *r)),
-        &RED,
+            results.iter().map(|(b, r, _)| (*b, *r)),
+            &RED,
         ))?
         .label("Rust")
         .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
@@ -137,8 +137,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Plot Python implementation
     chart
         .draw_series(LineSeries::new(
-        results.iter().map(|(b, _, p)| (*b, *p)),
-        &BLUE,
+            results.iter().map(|(b, _, p)| (*b, *p)),
+            &BLUE,
         ))?
         .label("Python")
         .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));

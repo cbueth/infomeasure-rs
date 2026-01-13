@@ -1,9 +1,9 @@
 use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
 
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy, LocalValues};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 
 /// ANSB (asymptotic NSB) entropy estimator for discrete data (natural log base).
 ///
@@ -30,13 +30,13 @@ pub struct AnsbEntropy {
 }
 
 impl AnsbEntropy {
-    pub fn new(
-        data: Array1<i32>,
-        k_override: Option<usize>,
-        undersampled_threshold: f64,
-    ) -> Self {
+    pub fn new(data: Array1<i32>, k_override: Option<usize>, undersampled_threshold: f64) -> Self {
         let dataset = DiscreteDataset::from_data(data);
-        Self { dataset, k_override, undersampled_threshold }
+        Self {
+            dataset,
+            k_override,
+            undersampled_threshold,
+        }
     }
 
     /// Build a vector of AnsbEntropy estimators, one per row of a 2D array.
@@ -55,17 +55,24 @@ impl AnsbEntropy {
 impl GlobalValue for AnsbEntropy {
     fn global_value(&self) -> f64 {
         let n = self.dataset.n as usize;
-        if n == 0 { return f64::NAN; }
+        if n == 0 {
+            return f64::NAN;
+        }
         let k_obs = self.dataset.k;
         let k = self.k_override.unwrap_or(k_obs);
-        if k == 0 { return f64::NAN; }
+        if k == 0 {
+            return f64::NAN;
+        }
 
         let coincidences = (n as i64) - (k as i64);
-        if coincidences <= 0 { return f64::NAN; }
+        if coincidences <= 0 {
+            return f64::NAN;
+        }
 
         // (γ - ln 2) + 2 ln N - ψ(Δ)
         const EULER_GAMMA: f64 = 0.577215_664_901_532_9;
-        let entropy = (EULER_GAMMA - 2.0_f64.ln()) + 2.0 * (n as f64).ln() - digamma(coincidences as f64);
+        let entropy =
+            (EULER_GAMMA - 2.0_f64.ln()) + 2.0 * (n as f64).ln() - digamma(coincidences as f64);
         entropy
     }
 }
@@ -81,7 +88,9 @@ impl JointEntropy for AnsbEntropy {
     type Params = (Option<usize>, f64); // k_override, undersampled_threshold
 
     fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = AnsbEntropy::new(joint_codes, params.0, params.1);
         disc.global_value()

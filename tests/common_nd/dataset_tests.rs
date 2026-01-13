@@ -1,5 +1,5 @@
 use approx::assert_abs_diff_eq;
-use ndarray::{array, Array1, Array2};
+use ndarray::{Array1, Array2, array};
 use rstest::rstest;
 use std::panic;
 
@@ -17,12 +17,7 @@ fn brute_force_lp<const K: usize>(points: &[[f64; K]], p: f64, i: usize, j: usiz
 #[test]
 fn nd_dataset_from_array_construction() {
     // 2D data
-    let data: Array2<f64> = array![
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [0.0, 1.0],
-        [1.0, 1.0],
-    ];
+    let data: Array2<f64> = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0],];
     let ds = NdDataset::<2>::from_array2(data.clone());
     assert_eq!(ds.n, 4);
     assert_eq!(ds.points.len(), 4);
@@ -40,13 +35,13 @@ fn nd_dataset_from_array_construction() {
 fn nd_dataset_kth_neighbor_radii_euclidean_matches_utils_knn_radii(#[values(1, 2, 3)] k: usize) {
     let data: Array2<f64> = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0],];
     let ds = NdDataset::<2>::from_array2(data.clone());
-        let r_ds = ds.kth_neighbor_radii_euclidean(k);
-        let r_utils = knn_radii::<2>(data.view(), k);
-        assert_eq!(r_ds.len(), r_utils.len());
-        for i in 0..r_ds.len() {
-            assert_abs_diff_eq!(r_ds[i], r_utils[i], epsilon = 1e-12);
-        }
+    let r_ds = ds.kth_neighbor_radii_euclidean(k);
+    let r_utils = knn_radii::<2>(data.view(), k);
+    assert_eq!(r_ds.len(), r_utils.len());
+    for i in 0..r_ds.len() {
+        assert_abs_diff_eq!(r_ds[i], r_utils[i], epsilon = 1e-12);
     }
+}
 
 #[rstest]
 #[case(1, 1.0)]
@@ -65,11 +60,7 @@ fn nd_dataset_kth_neighbor_radii_manhattan_simple_cases(#[case] k: usize, #[case
 #[test]
 fn nd_dataset_kth_neighbor_radii_minkowski_fractional_p() {
     // Small set to validate fractional p with an independent brute-force in test
-    let data: Array2<f64> = array![
-        [0.0, 0.0],
-        [2.0, 0.0],
-        [0.0, 3.0],
-    ];
+    let data: Array2<f64> = array![[0.0, 0.0], [2.0, 0.0], [0.0, 3.0],];
     let ds = NdDataset::<2>::from_array2(data.clone());
     let p = 1.5f64;
     let k = 1usize;
@@ -82,9 +73,13 @@ fn nd_dataset_kth_neighbor_radii_minkowski_fractional_p() {
     let mut exp = Vec::with_capacity(points.len());
     for i in 0..points.len() {
         let mut dists: Vec<f64> = Vec::new();
-        for j in 0..points.len() { if i!=j { dists.push(brute_force_lp(&points, p, i, j)); } }
-        dists.sort_by(|a,b| a.partial_cmp(b).unwrap());
-        exp.push(dists[k-1]);
+        for j in 0..points.len() {
+            if i != j {
+                dists.push(brute_force_lp(&points, p, i, j));
+            }
+        }
+        dists.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        exp.push(dists[k - 1]);
     }
 
     assert_eq!(r.len(), exp.len());
@@ -108,7 +103,7 @@ fn nd_dataset_edge_cases_empty() {
 #[case::minkowski("minkowski", 2, Some(2.0))]
 #[case::minkowski_invalid_p("minkowski", 1, Some(0.0))]
 fn nd_dataset_panics(#[case] metric: &str, #[case] k: usize, #[case] p: Option<f64>) {
-    let data: Array2<f64> = array![[0.0, 0.0],[1.0, 0.0]];
+    let data: Array2<f64> = array![[0.0, 0.0], [1.0, 0.0]];
     let ds = NdDataset::<2>::from_array2(data);
 
     let result = panic::catch_unwind(move || match metric {

@@ -14,7 +14,7 @@ fn test_lehmer_code() {
             "identity permutation mismatch for n={}",
             n
         );
-        
+
         // Use integer math for the expected value to avoid f64 precision limits
         let expected_fact: u64 = (1..=n as u64).product();
 
@@ -28,11 +28,11 @@ fn test_lehmer_code() {
         );
     }
     assert_eq!(lehmer_code(&[1, 0]), 1);
-    assert_eq!(lehmer_code(&[0,1,2,3,4,5,7,6]), 1);
-    assert_eq!(lehmer_code(&[0,1,2,3,4,6,5,7]), 2);
-    assert_eq!(lehmer_code(&[0,1,2,3,5,4,6,7]), 6);
-    assert_eq!(lehmer_code(&[0,1,2,4,3,5,6,7]), 24);
-    assert_eq!(lehmer_code(&[0,1,3,2,4,5,6,7]), 120);
+    assert_eq!(lehmer_code(&[0, 1, 2, 3, 4, 5, 7, 6]), 1);
+    assert_eq!(lehmer_code(&[0, 1, 2, 3, 4, 6, 5, 7]), 2);
+    assert_eq!(lehmer_code(&[0, 1, 2, 3, 5, 4, 6, 7]), 6);
+    assert_eq!(lehmer_code(&[0, 1, 2, 4, 3, 5, 6, 7]), 24);
+    assert_eq!(lehmer_code(&[0, 1, 3, 2, 4, 5, 6, 7]), 120);
 
     // Known values for n=3
     // [0, 1, 2] -> 0

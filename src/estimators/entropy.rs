@@ -1,21 +1,21 @@
-use ndarray::{Array1, Array2};
-use crate::estimators::approaches::kernel;
-use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
-use crate::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
-use crate::estimators::approaches::discrete::shrink::ShrinkEntropy;
-use crate::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
-use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
-use crate::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
+use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
+use crate::estimators::approaches::discrete::bayes::{AlphaParam, BayesEntropy};
 use crate::estimators::approaches::discrete::bonachela::BonachelaEntropy;
 use crate::estimators::approaches::discrete::chao_shen::ChaoShenEntropy;
 use crate::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostEntropy;
-use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
+use crate::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
+use crate::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
+use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
 use crate::estimators::approaches::discrete::nsb::NsbEntropy;
-use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
+use crate::estimators::approaches::discrete::shrink::ShrinkEntropy;
+use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
+use crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
 use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
-use crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
+use crate::estimators::approaches::kernel;
+use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 pub use crate::estimators::traits::{GlobalValue, LocalValues};
+use ndarray::{Array1, Array2};
 
 /// Entropy estimation methods for various data types
 ///
@@ -117,10 +117,7 @@ impl Entropy {
     /// Create an NSB (Nemenman–Shafee–Bialek) discrete entropy estimator.
     ///
     /// Prior-averaged estimator via 1/K mixture and numerical integration; global-only.
-    pub fn new_nsb(
-        data: Array1<i32>,
-        k_override: Option<usize>,
-    ) -> NsbEntropy {
+    pub fn new_nsb(data: Array1<i32>, k_override: Option<usize>) -> NsbEntropy {
         NsbEntropy::new(data, k_override)
     }
 
@@ -187,10 +184,7 @@ impl Entropy {
     }
 
     /// Create a vector of NSB estimators (global-only), one per row.
-    pub fn new_nsb_rows(
-        data: Array2<i32>,
-        k_override: Option<usize>,
-    ) -> Vec<NsbEntropy> {
+    pub fn new_nsb_rows(data: Array2<i32>, k_override: Option<usize>) -> Vec<NsbEntropy> {
         NsbEntropy::from_rows(data, k_override)
     }
 
@@ -210,7 +204,10 @@ impl Entropy {
     /// When compiled with the `gpu_support` feature flag, this method will use GPU
     /// acceleration for datasets with 2000 or more points, providing significant
     /// performance improvements for large datasets.
-    pub fn new_kernel(data: impl Into<kernel::KernelData>, bandwidth: f64) -> kernel::KernelEntropy<1> {
+    pub fn new_kernel(
+        data: impl Into<kernel::KernelData>,
+        bandwidth: f64,
+    ) -> kernel::KernelEntropy<1> {
         kernel::KernelEntropy::new(data, bandwidth)
     }
 
@@ -239,7 +236,7 @@ impl Entropy {
     pub fn new_kernel_with_type(
         data: impl Into<kernel::KernelData>,
         kernel_type: String,
-        bandwidth: f64
+        bandwidth: f64,
     ) -> kernel::KernelEntropy<1> {
         kernel::KernelEntropy::new_with_kernel_type(data, kernel_type, bandwidth)
     }
@@ -262,7 +259,7 @@ impl Entropy {
     /// performance improvements for large datasets and high-dimensional data.
     pub fn nd_kernel<const K: usize>(
         data: impl Into<kernel::KernelData>,
-        bandwidth: f64
+        bandwidth: f64,
     ) -> kernel::KernelEntropy<K> {
         kernel::KernelEntropy::new(data, bandwidth)
     }
@@ -294,12 +291,11 @@ impl Entropy {
     pub fn nd_kernel_with_type<const K: usize>(
         data: impl Into<kernel::KernelData>,
         kernel_type: String,
-        bandwidth: f64
+        bandwidth: f64,
     ) -> kernel::KernelEntropy<K> {
         kernel::KernelEntropy::new_with_kernel_type(data, kernel_type, bandwidth)
     }
 }
-
 
 impl Entropy {
     /// Create an Ordinal (permutation) entropy estimator from a 1D series.
@@ -312,62 +308,119 @@ impl Entropy {
     }
 
     /// Create an Ordinal entropy estimator with a configurable step size (delay).
-    pub fn new_ordinal_with_step(data: Array1<f64>, order: usize, step_size: usize) -> OrdinalEntropy {
+    pub fn new_ordinal_with_step(
+        data: Array1<f64>,
+        order: usize,
+        step_size: usize,
+    ) -> OrdinalEntropy {
         OrdinalEntropy::new_with_step(data, order, step_size)
     }
 
     /// Create an Ordinal entropy estimator with a configurable step size and stability.
-    pub fn new_ordinal_with_step_and_stable(data: Array1<f64>, order: usize, step_size: usize, stable: bool) -> OrdinalEntropy {
+    pub fn new_ordinal_with_step_and_stable(
+        data: Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalEntropy {
         OrdinalEntropy::new_with_step_and_stable(data, order, step_size, stable)
     }
 
     /// Compute joint ordinal entropy for multiple 1D series.
-    pub fn ordinal_joint_entropy(series_list: &[Array1<f64>], order: usize, step_size: usize) -> f64 {
+    pub fn ordinal_joint_entropy(
+        series_list: &[Array1<f64>],
+        order: usize,
+        step_size: usize,
+    ) -> f64 {
         OrdinalEntropy::joint_entropy(series_list, order, step_size, true)
     }
 
     /// Compute joint ordinal entropy with configurable stability.
-    pub fn ordinal_joint_entropy_with_stable(series_list: &[Array1<f64>], order: usize, step_size: usize, stable: bool) -> f64 {
+    pub fn ordinal_joint_entropy_with_stable(
+        series_list: &[Array1<f64>],
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> f64 {
         OrdinalEntropy::joint_entropy(series_list, order, step_size, stable)
     }
 
     /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
-    pub fn ordinal_cross_entropy(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize) -> f64 {
+    pub fn ordinal_cross_entropy(
+        x: &Array1<f64>,
+        y: &Array1<f64>,
+        order: usize,
+        step_size: usize,
+    ) -> f64 {
         OrdinalEntropy::cross_entropy(x, y, order, step_size, true)
     }
 
     /// Compute ordinal cross-entropy with configurable stability.
-    pub fn ordinal_cross_entropy_with_stable(x: &Array1<f64>, y: &Array1<f64>, order: usize, step_size: usize, stable: bool) -> f64 {
+    pub fn ordinal_cross_entropy_with_stable(
+        x: &Array1<f64>,
+        y: &Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> f64 {
         OrdinalEntropy::cross_entropy(x, y, order, step_size, stable)
     }
 
     /// Create a Rényi entropy estimator (1D convenience constructor)
-    pub fn new_renyi_1d(data: Array1<f64>, k: usize, alpha: f64, noise_level: f64) -> RenyiEntropy<1> {
+    pub fn new_renyi_1d(
+        data: Array1<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiEntropy<1> {
         RenyiEntropy::<1>::new_1d(data, k, alpha, noise_level)
     }
 
     /// Create a Rényi entropy estimator for N-dimensional data (const-generic K)
-    pub fn renyi_nd<const K: usize>(data: Array2<f64>, k: usize, alpha: f64, noise_level: f64) -> RenyiEntropy<K> {
+    pub fn renyi_nd<const K: usize>(
+        data: Array2<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiEntropy<K> {
         RenyiEntropy::<K>::new(data, k, alpha, noise_level)
     }
 
     /// Create a Tsallis entropy estimator (1D convenience constructor)
-    pub fn new_tsallis_1d(data: Array1<f64>, k: usize, q: f64, noise_level: f64) -> TsallisEntropy<1> {
+    pub fn new_tsallis_1d(
+        data: Array1<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisEntropy<1> {
         TsallisEntropy::<1>::new_1d(data, k, q, noise_level)
     }
 
     /// Create a Tsallis entropy estimator for N-dimensional data (const-generic K)
-    pub fn tsallis_nd<const K: usize>(data: Array2<f64>, k: usize, q: f64, noise_level: f64) -> TsallisEntropy<K> {
+    pub fn tsallis_nd<const K: usize>(
+        data: Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisEntropy<K> {
         TsallisEntropy::<K>::new(data, k, q, noise_level)
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator (1D convenience constructor)
-    pub fn new_kl_1d(data: Array1<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<1> {
+    pub fn new_kl_1d(
+        data: Array1<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoEntropy<1> {
         KozachenkoLeonenkoEntropy::<1>::new_1d(data, k, noise_level)
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator for N-dimensional data (const-generic K)
-    pub fn kl_nd<const K: usize>(data: Array2<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<K> {
+    pub fn kl_nd<const K: usize>(
+        data: Array2<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoEntropy<K> {
         KozachenkoLeonenkoEntropy::<K>::new(data, k, noise_level)
     }
 }

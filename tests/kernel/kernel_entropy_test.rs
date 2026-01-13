@@ -59,7 +59,7 @@ fn compare_kernel_entropy(
         "gaussian" => {
             #[cfg(feature = "gpu_support")]
             {
-                (1e-6, 1e-6)  // lower precision due to float32 precision
+                (1e-6, 1e-6) // lower precision due to float32 precision
             }
             #[cfg(not(feature = "gpu_support"))]
             {
@@ -217,7 +217,7 @@ fn compare_kernel_entropy_2d_generic<const K: usize>(
         "gaussian" => {
             #[cfg(feature = "gpu_support")]
             {
-                (1e-6, 1e-6)  // lower precision due to float32 precision
+                (1e-6, 1e-6) // lower precision due to float32 precision
             }
             #[cfg(not(feature = "gpu_support"))]
             {

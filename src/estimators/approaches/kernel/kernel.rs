@@ -72,16 +72,6 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
-use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate};
-use ndarray_stats::CorrelationExt;
-use ndarray_linalg::{Cholesky, UPLO, Inverse};
-use kiddo::{ImmutableKdTree, SquaredEuclidean};
-#[cfg(feature = "simd_support")]
-use std::simd::{StdFloat, f64x4, f64x8};
-#[cfg(feature = "simd_support")]
-use std::simd::num::SimdFloat;
-#[cfg(feature = "simd_support")]
-use std::simd::cmp::SimdPartialOrd;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
     MutualInformationEstimator, TransferEntropyEstimator,
@@ -90,6 +80,16 @@ use crate::estimators::traits::{
     CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
+use kiddo::{ImmutableKdTree, SquaredEuclidean};
+use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate};
+use ndarray_linalg::{Cholesky, Inverse, UPLO};
+use ndarray_stats::CorrelationExt;
+#[cfg(feature = "simd_support")]
+use std::simd::cmp::SimdPartialOrd;
+#[cfg(feature = "simd_support")]
+use std::simd::num::SimdFloat;
+#[cfg(feature = "simd_support")]
+use std::simd::{StdFloat, f64x4, f64x8};
 
 /// Kernel-based transfer entropy estimator.
 ///
@@ -995,7 +995,9 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             } else {
                 other.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
             };
-            let norm = (n_q as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov_q.sqrt();
+            let norm = (n_q as f64)
+                * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0)
+                * det_scaled_cov_q.sqrt();
             let radius = if other.n_samples > 5000 {
                 36.0 * other.max_eigenvalue
             } else {
@@ -1010,8 +1012,10 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             let density = if other.kernel_type == "gaussian" {
                 // Gaussian kernel density at query_point using other's covariance
                 let mut local_density = 0.0;
-                
-                let neighbors = other.tree.within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius_q);
+
+                let neighbors = other
+                    .tree
+                    .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius_q);
                 for neighbor in neighbors {
                     let neighbor_point = &other.points[neighbor.item as usize];
                     let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
@@ -1026,10 +1030,9 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                 // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
                 let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
-                let candidates = other.tree.within_unsorted::<SquaredEuclidean>(
-                    query_point,
-                    circumscribed_radius_sq
-                );
+                let candidates = other
+                    .tree
+                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
                 let mut count = 0usize;
                 for candidate in candidates {
@@ -1047,7 +1050,7 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             } else {
                 // Parity with Python: points with zero density contribute 0.0 to the sum of logs.
                 // This is effectively ignoring them in the average calculation.
-                sum_ln_q += 0.0; 
+                sum_ln_q += 0.0;
             }
         }
 
@@ -1060,9 +1063,15 @@ impl<const K: usize> JointEntropy for KernelEntropy<K> {
     type Params = (String, f64); // kernel_type, bandwidth
 
     fn joint_entropy(series: &[Self::Source], params: Self::Params) -> f64 {
-        assert_eq!(series.len(), K, "Number of series must match dimensionality K");
-        if series.is_empty() { return 0.0; }
-        
+        assert_eq!(
+            series.len(),
+            K,
+            "Number of series must match dimensionality K"
+        );
+        if series.is_empty() {
+            return 0.0;
+        }
+
         let n_samples = series[0].len();
         for s in series {
             assert_eq!(s.len(), n_samples, "All series must have the same length");
@@ -1111,7 +1120,11 @@ impl<const K: usize> KernelEntropy<K> {
     /// The bandwidth parameter is interpreted differently depending on the kernel type:
     /// - For box kernels, it's used directly as the radius of the hypercube
     /// - For Gaussian kernels, it's scaled by the standard deviation in each dimension
-    pub fn new_with_kernel_type(data: impl Into<KernelData>, kernel_type: String, bandwidth: f64) -> Self {
+    pub fn new_with_kernel_type(
+        data: impl Into<KernelData>,
+        kernel_type: String,
+        bandwidth: f64,
+    ) -> Self {
         let data = data.into();
         // for kernel type, lowercase it
         let kernel_type = kernel_type.to_lowercase();
@@ -1120,7 +1133,7 @@ impl<const K: usize> KernelEntropy<K> {
         // for data array, assure second dimension == K
         assert!(match &data {
             KernelData::OneDimensional(_) => K == 1,
-            KernelData::TwoDimensional(d) => d.ncols() == K
+            KernelData::TwoDimensional(d) => d.ncols() == K,
         });
 
         // Convert the data into points suitable for the KD-tree
@@ -1140,7 +1153,8 @@ impl<const K: usize> KernelEntropy<K> {
             KernelData::TwoDimensional(arr) => {
                 if let Some(slice) = arr.as_slice() {
                     // If the array is contiguous, we can process it as a flat slice
-                    slice.chunks(K)
+                    slice
+                        .chunks(K)
                         .map(|chunk| {
                             let mut point = [0.0; K];
                             point.copy_from_slice(&chunk[..K]);
@@ -1199,8 +1213,11 @@ impl<const K: usize> KernelEntropy<K> {
             }
 
             // Calculate covariance matrix
-            let cov = data_for_cov.view().cov(1.0).expect("Failed to calculate covariance matrix");
-            
+            let cov = data_for_cov
+                .view()
+                .cov(1.0)
+                .expect("Failed to calculate covariance matrix");
+
             // Scale covariance matrix by bandwidth squared
             let scaled_cov = cov * (bandwidth * bandwidth);
 
@@ -1211,24 +1228,31 @@ impl<const K: usize> KernelEntropy<K> {
             cholesky_factor = Some(l);
 
             // Precision matrix (inverse of scaled covariance) for GPU
-            let inv = scaled_cov.inv().expect("Failed to invert covariance matrix");
+            let inv = scaled_cov
+                .inv()
+                .expect("Failed to invert covariance matrix");
             precision_matrix = Some(inv);
 
             use ndarray_linalg::EigValsh;
-            let eigenvalues = scaled_cov.eigvalsh(UPLO::Lower).expect("Failed to calculate eigenvalues");
-            eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+            let eigenvalues = scaled_cov
+                .eigvalsh(UPLO::Lower)
+                .expect("Failed to calculate eigenvalues");
+            eigenvalues
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max)
         } else {
             // For Box kernel, use the max standard deviation to maintain consistency with previous scaling behavior
             let max_std = std_devs.iter().cloned().fold(0.0f64, f64::max);
             (max_std * bandwidth).powi(2)
         };
 
-        Self { 
-            points, 
-            n_samples, 
-            kernel_type, 
-            bandwidth, 
-            tree, 
+        Self {
+            points,
+            n_samples,
+            kernel_type,
+            bandwidth,
+            tree,
             std_devs,
             cholesky_factor,
             precision_matrix,
@@ -1274,12 +1298,24 @@ impl<const K: usize> KernelEntropy<K> {
                 let r_eps_vec8 = f64x8::splat(r_eps);
                 while dim + 8 <= K {
                     let q_vec = f64x8::from_array([
-                        query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3],
-                        query_point[dim+4], query_point[dim+5], query_point[dim+6], query_point[dim+7]
+                        query_point[dim],
+                        query_point[dim + 1],
+                        query_point[dim + 2],
+                        query_point[dim + 3],
+                        query_point[dim + 4],
+                        query_point[dim + 5],
+                        query_point[dim + 6],
+                        query_point[dim + 7],
                     ]);
                     let p_vec = f64x8::from_array([
-                        p[dim], p[dim+1], p[dim+2], p[dim+3],
-                        p[dim+4], p[dim+5], p[dim+6], p[dim+7]
+                        p[dim],
+                        p[dim + 1],
+                        p[dim + 2],
+                        p[dim + 3],
+                        p[dim + 4],
+                        p[dim + 5],
+                        p[dim + 6],
+                        p[dim + 7],
                     ]);
                     let diff = (q_vec - p_vec).abs();
                     if !diff.simd_le(r_eps_vec8).all() {
@@ -1292,11 +1328,12 @@ impl<const K: usize> KernelEntropy<K> {
                 let r_eps_vec4 = f64x4::splat(r_eps);
                 while dim + 4 <= K {
                     let q_vec = f64x4::from_array([
-                        query_point[dim], query_point[dim+1], query_point[dim+2], query_point[dim+3]
+                        query_point[dim],
+                        query_point[dim + 1],
+                        query_point[dim + 2],
+                        query_point[dim + 3],
                     ]);
-                    let p_vec = f64x4::from_array([
-                        p[dim], p[dim+1], p[dim+2], p[dim+3]
-                    ]);
+                    let p_vec = f64x4::from_array([p[dim], p[dim + 1], p[dim + 2], p[dim + 3]]);
                     let diff = (q_vec - p_vec).abs();
                     if !diff.simd_le(r_eps_vec4).all() {
                         return false;
@@ -1324,11 +1361,11 @@ impl<const K: usize> KernelEntropy<K> {
     }
 
     /// Calculates the squared Mahalanobis distance between two points
-    /// 
+    ///
     /// If full covariance is available (for Gaussian kernel), it computes:
     /// d_M^2 = (p1 - p2)^T Σ_scaled^-1 (p1 - p2) = ||L^-1 (p1 - p2)||^2
     /// where L is the lower triangular Cholesky factor.
-    /// 
+    ///
     /// If only diagonal covariance is available, it falls back to scaled Euclidean distance.
     pub fn calculate_mahalanobis_distance(&self, p1: &[f64; K], p2: &[f64; K]) -> f64 {
         if let Some(ref l) = self.cholesky_factor {
@@ -1521,10 +1558,9 @@ impl<const K: usize> KernelEntropy<K> {
                     let query_point = &self.points[idx];
 
                     // Find neighbors (this part remains scalar as it depends on the KD-tree)
-                    let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
-                        query_point,
-                        circumscribed_radius_sq
-                    );
+                    let candidates = self
+                        .tree
+                        .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
                     let mut count = 0usize;
                     for candidate in candidates {
@@ -1584,10 +1620,9 @@ impl<const K: usize> KernelEntropy<K> {
                     let idx = start_idx + i;
                     let query_point = &self.points[idx];
 
-                    let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
-                        query_point,
-                        circumscribed_radius_sq
-                    );
+                    let candidates = self
+                        .tree
+                        .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
                     let mut count = 0usize;
                     for candidate in candidates {
@@ -1608,11 +1643,10 @@ impl<const K: usize> KernelEntropy<K> {
 
         for i in (num_batches * batch_size)..self.n_samples {
             let query_point = &self.points[i];
-            
-            let candidates = self.tree.within_unsorted::<SquaredEuclidean>(
-                query_point,
-                circumscribed_radius_sq
-            );
+
+            let candidates = self
+                .tree
+                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
             let mut count = 0usize;
             for candidate in candidates {
@@ -1664,8 +1698,8 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Bandwidth Scaling and Covariance
     ///
     /// Unlike the box kernel, the Gaussian kernel uses the full covariance matrix
-    /// of the data, scaled by the squared bandwidth. This makes the estimator adaptive to 
-    /// both the scale and the correlation of the data in each dimension, matching the 
+    /// of the data, scaled by the squared bandwidth. This makes the estimator adaptive to
+    /// both the scale and the correlation of the data in each dimension, matching the
     /// behavior of scipy.stats.gaussian_kde exactly.
     ///
     /// The scaling is applied in three places:
@@ -1675,9 +1709,9 @@ impl<const K: usize> KernelEntropy<K> {
     ///
     /// # Normalization
     ///
-    /// The Gaussian kernel entropy includes a proper normalization factor based on the 
-    /// determinant of the scaled covariance matrix: (2π)^(d/2) * sqrt(det(Σ_scaled)). 
-    /// This ensures that the entropy estimate is consistent with the theoretical 
+    /// The Gaussian kernel entropy includes a proper normalization factor based on the
+    /// determinant of the scaled covariance matrix: (2π)^(d/2) * sqrt(det(Σ_scaled)).
+    /// This ensures that the entropy estimate is consistent with the theoretical
     /// definition of differential entropy for a multivariate Gaussian distribution.
     /// Fast approximation of the exponential function
     #[cfg(feature = "fast_exp")]
@@ -1694,22 +1728,24 @@ impl<const K: usize> KernelEntropy<K> {
         if x > -0.5 {
             // Use a 5th-order Taylor series approximation for small negative values
             // exp(x) ≈ 1 + x + x²/2 + x³/6 + x⁴/24 + x⁵/120
-            return 1.0 + x * (1.0 + x * (0.5 + x * (1.0/6.0 + x * (1.0/24.0 + x * (1.0/120.0)))));
+            return 1.0
+                + x * (1.0 + x * (0.5 + x * (1.0 / 6.0 + x * (1.0 / 24.0 + x * (1.0 / 120.0)))));
         }
 
         // For medium negative values, use a rational approximation
         if x > -2.5 {
             // This is a minimax approximation that provides a good balance between accuracy and performance
             // exp(x) ≈ 1 / (1 - x + x²/2 - x³/6) for x < 0
-            return 1.0 / (1.0 - x + x*x/2.0 - x*x*x/6.0);
+            return 1.0 / (1.0 - x + x * x / 2.0 - x * x * x / 6.0);
         }
 
         // For large negative values, use a higher-order rational approximation
         // This provides better accuracy for inputs far from 0
         // exp(x) ≈ 1 / (1 - x + x²/2 - x³/6 + x⁴/24 - x⁵/120 + x⁶/720)
-        1.0 / (1.0 - x + x*x/2.0 - x*x*x/6.0 + x*x*x*x/24.0 - x*x*x*x*x/120.0 + x*x*x*x*x*x/720.0)
+        1.0 / (1.0 - x + x * x / 2.0 - x * x * x / 6.0 + x * x * x * x / 24.0
+            - x * x * x * x * x / 120.0
+            + x * x * x * x * x * x / 720.0)
     }
-
 }
 
 /// Implementation of the LocalValues trait for KernelEntropy
@@ -1747,7 +1783,7 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
     /// # GPU Acceleration
     ///
     /// When the `gpu_support` feature flag is enabled, both the Gaussian and box kernel
-    /// calculations can use GPU acceleration, which provides significant performance 
+    /// calculations can use GPU acceleration, which provides significant performance
     /// improvements for large datasets and high-dimensional data:
     ///
     /// - **Gaussian Kernel**: GPU acceleration is used for datasets with 500 or more points.

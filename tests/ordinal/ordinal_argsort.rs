@@ -30,7 +30,7 @@ fn test_argsort_unstable_with_ties() {
 
     // Verify that it is a valid sort
     for i in 0..3 {
-        assert!(window[idx[i]] <= window[idx[i+1]]);
+        assert!(window[idx[i]] <= window[idx[i + 1]]);
     }
 
     // In this specific case, 0.0 is at index 3, 2.0 is at index 1.

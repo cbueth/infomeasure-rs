@@ -3,11 +3,11 @@
 
 #![cfg(feature = "gpu_support")]
 
+use futures_intrusive::channel::shared::oneshot_channel;
 use ndarray::Array2;
+use pollster::block_on;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use futures_intrusive::channel::shared::oneshot_channel;
-use pollster::block_on;
 
 /// Try to compute per-row dense histograms using the GPU.
 ///
@@ -20,17 +20,25 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     const MAX_BINS: i32 = 4096; // keep in sync with CPU dense threshold
 
     let (rows, cols) = data.dim();
-    if rows == 0 || cols == 0 { return Some(Vec::new()); }
+    if rows == 0 || cols == 0 {
+        return Some(Vec::new());
+    }
 
     // Compute global min/max on CPU (cheap and necessary for binning)
     let mut min_v = i32::MAX;
     let mut max_v = i32::MIN;
     for v in data.iter() {
-        if *v < min_v { min_v = *v; }
-        if *v > max_v { max_v = *v; }
+        if *v < min_v {
+            min_v = *v;
+        }
+        if *v > max_v {
+            max_v = *v;
+        }
     }
     let range = max_v.saturating_sub(min_v);
-    if range > MAX_BINS { return None; }
+    if range > MAX_BINS {
+        return None;
+    }
 
     // Flatten data
     let flat: Vec<i32> = data.iter().cloned().collect();
@@ -48,15 +56,13 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
         Err(_) => return None,
     };
 
-    let (device, queue) = match block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: Some("Discrete Histogram Device"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::default(),
-            trace: wgpu::Trace::default(),
-        },
-    )) {
+    let (device, queue) = match block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("Discrete Histogram Device"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::default(),
+        memory_hints: wgpu::MemoryHints::default(),
+        trace: wgpu::Trace::default(),
+    })) {
         Ok(pair) => pair,
         Err(_) => return None,
     };
@@ -87,8 +93,18 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     // Uniforms
     #[repr(C)]
     #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-    struct Config { rows: u32, cols: u32, min_v: i32, bins: u32 }
-    let cfg = Config { rows: rows as u32, cols: cols as u32, min_v, bins };
+    struct Config {
+        rows: u32,
+        cols: u32,
+        min_v: i32,
+        bins: u32,
+    }
+    let cfg = Config {
+        rows: rows as u32,
+        cols: cols as u32,
+        min_v,
+        bins,
+    };
     let config_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Histogram Config Buffer"),
         contents: bytemuck::bytes_of(&cfg),
@@ -157,9 +173,18 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
         label: Some("Histogram BG"),
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input_buffer.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: output_buffer.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: config_buffer.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: config_buffer.as_entire_binding(),
+            },
         ],
     });
 
@@ -181,15 +206,25 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     }
 
     // Copy results
-    encoder.copy_buffer_to_buffer(&output_buffer, 0, &staging_buffer, 0, out_elems * std::mem::size_of::<u32>() as u64);
+    encoder.copy_buffer_to_buffer(
+        &output_buffer,
+        0,
+        &staging_buffer,
+        0,
+        out_elems * std::mem::size_of::<u32>() as u64,
+    );
     queue.submit(std::iter::once(encoder.finish()));
 
     // Read back
     let slice = staging_buffer.slice(..);
     let (sender, receiver) = oneshot_channel();
-    slice.map_async(wgpu::MapMode::Read, move |v| { sender.send(v).ok(); });
+    slice.map_async(wgpu::MapMode::Read, move |v| {
+        sender.send(v).ok();
+    });
     device.poll(wgpu::PollType::Wait).ok()?;
-    if block_on(receiver.receive()).is_none() { return None; }
+    if block_on(receiver.receive()).is_none() {
+        return None;
+    }
     let view = slice.get_mapped_range();
     let counts_u32: Vec<u32> = bytemuck::cast_slice(&view).to_vec();
     drop(view);

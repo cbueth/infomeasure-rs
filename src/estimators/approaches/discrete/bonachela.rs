@@ -1,7 +1,7 @@
 use ndarray::{Array1, Array2};
 
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 
 /// Bonachela entropy estimator for discrete data (natural log base).
@@ -37,7 +37,9 @@ impl BonachelaEntropy {
 impl GlobalValue for BonachelaEntropy {
     fn global_value(&self) -> f64 {
         let n = self.dataset.n as usize;
-        if n == 0 { return 0.0; }
+        if n == 0 {
+            return 0.0;
+        }
         let mut acc = 0.0_f64;
         // For each count n_i, compute (n_i + 1) * sum_{j=n_i+2}^{N+2} 1/j
         for &cnt in self.dataset.counts.values() {
@@ -46,7 +48,9 @@ impl GlobalValue for BonachelaEntropy {
             let end_j = n + 2;
             if start_j <= end_j {
                 let mut inner = 0.0_f64;
-                for j in start_j..=end_j { inner += 1.0 / (j as f64); }
+                for j in start_j..=end_j {
+                    inner += 1.0 / (j as f64);
+                }
                 acc += ni_plus1 * inner;
             }
         }
@@ -65,7 +69,9 @@ impl JointEntropy for BonachelaEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = BonachelaEntropy::new(joint_codes);
         disc.global_value()

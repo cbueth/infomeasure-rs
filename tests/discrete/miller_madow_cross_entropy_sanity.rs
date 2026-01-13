@@ -1,13 +1,13 @@
 use approx::assert_abs_diff_eq;
-use ndarray::array;
-use infomeasure::estimators::approaches::MillerMadowEntropy;
 use infomeasure::estimators::CrossEntropy;
+use infomeasure::estimators::approaches::MillerMadowEntropy;
+use ndarray::array;
 
 #[test]
 fn miller_madow_cross_entropy_basic() {
     // P: [1,1,2,2] -> Kp=2, Np=4; Q: [1,2,2,3] -> Kq=3, Nq=4
-    let p = array![1,1,2,2];
-    let q = array![1,2,2,3];
+    let p = array![1, 1, 2, 2];
+    let q = array![1, 2, 2, 3];
     let est_p = MillerMadowEntropy::new(p);
     let est_q = MillerMadowEntropy::new(q);
 

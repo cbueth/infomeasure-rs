@@ -24,7 +24,8 @@ fn discrete_entropy_python_parity(#[case] data: Vec<i32>, #[case] _description: 
     let locals_rust = rust_est.local_values();
 
     let h_py = python::calculate_entropy(&data, "discrete", &[]).expect("python discrete failed");
-    let locals_py = python::calculate_local_entropy(&data, "discrete", &[]).expect("python local discrete failed");
+    let locals_py = python::calculate_local_entropy(&data, "discrete", &[])
+        .expect("python local discrete failed");
 
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
     assert_eq!(locals_rust.len(), locals_py.len());

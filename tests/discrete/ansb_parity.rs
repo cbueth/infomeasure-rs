@@ -1,11 +1,11 @@
 use approx::assert_abs_diff_eq;
-use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::ansb::AnsbEntropy;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use validation::python;
+use ndarray::Array1;
 use rstest::*;
+use validation::python;
 
 #[rstest]
 #[case(vec![1, 1, 2, 3, 4], None, "one coincidence")]
@@ -33,11 +33,14 @@ fn ansb_entropy_python_parity(
         kwargs.push(("K".to_string(), k.to_string()));
     }
 
-    let h_py = python::calculate_entropy(&data, "ansb", &kwargs)
-        .expect("python ansb failed");
+    let h_py = python::calculate_entropy(&data, "ansb", &kwargs).expect("python ansb failed");
 
     if h_rust.is_nan() {
-        assert!(h_py.is_nan(), "Rust returned NaN but Python returned {}", h_py);
+        assert!(
+            h_py.is_nan(),
+            "Rust returned NaN but Python returned {}",
+            h_py
+        );
     } else {
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
     }

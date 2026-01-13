@@ -1,8 +1,8 @@
+use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use ndarray::{Array1, Array2};
 use std::collections::HashMap;
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, LocalValues, OptionalLocalValues, JointEntropy};
 
 /// Shrinkage (James–Stein) entropy estimator for discrete data (natural log base).
 ///
@@ -46,7 +46,9 @@ impl ShrinkEntropy {
         for (&_val, &cnt) in self.dataset.counts.iter() {
             let u = (cnt as f64) / n;
             // variance term
-            if self.dataset.n > 1 { var_sum += u * (1.0 - u) / (n - 1.0); }
+            if self.dataset.n > 1 {
+                var_sum += u * (1.0 - u) / (n - 1.0);
+            }
             // mean squared difference to target
             msp += (u - t) * (u - t);
         }
@@ -58,8 +60,12 @@ impl ShrinkEntropy {
             1.0
         } else {
             let mut l = var_sum / msp;
-            if l < 0.0 { l = 0.0; }
-            if l > 1.0 { l = 1.0; }
+            if l < 0.0 {
+                l = 0.0;
+            }
+            if l > 1.0 {
+                l = 1.0;
+            }
             l
         };
 
@@ -79,7 +85,9 @@ impl GlobalValue for ShrinkEntropy {
         let dist_shrink = self.shrink_probs();
         let mut h = 0.0_f64;
         for &p in dist_shrink.values() {
-            if p > 0.0 { h -= p * p.ln(); }
+            if p > 0.0 {
+                h -= p * p.ln();
+            }
         }
         h
     }
@@ -98,7 +106,9 @@ impl JointEntropy for ShrinkEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = ShrinkEntropy::new(joint_codes);
         GlobalValue::global_value(&disc)
@@ -106,6 +116,10 @@ impl JointEntropy for ShrinkEntropy {
 }
 
 impl OptionalLocalValues for ShrinkEntropy {
-    fn supports_local(&self) -> bool { true }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> { Ok(self.local_values()) }
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
 }

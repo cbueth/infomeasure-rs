@@ -1,25 +1,25 @@
-use ndarray::{array, Array2};
 use approx::assert_abs_diff_eq;
-use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
-use infomeasure::estimators::approaches::discrete::shrink::ShrinkEntropy;
-use infomeasure::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
-use infomeasure::estimators::approaches::discrete::zhang::ZhangEntropy;
+use infomeasure::estimators::approaches::discrete::ansb::AnsbEntropy;
+use infomeasure::estimators::approaches::discrete::bayes::{AlphaParam, BayesEntropy};
 use infomeasure::estimators::approaches::discrete::bonachela::BonachelaEntropy;
 use infomeasure::estimators::approaches::discrete::chao_shen::ChaoShenEntropy;
 use infomeasure::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostEntropy;
-use infomeasure::estimators::approaches::discrete::ansb::AnsbEntropy;
-use infomeasure::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
+use infomeasure::estimators::approaches::discrete::grassberger::GrassbergerEntropy;
+use infomeasure::estimators::approaches::discrete::miller_madow::MillerMadowEntropy;
+use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
 use infomeasure::estimators::approaches::discrete::nsb::NsbEntropy;
-use infomeasure::estimators::{LocalValues, OptionalLocalValues, GlobalValue};
+use infomeasure::estimators::approaches::discrete::shrink::ShrinkEntropy;
+use infomeasure::estimators::approaches::discrete::zhang::ZhangEntropy;
+use infomeasure::estimators::{GlobalValue, LocalValues, OptionalLocalValues};
+use ndarray::{Array2, array};
 
 #[test]
 fn batch_rows_matches_per_row_all_discrete() {
     // 3 rows with varied distributions; keep equal lengths per row
     let data: Array2<i32> = array![
-        [1,1,2,3,3,4,5,5],   // mixed
-        [0,1,0,1,0,1,0,1],   // binary alternating
-        [5,5,5,5,5,5,5,5],   // constant
+        [1, 1, 2, 3, 3, 4, 5, 5], // mixed
+        [0, 1, 0, 1, 0, 1, 0, 1], // binary alternating
+        [5, 5, 5, 5, 5, 5, 5, 5], // constant
     ];
 
     // 1) Discrete (MLE)

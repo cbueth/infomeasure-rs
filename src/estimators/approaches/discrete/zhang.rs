@@ -1,7 +1,7 @@
-use ndarray::{Array1, Array2};
-use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{LocalValues, OptionalLocalValues, GlobalValue, JointEntropy};
+use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use ndarray::{Array1, Array2};
 
 /// Zhang entropy estimator for discrete data (Lozano 2017 fast formulation).
 ///
@@ -51,7 +51,7 @@ impl ZhangEntropy {
         }
         h_hat
     }
-        }
+}
 
 impl GlobalValue for ZhangEntropy {
     fn global_value(&self) -> f64 {
@@ -86,7 +86,9 @@ impl JointEntropy for ZhangEntropy {
     type Params = ();
 
     fn joint_entropy(series: &[Self::Source], _params: Self::Params) -> f64 {
-        if series.is_empty() { return 0.0; }
+        if series.is_empty() {
+            return 0.0;
+        }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = ZhangEntropy::new(joint_codes);
         GlobalValue::global_value(&disc)
@@ -94,6 +96,10 @@ impl JointEntropy for ZhangEntropy {
 }
 
 impl OptionalLocalValues for ZhangEntropy {
-    fn supports_local(&self) -> bool { true }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> { Ok(self.local_values()) }
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
 }

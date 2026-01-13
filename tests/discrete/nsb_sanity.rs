@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
-use ndarray::array;
-use infomeasure::estimators::approaches::NsbEntropy;
 use infomeasure::estimators::GlobalValue;
+use infomeasure::estimators::approaches::NsbEntropy;
+use ndarray::array;
 
 #[test]
 fn nsb_entropy_python_example() {

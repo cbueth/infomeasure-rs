@@ -1,9 +1,9 @@
-use ndarray::Array1;
 use approx::assert_abs_diff_eq;
-use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::{GlobalValue, LocalValues};
+use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use infomeasure::estimators::approaches::ordinal::ordinal_utils::symbolize_series_compact;
+use infomeasure::estimators::{GlobalValue, LocalValues};
+use ndarray::Array1;
 
 #[test]
 fn ordinal_basic_patterns_and_entropy() {
@@ -56,7 +56,6 @@ fn ordinal_order_limit_no_panic_over_12() {
     // Entropy should be finite (monotonic series -> single pattern => 0.0)
     assert_abs_diff_eq!(ord.global_value(), 0.0, epsilon = 1e-12);
 }
-
 
 #[test]
 fn ordinal_equivalence_with_discrete_on_codes() {
