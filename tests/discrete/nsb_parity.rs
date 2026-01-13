@@ -1,7 +1,9 @@
 use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 use infomeasure::estimators::approaches::discrete::nsb::NsbEntropy;
+use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::traits::GlobalValue;
+use infomeasure::estimators::transfer_entropy::TransferEntropy;
 use validation::python;
 use rstest::*;
 
@@ -44,4 +46,89 @@ fn nsb_entropy_python_parity(
         // NSB uses numerical integration; use a looser tolerance
         assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-5);
     }
+}
+
+#[rstest]
+#[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
+#[case(vec![1, 0, 1, 0], vec![0, 1, 0, 1], 0.0)]
+fn test_nsb_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] expected: f64) {
+    let x_arr = Array1::from(x.clone());
+    let y_arr = Array1::from(y.clone());
+    let mi_est = MutualInformation::new_discrete_nsb(&[x_arr, y_arr]);
+    let res = mi_est.global_value();
+
+    let mi_py = python::calculate_mi(&[x, y], "nsb", &[]).unwrap();
+    if res.is_nan() && mi_py.is_nan() {
+        return;
+    }
+    assert_abs_diff_eq!(res, mi_py, epsilon = 1e-5);
+}
+
+#[rstest]
+#[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
+#[case(vec![1, 0, 1, 0], vec![1, 0, 1, 0], 0.0)]
+fn test_nsb_te_parity(#[case] source: Vec<i32>, #[case] dest: Vec<i32>, #[case] expected: f64) {
+    let s_arr = Array1::from(source.clone());
+    let d_arr = Array1::from(dest.clone());
+    let te_est = TransferEntropy::new_discrete_nsb(&s_arr, &d_arr, 1, 1, 1);
+    let res = te_est.global_value();
+
+    let kwargs = vec![
+        ("src_hist_len".to_string(), "1".to_string()),
+        ("dest_hist_len".to_string(), "1".to_string()),
+    ];
+    let te_py = python::calculate_te(&source, &dest, "nsb", &kwargs).unwrap();
+    if res.is_nan() && te_py.is_nan() {
+        return;
+    }
+    assert_abs_diff_eq!(res, te_py, epsilon = 1e-5);
+}
+
+#[rstest]
+#[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
+#[case(vec![1, 0, 1, 0], vec![0, 1, 0, 1], vec![1, 1, 0, 0], 0.0)]
+fn test_nsb_cmi_parity(
+    #[case] x: Vec<i32>,
+    #[case] y: Vec<i32>,
+    #[case] z: Vec<i32>,
+    #[case] expected: f64,
+) {
+    let x_arr = Array1::from(x.clone());
+    let y_arr = Array1::from(y.clone());
+    let z_arr = Array1::from(z.clone());
+    let cmi_est = MutualInformation::new_cmi_discrete_nsb(&[x_arr, y_arr], &z_arr);
+    let res = cmi_est.global_value();
+
+    let cmi_py = python::calculate_cmi(&[x, y], &z, "nsb", &[]).unwrap();
+    if res.is_nan() && cmi_py.is_nan() {
+        return;
+    }
+    assert_abs_diff_eq!(res, cmi_py, epsilon = 1e-5);
+}
+
+#[rstest]
+#[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
+#[case(vec![1, 0, 1, 0], vec![0, 1, 0, 1], vec![1, 1, 0, 0], 0.0)]
+fn test_nsb_cte_parity(
+    #[case] source: Vec<i32>,
+    #[case] dest: Vec<i32>,
+    #[case] cond: Vec<i32>,
+    #[case] expected: f64,
+) {
+    let s_arr = Array1::from(source.clone());
+    let d_arr = Array1::from(dest.clone());
+    let c_arr = Array1::from(cond.clone());
+    let cte_est = TransferEntropy::new_cte_discrete_nsb(&s_arr, &d_arr, &c_arr, 1, 1, 1, 1);
+    let res = cte_est.global_value();
+
+    let kwargs = vec![
+        ("src_hist_len".to_string(), "1".to_string()),
+        ("dest_hist_len".to_string(), "1".to_string()),
+        ("cond_hist_len".to_string(), "1".to_string()),
+    ];
+    let cte_py = python::calculate_cte(&source, &dest, &cond, "nsb", &kwargs).unwrap();
+    if res.is_nan() && cte_py.is_nan() {
+        return;
+    }
+    assert_abs_diff_eq!(res, cte_py, epsilon = 1e-5);
 }

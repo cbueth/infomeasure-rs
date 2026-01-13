@@ -2,7 +2,7 @@ use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 
 use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 
 fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Vec<f64>>) {
     // Use validation crate to call Python infomeasure ordinal estimator directly (no numpy dependency)
