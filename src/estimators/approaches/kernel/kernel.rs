@@ -83,6 +83,108 @@ use std::simd::num::SimdFloat;
 #[cfg(feature = "simd_support")]
 use std::simd::cmp::SimdPartialOrd;
 use crate::estimators::traits::{LocalValues, CrossEntropy, JointEntropy};
+macro_rules! impl_kernel_mi {
+    ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
+        #[doc = concat!("Kernel-based mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
+            pub kernel_type: String,
+            pub bandwidth: f64,
+            pub data: Vec<Array2<f64>>,
+            pub force_cpu: bool,
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> $name<D_JOINT, $($d_param),*> {
+            pub fn new(series: &[Array2<f64>], kernel_type: String, bandwidth: f64) -> Self {
+                Self {
+                    kernel_type,
+                    bandwidth,
+                    data: series.to_vec(),
+                    force_cpu: false,
+                }
+            }
+
+            /// Sets whether to force CPU implementation even if GPU support is available
+            pub fn set_force_cpu(&mut self, force_cpu: bool) {
+                self.force_cpu = force_cpu;
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> GlobalValue for $name<D_JOINT, $($d_param),*> {
+            fn global_value(&self) -> f64 {
+                self.local_values().mean().unwrap_or(0.0)
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> OptionalLocalValues for $name<D_JOINT, $($d_param),*> {
+            fn supports_local(&self) -> bool { true }
+            fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+                Ok(self.local_values())
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> MutualInformationEstimator for $name<D_JOINT, $($d_param),*> {}
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> LocalValues for $name<D_JOINT, $($d_param),*> {
+            fn local_values(&self) -> Array1<f64> {
+                let joint_data = concatenate(
+                    Axis(1),
+                    &self.data.iter().map(|d| d.view()).collect::<Vec<_>>(),
+                ).unwrap();
+
+                let mut joint_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                    joint_data,
+                    self.kernel_type.clone(),
+                    self.bandwidth,
+                );
+                joint_est.set_force_cpu(self.force_cpu);
+                let joint_density = joint_est.kde_probability_density();
+
+                let mut marginal_densities = Vec::new();
+                $(
+                    let mut m_est = KernelEntropy::<$d_param>::new_with_kernel_type(
+                        self.data[$d_idx].clone(),
+                        self.kernel_type.clone(),
+                        self.bandwidth
+                    );
+                    m_est.set_force_cpu(self.force_cpu);
+                    marginal_densities.push(m_est.kde_probability_density());
+                )*
+
+                let n = joint_density.len();
+                let mut local_mi = Array1::zeros(n);
+                for i in 0..n {
+                    let mut sum_log_p_marginals = 0.0;
+                    for densities in &marginal_densities {
+                        if densities[i] > 0.0 {
+                            sum_log_p_marginals += densities[i].ln();
+                        }
+                    }
+                    if joint_density[i] > 0.0 {
+                        local_mi[i] = joint_density[i].ln() - sum_log_p_marginals;
+                    }
+                }
+                local_mi
+            }
+        }
+    };
+}
+
+impl_kernel_mi!(KernelMutualInformation2, 2, (D1, D2), (0, 1));
+impl_kernel_mi!(KernelMutualInformation3, 3, (D1, D2, D3), (0, 1, 2));
+impl_kernel_mi!(KernelMutualInformation4, 4, (D1, D2, D3, D4), (0, 1, 2, 3));
+impl_kernel_mi!(
+    KernelMutualInformation5,
+    5,
+    (D1, D2, D3, D4, D5),
+    (0, 1, 2, 3, 4)
+);
+impl_kernel_mi!(
+    KernelMutualInformation6,
+    6,
+    (D1, D2, D3, D4, D5, D6),
+    (0, 1, 2, 3, 4, 5)
+);
+
 
 /// Input data representation for kernel entropy estimation
 ///
