@@ -45,6 +45,42 @@ struct GpuConfig {
 }
 
 impl<const K: usize> KernelEntropy<K> {
+    /// Computes local probability density values using a Gaussian kernel with GPU acceleration
+    pub fn gaussian_kernel_density_gpu(&self) -> Array1<f64> {
+        // Check if dimensions are within supported range
+        if K > 32 {
+            return self.gaussian_kernel_density_cpu();
+        }
+
+        // Try to run the GPU implementation, fall back to CPU if it fails
+        match self.run_gaussian_gpu_calculation() {
+            Ok(result) => {
+                // The GPU calculation currently returns local entropy values: -ln(density)
+                // We need to convert it back to density: density = exp(-local_entropy)
+                result.mapv(|h| (-h).exp())
+            }
+            Err(_) => self.gaussian_kernel_density_cpu(),
+        }
+    }
+
+    /// Computes local probability density values using a box kernel with GPU acceleration
+    pub fn box_kernel_density_gpu(&self) -> Array1<f64> {
+        // Check if dimensions are within supported range
+        if K > 32 {
+            return self.box_kernel_density_cpu();
+        }
+
+        // Try to run the GPU implementation, fall back to CPU if it fails
+        match self.run_box_gpu_calculation() {
+            Ok(result) => {
+                // The GPU calculation currently returns local entropy values: -ln(density)
+                // We need to convert it back to density: density = exp(-local_entropy)
+                result.mapv(|h| (-h).exp())
+            }
+            Err(_) => self.box_kernel_density_cpu(),
+        }
+    }
+
     /// Computes local entropy values using a Gaussian kernel with GPU acceleration
     ///
     /// This implementation uses the GPU via wgpu to accelerate the calculation of

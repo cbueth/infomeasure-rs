@@ -72,7 +72,7 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate};
 use ndarray_stats::CorrelationExt;
 use ndarray_linalg::{Cholesky, UPLO, Inverse};
 use kiddo::{ImmutableKdTree, SquaredEuclidean};
@@ -190,6 +190,8 @@ pub struct KernelEntropy<const K: usize> {
     pub precision_matrix: Option<Array2<f64>>,
     /// Largest eigenvalue of the scaled covariance matrix, used for KD-tree search radius
     pub max_eigenvalue: f64,
+    /// Force CPU implementation even if GPU support is available
+    pub force_cpu: bool,
 }
 impl<const K: usize> CrossEntropy for KernelEntropy<K> {
     fn cross_entropy(&self, other: &KernelEntropy<K>) -> f64 {
@@ -290,7 +292,7 @@ impl<const K: usize> JointEntropy for KernelEntropy<K> {
         }
 
         let estimator = KernelEntropy::<K>::new_with_kernel_type(data, params.0, params.1);
-        estimator.global_value()
+        GlobalValue::global_value(&estimator)
     }
 }
 impl<const K: usize> KernelEntropy<K> {
@@ -446,7 +448,8 @@ impl<const K: usize> KernelEntropy<K> {
             std_devs,
             cholesky_factor,
             precision_matrix,
-            max_eigenvalue
+            max_eigenvalue,
+            force_cpu: false,
         }
     }
 
@@ -470,6 +473,11 @@ impl<const K: usize> KernelEntropy<K> {
     /// * `bandwidth` - Bandwidth parameter
     pub fn new_2d(data: Array2<f64>, kernel_type: String, bandwidth: f64) -> Self {
         Self::new_with_kernel_type(KernelData::TwoDimensional(data), kernel_type, bandwidth)
+    }
+
+    /// Sets whether to force CPU implementation even if GPU support is available
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
     }
 
     /// Helper to check if a point is within the hypercube (L-infinity distance)
@@ -565,31 +573,133 @@ impl<const K: usize> KernelEntropy<K> {
                 if scale > 0.0 {
                     let diff = (p1[dim] - p2[dim]) / scale;
                     sum += diff * diff;
+                } else {
+                    let diff = (p1[dim] - p2[dim]) / self.bandwidth;
+                    sum += diff * diff;
                 }
             }
             sum
         }
     }
 
+    /// Computes local probability density values for each data point
+    pub fn kde_probability_density(&self) -> Array1<f64> {
+        #[cfg(feature = "gpu_support")]
+        {
+            if !self.force_cpu {
+                if self.kernel_type == "box" && self.n_samples >= 2000 {
+                    return self.box_kernel_density_gpu();
+                } else if self.kernel_type == "gaussian" && self.n_samples >= 500 {
+                    return self.gaussian_kernel_density_gpu();
+                }
+            }
+        }
+
+        if self.kernel_type == "box" {
+            self.box_kernel_density_cpu()
+        } else {
+            self.gaussian_kernel_density_cpu()
+        }
+    }
+
+    /// Internal method to compute density using box kernel on CPU
+    pub fn box_kernel_density_cpu(&self) -> Array1<f64> {
+        let volume = self.bandwidth.powi(K as i32);
+        let n_volume = self.n_samples as f64 * volume;
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+
+        let r = self.bandwidth / 2.0;
+        let r_eps = r + 1e-15;
+        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+
+        for (i, query_point) in self.points.iter().enumerate() {
+            let candidates = self
+                .tree
+                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+
+            let mut count = 0usize;
+            for candidate in candidates {
+                let p = &self.points[candidate.item as usize];
+                if self.is_in_box(query_point, p, r_eps) {
+                    count += 1;
+                }
+            }
+            densities[i] = count as f64 / n_volume;
+        }
+        densities
+    }
+
+    /// Internal method to compute density using Gaussian kernel on CPU
+    pub fn gaussian_kernel_density_cpu(&self) -> Array1<f64> {
+        let n = self.n_samples as f64;
+        let bw = self.bandwidth;
+
+        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
+            let diag_prod: f64 = l.diag().iter().product();
+            diag_prod * diag_prod
+        } else {
+            self.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
+        };
+
+        let normalization =
+            n * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+
+        let adaptive_radius = if self.n_samples > 5000 {
+            36.0 * self.max_eigenvalue
+        } else {
+            64.0 * self.max_eigenvalue
+        };
+
+        for (i, query_point) in self.points.iter().enumerate() {
+            let candidates = self
+                .tree
+                .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius);
+
+            let mut sum_k = 0.0;
+            for candidate in candidates {
+                let p = &self.points[candidate.item as usize];
+                let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
+                #[cfg(feature = "fast_exp")]
+                {
+                    sum_k += self.fast_exp(-0.5 * dist_sq);
+                }
+                #[cfg(not(feature = "fast_exp"))]
+                {
+                    sum_k += (-0.5 * dist_sq).exp();
+                }
+            }
+            densities[i] = sum_k / normalization;
+        }
+        densities
+    }
+
     /// Computes local entropy values using a box (uniform) kernel
-    ///
-    /// The box kernel counts points within a hypercube of side length `bandwidth`
-    /// centered at each query point. This is equivalent to using a uniform kernel
-    /// where all points within the bandwidth contribute equally to the density estimate.
-    ///
-    /// # Implementation Details
-    ///
-    /// 1. For each data point, find all neighbors within distance `bandwidth/2`
-    /// 2. Count the number of neighbors
-    /// 3. Normalize by the volume of the hypercube (bandwidth^d) and the number of samples
-    /// 4. Apply logarithm to get entropy values
-    ///
-    /// # Notes
-    ///
-    /// Unlike the Gaussian kernel, the box kernel does not scale the bandwidth by the
-    /// standard deviation of the data. The bandwidth is used directly as the side length
-    /// of the hypercube.
     pub fn box_kernel_local_values(&self) -> Array1<f64> {
+        let densities = self.kde_probability_density();
+        densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+
+    /// Computes local entropy values using a Gaussian kernel
+    pub fn gaussian_kernel_local_values(&self) -> Array1<f64> {
+        let densities = self.kde_probability_density();
+        densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+
+    /// Computes local entropy values using a box (uniform) kernel (CPU only)
+    pub fn box_kernel_local_values_cpu(&self) -> Array1<f64> {
+        let densities = self.box_kernel_density_cpu();
+        densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+
+    /// Computes local entropy values using a Gaussian kernel (CPU only)
+    pub fn gaussian_kernel_local_values_cpu(&self) -> Array1<f64> {
+        let densities = self.gaussian_kernel_density_cpu();
+        densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+
+    /// Computes local entropy values using a box (uniform) kernel (LEGACY - DO NOT USE FOR NEW CODE)
+    pub fn box_kernel_local_values_legacy(&self) -> Array1<f64> {
         // Calculate volume = bandwidth^d (where d = K)
         // This is the volume of the hypercube with side length = bandwidth
         let volume = self.bandwidth.powi(K as i32);
@@ -785,90 +895,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// determinant of the scaled covariance matrix: (2π)^(d/2) * sqrt(det(Σ_scaled)). 
     /// This ensures that the entropy estimate is consistent with the theoretical 
     /// definition of differential entropy for a multivariate Gaussian distribution.
-    pub fn gaussian_kernel_local_values(&self) -> Array1<f64> {
-        let n = self.points.len();
-
-        // Calculate normalization factor: N * sqrt(det(2πΣ_scaled))
-        // det(2πΣ_scaled) = (2π)^K * det(Σ_scaled)
-        // det(Σ_scaled) = det(L * L^T) = det(L)^2
-        // Since L is lower triangular, det(L) is the product of its diagonal elements.
-        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
-            let diag_prod: f64 = l.diag().iter().product();
-            diag_prod * diag_prod
-        } else {
-            // Fallback to diagonal covariance if cholesky_factor is None
-            self.std_devs.iter().map(|&s| (self.bandwidth * s).powi(2)).product()
-        };
-
-        // Normalization: N * (2π)^(K/2) * sqrt(det(Σ_scaled))
-        let normalization = (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
-
-        // Determine adaptive radius based on data density using max_eigenvalue
-        // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
-        let adaptive_radius = if self.n_samples > 5000 {
-            36.0 * self.max_eigenvalue // 6σ
-        } else {
-            64.0 * self.max_eigenvalue // 8σ
-        };
-
-        let mut local_values = Array1::<f64>::zeros(n);
-
-        // For each point, calculate its contribution to the density estimate
-        for (i, query_point) in self.points.iter().enumerate() {
-            // Get all points within reasonable distance using SquaredEuclidean as a bounding sphere
-            let neighbors = self.tree.within_unsorted::<SquaredEuclidean>(
-                query_point,
-                adaptive_radius
-            );
-
-            // Calculate Gaussian kernel contribution from each neighbor using Mahalanobis distance
-            let density: f64 = neighbors.iter().map(|&neighbor| {
-                let (_dist, idx) = neighbor.into();
-                
-                // Calculate squared Mahalanobis distance
-                let dist_sq = self.calculate_mahalanobis_distance(
-                    query_point, 
-                    &self.points[idx as usize]
-                );
-
-                // Gaussian kernel function: exp(-dist_sq/2)
-                #[cfg(feature = "fast_exp")]
-                { self.fast_exp(-dist_sq / 2.0) }
-                #[cfg(not(feature = "fast_exp"))]
-                { (-dist_sq / 2.0).exp() }
-            }).sum::<f64>();
-
-            // Normalize the density estimate by the normalization factor
-            local_values[i] = density / normalization;
-        }
-
-        // Apply log transform for entropy calculation: H = -E[log(f(x))]
-        local_values.mapv_inplace(|x| if x > 0.0 { -x.ln() } else { 0.0 });
-
-        local_values
-    }
-
-
     /// Fast approximation of the exponential function
-    /// 
-    /// This implementation uses a hybrid approach that provides a good balance between accuracy
-    /// and performance for the range of inputs that are typical in the Gaussian kernel calculation.
-    /// 
-    /// The approximation uses three different methods depending on the input value:
-    /// 1. For very small negative values (x > -0.5), it uses a 5th-order Taylor series approximation,
-    ///    which is very accurate for inputs close to 0.
-    /// 2. For medium negative values (-2.5 < x <= -0.5), it uses a 3rd-order rational approximation,
-    ///    which provides a good balance between accuracy and performance.
-    /// 3. For large negative values (x <= -2.5), it uses a 6th-order rational approximation,
-    ///    which provides better accuracy for inputs far from 0.
-    /// 
-    /// The approximation is accurate to within 1% for inputs in the range [-1, 0], within 20%
-    /// for inputs in the range [-3, -1], and within 35% for inputs in the range [-5, -3].
-    /// For inputs outside this range, the approximation may have larger errors, but these inputs
-    /// are rare in the Gaussian kernel calculation.
-    /// 
-    /// Benchmark results show that this approximation is about 1.3x faster than the standard
-    /// library's exp function.
     #[cfg(feature = "fast_exp")]
     fn fast_exp(&self, x: f64) -> f64 {
         // Handle extreme values to prevent overflow/underflow
@@ -906,6 +933,12 @@ impl<const K: usize> KernelEntropy<K> {
 /// This allows KernelEntropy to be used with the entropy estimation framework,
 /// which expects implementors to provide local entropy values that can be
 /// aggregated to compute the global entropy.
+impl<const K: usize> GlobalValue for KernelEntropy<K> {
+    fn global_value(&self) -> f64 {
+        self.global_from_local()
+    }
+}
+
 impl<const K: usize> LocalValues for KernelEntropy<K> {
     /// Computes the local entropy values for each data point
     ///
@@ -941,37 +974,9 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
     ///   For smaller datasets, the implementation automatically falls back to the CPU version
     ///   as the overhead of GPU setup outweighs the benefits for small data sizes.
     fn local_values(&self) -> Array1<f64> {
-        // Dispatch to the appropriate kernel implementation
-        match self.kernel_type.as_str() {
-            "box" => {
-                #[cfg(feature = "gpu_support")]
-                {
-                    // Use GPU implementation when gpu_support feature flag is enabled
-                    self.box_kernel_local_values_gpu()
-                }
-                #[cfg(not(feature = "gpu_support"))]
-                {
-                    // Fall back to CPU implementation when gpu_support feature flag is not enabled
-                    self.box_kernel_local_values()
-                }
-            },
-            "gaussian" => {
-                #[cfg(feature = "gpu_support")]
-                {
-                    // Use GPU implementation when gpu_support feature flag is enabled
-                    self.gaussian_kernel_local_values_gpu()
-                }
-                #[cfg(not(feature = "gpu_support"))]
-                {
-                    // Fall back to CPU implementation when gpu_support feature flag is not enabled
-                    self.gaussian_kernel_local_values()
-                }
-            },
-            _ => {
-                // Default to box kernel if an unsupported kernel type is specified
-                // This provides backward compatibility and graceful fallback
-                self.box_kernel_local_values()
-            }
-        }
+        // The implementation now uses the centralized kde_probability_density method
+        // which handles CPU/GPU dispatching and kernel type selection.
+        let densities = self.kde_probability_density();
+        densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
     }
 }
