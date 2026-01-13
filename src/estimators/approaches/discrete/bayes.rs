@@ -4,7 +4,7 @@ use ndarray::{Array1, Array2};
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 
 /// Choices for the Dirichlet concentration parameter alpha
 #[derive(Clone, Debug)]
@@ -126,6 +126,12 @@ impl JointEntropy for BayesEntropy {
         let joint_codes = reduce_joint_space_compact(series);
         let disc = BayesEntropy::new(joint_codes, params.0, params.1);
         disc.global_value()
+    }
+}
+
+impl LocalValues for BayesEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        Array1::zeros(0)
     }
 }
 

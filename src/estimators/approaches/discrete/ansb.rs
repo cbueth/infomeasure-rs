@@ -3,7 +3,7 @@ use statrs::function::gamma::digamma;
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy, LocalValues};
 
 /// ANSB (asymptotic NSB) entropy estimator for discrete data (natural log base).
 ///
@@ -70,10 +70,9 @@ impl GlobalValue for AnsbEntropy {
     }
 }
 
-impl OptionalLocalValues for AnsbEntropy {
-    fn supports_local(&self) -> bool { false }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for ANSB estimator as it averages over Dirichlet priors.")
+impl LocalValues for AnsbEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        Array1::zeros(0)
     }
 }
 
@@ -86,5 +85,16 @@ impl JointEntropy for AnsbEntropy {
         let joint_codes = reduce_joint_space_compact(series);
         let disc = AnsbEntropy::new(joint_codes, params.0, params.1);
         disc.global_value()
+    }
+}
+
+impl OptionalLocalValues for AnsbEntropy {
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err(
+            "Local values are not supported for ANSB estimator as it averages over Dirichlet priors.",
+        )
     }
 }

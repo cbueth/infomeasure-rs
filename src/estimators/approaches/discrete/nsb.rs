@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use std::f64::{INFINITY, NAN};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
+use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy, LocalValues};
 use statrs::function::gamma::{digamma, ln_gamma};
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
@@ -146,10 +146,9 @@ impl GlobalValue for NsbEntropy {
     }
 }
 
-impl OptionalLocalValues for NsbEntropy {
-    fn supports_local(&self) -> bool { false }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for NSB estimator as it averages over Dirichlet priors.")
+impl LocalValues for NsbEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        Array1::zeros(0)
     }
 }
 
@@ -194,5 +193,16 @@ impl NsbEntropy {
     /// Build a vector of NsbEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>, k_override: Option<usize>) -> Vec<Self> {
         rows_as_vec(data).into_iter().map(|row| Self::new(row, k_override)).collect()
+    }
+}
+
+impl OptionalLocalValues for NsbEntropy {
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err(
+            "Local values are not supported for NSB estimator as it averages over Dirichlet priors.",
+        )
     }
 }

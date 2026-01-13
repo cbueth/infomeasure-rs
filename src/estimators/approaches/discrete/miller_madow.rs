@@ -1,7 +1,7 @@
 use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{LocalValues, OptionalLocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 
 /// Miller–Madow entropy estimator for discrete data (natural log base).
 ///
@@ -35,14 +35,7 @@ impl MillerMadowEntropy {
     }
 }
 
-impl LocalValues for MillerMadowEntropy {
-    fn local_values(&self) -> Array1<f64> {
-        let corr = self.correction();
-        // Local MLE values = -ln p(x); add global MM correction uniformly
-        let p_local = self.dataset.map_probs();
-        -p_local.mapv(f64::ln) + corr
-    }
-
+impl GlobalValue for MillerMadowEntropy {
     fn global_value(&self) -> f64 {
         // H_MM = H_MLE + (K-1)/(2N)
         let n_f = self.dataset.n as f64;
@@ -52,6 +45,15 @@ impl LocalValues for MillerMadowEntropy {
             h -= if p > 0.0 { p * p.ln() } else { 0.0 };
         }
         h + self.correction()
+    }
+}
+
+impl LocalValues for MillerMadowEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        let corr = self.correction();
+        // Local MLE values = -ln p(x); add global MM correction uniformly
+        let p_local = self.dataset.map_probs();
+        -p_local.mapv(f64::ln) + corr
     }
 }
 
@@ -90,7 +92,7 @@ impl JointEntropy for MillerMadowEntropy {
         if series.is_empty() { return 0.0; }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = MillerMadowEntropy::new(joint_codes);
-        disc.global_value()
+        GlobalValue::global_value(&disc)
     }
 }
 

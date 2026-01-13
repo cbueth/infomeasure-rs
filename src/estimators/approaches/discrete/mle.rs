@@ -1,5 +1,5 @@
 use ndarray::{Array1, Array2};
-use crate::estimators::traits::{LocalValues, OptionalLocalValues, CrossEntropy, JointEntropy};
+use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 
@@ -45,16 +45,8 @@ impl DiscreteEntropy {
     }
 }
 
-impl LocalValues for DiscreteEntropy {
-    /// Calculate local entropy values for each element in the dataset.
-    fn local_values(&self) -> Array1<f64> {
-        // Map each value to its probability: local = -ln p(x)
-        let p_local = self.dataset.map_probs();
-        -p_local.mapv(f64::ln)
-    }
-
+impl GlobalValue for DiscreteEntropy {
     /// Calculate global entropy for the data set.
-    /// Separate implementation, not inferred from local_values.
     fn global_value(&self) -> f64 {
         let n_f = self.dataset.n as f64;
         // -sum(p * ln p). Order of iteration doesn't matter for sum.
@@ -64,6 +56,15 @@ impl LocalValues for DiscreteEntropy {
             h -= if p > 0.0 { p * p.ln() } else { 0.0 };
         }
         h
+    }
+}
+
+impl LocalValues for DiscreteEntropy {
+    /// Calculate local entropy values for each element in the dataset.
+    fn local_values(&self) -> Array1<f64> {
+        // Map each value to its probability: local = -ln p(x)
+        let p_local = self.dataset.map_probs();
+        -p_local.mapv(f64::ln)
     }
 }
 
@@ -99,7 +100,7 @@ impl JointEntropy for DiscreteEntropy {
         if series.is_empty() { return 0.0; }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = DiscreteEntropy::new(joint_codes);
-        disc.global_value()
+        GlobalValue::global_value(&disc)
     }
 }
 

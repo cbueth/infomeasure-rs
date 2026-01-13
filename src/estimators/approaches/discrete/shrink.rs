@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use std::collections::HashMap;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{LocalValues, OptionalLocalValues, JointEntropy};
+use crate::estimators::traits::{GlobalValue, LocalValues, OptionalLocalValues, JointEntropy};
 
 /// Shrinkage (James–Stein) entropy estimator for discrete data (natural log base).
 ///
@@ -73,13 +73,7 @@ impl ShrinkEntropy {
     }
 }
 
-impl LocalValues for ShrinkEntropy {
-    fn local_values(&self) -> Array1<f64> {
-        let dist_shrink = self.shrink_probs();
-        // Local = -ln p_shrink(x)
-        self.dataset.data.mapv(|v| -dist_shrink[&v].ln())
-    }
-
+impl GlobalValue for ShrinkEntropy {
     fn global_value(&self) -> f64 {
         // H = -sum p_shrink ln p_shrink over unique support
         let dist_shrink = self.shrink_probs();
@@ -91,6 +85,13 @@ impl LocalValues for ShrinkEntropy {
     }
 }
 
+impl LocalValues for ShrinkEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        let dist_shrink = self.shrink_probs();
+        // Local = -ln p_shrink(x)
+        self.dataset.data.mapv(|v| -dist_shrink[&v].ln())
+    }
+}
 
 impl JointEntropy for ShrinkEntropy {
     type Source = Array1<i32>;
@@ -100,7 +101,7 @@ impl JointEntropy for ShrinkEntropy {
         if series.is_empty() { return 0.0; }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = ShrinkEntropy::new(joint_codes);
-        disc.global_value()
+        GlobalValue::global_value(&disc)
     }
 }
 

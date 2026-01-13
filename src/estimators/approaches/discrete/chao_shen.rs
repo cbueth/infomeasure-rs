@@ -79,6 +79,6 @@ impl JointEntropy for ChaoShenEntropy {
         if series.is_empty() { return 0.0; }
         let joint_codes = reduce_joint_space_compact(series);
         let disc = ChaoShenEntropy::new(joint_codes);
-        disc.global_value()
+        GlobalValue::global_value(&disc)
     }
 }

@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{GlobalValue, OptionalLocalValues, JointEntropy};
+use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 
 /// Bonachela entropy estimator for discrete data (natural log base).
 ///
@@ -54,10 +54,9 @@ impl GlobalValue for BonachelaEntropy {
     }
 }
 
-impl OptionalLocalValues for BonachelaEntropy {
-    fn supports_local(&self) -> bool { false }
-    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        Err("Local values are not supported for Bonachela estimator as it's only defined for global entropy.")
+impl LocalValues for BonachelaEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        Array1::zeros(0)
     }
 }
 
@@ -70,5 +69,16 @@ impl JointEntropy for BonachelaEntropy {
         let joint_codes = reduce_joint_space_compact(series);
         let disc = BonachelaEntropy::new(joint_codes);
         disc.global_value()
+    }
+}
+
+impl OptionalLocalValues for BonachelaEntropy {
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err(
+            "Local values are not supported for Bonachela estimator as it's only defined for global entropy.",
+        )
     }
 }

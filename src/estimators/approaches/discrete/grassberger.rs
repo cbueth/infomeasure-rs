@@ -1,7 +1,7 @@
 use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
-use crate::estimators::traits::{LocalValues, OptionalLocalValues, JointEntropy};
+use crate::estimators::traits::{GlobalValue, LocalValues, OptionalLocalValues, JointEntropy};
 use statrs::function::gamma::digamma;
 
 /// Grassberger (Gr88) entropy estimator for discrete data.
@@ -27,6 +27,22 @@ impl GrassbergerEntropy {
     /// Build a vector of GrassbergerEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>) -> Vec<Self> {
         rows_as_vec(data).into_iter().map(Self::new).collect()
+    }
+}
+
+impl GlobalValue for GrassbergerEntropy {
+    fn global_value(&self) -> f64 {
+        let n_total_ln = (self.dataset.n as f64).ln();
+        let mut h = 0.0_f64;
+        let n_f = self.dataset.n as f64;
+        for &cnt in self.dataset.counts.values() {
+            let n_i = cnt as i64;
+            let n_if = cnt as f64;
+            let sign = if n_i % 2 == 0 { 1.0 } else { -1.0 };
+            let p_i = n_if / n_f;
+            h += p_i * (n_total_ln - digamma(n_if) - sign / (n_if + 1.0));
+        }
+        h
     }
 }
 
