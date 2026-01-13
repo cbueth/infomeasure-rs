@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
-use infomeasure::estimators::traits::{GlobalValue, CrossEntropy};
+use infomeasure::estimators::{GlobalValue, CrossEntropy};
 
 #[test]
 fn bayes_entropy_laplace_basic() {

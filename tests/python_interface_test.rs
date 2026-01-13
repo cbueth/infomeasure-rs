@@ -1,7 +1,7 @@
 use validation::python;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
 use ndarray::{Array1, Array2};
 use approx::assert_relative_eq;
 

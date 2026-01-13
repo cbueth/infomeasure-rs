@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::{Array1, Array2, array};
 use infomeasure::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
-use infomeasure::estimators::traits::{JointEntropy, CrossEntropy};
+use infomeasure::estimators::{JointEntropy, CrossEntropy};
 use validation::python;
 use rstest::rstest;
 

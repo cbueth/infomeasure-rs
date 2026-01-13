@@ -3,7 +3,7 @@
 use ndarray::{array, Array2};
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 
 // This is a smoke test to exercise the GPU histogram path for DiscreteEntropy::from_rows.
 // It is ignored by default as not all CI environments have a usable GPU.

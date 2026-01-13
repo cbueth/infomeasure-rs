@@ -1,5 +1,5 @@
 use ndarray::Array1;
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
 use validation::python;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};

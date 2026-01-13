@@ -2,7 +2,7 @@ use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 // use infomeasure::estimators::entropy::Entropy; // facade (not needed here)
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy; // direct
-use infomeasure::estimators::traits::{LocalValues, OptionalLocalValues};
+use infomeasure::estimators::{GlobalValue, LocalValues, OptionalLocalValues};
 
 #[test]
 fn discrete_entropy_known_example() {

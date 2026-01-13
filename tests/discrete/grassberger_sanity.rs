@@ -1,7 +1,7 @@
 use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::GrassbergerEntropy;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 use std::collections::HashMap;
 
 #[test]

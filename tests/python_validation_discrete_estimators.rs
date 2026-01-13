@@ -14,7 +14,7 @@ use infomeasure::estimators::approaches::discrete::{
     ansb::AnsbEntropy,
     nsb::NsbEntropy,
 };
-use infomeasure::estimators::traits::{GlobalValue, LocalValues};
+use infomeasure::estimators::{GlobalValue, LocalValues};
 use validation::python;
 
 mod test_helpers; // reuse assertion helper

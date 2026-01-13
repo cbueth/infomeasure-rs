@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::ChaoShenEntropy;
-use infomeasure::estimators::traits::GlobalValue;
+use infomeasure::estimators::GlobalValue;
 
 #[test]
 fn chao_shen_entropy_basic() {

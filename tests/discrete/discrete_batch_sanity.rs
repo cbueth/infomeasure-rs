@@ -11,7 +11,7 @@ use infomeasure::estimators::approaches::discrete::chao_wang_jost::ChaoWangJostE
 use infomeasure::estimators::approaches::discrete::ansb::AnsbEntropy;
 use infomeasure::estimators::approaches::discrete::bayes::{BayesEntropy, AlphaParam};
 use infomeasure::estimators::approaches::discrete::nsb::NsbEntropy;
-use infomeasure::estimators::traits::{LocalValues, OptionalLocalValues, GlobalValue};
+use infomeasure::estimators::{LocalValues, OptionalLocalValues, GlobalValue};
 
 #[test]
 fn batch_rows_matches_per_row_all_discrete() {

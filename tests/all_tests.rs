@@ -11,3 +11,5 @@ mod expfam;
 mod kernel;
 #[path = "ordinal/mod.rs"]
 mod ordinal;
+#[path = "discrete/discrete_mi_te.rs"]
+mod discrete_mi_te;

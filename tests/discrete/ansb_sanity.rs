@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::AnsbEntropy;
-use infomeasure::estimators::traits::GlobalValue;
+use infomeasure::estimators::GlobalValue;
 use statrs::function::gamma::digamma;
 
 #[test]

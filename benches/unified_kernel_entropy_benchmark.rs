@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::{Array1, Array2};
 use rand::SeedableRng;
 use rand::rngs::StdRng;

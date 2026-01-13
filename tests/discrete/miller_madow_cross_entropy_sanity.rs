@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::MillerMadowEntropy;
-use infomeasure::estimators::traits::CrossEntropy;
+use infomeasure::estimators::CrossEntropy;
 
 #[test]
 fn miller_madow_cross_entropy_basic() {

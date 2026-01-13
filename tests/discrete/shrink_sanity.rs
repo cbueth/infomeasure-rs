@@ -1,7 +1,7 @@
 use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::discrete::{mle::DiscreteEntropy, shrink::ShrinkEntropy};
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 
 #[test]
 fn shrink_basic_behaviour() {

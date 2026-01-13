@@ -15,7 +15,7 @@ use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
 use crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
-pub use crate::estimators::traits::LocalValues;
+pub use crate::estimators::traits::{GlobalValue, LocalValues};
 
 /// Entropy estimation methods for various data types
 ///

@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 use infomeasure::estimators::approaches::BonachelaEntropy;
-use infomeasure::estimators::traits::GlobalValue;
+use infomeasure::estimators::GlobalValue;
 
 #[test]
 fn bonachela_entropy_basic() {

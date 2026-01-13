@@ -1,3 +1,4 @@
+//! Module containing tests for discrete estimators.
 mod discrete_parity;
 mod miller_madow_parity;
 mod shrink_parity;

@@ -1,4 +1,4 @@
-use infomeasure::estimators::entropy::{Entropy, LocalValues};
+use infomeasure::estimators::entropy::{Entropy, GlobalValue, LocalValues};
 use std::collections::HashMap;
 use ndarray::array;
 

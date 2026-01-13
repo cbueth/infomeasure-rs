@@ -2,7 +2,7 @@ use ndarray::Array1;
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::traits::LocalValues;
+use infomeasure::estimators::{GlobalValue, LocalValues};
 use infomeasure::estimators::approaches::ordinal::ordinal_utils::symbolize_series_compact;
 
 #[test]

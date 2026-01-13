@@ -1,3 +1,4 @@
+//! Module containing tests for exponential family entropy estimators.
 mod renyi_python_parity;
 mod utils_tests;
 mod tsallis_python_parity;

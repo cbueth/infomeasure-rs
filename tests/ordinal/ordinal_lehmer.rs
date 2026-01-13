@@ -1,4 +1,4 @@
-use infomeasure::estimators::approaches::ordinal::ordinal_utils::{lehmer_code};
+use infomeasure::estimators::approaches::ordinal::ordinal_utils::lehmer_code;
 
 #[test]
 fn test_lehmer_code() {
@@ -8,7 +8,12 @@ fn test_lehmer_code() {
     for n in 1..=20 {
         let perm: Vec<usize> = (0..n).collect();
         let perm_reversed: Vec<usize> = perm.clone().into_iter().rev().collect();
-        assert_eq!(lehmer_code(&perm), 0, "identity permutation mismatch for n={}", n);
+        assert_eq!(
+            lehmer_code(&perm),
+            0,
+            "identity permutation mismatch for n={}",
+            n
+        );
         
         // Use integer math for the expected value to avoid f64 precision limits
         let expected_fact: u64 = (1..=n as u64).product();
