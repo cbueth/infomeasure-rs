@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // GPU-accelerated utilities for discrete (histogram-based) estimators.
 // This module is compiled only when the `gpu_support` feature is enabled.
 

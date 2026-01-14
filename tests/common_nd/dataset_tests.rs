@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use approx::assert_abs_diff_eq;
 use ndarray::{Array1, Array2, array};
 use rstest::rstest;

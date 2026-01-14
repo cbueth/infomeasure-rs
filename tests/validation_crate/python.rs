@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Python validation module for comparing the Rust implementation with the Python infomeasure package.
 //!
 //! This module provides functionality for validating the Rust implementation against

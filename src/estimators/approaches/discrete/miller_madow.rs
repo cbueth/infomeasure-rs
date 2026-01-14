@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::traits::{

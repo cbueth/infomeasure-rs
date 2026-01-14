@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 pub mod common_nd;
 pub mod discrete;
 pub mod expfam;

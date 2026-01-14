@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use ndarray::Array1;
 
 /// Stable argsort for f64 values within a window.
@@ -71,7 +75,7 @@ pub fn symbolize_series(series: &Array1<f64>, order: usize, delay: usize, stable
         let mut w: Vec<f64> = Vec::with_capacity(order);
         for j in 0..order { w.push(series[t + j * delay]); }
         // Permutation via (stable) argsort
-        let perm = if stable { stable_argsort(&w) } else { 
+        let perm = if stable { stable_argsort(&w) } else {
             // Not-stable variant: same comparator, but instability not strictly guaranteed in Rust
             // However, using stable sort here too is acceptable; parity issues arise only on ties.
             stable_argsort(&w)

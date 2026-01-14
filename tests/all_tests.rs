@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // Aggregates all submodule tests so `cargo test` runs them.
 #[path = "common_nd/mod.rs"]
 mod common_nd;

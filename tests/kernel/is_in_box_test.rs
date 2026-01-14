@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use infomeasure::estimators::entropy::Entropy;
 use ndarray::{Array1, Array2};
 use rstest::rstest;

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+ *
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ */
+
 // Gaussian kernel compute shader for entropy calculation
 
 // Structure for point data
@@ -30,24 +36,24 @@ struct GpuConfig {
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let idx = global_id.x;
-    
+
     // Check if this thread is within bounds
     if (idx >= config.point_count) {
         return;
     }
-    
+
     // Get the query point
     let query_point = points[idx];
-    
+
     // Calculate density for this point
     var density: f32 = 0.0;
     var c_density: f32 = 0.0;
-    
+
     // Loop through all other points
     for (var i: u32 = 0; i < config.point_count; i = i + 1) {
         // Get the neighbor point
         let neighbor_point = points[i];
-        
+
         // Calculate squared Euclidean distance first for adaptive radius check (bounding sphere)
         var squared_euclidean_dist: f32 = 0.0;
         var diffs: array<f32, 32>;
@@ -56,7 +62,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             diffs[d] = diff;
             squared_euclidean_dist += diff * diff;
         }
-        
+
         // Check if point is within the circumscribed sphere of the Gaussian ellipsoid
         if (squared_euclidean_dist <= config.adaptive_radius) {
             // Calculate squared Mahalanobis distance: d_M^2 = diff^T * Omega * diff
@@ -72,7 +78,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             // Apply Gaussian kernel: exp(-squared_mahalanobis_dist/2)
             let term = exp(-max(0.0, squared_mahalanobis_dist) / 2.0);
-            
+
             // Kahan summation for better precision
             let y = term - c_density;
             let t = density + y;
@@ -80,10 +86,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             density = t;
         }
     }
-    
+
     // Normalize the density
     let normalized_density = density / config.normalization;
-    
+
     // Apply log transform for entropy calculation: H = -E[log(f(x))]
     if (normalized_density > 0.0) {
         output[idx] = -log(normalized_density);

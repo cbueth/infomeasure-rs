@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+ *
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ */
+
 struct Config { rows: u32, cols: u32, min_v: i32, bins: u32 };
 @group(0) @binding(0) var<storage, read> data: array<i32>;
 @group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;

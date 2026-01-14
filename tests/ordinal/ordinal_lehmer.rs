@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use infomeasure::estimators::approaches::ordinal::ordinal_utils::lehmer_code;
 
 #[test]

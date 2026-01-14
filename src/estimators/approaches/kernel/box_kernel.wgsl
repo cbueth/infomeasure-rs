@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+ *
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ */
+
 // Box kernel compute shader for entropy calculation
 
 // Structure for point data
@@ -30,25 +36,25 @@ struct GpuConfig {
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let idx = global_id.x;
-    
+
     // Check if this thread is within bounds
     if (idx >= config.point_count) {
         return;
     }
-    
+
     // Get the query point
     let query_point = points[idx];
-    
+
     // Count neighbors within bandwidth/2 (L-infinity distance)
     var neighbor_count: f32 = 0.0;
     let r = bandwidth_info.value / 2.0;
     let r_eps = r + 1e-6; // Using slightly larger epsilon for f32
-    
+
     // Loop through all other points
     for (var i: u32 = 0; i < config.point_count; i = i + 1) {
         // Get the neighbor point
         let neighbor_point = points[i];
-        
+
         var in_box: bool = true;
         for (var dim: u32 = 0; dim < config.dim_count; dim = dim + 1) {
             let diff = abs(query_point.values[dim] - neighbor_point.values[dim]);
@@ -57,15 +63,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 break;
             }
         }
-        
+
         if (in_box) {
             neighbor_count += 1.0;
         }
     }
-    
+
     // Normalize the count
     let normalized_count = neighbor_count / config.normalization;
-    
+
     // Apply log transform for entropy calculation: H = -E[log(f(x))]
     // Handle the case where count is zero (should not happen in practice)
     if (normalized_count > 0.0) {

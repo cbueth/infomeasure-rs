@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use ndarray::Array1;
 use infomeasure::estimators::utils::te_slicing::{te_observations, cte_observations};
 use validation::python;
@@ -29,10 +33,10 @@ fn test_te_observations_parity_random(
     let src = Array1::from(src_vec.clone());
     let dest = Array1::from(dest_vec.clone());
 
-    let (rust_future, rust_dest_hist, rust_src_hist) = 
+    let (rust_future, rust_dest_hist, rust_src_hist) =
         te_observations(&src, &dest, src_hist_len, dest_hist_len, step_size, false);
 
-    let (py_src_hist, py_dest_hist, py_future) = 
+    let (py_src_hist, py_dest_hist, py_future) =
         python::calculate_te_observations(&src_vec, &dest_vec, src_hist_len, dest_hist_len, step_size).unwrap();
 
     // Verify future
@@ -76,10 +80,10 @@ fn test_cte_observations_parity_random(
     let dest = Array1::from(dest_vec.clone());
     let cond = Array1::from(cond_vec.clone());
 
-    let (rust_future, rust_dest_hist, rust_src_hist, rust_cond_hist) = 
+    let (rust_future, rust_dest_hist, rust_src_hist, rust_cond_hist) =
         cte_observations(&src, &dest, &cond, src_hist_len, dest_hist_len, cond_hist_len, step_size, false);
 
-    let (py_src_hist, py_dest_hist, py_future, py_cond_hist) = 
+    let (py_src_hist, py_dest_hist, py_future, py_cond_hist) =
         python::calculate_cte_observations(&src_vec, &dest_vec, &cond_vec, src_hist_len, dest_hist_len, cond_hist_len, step_size).unwrap();
 
     // Verify future
@@ -119,7 +123,7 @@ fn test_te_observations_explicit() {
     let dest_hist_len = 2;
     let step_size = 2;
 
-    let (dest_future, dest_history, src_history) = 
+    let (dest_future, dest_history, src_history) =
         te_observations(&source, &dest, src_hist_len, dest_hist_len, step_size, false);
 
     // max_delay = max(3, 2) * 2 = 6
@@ -131,7 +135,7 @@ fn test_te_observations_explicit() {
     assert_eq!(dest_future[(0, 0)], 16);
     assert_eq!(dest_future[(1, 0)], 18);
 
-    // Row 0 (base_idx 6): 
+    // Row 0 (base_idx 6):
     // dest_history: [dest[6-4], dest[6-2]] = [12, 14]
     assert_eq!(dest_history[(0, 0)], 12);
     assert_eq!(dest_history[(0, 1)], 14);

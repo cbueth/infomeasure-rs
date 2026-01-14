@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! # Kernel Density Estimation for Entropy Calculation
 //!
 //! This module implements entropy estimation using kernel density estimation (KDE) techniques.
