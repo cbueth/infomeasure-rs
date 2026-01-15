@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+when:
+  - event: [push, pull_request]
+    branch: [main, develop]
+
+matrix:
+  TOOLCHAIN: [stable, beta]
+  FEATURES: ["", simd_support, fast_exp]
+
+steps:
+  - name: build
+    image: rust:${TOOLCHAIN}
+    environment:
+      FEATURES: ${FEATURES}
+    commands:
+      - rustup default ${TOOLCHAIN}
+      - cargo build --workspace --features ${FEATURES}
+
+  - name: test
+    image: rust:${TOOLCHAIN}
+    environment:
+      FEATURES: ${FEATURES}
+    commands:
+      # Install micromamba for Python validation
+      - curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+      - mv bin/micromamba /usr/local/bin/
+      - micromamba shell init -s bash -p /opt/conda
+      # Create Python environment
+      - micromamba create -f tests/validation_crate/environment.yml
+      # Initialize conda in current shell
+      - eval "$(micromamba shell hook --shell=bash)"
+
+      # Run tests with current feature set
+      - if [ -n "${FEATURES}" ]; then
+          cargo test --workspace --features ${FEATURES};
+        else
+          cargo test --workspace;
+        fi
