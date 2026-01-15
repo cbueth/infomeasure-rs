@@ -28,6 +28,18 @@ impl<const K: usize> DistanceMetric<f64, K> for Chebyshev {
 }
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
+///
+/// This struct provides efficient nearest neighbor queries using a KD-tree
+/// structure. It supports multiple distance metrics (Euclidean, Manhattan,
+/// and general Minkowski) and is optimized for high-dimensional data.
+///
+/// # Type Parameters
+/// * `K` - The dimensionality of the data points
+///
+/// # Fields
+/// * `points` - Vector of data points in fixed-size array format
+/// * `n` - Number of points in the dataset
+/// * `tree` - KD-tree for fast spatial queries
 pub struct NdDataset<const K: usize> {
     pub points: Vec<[f64; K]>,
     pub n: usize,
@@ -35,18 +47,42 @@ pub struct NdDataset<const K: usize> {
 }
 
 impl<const K: usize> NdDataset<K> {
+    /// Create an NdDataset from a vector of points.
+    ///
+    /// This is the most direct constructor that builds the KD-tree
+    /// from the provided point data.
+    ///
+    /// # Arguments
+    /// * `points` - Vector of fixed-size data points
     pub fn from_points(points: Vec<[f64; K]>) -> Self {
         let n = points.len();
         let tree = ImmutableKdTree::new_from_slice(&points);
         Self { points, n, tree }
     }
 
+    /// Create an NdDataset from a 2D ndarray.
+    ///
+    /// # Arguments
+    /// * `data` - 2D array where rows are samples and columns are dimensions
+    ///
+    /// # Panics
+    /// Panics if the number of columns doesn't match the template parameter K
     pub fn from_array2(data: Array2<f64>) -> Self {
         assert!(data.ncols() == K, "data.ncols() must equal K");
-        let points = Self::to_points(data.view());
+        let points = Self::convert_to_points(data.view());
         Self::from_points(points)
     }
 
+    /// Create a 1D NdDataset from a 1D ndarray.
+    ///
+    /// Convenience constructor for 1-dimensional data that reshapes
+    /// the input into a 2D array with a single column.
+    ///
+    /// # Arguments
+    /// * `data` - 1D array of data points
+    ///
+    /// # Returns
+    /// NdDataset<1> containing the reshaped data
     pub fn from_array1(data: Array1<f64>) -> NdDataset<1> {
         let n = data.len();
         let a2 = data.into_shape_with_order((n, 1)).expect("reshape 1d->2d");
@@ -58,17 +94,29 @@ impl<const K: usize> NdDataset<K> {
         unsafe { ArrayView2::from_shape_ptr((self.n, K), self.points.as_ptr() as *const f64) }
     }
 
-    fn to_points(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
+    /// Convert a 2D array view to a vector of fixed-size points.
+    ///
+    /// This function efficiently converts ndarray data to the format expected
+    /// by the KD-tree, using fast memory operations when possible.
+    ///
+    /// # Arguments
+    /// * `data` - 2D array view where rows are samples and columns are dimensions
+    ///
+    /// # Returns
+    /// Vector of [f64; K] points suitable for KD-tree construction
+    fn convert_to_points(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
         let n = data.nrows();
-        assert!(data.ncols() == K);
+        assert_eq!(data.ncols(), K);
         let mut points: Vec<[f64; K]> = Vec::with_capacity(n);
         if let Some(slice) = data.as_slice() {
+            // Fast path: use memory operations when data is contiguous
             for chunk in slice.chunks_exact(K) {
                 let mut p = [0.0; K];
                 p.copy_from_slice(&chunk[..K]);
                 points.push(p);
             }
         } else {
+            // Slow path: handle non-contiguous memory layouts
             for r in 0..n {
                 let mut p = [0.0; K];
                 for c in 0..K {
@@ -161,7 +209,17 @@ impl<const K: usize> NdDataset<K> {
         out
     }
 
-    /// Split a 2D array into a Vec of owned [f64; K] points for batch processing.
+    /// Convert a 2D array to a vector of fixed-size points for batch processing.
+    ///
+    /// This method provides an alternative way to convert ndarray data
+    /// to the point format, using row-wise iteration. It may be slower
+    /// than `convert_to_points` but handles all memory layouts uniformly.
+    ///
+    /// # Arguments
+    /// * `data` - 2D array where rows are samples and columns are dimensions
+    ///
+    /// # Returns
+    /// Vector of [f64; K] points suitable for KD-tree construction
     pub fn points_as_vec(data: Array2<f64>) -> Vec<[f64; K]> {
         data.axis_iter(Axis(0))
             .map(|row| {
