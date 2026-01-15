@@ -7,20 +7,20 @@ when:
     branch: [main, develop]
 
 matrix:
-  TOOLCHAIN: [stable, beta]
+  RUST: [stable, beta]
   FEATURES: ["", simd_support, fast_exp]
 
 steps:
   - name: build
-    image: rust:${TOOLCHAIN}
+    image: rust
     environment:
       FEATURES: ${FEATURES}
     commands:
-      - rustup default ${TOOLCHAIN}
-      - cargo build --workspace --features ${FEATURES}
+      - rustup default ${RUST}
+      - cargo build -j 4 --workspace --features ${FEATURES}
 
   - name: test
-    image: rust:${TOOLCHAIN}
+    image: rust
     environment:
       FEATURES: ${FEATURES}
     commands:
@@ -35,7 +35,7 @@ steps:
 
       # Run tests with current feature set
       - if [ -n "${FEATURES}" ]; then
-          cargo test --workspace --features ${FEATURES};
+          cargo test -j 4 --workspace --features ${FEATURES};
         else
-          cargo test --workspace;
+          cargo test -j 4 --workspace;
         fi
