@@ -4,7 +4,7 @@
 
 use approx::assert_abs_diff_eq;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
+use infomeasure::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
 use infomeasure::estimators::approaches::ordinal::ordinal_utils::symbolize_series_compact;
 use infomeasure::estimators::{GlobalValue, LocalValues};
 use ndarray::Array1;

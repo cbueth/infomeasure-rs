@@ -477,6 +477,7 @@ impl TransferEntropy {
     }
 
     /// Create a Kernel-based conditional transfer entropy estimator.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_cte_kernel(
         source: &Array1<f64>,
         destination: &Array1<f64>,
@@ -504,6 +505,7 @@ impl TransferEntropy {
     }
 
     /// Create a Kernel-based conditional transfer entropy estimator with specific kernel type.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_cte_kernel_with_type(
         source: &Array1<f64>,
         destination: &Array1<f64>,
@@ -532,6 +534,7 @@ impl TransferEntropy {
     }
 
     /// Create a Multi-dimensional Kernel-based conditional transfer entropy estimator.
+    #[allow(clippy::too_many_arguments)]
     pub fn nd_cte_kernel<
         const SRC_HIST: usize,
         const DEST_HIST: usize,
@@ -580,6 +583,7 @@ impl TransferEntropy {
     }
 
     /// Create a Multi-dimensional Kernel-based conditional transfer entropy estimator with specific kernel type.
+    #[allow(clippy::too_many_arguments)]
     pub fn nd_cte_kernel_with_type<
         const SRC_HIST: usize,
         const DEST_HIST: usize,

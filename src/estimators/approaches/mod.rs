@@ -30,4 +30,4 @@ pub use expfam::tsallis::TsallisEntropy;
 
 // Kernel and Ordinal
 pub use kernel::KernelEntropy;
-pub use ordinal::ordinal::OrdinalEntropy;
+pub use ordinal::ordinal_estimator::OrdinalEntropy;

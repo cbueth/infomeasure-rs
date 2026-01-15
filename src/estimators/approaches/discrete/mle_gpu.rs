@@ -5,8 +5,6 @@
 // GPU-accelerated utilities for discrete (histogram-based) estimators.
 // This module is compiled only when the `gpu_support` feature is enabled.
 
-#![cfg(feature = "gpu_support")]
-
 use futures_intrusive::channel::shared::oneshot_channel;
 use ndarray::Array2;
 use pollster::block_on;
@@ -205,7 +203,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
         cpass.set_pipeline(&pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         let wg_size = 256u32;
-        let wg_count = (total + wg_size - 1) / wg_size;
+        let wg_count = total.div_ceil(wg_size);
         cpass.dispatch_workgroups(wg_count, 1, 1);
     }
 
@@ -226,9 +224,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
         sender.send(v).ok();
     });
     device.poll(wgpu::PollType::Wait).ok()?;
-    if block_on(receiver.receive()).is_none() {
-        return None;
-    }
+    let _ = block_on(receiver.receive())?;
     let view = slice.get_mapped_range();
     let counts_u32: Vec<u32> = bytemuck::cast_slice(&view).to_vec();
     drop(view);
@@ -238,7 +234,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     let mut result: Vec<HashMap<i32, usize>> = Vec::with_capacity(rows);
     for r in 0..rows {
         let mut map = HashMap::new();
-        let base = r as usize * bins as usize;
+        let base = r * bins as usize;
         for b in 0..(bins as usize) {
             let c = counts_u32[base + b] as usize;
             if c != 0 {

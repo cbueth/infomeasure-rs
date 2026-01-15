@@ -186,7 +186,7 @@ pub fn calculate_entropy_generic<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_entropy_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -201,7 +201,7 @@ print(est.result())
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -283,7 +283,7 @@ pub fn calculate_local_te_float<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_local_te_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -301,7 +301,7 @@ print(json.dumps(est.local_vals().tolist()))
         sf = src_file.to_str().unwrap(),
         df = dst_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -347,7 +347,7 @@ pub fn calculate_local_cte_float<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_local_cte_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -368,7 +368,7 @@ print(json.dumps(est.local_vals().tolist()))
         df = dst_file.to_str().unwrap(),
         cf = cnd_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -497,7 +497,7 @@ pub fn calculate_local_entropy_generic<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_local_entropy_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -512,7 +512,7 @@ print(json.dumps(est.local_vals().tolist()))
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -767,7 +767,7 @@ pub fn calculate_cross_entropy_float_nd(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_cross_entropy_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -785,7 +785,7 @@ print(est.result())
         pf = p_file.to_str().unwrap(),
         qf = q_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -882,7 +882,7 @@ pub fn benchmark_entropy_generic<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("benchmark_entropy_generic_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -900,7 +900,7 @@ print(timer.timeit(number={num})/{num})
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str,
+        kw = _kwargs_str,
         num = num_runs
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
@@ -1026,7 +1026,7 @@ pub fn calculate_ordinal_joint_entropy_two_float(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("ordinal_joint_entropy_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1052,7 +1052,7 @@ print(est_joint.result())
 "#,
         x_path = x_file.to_str().unwrap(),
         y_path = y_file.to_str().unwrap(),
-        kwargs = kwargs_str
+        kwargs = _kwargs_str
     );
     std::fs::write(&script_path, script)
         .map_err(|e| format!("Failed to write temporary script: {}", e))?;
@@ -1102,7 +1102,7 @@ pub fn calculate_ordinal_cross_entropy_two_float(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("ordinal_cross_entropy_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1132,7 +1132,7 @@ print(0.0 if len(keys)==0 else sum([-px[k]*math.log(qy[k]) for k in keys if px[k
 "#,
         x_path = x_file.to_str().unwrap(),
         y_path = y_file.to_str().unwrap(),
-        kwargs = kwargs_str
+        kwargs = _kwargs_str
     );
     std::fs::write(&script_path, script)
         .map_err(|e| format!("Failed to write temporary script: {}", e))?;
@@ -1168,7 +1168,7 @@ pub fn calculate_mi<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_mi_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1186,7 +1186,7 @@ print(est.result())
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -1218,7 +1218,7 @@ pub fn calculate_local_mi<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_local_mi_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1234,7 +1234,7 @@ print(json.dumps(est.local_vals().tolist()))
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -1266,7 +1266,7 @@ pub fn calculate_cmi<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_cmi_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1286,7 +1286,7 @@ print(est.result())
         df = data_file.to_str().unwrap(),
         cf = cond_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -1321,7 +1321,7 @@ pub fn calculate_local_cmi<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_local_cmi_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1341,7 +1341,7 @@ print(json.dumps(est.local_vals().tolist()))
         df = data_file.to_str().unwrap(),
         cf = cond_file.to_str().unwrap(),
         ap = approach,
-        kw = kwargs_str
+        kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
     let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
@@ -1492,7 +1492,7 @@ pub fn calculate_te<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_te_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
@@ -1554,7 +1554,7 @@ pub fn calculate_cte<T: Serialize>(
         thread_rng().r#gen::<u64>()
     );
     let script_path = temp_dir.join(format!("calculate_cte_{}.py", uid));
-    let kwargs_str = kwargs
+    let _kwargs_str = kwargs
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()

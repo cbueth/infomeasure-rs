@@ -19,20 +19,29 @@ fn zhang_local_and_global_consistency() {
     for &v in data.iter() {
         *counts.entry(v).or_insert(0) += 1;
     }
-    let N = data.len();
+    let n_total = data.len();
 
-    // Helper: compute t2 for a count
-    fn t2_for_count(n: usize, N: usize) -> f64 {
-        if n == 0 || n >= N {
+    /// Computes the Zhang estimator's t2 contribution for a given count.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The frequency count of a specific symbol in the dataset
+    /// * `n_total` - The total number of samples in the dataset
+    ///
+    /// # Returns
+    ///
+    /// The t2 contribution value for the given count, used in Zhang's entropy estimator
+    fn t2_for_count(n: usize, n_total: usize) -> f64 {
+        if n == 0 || n >= n_total {
             return 0.0;
         }
         let nf = n as f64;
         let n_minus_1 = nf - 1.0;
-        let n_total = N as f64;
+        let n_total_f = n_total as f64;
         let mut t2 = 0.0_f64;
         let mut prod = 1.0_f64;
-        for k in 1..=(N - n) {
-            let denom = n_total - (k as f64);
+        for k in 1..=(n_total - n) {
+            let denom = n_total_f - (k as f64);
             let factor = 1.0 - (n_minus_1 / denom);
             prod *= factor;
             t2 += prod / (k as f64);
@@ -43,7 +52,7 @@ fn zhang_local_and_global_consistency() {
     let locals = est.local_values();
     for (i, &v) in data.iter().enumerate() {
         let n = counts[&v];
-        let expected = t2_for_count(n, N);
+        let expected = t2_for_count(n, n_total);
         assert_abs_diff_eq!(locals[i], expected, epsilon = 1e-12);
     }
 

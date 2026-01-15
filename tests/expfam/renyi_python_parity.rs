@@ -17,7 +17,6 @@ fn python_renyi_entropy(data: &Array2<f64>, k: usize, alpha: f64) -> f64 {
     for i in 0..rows {
         vec2d.push(data.row(i).to_vec());
     }
-    let data_json = serde_json::to_string(&vec2d).unwrap();
 
     {
         let mut flat: Vec<f64> = Vec::with_capacity(data.len());
@@ -31,8 +30,8 @@ fn python_renyi_entropy(data: &Array2<f64>, k: usize, alpha: f64) -> f64 {
             ("k".to_string(), k.to_string()),
             ("alpha".to_string(), alpha.to_string()),
         ];
-        return python::calculate_entropy_float_nd(&flat, dims, "renyi", &kwargs)
-            .expect("python renyi failed");
+        python::calculate_entropy_float_nd(&flat, dims, "renyi", &kwargs)
+            .expect("python renyi failed")
     }
 }
 
@@ -99,8 +98,8 @@ fn renyi_joint_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
     }
     let flat = flat_from_array2(&joined);
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("alpha".to_string(), format!("{}", alpha)),
+        ("k".to_string(), format!("{k}")),
+        ("alpha".to_string(), format!("{alpha}")),
     ];
     let h_py = python::calculate_entropy_float_nd(&flat, 2, "renyi", &kwargs)
         .expect("python renyi failed");
@@ -121,8 +120,8 @@ fn renyi_cross_python_parity_1d(#[case] k: usize, #[case] alpha: f64) {
     let h_rust = est_p.cross_entropy(&est_q);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("alpha".to_string(), format!("{}", alpha)),
+        ("k".to_string(), format!("{k}")),
+        ("alpha".to_string(), format!("{alpha}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(
         p_data.as_slice().unwrap(),
@@ -170,8 +169,8 @@ fn renyi_cross_python_parity_2d(#[case] k: usize, #[case] alpha: f64) {
     let flat_q = flat_from_array2(&q_data);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("alpha".to_string(), format!("{}", alpha)),
+        ("k".to_string(), format!("{k}")),
+        ("alpha".to_string(), format!("{alpha}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(&flat_p, &flat_q, 2, "renyi", &kwargs)
         .expect("python cross renyi failed");

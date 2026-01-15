@@ -31,14 +31,8 @@ fn compare_discrete_entropy(data: Vec<i32>, test_name: &str) -> (f64, Vec<f64>) 
     let python_local_entropy = python::calculate_local_entropy(&data, "discrete", &[]).unwrap();
 
     // Compare the results
-    println!(
-        "{} - Rust global entropy (base e): {}",
-        test_name, rust_global_entropy
-    );
-    println!(
-        "{} - Python global entropy (base e): {}",
-        test_name, python_global_entropy
-    );
+    println!("{test_name} - Rust global entropy (base e): {rust_global_entropy}");
+    println!("{test_name} - Python global entropy (base e): {python_global_entropy}");
 
     // Assert that the global entropy values are approximately equal
     assert_entropy_values_close(
@@ -56,7 +50,7 @@ fn compare_discrete_entropy(data: Vec<i32>, test_name: &str) -> (f64, Vec<f64>) 
             *python_val,
             1e-10,
             1e-6,
-            &format!("{} (local)", test_name),
+            &format!("{test_name} (local)"),
         );
     }
 
@@ -77,11 +71,9 @@ fn test_discrete_entropy_different_states() {
 
     for &num_states in &states {
         // Generate random integers between 0 and (num_states-1)
-        let data: Vec<i32> = (0..size)
-            .map(|_| rng.gen_range(0..num_states) as i32)
-            .collect();
+        let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
 
-        compare_discrete_entropy(data, &format!("Uniform Random ({} states)", num_states));
+        compare_discrete_entropy(data, &format!("Uniform Random ({num_states} states)"));
     }
 }
 
@@ -120,9 +112,12 @@ fn test_discrete_entropy_gaussian() {
 
         // Generate samples from the normal distribution and convert to integers
         let data: Vec<i32> = (0..size)
-            .map(|_| (normal.sample(&mut rng) as f64).round() as i32)
+            .map(|_| {
+                let sample: f64 = normal.sample(&mut rng);
+                sample.round() as i32
+            })
             .collect();
 
-        compare_discrete_entropy(data, &format!("Gaussian (mean={}, std={})", mean, std_dev));
+        compare_discrete_entropy(data, &format!("Gaussian (mean={mean}, std={std_dev})"));
     }
 }

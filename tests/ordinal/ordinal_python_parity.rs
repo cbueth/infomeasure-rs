@@ -5,7 +5,7 @@
 use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 
-use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
+use infomeasure::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
 use infomeasure::estimators::{GlobalValue, LocalValues};
 
 fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Vec<f64>>) {
@@ -65,7 +65,7 @@ fn ordinal_python_parity_basic_sets() {
             }
 
             // local mean parity
-            if locals_rust.len() > 0 {
+            if !locals_rust.is_empty() {
                 assert_abs_diff_eq!(h_rust, locals_rust.mean().unwrap(), epsilon = 1e-12);
             }
         }

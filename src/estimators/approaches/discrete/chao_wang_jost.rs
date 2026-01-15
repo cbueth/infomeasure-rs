@@ -43,7 +43,7 @@ impl ChaoWangJostEntropy {
 
 impl GlobalValue for ChaoWangJostEntropy {
     fn global_value(&self) -> f64 {
-        let n = self.dataset.n as usize;
+        let n = self.dataset.n;
         if n == 0 {
             return 0.0;
         }

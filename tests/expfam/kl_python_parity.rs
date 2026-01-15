@@ -5,8 +5,8 @@
 use approx::assert_abs_diff_eq;
 use ndarray::{Array1, Array2, array};
 
+use infomeasure::estimators::GlobalValue;
 use infomeasure::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
-use infomeasure::estimators::{GlobalValue, LocalValues};
 use validation::python;
 
 fn flat_from_array2(a: &Array2<f64>) -> Vec<f64> {
@@ -59,7 +59,7 @@ fn kl_python_parity_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
+            ("k".to_string(), format!("{k}")),
             ("minkowski_p".to_string(), "2".to_string()),
         ];
         let h_py =
@@ -76,7 +76,7 @@ fn kl_python_parity_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
+            ("k".to_string(), format!("{k}")),
             ("minkowski_p".to_string(), "2".to_string()),
         ];
         let h_py =
@@ -93,7 +93,7 @@ fn kl_python_parity_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
+            ("k".to_string(), format!("{k}")),
             ("minkowski_p".to_string(), "2".to_string()),
         ];
         let h_py =

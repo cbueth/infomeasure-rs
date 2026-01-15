@@ -1,7 +1,7 @@
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::Array2;
 use plotters::prelude::*;
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::{SeedableRng, rngs::StdRng};
 use rand_distr::{Distribution, Normal};
 use std::fs::File;
 use std::io::Write;
@@ -61,14 +61,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(csv_file, "bandwidth,rust_entropy,python_entropy")?;
 
     // Calculate entropies for different bandwidths
-    println!("Data for d={}, mean={:.1}, std={:.1}", dims, mean, std_dev);
+    println!("Data for d={dims}, mean={mean:.1}, std={std_dev:.1}");
 
     for &bandwidth in &bandwidths {
         let rust_entropy = match dims {
             1 => calculate_1d_entropy(&data, bandwidth),
             2 => calculate_2d_entropy(&data, bandwidth),
             3 => calculate_3d_entropy(&data, bandwidth),
-            _ => panic!("Unsupported number of dimensions: {}", dims),
+            _ => panic!("Unsupported number of dimensions: {dims}"),
         };
 
         // Python implementation
@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ("bandwidth".to_string(), bandwidth.to_string()),
         ];
         let python_entropy = python::calculate_entropy_float_nd(
-            &data.as_slice().unwrap(),
+            data.as_slice().unwrap(),
             dims,
             "kernel",
             &kernel_kwargs,
@@ -87,17 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         results.push((bandwidth, rust_entropy, python_entropy));
 
         // Write to CSV
-        writeln!(
-            csv_file,
-            "{},{},{}",
-            bandwidth, rust_entropy, python_entropy
-        )?;
+        writeln!(csv_file, "{bandwidth},{rust_entropy},{python_entropy}")?;
 
         // Print progress
-        println!(
-            "Bandwidth: {:.1}, Rust: {:.6}, Python: {:.6}",
-            bandwidth, rust_entropy, python_entropy
-        );
+        println!("Bandwidth: {bandwidth:.1}, Rust: {rust_entropy:.6}, Python: {python_entropy:.6}");
     }
 
     // Create plot
@@ -132,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &RED,
         ))?
         .label("Rust")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
 
     // Plot Python implementation
     chart
@@ -141,12 +134,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &BLUE,
         ))?
         .label("Python")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLUE));
 
     chart
         .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
+        .background_style(WHITE.mix(0.8))
+        .border_style(BLACK)
         .draw()?;
 
     println!("\nResults saved to:");

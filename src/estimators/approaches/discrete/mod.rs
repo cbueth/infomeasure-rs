@@ -5,9 +5,9 @@
 // Discrete estimators module: groups all discrete-related submodules
 // and exposes them to the parent approaches module.
 
-#[cfg(feature = "gpu_support")]
-pub mod discrete_gpu;
 pub mod discrete_utils;
+#[cfg(feature = "gpu_support")]
+pub mod mle_gpu;
 
 pub mod ansb;
 pub mod bayes;
@@ -243,6 +243,7 @@ pub struct DiscreteConditionalTransferEntropy<E> {
 }
 
 impl<E> DiscreteConditionalTransferEntropy<E> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new<F>(
         source: &Array1<i32>,
         destination: &Array1<i32>,

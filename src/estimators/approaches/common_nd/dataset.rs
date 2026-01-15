@@ -86,7 +86,7 @@ impl<const K: usize> NdDataset<K> {
         if self.n == 0 {
             return Vec::new();
         }
-        assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
+        assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
         for p in self.points.iter() {
@@ -106,7 +106,7 @@ impl<const K: usize> NdDataset<K> {
         if self.n == 0 {
             return Vec::new();
         }
-        assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
+        assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
         for p in self.points.iter() {
@@ -128,7 +128,7 @@ impl<const K: usize> NdDataset<K> {
         if self.n == 0 {
             return Vec::new();
         }
-        assert!(k <= self.n - 1, "k must be <= N-1 for self-queries");
+        assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         // Fast paths for p≈1 and p≈2 using KD-tree
         if (p - 1.0).abs() < 1e-12 {
@@ -149,8 +149,8 @@ impl<const K: usize> NdDataset<K> {
                     continue;
                 }
                 let mut acc = 0.0f64;
-                for dim in 0..K {
-                    acc += (xi[dim] - self.points[j][dim]).abs().powf(p);
+                for (dim, &xi_val) in xi.iter().enumerate() {
+                    acc += (xi_val - self.points[j][dim]).abs().powf(p);
                 }
                 dists.push(acc.powf(1.0 / p));
             }

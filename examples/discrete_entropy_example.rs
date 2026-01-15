@@ -22,16 +22,16 @@ fn main() {
         manual_entropy -= p * p.ln();
     }
 
-    println!("Discrete data: {:?}", data);
-    println!("Manual entropy calculation: {}", manual_entropy);
+    println!("Discrete data: {data:?}");
+    println!("Manual entropy calculation: {manual_entropy}");
 
     // Calculate local and global entropy values using the library
     let local_values = discrete_entropy.local_values();
     let global_value = discrete_entropy.global_value();
 
-    println!("Local Entropy Values: {:?}", local_values);
-    println!("Global Entropy Value: {}", global_value);
+    println!("Local Entropy Values: {local_values:?}");
+    println!("Global Entropy Value: {global_value}");
     println!("Comparison: Manual calculation vs. Library implementation");
-    println!("  Manual: {}", manual_entropy);
-    println!("  Library: {}", global_value);
+    println!("  Manual: {manual_entropy}");
+    println!("  Library: {global_value}");
 }

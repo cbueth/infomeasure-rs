@@ -80,25 +80,21 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
         let speedup = python_time_ns as f64 / rust_time_ns as f64;
 
         // Print comparison for this data size
-        println!("\n=== Data Size: {} elements ===", size);
+        println!("\n=== Data Size: {size} elements ===");
         println!(
-            "Rust execution time:   {:.9} seconds ({} ns)",
+            "Rust execution time:   {:.9} seconds ({rust_time_ns} ns)",
             rust_time_ns as f64 / 1_000_000_000.0,
-            rust_time_ns
+            rust_time_ns = rust_time_ns
         );
-        println!(
-            "Python execution time: {:.9} seconds ({} ns)",
-            python_time, python_time_ns
-        );
-        println!("Speedup (Python/Rust): {:.2}x", speedup);
-        println!("Rust entropy value:   {}", rust_entropy);
-        println!("Python entropy value: {}", python_entropy);
+        println!("Python execution time: {python_time:.9} seconds ({python_time_ns} ns)");
+        println!("Speedup (Python/Rust): {speedup:.2}x");
+        println!("Rust entropy value:   {rust_entropy}");
+        println!("Python entropy value: {python_entropy}");
 
         // Write to CSV
         writeln!(
             csv_file,
-            "Data Size,{},{},{},{:.2},{},{}",
-            size, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy
+            "Data Size,{size},{rust_time_ns},{python_time_ns},{speedup:.2},{rust_entropy},{python_entropy}"
         )
         .unwrap();
     }
@@ -154,25 +150,21 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
         let speedup = python_time_ns as f64 / rust_time_ns as f64;
 
         // Print comparison for this number of states
-        println!("\n=== Number of States: {} ===", num_states);
+        println!("\n=== Number of States: {num_states} ===");
         println!(
-            "Rust execution time:   {:.9} seconds ({} ns)",
+            "Rust execution time:   {:.9} seconds ({rust_time_ns} ns)",
             rust_time_ns as f64 / 1_000_000_000.0,
-            rust_time_ns
+            rust_time_ns = rust_time_ns
         );
-        println!(
-            "Python execution time: {:.9} seconds ({} ns)",
-            python_time, python_time_ns
-        );
-        println!("Speedup (Python/Rust): {:.2}x", speedup);
-        println!("Rust entropy value:   {}", rust_entropy);
-        println!("Python entropy value: {}", python_entropy);
+        println!("Python execution time: {python_time:.9} seconds ({python_time_ns} ns)");
+        println!("Speedup (Python/Rust): {speedup:.2}x");
+        println!("Rust entropy value:   {rust_entropy}");
+        println!("Python entropy value: {python_entropy}");
 
         // Write to CSV
         writeln!(
             csv_file,
-            "States,{},{},{},{:.2},{},{}",
-            num_states, rust_time_ns, python_time_ns, speedup, rust_entropy, python_entropy
+            "States,{num_states},{rust_time_ns},{python_time_ns},{speedup:.2},{rust_entropy},{python_entropy}"
         )
         .unwrap();
     }

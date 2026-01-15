@@ -93,7 +93,7 @@ pub fn knn_radii_at<const K: usize>(
         radii
     } else {
         assert!(
-            k <= n - 1,
+            k < n,
             "k must be <= N-1 when querying within the same dataset"
         );
         // Query k+1 neighbors (including self), take index k (0-based) and sqrt distance

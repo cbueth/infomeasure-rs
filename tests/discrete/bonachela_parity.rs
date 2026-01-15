@@ -37,7 +37,7 @@ fn bonachela_entropy_python_parity(#[case] data: Vec<i32>, #[case] _description:
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
 #[case(vec![1, 0, 1, 0], vec![0, 1, 0, 1], 0.0)]
-fn test_bonachela_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] expected: f64) {
+fn test_bonachela_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] __expected: f64) {
     let x_arr = Array1::from(x.clone());
     let y_arr = Array1::from(y.clone());
     let mi_est = MutualInformation::new_discrete_bonachela(&[x_arr, y_arr]);
@@ -53,7 +53,7 @@ fn test_bonachela_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] ex
 fn test_bonachela_te_parity(
     #[case] source: Vec<i32>,
     #[case] dest: Vec<i32>,
-    #[case] expected: f64,
+    #[case] _expected: f64,
 ) {
     let s_arr = Array1::from(source.clone());
     let d_arr = Array1::from(dest.clone());
@@ -75,7 +75,7 @@ fn test_bonachela_cmi_parity(
     #[case] x: Vec<i32>,
     #[case] y: Vec<i32>,
     #[case] z: Vec<i32>,
-    #[case] expected: f64,
+    #[case] _expected: f64,
 ) {
     let x_arr = Array1::from(x.clone());
     let y_arr = Array1::from(y.clone());
@@ -94,7 +94,7 @@ fn test_bonachela_cte_parity(
     #[case] source: Vec<i32>,
     #[case] dest: Vec<i32>,
     #[case] cond: Vec<i32>,
-    #[case] expected: f64,
+    #[case] _expected: f64,
 ) {
     let s_arr = Array1::from(source.clone());
     let d_arr = Array1::from(dest.clone());

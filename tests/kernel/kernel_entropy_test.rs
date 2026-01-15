@@ -37,7 +37,7 @@ fn compare_kernel_entropy(
 
     // Calculate entropy using the Python implementation with kernel approach
     let kernel_kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let python_global_entropy =
@@ -46,14 +46,8 @@ fn compare_kernel_entropy(
         python::calculate_local_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 
     // Compare the results
-    println!(
-        "{} - Rust global entropy (base e): {}",
-        test_name, rust_global_entropy
-    );
-    println!(
-        "{} - Python global entropy (base e): {}",
-        test_name, python_global_entropy
-    );
+    println!("{test_name} - Rust global entropy (base e): {rust_global_entropy}");
+    println!("{test_name} - Python global entropy (base e): {python_global_entropy}");
 
     // Assert that the global entropy values are approximately equal
     // Note: Kernel entropy calculations should now match Python closely with full covariance
@@ -197,7 +191,7 @@ fn compare_kernel_entropy_2d_generic<const K: usize>(
 
     // Calculate entropy using the Python implementation with n-dimensional functions
     let kernel_kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let python_global_entropy =
@@ -207,14 +201,8 @@ fn compare_kernel_entropy_2d_generic<const K: usize>(
             .unwrap();
 
     // Compare results
-    println!(
-        "{} - Rust global entropy (base e): {}",
-        test_name, rust_global_entropy
-    );
-    println!(
-        "{} - Python global entropy (base e): {}",
-        test_name, python_global_entropy
-    );
+    println!("{test_name} - Rust global entropy (base e): {rust_global_entropy}");
+    println!("{test_name} - Python global entropy (base e): {python_global_entropy}");
 
     let (epsilon, max_relative) = match kernel_type {
         "box" => (1e-12, 1e-12),
@@ -273,10 +261,7 @@ fn test_kernel_entropy_different_bandwidths(
     // Generate random floats between 0.0 and 20.0
     let data: Vec<f64> = (0..size).map(|_| rng.gen_range(0.0..20.0)).collect();
 
-    let test_name = format!(
-        "Kernel Entropy (kernel={}, bandwidth={})",
-        kernel_type, bandwidth
-    );
+    let test_name = format!("Kernel Entropy (kernel={kernel_type}, bandwidth={bandwidth})");
     compare_kernel_entropy(data, bandwidth, kernel_type, &test_name);
 }
 
@@ -296,7 +281,7 @@ fn test_kernel_entropy_gaussian(#[values("box", "gaussian")] kernel_type: &str) 
     // Test with a fixed bandwidth
     let bandwidth = 1.0;
 
-    let test_name = format!("Kernel Entropy (Gaussian data, kernel={})", kernel_type);
+    let test_name = format!("Kernel Entropy (Gaussian data, kernel={kernel_type})");
     compare_kernel_entropy(data, bandwidth, kernel_type, &test_name);
 }
 
@@ -315,10 +300,8 @@ fn test_kernel_entropy_gaussian_parameter_combinations(
     let data = generate_gaussian_data(size, dim, mean, std_dev, seed);
 
     // Create test name
-    let test_name = format!(
-        "Kernel Entropy (dim={}, bandwidth={}, mean={}, size={})",
-        dim, bandwidth, mean, size
-    );
+    let test_name =
+        format!("Kernel Entropy (dim={dim}, bandwidth={bandwidth}, mean={mean}, size={size})");
 
     // Compare implementations based on dimension
     match dim {
@@ -326,6 +309,6 @@ fn test_kernel_entropy_gaussian_parameter_combinations(
         2 => compare_kernel_entropy_2d_generic::<2>(data, bandwidth, kernel_type, &test_name),
         3 => compare_kernel_entropy_2d_generic::<3>(data, bandwidth, kernel_type, &test_name),
         4 => compare_kernel_entropy_2d_generic::<4>(data, bandwidth, kernel_type, &test_name),
-        _ => panic!("Unsupported dimension: {}", dim),
+        _ => panic!("Unsupported dimension: {dim}"),
     };
 }

@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use approx::assert_abs_diff_eq;
+use infomeasure::estimators::GlobalValue;
 use infomeasure::estimators::approaches::discrete::bayes::{AlphaParam, BayesEntropy};
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use infomeasure::estimators::{GlobalValue, LocalValues};
 use ndarray::Array1;
 use rstest::*;
 use validation::python;
@@ -56,7 +56,7 @@ fn bayes_entropy_python_parity(
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
 #[case(vec![1, 0, 1, 0], vec![0, 1, 0, 1], 0.0)]
-fn test_bayes_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] expected: f64) {
+fn test_bayes_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] ___expected: f64) {
     let x_arr = Array1::from(x.clone());
     let y_arr = Array1::from(y.clone());
     let mi_est = MutualInformation::new_discrete_bayes(&[x_arr, y_arr]);
@@ -72,7 +72,11 @@ fn test_bayes_mi_parity(#[case] x: Vec<i32>, #[case] y: Vec<i32>, #[case] expect
 #[rstest]
 #[case(vec![1, 1, 1, 1, 1], vec![1, 1, 1, 1, 1], 0.0)]
 #[case(vec![1, 0, 1, 0], vec![1, 0, 1, 0], 0.0)]
-fn test_bayes_te_parity(#[case] source: Vec<i32>, #[case] dest: Vec<i32>, #[case] expected: f64) {
+fn test_bayes_te_parity(
+    #[case] source: Vec<i32>,
+    #[case] dest: Vec<i32>,
+    #[case] ___expected: f64,
+) {
     let s_arr = Array1::from(source.clone());
     let d_arr = Array1::from(dest.clone());
     let te_est = TransferEntropy::new_discrete_bayes(&s_arr, &d_arr, 1, 1, 1);
@@ -94,7 +98,7 @@ fn test_bayes_cmi_parity(
     #[case] x: Vec<i32>,
     #[case] y: Vec<i32>,
     #[case] z: Vec<i32>,
-    #[case] expected: f64,
+    #[case] __expected: f64,
 ) {
     let x_arr = Array1::from(x.clone());
     let y_arr = Array1::from(y.clone());
@@ -114,7 +118,7 @@ fn test_bayes_cte_parity(
     #[case] source: Vec<i32>,
     #[case] dest: Vec<i32>,
     #[case] cond: Vec<i32>,
-    #[case] expected: f64,
+    #[case] __expected: f64,
 ) {
     let s_arr = Array1::from(source.clone());
     let d_arr = Array1::from(dest.clone());

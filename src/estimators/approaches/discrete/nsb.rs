@@ -7,7 +7,6 @@ use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, r
 use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use ndarray::{Array1, Array2};
 use statrs::function::gamma::{digamma, ln_gamma};
-use std::f64::{INFINITY, NAN};
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
 ///
@@ -82,7 +81,7 @@ impl NsbEntropy {
         // Find extremum of log rho using a simple search over K0 in [0.1, K]
         let func = |k0: f64| -> f64 { (k as f64) / k0 - digamma(k0 + n as f64) + digamma(k0) };
         let mut best_k0 = 0.1_f64;
-        let mut best_val = INFINITY;
+        let mut best_val = f64::INFINITY;
         let steps = 200usize;
         let upper = k as f64;
         let mut t = 0.1_f64;
@@ -102,7 +101,7 @@ impl NsbEntropy {
     }
 
     // Adaptive Simpson integration
-    fn simpson<F: Fn(f64) -> f64>(&self, f: &F, a: f64, b: f64, tol: f64, depth: usize) -> f64 {
+    fn simpson<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, tol: f64, depth: usize) -> f64 {
         fn simp<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64) -> f64 {
             let c = 0.5 * (a + b);
             let h = b - a;
@@ -115,17 +114,17 @@ impl NsbEntropy {
         if depth == 0 || (s_ac + s_cb - s_ab).abs() < 15.0 * tol {
             return s_ac + s_cb + (s_ac + s_cb - s_ab) / 15.0;
         }
-        self.simpson(f, a, c, tol / 2.0, depth - 1) + self.simpson(f, c, b, tol / 2.0, depth - 1)
+        Self::simpson(f, a, c, tol / 2.0, depth - 1) + Self::simpson(f, c, b, tol / 2.0, depth - 1)
     }
 }
 
 impl GlobalValue for NsbEntropy {
     fn global_value(&self) -> f64 {
-        let n = self.dataset.n as usize;
+        let n = self.dataset.n;
         let k_obs = self.dataset.k;
         let k = self.k_override.unwrap_or(k_obs);
         if n == 0 || k == 0 {
-            return NAN;
+            return f64::NAN;
         }
         let counts = self.counts_vec();
         let coincidences = (n as i64) - (k as i64);
@@ -137,13 +136,13 @@ impl GlobalValue for NsbEntropy {
         // result_k5 (K=5, N=5) -> NaN
         // result_k3 (K=3, N=5) -> works
         if coincidences == 0 {
-            return NAN;
+            return f64::NAN;
         }
 
         // Integration bounds (mirror Python code): 0 .. ln K
         let upper = (k as f64).ln();
         if !upper.is_finite() || upper <= 0.0 {
-            return NAN;
+            return f64::NAN;
         }
 
         let l0 = self.find_l0(k, n);
@@ -156,11 +155,11 @@ impl GlobalValue for NsbEntropy {
 
         // Avoid singularity at beta=0 by starting slightly above 0
         let a = 1e-8;
-        let num = self.simpson(&f_num, a, upper, self.tol, self.max_recursion);
-        let den = self.simpson(&f_den, a, upper, self.tol, self.max_recursion);
+        let num = Self::simpson(&f_num, a, upper, self.tol, self.max_recursion);
+        let den = Self::simpson(&f_den, a, upper, self.tol, self.max_recursion);
 
         if den == 0.0 || !den.is_finite() {
-            return NAN;
+            return f64::NAN;
         }
         num / den
     }

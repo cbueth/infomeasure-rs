@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use approx::assert_abs_diff_eq;
+use infomeasure::estimators::GlobalValue;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
-use infomeasure::estimators::{GlobalValue, LocalValues};
 use ndarray::{Array2, array};
 
 // This is a smoke test to exercise the GPU histogram path for DiscreteEntropy::from_rows.

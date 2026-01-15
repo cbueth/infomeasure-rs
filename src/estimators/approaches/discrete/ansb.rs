@@ -58,7 +58,7 @@ impl AnsbEntropy {
 
 impl GlobalValue for AnsbEntropy {
     fn global_value(&self) -> f64 {
-        let n = self.dataset.n as usize;
+        let n = self.dataset.n;
         if n == 0 {
             return f64::NAN;
         }
@@ -68,16 +68,24 @@ impl GlobalValue for AnsbEntropy {
             return f64::NAN;
         }
 
+        // Check if data is sufficiently undersampled
+        let ratio = n as f64 / k as f64;
+        if ratio > self.undersampled_threshold {
+            println!(
+                "Warning: Data is not sufficiently undersampled (N/K = {:.3} > {:.3}), so calculation may diverge...",
+                ratio, self.undersampled_threshold
+            );
+        }
+
         let coincidences = (n as i64) - (k as i64);
         if coincidences <= 0 {
             return f64::NAN;
         }
 
         // (γ - ln 2) + 2 ln N - ψ(Δ)
-        const EULER_GAMMA: f64 = 0.577215_664_901_532_9;
-        let entropy =
-            (EULER_GAMMA - 2.0_f64.ln()) + 2.0 * (n as f64).ln() - digamma(coincidences as f64);
-        entropy
+        const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
+
+        (EULER_GAMMA - 2.0_f64.ln()) + 2.0 * (n as f64).ln() - digamma(coincidences as f64)
     }
 }
 

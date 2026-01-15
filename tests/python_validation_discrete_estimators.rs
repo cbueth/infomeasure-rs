@@ -182,7 +182,7 @@ fn validate_bayes_against_python_numeric_alpha() {
     let h_py = python::calculate_entropy(
         &data.to_vec(),
         "bayes",
-        &[("alpha".to_string(), format!("{}", alpha))],
+        &[("alpha".to_string(), format!("{alpha}"))],
     )
     .expect("python failed");
     assert_entropy_values_close(h_rust, h_py, 1e-10, 1e-6, "bayes(alpha=0.5) global");

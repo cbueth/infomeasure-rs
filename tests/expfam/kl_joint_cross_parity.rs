@@ -39,7 +39,7 @@ fn kl_joint_python_parity_2d(#[case] k: usize) {
     }
     let flat = flat_from_array2(&joined);
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
+        ("k".to_string(), format!("{k}")),
         ("minkowski_p".to_string(), "2".to_string()),
     ];
     let h_py =
@@ -61,7 +61,7 @@ fn kl_cross_python_parity_1d(#[case] k: usize) {
     let h_rust = est_p.cross_entropy(&est_q);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
+        ("k".to_string(), format!("{k}")),
         ("minkowski_p".to_string(), "2".to_string()),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(
@@ -110,7 +110,7 @@ fn kl_cross_python_parity_2d(#[case] k: usize) {
     let flat_q = flat_from_array2(&q_data);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
+        ("k".to_string(), format!("{k}")),
         ("minkowski_p".to_string(), "2".to_string()),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(&flat_p, &flat_q, 2, "kl", &kwargs)

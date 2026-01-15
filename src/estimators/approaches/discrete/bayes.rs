@@ -53,16 +53,17 @@ impl CrossEntropy for BayesEntropy {
         // Build Bayesian distributions (value -> prob)
         let (p_probs, p_uniq) = self.bayes_probs();
         let (q_probs, q_uniq) = other.bayes_probs();
-        let p_map: HashMap<i32, f64> = p_uniq.into_iter().zip(p_probs.into_iter()).collect();
-        let q_map: HashMap<i32, f64> = q_uniq.into_iter().zip(q_probs.into_iter()).collect();
+        let p_map: HashMap<i32, f64> = p_uniq.into_iter().zip(p_probs).collect();
+        let q_map: HashMap<i32, f64> = q_uniq.into_iter().zip(q_probs).collect();
 
         // Intersection of supports
         let mut h = 0.0_f64;
         for (&val, &pval) in &p_map {
-            if let Some(&qval) = q_map.get(&val) {
-                if pval > 0.0 && qval > 0.0 {
-                    h -= pval * qval.ln();
-                }
+            if let Some(&qval) = q_map.get(&val)
+                && pval > 0.0
+                && qval > 0.0
+            {
+                h -= pval * qval.ln();
             }
         }
         h

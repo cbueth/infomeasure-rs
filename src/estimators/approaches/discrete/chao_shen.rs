@@ -55,9 +55,7 @@ impl GlobalValue for ChaoShenEntropy {
         }
         if (f1 as f64) == n {
             // avoid C=0
-            if f1 > 0 {
-                f1 -= 1;
-            }
+            f1 = f1.saturating_sub(1);
         }
 
         let c_cov = 1.0 - (f1 as f64) / n; // coverage C

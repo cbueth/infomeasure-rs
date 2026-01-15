@@ -22,7 +22,6 @@ use ndarray::{Array1, Array2};
 pub struct ZhangEntropy {
     dataset: DiscreteDataset,
 }
-
 impl ZhangEntropy {
     pub fn new(data: Array1<i32>) -> Self {
         let dataset = DiscreteDataset::from_data(data);
@@ -34,9 +33,20 @@ impl ZhangEntropy {
         rows_as_vec(data).into_iter().map(Self::new).collect()
     }
 
+    /// Compute the bias correction term t2(n) for a given count.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The observed count for a particular symbol
+    /// * `total_samples` - The total number of samples (N) in the dataset
+    ///
+    /// # Returns
+    ///
+    /// The bias correction term t2(n) which accounts for finite-sample effects.
+    /// Returns 0.0 if n is 0 or $n \leq N$ (boundary cases with no correction needed).
     #[inline]
-    fn t2_for_count(n: usize, N: usize) -> f64 {
-        if n == 0 || n >= N {
+    fn t2_for_count(n: usize, total_samples: usize) -> f64 {
+        if n == 0 || n >= total_samples {
             return 0.0;
         }
         // Following Python implementation exactly:
@@ -44,10 +54,10 @@ impl ZhangEntropy {
         // t1_matrix = factors.cumprod(axis=1)
         // t2_values = np_sum(t1_masked * reciprocal_k, axis=1)
         let nf = n as f64;
-        let n_total = N as f64;
+        let n_total = total_samples as f64;
         let mut h_hat = 0.0_f64;
         let mut t1 = 1.0_f64;
-        for k in 1..=(N - n) {
+        for k in 1..=(total_samples - n) {
             let kf = k as f64;
             let factor = 1.0 - (nf - 1.0) / (n_total - kf);
             t1 *= factor;

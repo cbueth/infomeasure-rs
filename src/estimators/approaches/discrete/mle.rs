@@ -38,15 +38,13 @@ impl DiscreteEntropy {
         #[cfg(feature = "gpu_support")]
         {
             if let Some(counts_per_row) =
-                crate::estimators::approaches::discrete::discrete_gpu::gpu_histogram_rows_dense(
-                    &data,
-                )
+                crate::estimators::approaches::discrete::mle_gpu::gpu_histogram_rows_dense(&data)
             {
                 // Build using precomputed counts to avoid CPU histogram work
                 let rows = rows_as_vec(data.clone());
                 return rows
                     .into_iter()
-                    .zip(counts_per_row.into_iter())
+                    .zip(counts_per_row)
                     .map(|(row, counts)| {
                         let dataset = DiscreteDataset::from_counts_and_data(row, counts);
                         Self { dataset }
@@ -98,10 +96,11 @@ impl CrossEntropy for DiscreteEntropy {
         let q_map = &other.dataset.dist;
         let mut h = 0.0_f64;
         for v in inter {
-            if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v)) {
-                if p > 0.0 && q > 0.0 {
-                    h -= p * q.ln();
-                }
+            if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v))
+                && p > 0.0
+                && q > 0.0
+            {
+                h -= p * q.ln();
             }
         }
         h

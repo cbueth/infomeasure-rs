@@ -5,7 +5,8 @@
 use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 
-use infomeasure::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
+use infomeasure::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+use infomeasure::estimators::{CrossEntropy, JointEntropy};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::*;
@@ -30,7 +31,10 @@ fn ordinal_joint_entropy_python_parity_basic(#[case] x_vec: Vec<f64>, #[case] y_
     let step = 1usize;
 
     // Rust joint entropy
-    let h_rust = OrdinalEntropy::joint_entropy(&[x.clone(), y.clone()], order, step, true);
+    let h_rust = <OrdinalEntropy as JointEntropy>::joint_entropy(
+        &[x.clone(), y.clone()],
+        (order, step, true),
+    );
 
     // Python joint entropy: reduce both to symbols then reduce_joint_space and compute discrete entropy
     let kwargs = vec![
@@ -47,10 +51,7 @@ fn ordinal_joint_entropy_python_parity_basic(#[case] x_vec: Vec<f64>, #[case] y_
     .expect("python joint ordinal failed");
 
     assert_abs_diff_eq!(h_rust, h_py, epsilon = 1e-10);
-    println!(
-        "Ordinal joint entropy (Rust vs Python): {:.10} vs {:.10}",
-        h_rust, h_py
-    );
+    println!("Ordinal joint entropy (Rust vs Python): {h_rust:.10} vs {h_py:.10}");
 }
 #[test]
 fn ordinal_cross_entropy_python_parity_overlap_and_disjoint() {
@@ -60,7 +61,9 @@ fn ordinal_cross_entropy_python_parity_overlap_and_disjoint() {
     let order = 2usize;
     let step = 1usize;
 
-    let hcx_rust = OrdinalEntropy::cross_entropy(&x, &y, order, step, true);
+    let ex = OrdinalEntropy::new_with_step_and_stable(x.clone(), order, step, true);
+    let ey = OrdinalEntropy::new_with_step_and_stable(y.clone(), order, step, true);
+    let hcx_rust = ex.cross_entropy(&ey);
     let kwargs = vec![
         ("embedding_dim".to_string(), order.to_string()),
         ("stable".to_string(), "True".to_string()),
@@ -72,20 +75,19 @@ fn ordinal_cross_entropy_python_parity_overlap_and_disjoint() {
     )
     .expect("python cross ordinal failed");
     assert_abs_diff_eq!(hcx_rust, hcx_py, epsilon = 1e-10);
-    println!(
-        "Ordinal cross entropy (Rust vs Python): {:.10} vs {:.10}",
-        hcx_rust, hcx_py
-    );
+    println!("Ordinal cross entropy (Rust vs Python): {hcx_rust:.10} vs {hcx_py:.10}");
 
     // Disjoint supports: craft sequences to create different single patterns
     // For order=3, monotonic increasing vs monotonic decreasing produce disjoint pattern sets of length 1 each.
     let a = Array1::from(vec![0.0, 1.0, 2.0, 3.0]); // strictly increasing -> only [0,1,2]
     let b = Array1::from(vec![3.0, 2.0, 1.0, 0.0]); // strictly decreasing -> only [2,1,0]
-    let hcx_rust_disjoint = OrdinalEntropy::cross_entropy(&a, &b, 3, 1, true);
+    let ea = OrdinalEntropy::new_with_step_and_stable(a.clone(), 3, 1, true);
+    let eb = OrdinalEntropy::new_with_step_and_stable(b.clone(), 3, 1, true);
+    let hcx_rust_disjoint = ea.cross_entropy(&eb);
     let hcx_py_disjoint = python::calculate_ordinal_cross_entropy_two_float(
         a.as_slice().unwrap(),
         b.as_slice().unwrap(),
-        &vec![
+        &[
             ("embedding_dim".to_string(), 3.to_string()),
             ("stable".to_string(), "True".to_string()),
         ],
@@ -93,7 +95,6 @@ fn ordinal_cross_entropy_python_parity_overlap_and_disjoint() {
     .expect("python cross ordinal failed (disjoint)");
     assert_abs_diff_eq!(hcx_rust_disjoint, hcx_py_disjoint, epsilon = 1e-12);
     println!(
-        "Ordinal cross entropy (Rust vs Python, disjoint): {:.10} vs {:.10}",
-        hcx_rust_disjoint, hcx_py_disjoint
+        "Ordinal cross entropy (Rust vs Python, disjoint): {hcx_rust_disjoint:.10} vs {hcx_py_disjoint:.10}"
     );
 }

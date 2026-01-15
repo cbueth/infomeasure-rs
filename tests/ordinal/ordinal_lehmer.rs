@@ -15,8 +15,7 @@ fn test_lehmer_code() {
         assert_eq!(
             lehmer_code(&perm),
             0,
-            "identity permutation mismatch for n={}",
-            n
+            "identity permutation mismatch for n={n}"
         );
 
         // Use integer math for the expected value to avoid f64 precision limits

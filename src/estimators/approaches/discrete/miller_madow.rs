@@ -80,10 +80,11 @@ impl CrossEntropy for MillerMadowEntropy {
         let q_map = &other.dataset.dist; // value -> q
         let mut h = 0.0_f64;
         for v in inter {
-            if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v)) {
-                if p > 0.0 && q > 0.0 {
-                    h -= p * q.ln();
-                }
+            if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v))
+                && p > 0.0
+                && q > 0.0
+            {
+                h -= p * q.ln();
             }
         }
         let n_total = (self.dataset.n + other.dataset.n) as f64;

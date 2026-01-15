@@ -85,7 +85,7 @@ use crate::estimators::traits::{
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 use kiddo::{ImmutableKdTree, SquaredEuclidean};
-use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate};
+use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
 #[cfg(feature = "simd_support")]
@@ -419,6 +419,7 @@ impl<
     /// * `_src_hist_len`, `_dest_hist_len`, `_cond_hist_len`, `_step_size`: (Unused, rely on const generics).
     /// * `kernel_type`: "box" or "gaussian".
     /// * `bandwidth`: Kernel bandwidth.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         source: &Array2<f64>,
         dest: &Array2<f64>,
@@ -999,9 +1000,8 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             } else {
                 other.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
             };
-            let norm = (n_q as f64)
-                * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0)
-                * det_scaled_cov_q.sqrt();
+            let norm =
+                n_q * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov_q.sqrt();
             let radius = if other.n_samples > 5000 {
                 36.0 * other.max_eigenvalue
             } else {
@@ -1557,7 +1557,7 @@ impl<const K: usize> KernelEntropy<K> {
                 let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
                 // Process each point in the batch
-                for i in 0..batch_size {
+                for (i, count) in neighbor_counts.iter_mut().enumerate().take(batch_size) {
                     let idx = start_idx + i;
                     let query_point = &self.points[idx];
 
@@ -1566,15 +1566,15 @@ impl<const K: usize> KernelEntropy<K> {
                         .tree
                         .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
-                    let mut count = 0usize;
+                    let mut cnt = 0usize;
                     for candidate in candidates {
                         let p = &self.points[candidate.item as usize];
                         if self.is_in_box(query_point, p, r_eps) {
-                            count += 1;
+                            cnt += 1;
                         }
                     }
 
-                    neighbor_counts[i] = count as f64;
+                    *count = cnt as f64;
                 }
 
                 // Use SIMD for the normalization and log transform

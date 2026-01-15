@@ -6,7 +6,7 @@ use approx::assert_abs_diff_eq;
 use ndarray::{Array2, array};
 
 use infomeasure::estimators::approaches::expfam::utils::{
-    calculate_common_entropy_components, knn_radii, unit_ball_volume,
+    calculate_common_entropy_components, unit_ball_volume,
 };
 use std::process::Command;
 
@@ -24,30 +24,10 @@ fn run_py(args: &[&str]) -> String {
 
 fn py_unit_ball_volume(m: usize) -> f64 {
     let code = format!(
-        "from infomeasure.estimators.utils.unit_ball_volume import unit_ball_volume as ubv\nprint(ubv({}))",
-        m
+        "from infomeasure.estimators.utils.unit_ball_volume import unit_ball_volume as ubv\nprint(ubv({m}))"
     );
     let out = run_py(&["-c", &code]);
     out.trim().parse().expect("parse py unit_ball_volume")
-}
-
-fn py_knn_radii(data: &Array2<f64>, k: usize) -> Vec<f64> {
-    let mut rows = Vec::with_capacity(data.nrows());
-    for r in 0..data.nrows() {
-        rows.push(data.row(r).to_vec());
-    }
-    let json = serde_json::to_string(&rows).unwrap();
-    let code = r#"
-import sys, json
-import numpy as np
-from infomeasure.estimators.utils.exponential_family import knn_radii as py_knn
-X = np.asarray(json.loads(sys.argv[1]), dtype=float)
-k = int(sys.argv[2])
-res = py_knn(X, k)
-print(json.dumps(list(map(float, res))))
-"#;
-    let out = run_py(&["-c", code, &json, &k.to_string()]);
-    serde_json::from_str(out.trim()).expect("parse py knn_radii")
 }
 
 fn py_common_components(data: &Array2<f64>, k: usize) -> (f64, Vec<f64>, usize, usize) {

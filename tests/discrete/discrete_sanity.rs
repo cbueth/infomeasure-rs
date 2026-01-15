@@ -28,7 +28,7 @@ fn discrete_entropy_known_example() {
     // For values with count 1 -> p=1/7 => -ln p ≈ 1.9459101491
     let ln_1_7 = -((1.0f64 / 7.0).ln());
 
-    let expected_locals = vec![ln_2_7, ln_2_7, ln_1_7, ln_2_7, ln_2_7, ln_1_7, ln_1_7];
+    let expected_locals = [ln_2_7, ln_2_7, ln_1_7, ln_2_7, ln_2_7, ln_1_7, ln_1_7];
     for (i, &val) in locals.iter().enumerate() {
         assert_abs_diff_eq!(val, expected_locals[i], epsilon = 1e-12);
     }

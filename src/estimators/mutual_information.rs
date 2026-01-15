@@ -20,7 +20,7 @@ use ndarray::{Array1, Array2, Axis};
 
 use crate::estimators::approaches::kernel::{
     KernelConditionalMutualInformation, KernelMutualInformation2, KernelMutualInformation3,
-    KernelMutualInformation4, KernelMutualInformation5, KernelMutualInformation6,
+    KernelMutualInformation4,
 };
 
 /// Macro for creating a new `KernelMutualInformation` estimator.

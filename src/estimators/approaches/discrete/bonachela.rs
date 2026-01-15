@@ -40,7 +40,7 @@ impl BonachelaEntropy {
 
 impl GlobalValue for BonachelaEntropy {
     fn global_value(&self) -> f64 {
-        let n = self.dataset.n as usize;
+        let n = self.dataset.n;
         if n == 0 {
             return 0.0;
         }
@@ -48,7 +48,7 @@ impl GlobalValue for BonachelaEntropy {
         // For each count n_i, compute (n_i + 1) * sum_{j=n_i+2}^{N+2} 1/j
         for &cnt in self.dataset.counts.values() {
             let ni_plus1 = (cnt + 1) as f64;
-            let start_j = (cnt + 2) as usize;
+            let start_j = cnt + 2;
             let end_j = n + 2;
             if start_j <= end_j {
                 let mut inner = 0.0_f64;

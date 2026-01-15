@@ -17,8 +17,8 @@ use crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonen
 use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
 use crate::estimators::approaches::kernel;
-use crate::estimators::approaches::ordinal::ordinal::OrdinalEntropy;
-pub use crate::estimators::traits::{GlobalValue, LocalValues};
+use crate::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+pub use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 use ndarray::{Array1, Array2};
 
 /// Entropy estimation methods for various data types
@@ -109,8 +109,15 @@ impl Entropy {
 
     /// Create an ANSB (asymptotic NSB) discrete entropy estimator.
     ///
-    /// Requires optional K override and undersampled threshold parameter; global-only.
-    pub fn new_ansb(
+    /// Requires optional K override; uses default undersampled threshold of 0.1; global-only.
+    pub fn new_ansb(data: Array1<i32>, k_override: Option<usize>) -> AnsbEntropy {
+        AnsbEntropy::new(data, k_override, 0.1)
+    }
+
+    /// Create an ANSB (asymptotic NSB) discrete entropy estimator.
+    ///
+    /// Requires optional K override and custom undersampled threshold parameter; global-only.
+    pub fn new_ansb_with_threshold(
         data: Array1<i32>,
         k_override: Option<usize>,
         undersampled_threshold: f64,
@@ -170,7 +177,16 @@ impl Entropy {
     }
 
     /// Create a vector of ANSB estimators (global-only), one per row.
-    pub fn new_ansb_rows(
+    ///
+    /// Uses default undersampled threshold of 0.1.
+    pub fn new_ansb_rows(data: Array2<i32>, k_override: Option<usize>) -> Vec<AnsbEntropy> {
+        AnsbEntropy::from_rows(data, k_override, 0.1)
+    }
+
+    /// Create a vector of ANSB estimators (global-only), one per row.
+    ///
+    /// Requires custom undersampled threshold parameter.
+    pub fn new_ansb_rows_with_threshold(
         data: Array2<i32>,
         k_override: Option<usize>,
         undersampled_threshold: f64,
@@ -336,7 +352,7 @@ impl Entropy {
         order: usize,
         step_size: usize,
     ) -> f64 {
-        OrdinalEntropy::joint_entropy(series_list, order, step_size, true)
+        <OrdinalEntropy as JointEntropy>::joint_entropy(series_list, (order, step_size, true))
     }
 
     /// Compute joint ordinal entropy with configurable stability.
@@ -346,7 +362,7 @@ impl Entropy {
         step_size: usize,
         stable: bool,
     ) -> f64 {
-        OrdinalEntropy::joint_entropy(series_list, order, step_size, stable)
+        <OrdinalEntropy as JointEntropy>::joint_entropy(series_list, (order, step_size, stable))
     }
 
     /// Compute ordinal cross-entropy H(p||q) between two series' ordinal pattern distributions.
@@ -356,7 +372,9 @@ impl Entropy {
         order: usize,
         step_size: usize,
     ) -> f64 {
-        OrdinalEntropy::cross_entropy(x, y, order, step_size, true)
+        let ex = OrdinalEntropy::new_with_step_and_stable(x.clone(), order, step_size, true);
+        let ey = OrdinalEntropy::new_with_step_and_stable(y.clone(), order, step_size, true);
+        ex.cross_entropy(&ey)
     }
 
     /// Compute ordinal cross-entropy with configurable stability.
@@ -367,7 +385,9 @@ impl Entropy {
         step_size: usize,
         stable: bool,
     ) -> f64 {
-        OrdinalEntropy::cross_entropy(x, y, order, step_size, stable)
+        let ex = OrdinalEntropy::new_with_step_and_stable(x.clone(), order, step_size, stable);
+        let ey = OrdinalEntropy::new_with_step_and_stable(y.clone(), order, step_size, stable);
+        ex.cross_entropy(&ey)
     }
 
     /// Create a Rényi entropy estimator (1D convenience constructor)

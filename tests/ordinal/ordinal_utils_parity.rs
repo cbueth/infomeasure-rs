@@ -83,16 +83,10 @@ fn parity_symbolize_series_grid_stable_true() {
                 assert_eq!(
                     rust_codes.len(),
                     py_codes.len(),
-                    "length mismatch for m={}, tau={}",
-                    m,
-                    tau
+                    "length mismatch for m={m}, tau={tau}"
                 );
                 for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
-                    assert_eq!(
-                        *r, *p,
-                        "code mismatch at idx {} for m={}, tau={}",
-                        i, m, tau
-                    );
+                    assert_eq!(*r, *p, "code mismatch at idx {i} for m={m}, tau={tau}");
                 }
             }
         }
@@ -119,16 +113,10 @@ fn parity_symbolize_series_stable_false_no_ties() {
             assert_eq!(
                 rust_codes.len(),
                 py_codes.len(),
-                "length mismatch for m={}, tau={}",
-                m,
-                tau
+                "length mismatch for m={m}, tau={tau}"
             );
             for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
-                assert_eq!(
-                    *r, *p,
-                    "code mismatch at idx {} for m={}, tau={}",
-                    i, m, tau
-                );
+                assert_eq!(*r, *p, "code mismatch at idx {i} for m={m}, tau={tau}");
             }
         }
     }
@@ -169,8 +157,7 @@ fn test_remap_u64_to_i32_parametrized() {
         assert_eq!(
             remap_u64_to_i32(input),
             *expected,
-            "test case {:?} failed",
-            name
+            "test case {name:?} failed"
         );
     }
 }

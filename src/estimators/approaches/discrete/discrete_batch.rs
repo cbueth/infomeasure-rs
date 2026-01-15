@@ -23,7 +23,6 @@ impl DiscreteEntropyBatchRows {
     pub fn global_values(&self) -> Array1<f64> {
         let nrows = self.data.nrows();
         let results: Vec<f64> = (0..nrows)
-            .into_iter()
             .map(|i| {
                 let row = self.data.row(i);
                 let slice = row.as_slice().expect("Row should be contiguous in memory");

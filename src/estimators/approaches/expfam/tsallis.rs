@@ -111,10 +111,7 @@ impl<const K: usize> TsallisEntropy<K> {
         assert!(data.ncols() == K, "data.ncols() must equal K");
         let data = super::utils::add_noise(data, noise_level);
         let nd = NdDataset::<K>::from_array2(data);
-        assert!(
-            nd.n == 0 || k <= nd.n - 1,
-            "k must be <= N-1 for self-queries"
-        );
+        assert!(nd.n == 0 || k < nd.n, "k must be <= N-1 for self-queries");
         Self {
             nd,
             k,

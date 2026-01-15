@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-mod kernel; // core kernel entropy implementation
-pub use kernel::*; // re-export KernelEntropy, KernelData, etc.
+mod kernel_estimator; // core kernel entropy implementation
+pub use kernel_estimator::*; // re-export KernelEntropy, KernelData, etc.
 
 // Include the GPU implementations when the gpu_support feature flag is enabled
 #[cfg(feature = "gpu_support")]

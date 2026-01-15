@@ -28,9 +28,7 @@ fn chao_shen_entropy_basic() {
         }
     }
     if (f1 as f64) == n {
-        if f1 > 0 {
-            f1 -= 1;
-        }
+        f1 = f1.saturating_sub(1);
     }
     let c_cov = 1.0 - (f1 as f64) / n;
 

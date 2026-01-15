@@ -29,7 +29,7 @@ fn test_discrete_mi_mle_parity(#[case] x_vec: Vec<i32>, #[case] y_vec: Vec<i32>)
 
     let mi_py = python::calculate_mi(&[x_vec.clone(), y_vec.clone()], "discrete", &[]).unwrap();
 
-    println!("MI Rust: {}, MI Python: {}", mi_rust, mi_py);
+    println!("MI Rust: {mi_rust}, MI Python: {mi_py}");
     assert!((mi_rust - mi_py).abs() < 1e-10);
 
     let locals_rust = mi_est.local_values();
@@ -51,7 +51,7 @@ fn test_discrete_mi_chao_shen_parity(#[case] x_vec: Vec<i32>, #[case] y_vec: Vec
 
     let mi_py = python::calculate_mi(&[x_vec.clone(), y_vec.clone()], "chao_shen", &[]).unwrap();
 
-    println!("MI Chao-Shen Rust: {}, MI Python: {}", mi_rust, mi_py);
+    println!("MI Chao-Shen Rust: {mi_rust}, MI Python: {mi_py}");
     assert!((mi_rust - mi_py).abs() < 1e-10);
 }
 
@@ -66,7 +66,7 @@ fn test_discrete_mi_nsb_parity(#[case] x_vec: Vec<i32>, #[case] y_vec: Vec<i32>)
 
     let mi_py = python::calculate_mi(&[x_vec.clone(), y_vec.clone()], "nsb", &[]).unwrap();
 
-    println!("MI NSB Rust: {}, MI Python: {}", mi_rust, mi_py);
+    println!("MI NSB Rust: {mi_rust}, MI Python: {mi_py}");
     assert!((mi_rust - mi_py).abs() < 1e-7); // NSB might have slightly more numerical diff
 }
 
@@ -92,7 +92,7 @@ fn test_discrete_cmi_mle_parity(
     let cmi_py =
         python::calculate_cmi(&[x_vec.clone(), y_vec.clone()], &z_vec, "discrete", &[]).unwrap();
 
-    println!("CMI Rust: {}, CMI Python: {}", cmi_rust, cmi_py);
+    println!("CMI Rust: {cmi_rust}, CMI Python: {cmi_py}");
     assert!((cmi_rust - cmi_py).abs() < 1e-10);
 
     let locals_rust = cmi_est.local_values();
@@ -134,7 +134,7 @@ fn test_discrete_te_mle_parity(
     ];
     let te_py = python::calculate_te(&x_vec, &y_vec, "discrete", &kwargs).unwrap();
 
-    println!("TE Rust: {}, TE Python: {}", te_rust, te_py);
+    println!("TE Rust: {te_rust}, TE Python: {te_py}");
     assert!((te_rust - te_py).abs() < 1e-10);
 }
 
@@ -170,7 +170,7 @@ fn test_discrete_cte_mle_parity(
     ];
     let cte_py = python::calculate_cte(&x_vec, &y_vec, &z_vec, "discrete", &kwargs).unwrap();
 
-    println!("CTE Rust: {}, CTE Python: {}", cte_rust, cte_py);
+    println!("CTE Rust: {cte_rust}, CTE Python: {cte_py}");
     assert!((cte_rust - cte_py).abs() < 1e-10);
 }
 
@@ -185,7 +185,7 @@ fn test_discrete_mi_miller_madow_parity(#[case] x_vec: Vec<i32>, #[case] y_vec: 
 
     let mi_py = python::calculate_mi(&[x_vec.clone(), y_vec.clone()], "miller_madow", &[]).unwrap();
 
-    println!("MI Miller-Madow Rust: {}, MI Python: {}", mi_rust, mi_py);
+    println!("MI Miller-Madow Rust: {mi_rust}, MI Python: {mi_py}");
     assert!((mi_rust - mi_py).abs() < 1e-10);
 }
 
@@ -200,7 +200,7 @@ fn test_discrete_mi_shrink_parity(#[case] x_vec: Vec<i32>, #[case] y_vec: Vec<i3
 
     let mi_py = python::calculate_mi(&[x_vec.clone(), y_vec.clone()], "shrink", &[]).unwrap();
 
-    println!("MI Rust: {}, MI Python: {}", mi_rust, mi_py);
+    println!("MI Rust: {mi_rust}, MI Python: {mi_py}");
     assert!((mi_rust - mi_py).abs() < 1e-10);
 }
 
@@ -221,6 +221,6 @@ fn test_discrete_cmi_shrink_parity(
     let cmi_py =
         python::calculate_cmi(&[x_vec.clone(), y_vec.clone()], &z_vec, "shrink", &[]).unwrap();
 
-    println!("CMI Rust: {}, CMI Python: {}", cmi_rust, cmi_py);
+    println!("CMI Rust: {cmi_rust}, CMI Python: {cmi_py}");
     assert!((cmi_rust - cmi_py).abs() < 1e-10);
 }

@@ -58,19 +58,11 @@ impl ShrinkEntropy {
         }
 
         // lambda in [0,1]
-        let lambda = if self.dataset.n <= 1 {
-            1.0
-        } else if msp == 0.0 {
+        let lambda = if self.dataset.n <= 1 || msp == 0.0 {
             1.0
         } else {
-            let mut l = var_sum / msp;
-            if l < 0.0 {
-                l = 0.0;
-            }
-            if l > 1.0 {
-                l = 1.0;
-            }
-            l
+            let l = var_sum / msp;
+            l.clamp(0.0, 1.0)
         };
 
         let mut dist_shrink = HashMap::with_capacity(self.dataset.k);

@@ -4,7 +4,6 @@
 
 use approx::assert_abs_diff_eq;
 use ndarray::{Array1, Array2};
-use std::process::{Command, Stdio};
 
 use infomeasure::estimators::approaches::expfam::tsallis::TsallisEntropy;
 use infomeasure::estimators::entropy::Entropy;
@@ -117,8 +116,8 @@ fn tsallis_joint_python_parity_2d(#[case] k: usize, #[case] q: f64) {
     }
     let flat = flat_from_array2(&joined);
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("q".to_string(), format!("{}", q)),
+        ("k".to_string(), format!("{k}")),
+        ("q".to_string(), format!("{q}")),
     ];
     let h_py = python::calculate_entropy_float_nd(&flat, 2, "tsallis", &kwargs)
         .expect("python tsallis failed");
@@ -139,8 +138,8 @@ fn tsallis_cross_python_parity_1d(#[case] k: usize, #[case] q: f64) {
     let h_rust = est_p.cross_entropy(&est_q);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("q".to_string(), format!("{}", q)),
+        ("k".to_string(), format!("{k}")),
+        ("q".to_string(), format!("{q}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(
         p_data.as_slice().unwrap(),
@@ -188,8 +187,8 @@ fn tsallis_cross_python_parity_2d(#[case] k: usize, #[case] q: f64) {
     let flat_q = flat_from_array2(&q_data);
 
     let kwargs = vec![
-        ("k".to_string(), format!("{}", k)),
-        ("q".to_string(), format!("{}", q)),
+        ("k".to_string(), format!("{k}")),
+        ("q".to_string(), format!("{q}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(&flat_p, &flat_q, 2, "tsallis", &kwargs)
         .expect("python cross tsallis failed");

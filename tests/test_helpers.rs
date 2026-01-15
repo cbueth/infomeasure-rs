@@ -12,6 +12,7 @@ pub use rand::{Rng, SeedableRng};
 pub use rand_distr::{Distribution, Normal};
 
 /// Generate random n-dimensional data (used in multiple files)
+#[allow(dead_code)]
 pub fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f64> {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut data = Array2::zeros((size, dims));
@@ -24,6 +25,7 @@ pub fn generate_random_nd_data(size: usize, dims: usize, seed: u64) -> Array2<f6
 }
 
 /// Generate Gaussian distributed data (duplicated in 4+ files)
+#[allow(dead_code)]
 pub fn generate_gaussian_data(
     size: usize,
     dims: usize,
@@ -38,6 +40,7 @@ pub fn generate_gaussian_data(
 }
 
 /// Common tolerance values for different kernel types
+#[allow(dead_code)]
 pub fn get_tolerance_for_kernel(kernel_type: &str) -> (f64, f64) {
     match kernel_type {
         "box" => (1e-6, 1e-3),
@@ -55,10 +58,7 @@ pub fn assert_entropy_values_close(
     test_name: &str,
 ) {
     // Print comparison info before assertion
-    println!(
-        "Comparing in {}: Rust={}, Python={}",
-        test_name, rust_val, python_val
-    );
+    println!("Comparing in {test_name}: Rust={rust_val}, Python={python_val}");
 
     assert_relative_eq!(
         rust_val,
@@ -69,6 +69,7 @@ pub fn assert_entropy_values_close(
 }
 
 /// Common performance measurement utility
+#[allow(dead_code)]
 pub fn measure_execution_time<F>(f: F) -> Duration
 where
     F: FnOnce(),
@@ -79,6 +80,7 @@ where
 }
 
 /// Standard test parameters used across multiple test files
+#[allow(dead_code)]
 pub struct TestConfig {
     pub sizes: &'static [usize],
     pub dimensions: &'static [usize],

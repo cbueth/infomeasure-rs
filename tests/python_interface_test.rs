@@ -19,7 +19,7 @@ fn test_python_interface_works() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10)).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -32,8 +32,8 @@ fn test_python_interface_works() {
     let python_entropy = python::calculate_entropy(&data, "discrete", &[]).unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust entropy: {}", rust_entropy);
-    println!("Python entropy: {}", python_entropy);
+    println!("Rust entropy: {rust_entropy}");
+    println!("Python entropy: {python_entropy}");
 
     // Assert that the entropy values from both implementations are approximately equal
     assert_relative_eq!(
@@ -71,8 +71,8 @@ fn test_calculate_entropy_float() {
     let python_entropy = python::calculate_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust kernel entropy: {}", rust_entropy);
-    println!("Python kernel entropy: {}", python_entropy);
+    println!("Rust kernel entropy: {rust_entropy}");
+    println!("Python kernel entropy: {python_entropy}");
 
     // Assert that the entropy values from both implementations are approximately equal
     assert_relative_eq!(
@@ -92,7 +92,7 @@ fn test_calculate_local_entropy() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10)).collect();
 
     // Convert data to Array1 for Rust implementation
     let data_array = Array1::from(data.clone());
@@ -105,8 +105,8 @@ fn test_calculate_local_entropy() {
     let python_local_entropy = python::calculate_local_entropy(&data, "discrete", &[]).unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust local entropy: {:?}", rust_local_entropy);
-    println!("Python local entropy: {:?}", python_local_entropy);
+    println!("Rust local entropy: {rust_local_entropy:?}");
+    println!("Python local entropy: {python_local_entropy:?}");
 
     // Assert that the local entropy values from both implementations are approximately equal
     for (rust_val, python_val) in rust_local_entropy.iter().zip(python_local_entropy.iter()) {
@@ -142,8 +142,8 @@ fn test_calculate_local_entropy_float() {
         python::calculate_local_entropy_float(&data, "kernel", &kernel_kwargs).unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust local kernel entropy: {:?}", rust_local_entropy);
-    println!("Python local kernel entropy: {:?}", python_local_entropy);
+    println!("Rust local kernel entropy: {rust_local_entropy:?}");
+    println!("Python local kernel entropy: {python_local_entropy:?}");
 
     // Assert that the local entropy values from both implementations are approximately equal
     for (rust_val, python_val) in rust_local_entropy.iter().zip(python_local_entropy.iter()) {
@@ -185,8 +185,8 @@ fn test_calculate_entropy_float_nd() {
         python::calculate_entropy_float_nd(&flat_data, dims, "kernel", &kernel_kwargs).unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust 2D kernel entropy: {}", rust_entropy);
-    println!("Python 2D kernel entropy: {}", python_entropy);
+    println!("Rust 2D kernel entropy: {rust_entropy}");
+    println!("Python 2D kernel entropy: {python_entropy}");
 
     // Assert that the entropy values from both implementations are approximately equal
     assert_relative_eq!(
@@ -232,8 +232,8 @@ fn test_calculate_local_entropy_float_nd() {
             .unwrap();
 
     // Print the results to verify both implementations
-    println!("Rust 2D local kernel entropy: {:?}", rust_local_entropy);
-    println!("Python 2D local kernel entropy: {:?}", python_local_entropy);
+    println!("Rust 2D local kernel entropy: {rust_local_entropy:?}");
+    println!("Python 2D local kernel entropy: {python_local_entropy:?}");
 
     // Assert that the local entropy values from both implementations are approximately equal
     let sample_size = rust_local_entropy.len().min(10);
@@ -260,14 +260,14 @@ fn test_benchmark_entropy() {
     let size = 10;
 
     // Generate random integers between 0 and 10
-    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10) as i32).collect();
+    let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10)).collect();
 
     // Benchmark the Python implementation
     let num_runs = 5;
     let python_time = python::benchmark_entropy(&data, num_runs).unwrap();
 
     // Verify that the benchmark returns a positive time value
-    println!("Python benchmark time: {} seconds", python_time);
+    println!("Python benchmark time: {python_time} seconds");
     assert!(python_time > 0.0, "Benchmark time should be positive");
 }
 
@@ -294,10 +294,7 @@ fn test_benchmark_entropy_float_nd() {
             .unwrap();
 
     // Verify that the benchmark returns a positive time value
-    println!(
-        "Python benchmark time for float_nd: {} seconds",
-        python_time
-    );
+    println!("Python benchmark time for float_nd: {python_time} seconds");
     assert!(python_time > 0.0, "Benchmark time should be positive");
 }
 
@@ -322,6 +319,6 @@ fn test_benchmark_entropy_generic() {
         python::benchmark_entropy_generic(&data, "kernel", &kernel_kwargs, num_runs).unwrap();
 
     // Verify that the benchmark returns a positive time value
-    println!("Python benchmark time for generic: {} seconds", python_time);
+    println!("Python benchmark time for generic: {python_time} seconds");
     assert!(python_time > 0.0, "Benchmark time should be positive");
 }

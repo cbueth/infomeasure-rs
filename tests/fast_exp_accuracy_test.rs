@@ -80,19 +80,15 @@ fn test_fast_exp_accuracy() {
         // Write to file
         writeln!(
             file,
-            "{},{},{},{},{}",
-            x, std_exp, fast_exp, relative_error, absolute_error
+            "{x},{std_exp},{fast_exp},{relative_error},{absolute_error}"
         )
         .unwrap();
     }
 
     // Print summary
     println!("Fast exp accuracy test completed. Check fast_exp_accuracy.txt");
-    println!(
-        "Maximum relative error: {:.6} at x = {}",
-        max_relative_error, max_error_input
-    );
-    println!("Maximum absolute error: {:.6}", max_absolute_error);
+    println!("Maximum relative error: {max_relative_error:.6} at x = {max_error_input}");
+    println!("Maximum absolute error: {max_absolute_error:.6}");
 
     // Verify that the maximum relative error is within acceptable bounds
     // For the Gaussian kernel calculation, we can tolerate errors up to 35%

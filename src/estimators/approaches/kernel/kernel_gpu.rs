@@ -139,10 +139,7 @@ impl<const K: usize> KernelEntropy<K> {
         match self.run_gaussian_gpu_calculation() {
             Ok(result) => result,
             Err(e) => {
-                println!(
-                    "GPU calculation failed: {}, falling back to CPU implementation",
-                    e
-                );
+                println!("GPU calculation failed: {e}, falling back to CPU implementation",);
                 self.gaussian_kernel_local_values()
             }
         }
@@ -195,10 +192,7 @@ impl<const K: usize> KernelEntropy<K> {
         match self.run_box_gpu_calculation() {
             Ok(result) => result,
             Err(e) => {
-                println!(
-                    "GPU calculation failed: {}, falling back to CPU implementation",
-                    e
-                );
+                println!("GPU calculation failed: {e}, falling back to CPU implementation");
                 self.box_kernel_local_values()
             }
         }
@@ -464,7 +458,7 @@ impl<const K: usize> KernelEntropy<K> {
             // Dispatch workgroups
             // Use 256 threads per workgroup
             let workgroup_size = 256;
-            let workgroup_count = (self.points.len() as u32 + workgroup_size - 1) / workgroup_size;
+            let workgroup_count = (self.points.len() as u32).div_ceil(workgroup_size);
             compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
         }
 
@@ -733,7 +727,7 @@ impl<const K: usize> KernelEntropy<K> {
             // Dispatch workgroups
             // Use 256 threads per workgroup
             let workgroup_size = 256;
-            let workgroup_count = (self.points.len() as u32 + workgroup_size - 1) / workgroup_size;
+            let workgroup_count = (self.points.len() as u32).div_ceil(workgroup_size);
             compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
         }
 

@@ -30,11 +30,8 @@ fn test_box_kernel_cpu_vs_gpu() {
             let data = generate_random_nd_data(size, dim, seed);
 
             // Create test name
-            let test_name = format!(
-                "Box Kernel (dim={}, bandwidth={}, size={})",
-                dim, bandwidth, size
-            );
-            println!("Testing {}", test_name);
+            let test_name = format!("Box Kernel (dim={dim}, bandwidth={bandwidth}, size={size})");
+            println!("Testing {test_name}");
 
             // Compare CPU and GPU implementations based on dimension
             match dim {
@@ -43,7 +40,7 @@ fn test_box_kernel_cpu_vs_gpu() {
                 3 => compare_box_kernel_cpu_vs_gpu::<3>(data, bandwidth, &test_name),
                 4 => compare_box_kernel_cpu_vs_gpu::<4>(data, bandwidth, &test_name),
                 8 => compare_box_kernel_cpu_vs_gpu::<8>(data, bandwidth, &test_name),
-                _ => panic!("Unsupported dimension: {}", dim),
+                _ => panic!("Unsupported dimension: {dim}"),
             };
         }
     }
@@ -68,8 +65,8 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
     let gpu_global_entropy = gpu_local_entropy.mean().unwrap();
 
     // Print results
-    println!("{} - CPU global entropy: {}", test_name, cpu_global_entropy);
-    println!("{} - GPU global entropy: {}", test_name, gpu_global_entropy);
+    println!("{test_name} - CPU global entropy: {cpu_global_entropy}");
+    println!("{test_name} - GPU global entropy: {gpu_global_entropy}");
 
     // Assert that the global entropy values are approximately equal
     let epsilon = 1e-6;
@@ -104,7 +101,7 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
         }
     }
 
-    println!("{} - CPU and GPU implementations match", test_name);
+    println!("{test_name} - CPU and GPU implementations match");
 }
 
 /// Test that verifies the GPU fallback mechanism works correctly
@@ -130,11 +127,9 @@ fn test_box_kernel_gpu_fallback() {
         let small_data = generate_random_nd_data(small_size, dim, seed);
 
         // Create test name
-        let test_name = format!(
-            "Box Kernel Fallback (small dataset, dim={}, size={})",
-            dim, small_size
-        );
-        println!("Testing {}", test_name);
+        let test_name =
+            format!("Box Kernel Fallback (small dataset, dim={dim}, size={small_size})");
+        println!("Testing {test_name}");
 
         // Test fallback based on dimension
         match dim {
@@ -143,7 +138,7 @@ fn test_box_kernel_gpu_fallback() {
             3 => test_box_kernel_fallback::<3>(small_data, bandwidth, &test_name, "small_dataset"),
             4 => test_box_kernel_fallback::<4>(small_data, bandwidth, &test_name, "small_dataset"),
             8 => test_box_kernel_fallback::<8>(small_data, bandwidth, &test_name, "small_dataset"),
-            _ => panic!("Unsupported dimension: {}", dim),
+            _ => panic!("Unsupported dimension: {dim}"),
         };
     }
 
@@ -156,11 +151,9 @@ fn test_box_kernel_gpu_fallback() {
     let large_dim = 8; // Use the largest dimension we can test
     let large_data = generate_random_nd_data(large_size, large_dim, seed);
 
-    let test_name = format!(
-        "Box Kernel Fallback (large dimension, dim={}, size={})",
-        large_dim, large_size
-    );
-    println!("Testing {}", test_name);
+    let test_name =
+        format!("Box Kernel Fallback (large dimension, dim={large_dim}, size={large_size})");
+    println!("Testing {test_name}");
 
     test_box_kernel_fallback::<8>(large_data, bandwidth, &test_name, "large_dimension");
 }
@@ -186,11 +179,8 @@ fn test_box_kernel_fallback<const K: usize>(
     let gpu_global_entropy = gpu_local_entropy.mean().unwrap();
 
     // Print results
-    println!("{} - CPU global entropy: {}", test_name, cpu_global_entropy);
-    println!(
-        "{} - GPU with fallback global entropy: {}",
-        test_name, gpu_global_entropy
-    );
+    println!("{test_name} - CPU global entropy: {cpu_global_entropy}");
+    println!("{test_name} - GPU with fallback global entropy: {gpu_global_entropy}");
 
     // For small datasets, the GPU implementation should fall back to CPU and produce exactly the same results
     if fallback_type == "small_dataset" {
@@ -203,10 +193,7 @@ fn test_box_kernel_fallback<const K: usize>(
             assert_eq!(cpu_local_entropy[i], gpu_local_entropy[i]);
         }
 
-        println!(
-            "{} - CPU and GPU with fallback implementations match exactly",
-            test_name
-        );
+        println!("{test_name} - CPU and GPU with fallback implementations match exactly");
     } else {
         // For large dimensions, the GPU implementation might not fall back to CPU
         // but should still produce very similar results
@@ -233,10 +220,7 @@ fn test_box_kernel_fallback<const K: usize>(
             }
         }
 
-        println!(
-            "{} - CPU and GPU implementations match approximately",
-            test_name
-        );
+        println!("{test_name} - CPU and GPU implementations match approximately");
     }
 }
 
@@ -276,7 +260,7 @@ fn test_box_kernel_performance() {
                 3 => measure_box_kernel_performance::<3>(data, bandwidth, num_runs),
                 4 => measure_box_kernel_performance::<4>(data, bandwidth, num_runs),
                 8 => measure_box_kernel_performance::<8>(data, bandwidth, num_runs),
-                _ => panic!("Unsupported dimension: {}", dim),
+                _ => panic!("Unsupported dimension: {dim}"),
             };
         }
     }
@@ -320,11 +304,7 @@ fn measure_box_kernel_performance<const K: usize>(
 
     // Print results in table format
     println!(
-        "| {} | {} | {:.2} | {:.2} | {:.2}x |",
-        K,
-        data.nrows(),
-        cpu_avg_time,
-        gpu_avg_time,
-        speedup
+        "| {K} | {} | {cpu_avg_time:.2} | {gpu_avg_time:.2} | {speedup:.2}x |",
+        data.nrows()
     );
 }

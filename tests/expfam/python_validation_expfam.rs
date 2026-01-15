@@ -63,8 +63,8 @@ fn renyi_python_validation_param_grid_nd() {
             // call Python via validation crate
             let flat = flat_from_array2(&data_1d_2d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("alpha".to_string(), format!("{}", alpha)),
+                ("k".to_string(), format!("{k}")),
+                ("alpha".to_string(), format!("{alpha}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 1, "renyi", &kwargs)
                 .expect("python renyi failed");
@@ -76,8 +76,8 @@ fn renyi_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("alpha".to_string(), format!("{}", alpha1)),
+            ("k".to_string(), format!("{k}")),
+            ("alpha".to_string(), format!("{alpha1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 1, "renyi", &kwargs)
             .expect("python renyi failed");
@@ -94,8 +94,8 @@ fn renyi_python_validation_param_grid_nd() {
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_2d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("alpha".to_string(), format!("{}", alpha)),
+                ("k".to_string(), format!("{k}")),
+                ("alpha".to_string(), format!("{alpha}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 2, "renyi", &kwargs)
                 .expect("python renyi failed");
@@ -106,8 +106,8 @@ fn renyi_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("alpha".to_string(), format!("{}", alpha1)),
+            ("k".to_string(), format!("{k}")),
+            ("alpha".to_string(), format!("{alpha1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 2, "renyi", &kwargs)
             .expect("python renyi failed");
@@ -124,8 +124,8 @@ fn renyi_python_validation_param_grid_nd() {
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_3d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("alpha".to_string(), format!("{}", alpha)),
+                ("k".to_string(), format!("{k}")),
+                ("alpha".to_string(), format!("{alpha}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 3, "renyi", &kwargs)
                 .expect("python renyi failed");
@@ -136,8 +136,8 @@ fn renyi_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("alpha".to_string(), format!("{}", alpha1)),
+            ("k".to_string(), format!("{k}")),
+            ("alpha".to_string(), format!("{alpha1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 3, "renyi", &kwargs)
             .expect("python renyi failed");
@@ -185,8 +185,8 @@ fn tsallis_python_validation_param_grid_nd() {
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_1d_2d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("q".to_string(), format!("{}", q)),
+                ("k".to_string(), format!("{k}")),
+                ("q".to_string(), format!("{q}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 1, "tsallis", &kwargs)
                 .expect("python tsallis failed");
@@ -198,8 +198,8 @@ fn tsallis_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_1d_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("q".to_string(), format!("{}", q1)),
+            ("k".to_string(), format!("{k}")),
+            ("q".to_string(), format!("{q1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 1, "tsallis", &kwargs)
             .expect("python tsallis failed");
@@ -216,8 +216,8 @@ fn tsallis_python_validation_param_grid_nd() {
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_2d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("q".to_string(), format!("{}", q)),
+                ("k".to_string(), format!("{k}")),
+                ("q".to_string(), format!("{q}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 2, "tsallis", &kwargs)
                 .expect("python tsallis failed");
@@ -228,8 +228,8 @@ fn tsallis_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_2d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("q".to_string(), format!("{}", q1)),
+            ("k".to_string(), format!("{k}")),
+            ("q".to_string(), format!("{q1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 2, "tsallis", &kwargs)
             .expect("python tsallis failed");
@@ -246,8 +246,8 @@ fn tsallis_python_validation_param_grid_nd() {
             let h_rust = est.global_value();
             let flat = flat_from_array2(&data_3d);
             let kwargs = vec![
-                ("k".to_string(), format!("{}", k)),
-                ("q".to_string(), format!("{}", q)),
+                ("k".to_string(), format!("{k}")),
+                ("q".to_string(), format!("{q}")),
             ];
             let h_py = python::calculate_entropy_float_nd(&flat, 3, "tsallis", &kwargs)
                 .expect("python tsallis failed");
@@ -258,8 +258,8 @@ fn tsallis_python_validation_param_grid_nd() {
         let h_rust = est.global_value();
         let flat = flat_from_array2(&data_3d);
         let kwargs = vec![
-            ("k".to_string(), format!("{}", k)),
-            ("q".to_string(), format!("{}", q1)),
+            ("k".to_string(), format!("{k}")),
+            ("q".to_string(), format!("{q1}")),
         ];
         let h_py = python::calculate_entropy_float_nd(&flat, 3, "tsallis", &kwargs)
             .expect("python tsallis failed");

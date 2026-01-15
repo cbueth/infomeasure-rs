@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use approx::assert_relative_eq;
+use infomeasure::estimators::GlobalValue;
+use infomeasure::estimators::LocalValues;
 use infomeasure::estimators::mutual_information::MutualInformation;
-use infomeasure::estimators::transfer_entropy::TransferEntropy;
-use infomeasure::estimators::{GlobalValue, LocalValues};
+
 use infomeasure::{new_kernel_cmi, new_kernel_cte, new_kernel_mi, new_kernel_te};
 use ndarray::{Array1, Array2, Axis};
 use rand::rngs::StdRng;
@@ -168,7 +169,7 @@ fn test_kernel_mi_parity(
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let mut x_py = Vec::new();
@@ -180,9 +181,7 @@ fn test_kernel_mi_parity(
         y_py.push(y_arr.column(i).to_vec());
     }
 
-    let mut py_data = Vec::new();
-    py_data.push(x_py);
-    py_data.push(y_py);
+    let py_data = vec![x_py, y_py];
 
     let py_val = python::calculate_mi_float(&py_data, "kernel", &kwargs).unwrap();
 
@@ -214,7 +213,7 @@ fn test_kernel_mi_nd_parity(#[values("box", "gaussian")] kernel_type: &str) {
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let x_col0 = x_arr.column(0).to_vec();
@@ -225,7 +224,6 @@ fn test_kernel_mi_nd_parity(#[values("box", "gaussian")] kernel_type: &str) {
         python::calculate_mi_float(&[vec![x_col0, x_col1], vec![y_col0]], "kernel", &kwargs)
             .unwrap();
 
-    let tol = 1e-10;
     // We use a larger tolerance for multi-D kernel MI because of different normalization handling in Scipy gaussian_kde
     // and how it interacts with multi-variable I(X;Y;Z).
     let tol_nd = if kernel_type == "gaussian" {
@@ -262,7 +260,7 @@ fn test_kernel_mi_4rv_parity(#[values("box", "gaussian")] kernel_type: &str) {
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let py_val =
@@ -307,7 +305,7 @@ fn test_kernel_cmi_parity(#[values("box", "gaussian")] kernel_type: &str) {
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
     ];
     let py_val =
@@ -671,7 +669,7 @@ fn test_kernel_te_parity(
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
         ("src_hist_len".to_string(), src_hist.to_string()),
         ("dest_hist_len".to_string(), dest_hist.to_string()),
@@ -941,7 +939,7 @@ fn test_kernel_cte_parity(
 
     // Python
     let kwargs = [
-        ("kernel".to_string(), format!("\"{}\"", kernel_type)),
+        ("kernel".to_string(), format!("\"{kernel_type}\"")),
         ("bandwidth".to_string(), bandwidth.to_string()),
         ("src_hist_len".to_string(), src_hist.to_string()),
         ("dest_hist_len".to_string(), dest_hist.to_string()),

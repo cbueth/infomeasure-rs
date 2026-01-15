@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use approx::assert_relative_eq;
 use infomeasure::estimators::LocalValues;
 use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;

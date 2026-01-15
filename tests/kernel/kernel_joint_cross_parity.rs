@@ -56,8 +56,8 @@ fn kernel_joint_python_parity_2d(
     }
     let flat = flat_from_array2(&joined);
     let kwargs = vec![
-        ("kernel".to_string(), format!("\"{}\"", kernel_s)),
-        ("bandwidth".to_string(), format!("{}", bw)),
+        ("kernel".to_string(), format!("\"{kernel_s}\"")),
+        ("bandwidth".to_string(), format!("{bw}")),
     ];
     let h_py = python::calculate_entropy_float_nd(&flat, 2, "kernel", &kwargs)
         .expect("python kernel failed");
@@ -94,8 +94,8 @@ fn kernel_cross_python_parity_1d(
     let h_rust = est_p.cross_entropy(&est_q);
 
     let kwargs = vec![
-        ("kernel".to_string(), format!("\"{}\"", kernel_s)),
-        ("bandwidth".to_string(), format!("{}", bw)),
+        ("kernel".to_string(), format!("\"{kernel_s}\"")),
+        ("bandwidth".to_string(), format!("{bw}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(
         p_data.as_slice().unwrap(),
@@ -154,8 +154,8 @@ fn kernel_cross_python_parity_2d(
     let flat_q = flat_from_array2(&q_data);
 
     let kwargs = vec![
-        ("kernel".to_string(), format!("\"{}\"", kernel_s)),
-        ("bandwidth".to_string(), format!("{}", bw)),
+        ("kernel".to_string(), format!("\"{kernel_s}\"")),
+        ("bandwidth".to_string(), format!("{bw}")),
     ];
     let h_py = python::calculate_cross_entropy_float_nd(&flat_p, &flat_q, 2, "kernel", &kwargs)
         .expect("python cross kernel failed");

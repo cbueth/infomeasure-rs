@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "target-feature=+neon"]
 

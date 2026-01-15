@@ -57,7 +57,7 @@ fn measure_gaussian_kernel_performance(
                 Entropy::nd_kernel_with_type::<32>(data.clone(), "gaussian".to_string(), bandwidth)
                     .global_value();
         }
-        _ => panic!("Unsupported number of dimensions: {}", dims),
+        _ => panic!("Unsupported number of dimensions: {dims}"),
     })
 }
 
@@ -84,12 +84,10 @@ fn measure_box_kernel_performance(size: usize, dims: usize, bandwidth: f64, seed
             .global_value(),
         32 => Entropy::nd_kernel_with_type::<32>(data.clone(), "box".to_string(), bandwidth)
             .global_value(),
-        _ => panic!("Unsupported number of dimensions: {}", dims),
+        _ => panic!("Unsupported number of dimensions: {dims}"),
     };
 
-    let duration = start.elapsed();
-
-    duration
+    start.elapsed()
 }
 
 #[ignore]
@@ -137,11 +135,8 @@ fn test_gaussian_kernel_performance() {
             let avg_duration = total_duration / num_runs as u32;
             let avg_ms = avg_duration.as_millis();
 
-            println!(
-                "Gaussian - Size: {}, Dims: {}, Time: {} ms",
-                size, dims, avg_ms
-            );
-            writeln!(file, "| {} | {} | {} |", size, dims, avg_ms).unwrap();
+            println!("Gaussian - Size: {size}, Dims: {dims}, Time: {avg_ms} ms");
+            writeln!(file, "| {size} | {dims} | {avg_ms} |").unwrap();
         }
     }
 
@@ -208,8 +203,8 @@ fn test_box_kernel_performance() {
             let avg_duration = total_duration / num_runs as u32;
             let avg_ms = avg_duration.as_millis();
 
-            println!("Box - Size: {}, Dims: {}, Time: {} ms", size, dims, avg_ms);
-            writeln!(file, "| {} | {} | {} |", size, dims, avg_ms).unwrap();
+            println!("Box - Size: {size}, Dims: {dims}, Time: {avg_ms} ms");
+            writeln!(file, "| {size} | {dims} | {avg_ms} |").unwrap();
         }
     }
 

@@ -1,5 +1,5 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use ndarray::Array1;
+
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::fs::OpenOptions;
@@ -51,7 +51,7 @@ fn bench_count_frequencies(c: &mut Criterion) {
             let _ = count_frequencies_slice(&data_hash);
 
             // Benchmark dense-eligible (min >= 0)
-            let id_dense = BenchmarkId::new(format!("N{}_K{}_R{}", n, k, range), "dense_min>=0");
+            let id_dense = BenchmarkId::new(format!("N{n}_K{k}_R{range}"), "dense_min>=0");
             group.bench_with_input(id_dense, &n, |b, _| {
                 b.iter(|| {
                     let map = count_frequencies_slice(black_box(&data_dense));
@@ -70,10 +70,10 @@ fn bench_count_frequencies(c: &mut Criterion) {
             }
             let avg_ns_dense: u128 =
                 durations.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
-            writeln!(csv, "{},{},{},{}", n, k, "dense", avg_ns_dense).unwrap();
+            writeln!(csv, "{n},{k},dense,{avg_ns_dense}").unwrap();
 
             // Benchmark hashmap-forced (min < 0)
-            let id_hash = BenchmarkId::new(format!("N{}_K{}_R{}", n, k, range), "hashmap_min<0");
+            let id_hash = BenchmarkId::new(format!("N{n}_K{k}_R{range}"), "hashmap_min<0");
             group.bench_with_input(id_hash, &n, |b, _| {
                 b.iter(|| {
                     let map = count_frequencies_slice(black_box(&data_hash));
@@ -91,7 +91,7 @@ fn bench_count_frequencies(c: &mut Criterion) {
             }
             let avg_ns_hash: u128 =
                 durations_h.iter().map(|d| d.as_nanos()).sum::<u128>() / (iters as u128);
-            writeln!(csv, "{},{},{},{}", n, k, "hashmap", avg_ns_hash).unwrap();
+            writeln!(csv, "{n},{k},hashmap,{avg_ns_hash}").unwrap();
         }
     }
 

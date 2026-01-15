@@ -34,10 +34,8 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
     for &dims in &dimensions {
         for &kernel_type in &kernel_types {
             // Create a benchmark group for different data sizes
-            let group_name = format!(
-                "Unified Kernel Entropy - {} Kernel - {}D - Data Size",
-                kernel_type, dims
-            );
+            let group_name =
+                format!("Unified Kernel Entropy - {kernel_type} Kernel - {dims}D - Data Size");
             let mut group = c.benchmark_group(&group_name);
 
             // Set measurement time to ensure accurate results
@@ -49,8 +47,8 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
 
                 // Create kwargs for Python
                 let kernel_kwargs = vec![
-                    ("kernel".to_string(), format!("\"{}\"", kernel_type)),
-                    ("bandwidth".to_string(), format!("{}", bandwidth)),
+                    ("kernel".to_string(), format!("\"{kernel_type}\"")),
+                    ("bandwidth".to_string(), format!("{bandwidth}")),
                 ];
 
                 // Benchmark Rust implementation
@@ -95,7 +93,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                                 bandwidth,
                             )
                             .global_value(),
-                            _ => panic!("Unsupported number of dimensions: {}", dims),
+                            _ => panic!("Unsupported number of dimensions: {dims}"),
                         };
                         black_box(entropy)
                     });
@@ -190,7 +188,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                             _ => panic!("Unsupported kernel type"),
                         }
                     } else {
-                        panic!("Unsupported number of dimensions: {}", dims);
+                        panic!("Unsupported number of dimensions: {dims}");
                     };
                     rust_durations.push(start.elapsed());
                 }
@@ -290,7 +288,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         _ => panic!("Unsupported kernel type"),
                     }
                 } else {
-                    panic!("Unsupported number of dimensions: {}", dims);
+                    panic!("Unsupported number of dimensions: {dims}");
                 };
 
                 let python_entropy =
@@ -302,34 +300,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
 
                 // Print comparison for this data size
                 println!(
-                    "\n=== Kernel: {}, Dimensions: {}, Data Size: {} elements ===",
-                    kernel_type, dims, size
+                    "\n=== Kernel: {kernel_type}, Dimensions: {dims}, Data Size: {size} elements ==="
                 );
                 println!(
-                    "Rust execution time:   {:.9} seconds ({} ns)",
+                    "Rust execution time:   {:.9} seconds ({rust_time_ns} ns)",
                     rust_time_ns as f64 / 1_000_000_000.0,
-                    rust_time_ns
+                    rust_time_ns = rust_time_ns
                 );
-                println!(
-                    "Python execution time: {:.9} seconds ({} ns)",
-                    python_time, python_time_ns
-                );
-                println!("Speedup (Python/Rust): {:.2}x", speedup);
-                println!("Rust entropy value:   {}", rust_entropy);
-                println!("Python entropy value: {}", python_entropy);
+                println!("Python execution time: {python_time:.9} seconds ({python_time_ns} ns)");
+                println!("Speedup (Python/Rust): {speedup:.2}x");
+                println!("Rust entropy value:   {rust_entropy}");
+                println!("Python entropy value: {python_entropy}");
 
                 // Write to CSV
                 writeln!(
                     csv_file,
-                    "Data Size,{},{},{},{},{},{:.2},{},{}",
-                    size,
-                    kernel_type,
-                    dims,
-                    rust_time_ns,
-                    python_time_ns,
-                    speedup,
-                    rust_entropy,
-                    python_entropy
+                    "Data Size,{size},{kernel_type},{dims},{rust_time_ns},{python_time_ns},{speedup:.2},{rust_entropy},{python_entropy}"
                 )
                 .unwrap();
             }
@@ -344,10 +330,8 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
     for &dims in &dimensions {
         for &kernel_type in &kernel_types {
             // Create a benchmark group for different bandwidths
-            let group_name = format!(
-                "Unified Kernel Entropy - {} Kernel - {}D - Bandwidth",
-                kernel_type, dims
-            );
+            let group_name =
+                format!("Unified Kernel Entropy - {kernel_type} Kernel - {dims}D - Bandwidth");
             let mut group = c.benchmark_group(&group_name);
             group.measurement_time(Duration::from_secs(3));
 
@@ -357,8 +341,8 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
 
                 // Create kwargs for Python
                 let kernel_kwargs = vec![
-                    ("kernel".to_string(), format!("\"{}\"", kernel_type)),
-                    ("bandwidth".to_string(), format!("{}", bandwidth)),
+                    ("kernel".to_string(), format!("\"{kernel_type}\"")),
+                    ("bandwidth".to_string(), format!("{bandwidth}")),
                 ];
 
                 // Benchmark Rust implementation
@@ -462,7 +446,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                             black_box(entropy.global_value())
                         });
                     } else {
-                        panic!("Unsupported number of dimensions: {}", dims);
+                        panic!("Unsupported number of dimensions: {dims}");
                     }
                 });
 
@@ -555,7 +539,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                             _ => panic!("Unsupported kernel type"),
                         }
                     } else {
-                        panic!("Unsupported number of dimensions: {}", dims);
+                        panic!("Unsupported number of dimensions: {dims}");
                     };
                     rust_durations.push(start.elapsed());
                 }
@@ -655,7 +639,7 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
                         _ => panic!("Unsupported kernel type"),
                     }
                 } else {
-                    panic!("Unsupported number of dimensions: {}", dims);
+                    panic!("Unsupported number of dimensions: {dims}");
                 };
 
                 let python_entropy =
@@ -667,34 +651,22 @@ fn bench_unified_kernel_entropy(c: &mut Criterion) {
 
                 // Print comparison for this bandwidth
                 println!(
-                    "\n=== Kernel: {}, Dimensions: {}, Bandwidth: {} ===",
-                    kernel_type, dims, bandwidth
+                    "\n=== Kernel: {kernel_type}, Dimensions: {dims}, Bandwidth: {bandwidth} ==="
                 );
                 println!(
-                    "Rust execution time:   {:.9} seconds ({} ns)",
+                    "Rust execution time:   {:.9} seconds ({rust_time_ns} ns)",
                     rust_time_ns as f64 / 1_000_000_000.0,
-                    rust_time_ns
+                    rust_time_ns = rust_time_ns
                 );
-                println!(
-                    "Python execution time: {:.9} seconds ({} ns)",
-                    python_time, python_time_ns
-                );
-                println!("Speedup (Python/Rust): {:.2}x", speedup);
-                println!("Rust entropy value:   {}", rust_entropy);
-                println!("Python entropy value: {}", python_entropy);
+                println!("Python execution time: {python_time:.9} seconds ({python_time_ns} ns)");
+                println!("Speedup (Python/Rust): {speedup:.2}x");
+                println!("Rust entropy value:   {rust_entropy}");
+                println!("Python entropy value: {python_entropy}");
 
                 // Write to CSV
                 writeln!(
                     csv_file,
-                    "Bandwidth,{},{},{},{},{},{:.2},{},{}",
-                    bandwidth,
-                    kernel_type,
-                    dims,
-                    rust_time_ns,
-                    python_time_ns,
-                    speedup,
-                    rust_entropy,
-                    python_entropy
+                    "Bandwidth,{bandwidth},{kernel_type},{dims},{rust_time_ns},{python_time_ns},{speedup:.2},{rust_entropy},{python_entropy}"
                 )
                 .unwrap();
             }

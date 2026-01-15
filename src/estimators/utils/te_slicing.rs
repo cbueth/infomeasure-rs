@@ -270,6 +270,7 @@ pub fn cte_slices<T: Clone + Default>(
 }
 
 /// Slices the data for CTE and optionally permutes the source history.
+#[allow(clippy::too_many_arguments)]
 pub fn cte_observations<T: Clone + Default>(
     source: &Array1<T>,
     destination: &Array1<T>,

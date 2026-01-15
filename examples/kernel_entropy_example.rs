@@ -14,11 +14,11 @@ fn main() {
     // Instantiate the kernel approaches estimator for 2D data
     let bandwidth = 1.0;
     // let kernel_entropy = KernelEntropy::new_2d(data, bandwidth);
-    let kernel_entropy = Entropy::nd_kernel::<2>(data, bandwidth);
+    let _kernel_entropy = Entropy::nd_kernel::<2>(data, bandwidth);
 
     // Calculate local and global approaches
     // let local_values = kernel_entropy.local_values();
-    let global_value = kernel_entropy.global_value();
+    // let global_value = kernel_entropy.global_value();
 
     // println!("Local Entropy Values: {:?}", local_values);
     // println!("Global Entropy Value: {}", global_value);
@@ -36,6 +36,6 @@ fn main() {
     let local_values_1d = kernel_entropy_1d.local_values();
     let global_value_1d = kernel_entropy_1d.global_value();
 
-    println!("1D Local Entropy Values: {:?}", local_values_1d);
-    println!("1D Global Entropy Value: {}", global_value_1d);
+    println!("1D Local Entropy Values: {local_values_1d:?}");
+    println!("1D Global Entropy Value: {global_value_1d}");
 }
