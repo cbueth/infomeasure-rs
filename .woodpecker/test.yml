@@ -35,11 +35,9 @@ steps:
       - curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
       - mv bin/micromamba /usr/local/bin/
       - export MAMBA_ROOT_PREFIX=/opt/conda
-      - eval "$(./bin/micromamba shell hook -s posix)"
+      - eval "`micromamba shell hook`"
       # Create Python environment
       - micromamba create -f tests/validation_crate/environment.yml
-      # Initialize conda in current shell
-      - eval "$(micromamba shell hook --shell=bash)"
 
       # Run tests with current feature set
       - if [ -n "${FEATURES}" ]; then
