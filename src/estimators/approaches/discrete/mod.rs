@@ -6,7 +6,7 @@
 // and exposes them to the parent approaches module.
 
 pub mod discrete_utils;
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 pub mod mle_gpu;
 
 pub mod ansb;

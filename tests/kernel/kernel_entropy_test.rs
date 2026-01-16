@@ -55,11 +55,11 @@ fn compare_kernel_entropy(
     let (epsilon, max_relative) = match kernel_type {
         "box" => (1e-12, 1e-12),
         "gaussian" => {
-            #[cfg(feature = "gpu_support")]
+            #[cfg(feature = "gpu")]
             {
                 (1e-6, 1e-6) // lower precision due to float32 precision
             }
-            #[cfg(not(feature = "gpu_support"))]
+            #[cfg(not(feature = "gpu"))]
             {
                 (1e-12, 1e-12)
             }
@@ -207,11 +207,11 @@ fn compare_kernel_entropy_2d_generic<const K: usize>(
     let (epsilon, max_relative) = match kernel_type {
         "box" => (1e-12, 1e-12),
         "gaussian" => {
-            #[cfg(feature = "gpu_support")]
+            #[cfg(feature = "gpu")]
             {
                 (1e-6, 1e-6) // lower precision due to float32 precision
             }
-            #[cfg(not(feature = "gpu_support"))]
+            #[cfg(not(feature = "gpu"))]
             {
                 (1e-12, 1e-12)
             }

@@ -22,7 +22,7 @@ repos:
         pass_filenames: false
       - id: cargo-clippy
         name: cargo clippy
-        entry: cargo clippy --all-targets --all-features -- -D warnings
+        entry: cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
         language: system
         types: [rust]
         pass_filenames: false

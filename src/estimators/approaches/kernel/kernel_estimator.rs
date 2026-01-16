@@ -58,13 +58,13 @@
 //! handling, proper dimension-dependent normalization, and bandwidth scaling to match
 //! the behavior of scipy.stats.gaussian_kde.
 //!
-//! When compiled with the `simd_support` feature flag, this implementation uses SIMD
+//! When compiled with the `simd` feature flag, this implementation uses SIMD
 //! (Single Instruction, Multiple Data) optimizations for faster distance calculations,
 //! particularly beneficial for high-dimensional data and large datasets.
 //!
 //! ## GPU Acceleration
 //!
-//! When compiled with the `gpu_support` feature flag, this implementation can use GPU
+//! When compiled with the `gpu` feature flag, this implementation can use GPU
 //! acceleration for both Gaussian and Box kernel calculations, providing significant
 //! performance improvements for large datasets:
 //!
@@ -88,11 +88,11 @@ use kiddo::{ImmutableKdTree, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
-#[cfg(feature = "simd_support")]
+#[cfg(feature = "simd")]
 use std::simd::cmp::SimdPartialOrd;
-#[cfg(feature = "simd_support")]
+#[cfg(feature = "simd")]
 use std::simd::num::SimdFloat;
-#[cfg(feature = "simd_support")]
+#[cfg(feature = "simd")]
 use std::simd::{StdFloat, f64x4, f64x8};
 
 /// Kernel-based transfer entropy estimator.
@@ -911,7 +911,7 @@ impl From<Array2<f64>> for KernelData {
 /// - Uses KD-tree for fast nearest-neighbor queries
 /// - Implements proper bandwidth scaling for Gaussian kernels
 /// - Provides both global and local entropy values
-/// - Supports GPU acceleration when compiled with the `gpu_support` feature flag
+/// - Supports GPU acceleration when compiled with the `gpu` feature flag
 ///
 /// # Bandwidth Scaling
 ///
@@ -926,7 +926,7 @@ impl From<Array2<f64>> for KernelData {
 ///
 /// # GPU Acceleration
 ///
-/// When compiled with the `gpu_support` feature flag, this implementation can use GPU
+/// When compiled with the `gpu` feature flag, this implementation can use GPU
 /// acceleration for both kernel types:
 ///
 /// - **Gaussian Kernel**: GPU acceleration is automatically used for datasets with 500 or more points.
@@ -1295,7 +1295,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// Helper to check if a point is within the hypercube (L-infinity distance)
     #[inline(always)]
     pub fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
-        #[cfg(feature = "simd_support")]
+        #[cfg(feature = "simd")]
         {
             let mut dim = 0;
             if K >= 8 {
@@ -1353,7 +1353,7 @@ impl<const K: usize> KernelEntropy<K> {
             }
             true
         }
-        #[cfg(not(feature = "simd_support"))]
+        #[cfg(not(feature = "simd"))]
         {
             for dim in 0..K {
                 if (query_point[dim] - p[dim]).abs() > r_eps {
@@ -1409,7 +1409,7 @@ impl<const K: usize> KernelEntropy<K> {
 
     /// Computes local probability density values for each data point
     pub fn kde_probability_density(&self) -> Array1<f64> {
-        #[cfg(feature = "gpu_support")]
+        #[cfg(feature = "gpu")]
         {
             if !self.force_cpu {
                 if self.kernel_type == "box" && self.n_samples >= 2000 {
@@ -1546,7 +1546,7 @@ impl<const K: usize> KernelEntropy<K> {
             let start_idx = batch * batch_size;
 
             // Use SIMD to process multiple points in parallel
-            #[cfg(feature = "simd_support")]
+            #[cfg(feature = "simd")]
             {
                 // Create arrays to store neighbor counts for each point in the batch
                 let mut neighbor_counts = [0.0f64; 4];
@@ -1592,7 +1592,7 @@ impl<const K: usize> KernelEntropy<K> {
             }
 
             // Fallback for non-SIMD case
-            #[cfg(not(feature = "simd_support"))]
+            #[cfg(not(feature = "simd"))]
             {
                 // // For each point, find neighbors within bandwidth/2 using Manhattan distance
                 // // This creates a hypercube with side length = bandwidth centered at the query point
@@ -1663,7 +1663,7 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Apply normalization and log transform to remaining points
-        #[cfg(not(feature = "simd_support"))]
+        #[cfg(not(feature = "simd"))]
         local_values.mapv_inplace(|x| if x > 0.0 { -(x / n_volume).ln() } else { 0.0 });
 
         local_values
@@ -1689,7 +1689,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// - For large datasets (>5000 points): 3σ radius (9 * max_scaled_bandwidth²)
     /// - For smaller datasets: 4σ radius (16 * max_scaled_bandwidth²)
     ///
-    /// When compiled with the `gpu_support` feature flag, the GPU implementation uses
+    /// When compiled with the `gpu` feature flag, the GPU implementation uses
     /// a larger adaptive radius, especially for small bandwidths (< 0.5):
     ///
     /// - For large datasets (>5000 points) with small bandwidths: 4σ radius
@@ -1786,7 +1786,7 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
     ///
     /// # GPU Acceleration
     ///
-    /// When the `gpu_support` feature flag is enabled, both the Gaussian and box kernel
+    /// When the `gpu` feature flag is enabled, both the Gaussian and box kernel
     /// calculations can use GPU acceleration, which provides significant performance
     /// improvements for large datasets and high-dimensional data:
     ///

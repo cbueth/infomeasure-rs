@@ -4,6 +4,8 @@ SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 SPDX-License-Identifier: MIT OR Apache-2.0
 ---
 
+[![status-badge](https://ci.codeberg.org/api/badges/16039/status.svg)](https://ci.codeberg.org/repos/16039)
+
 # infomeasure-rs
 
 `infomeasure` is a Rust library for computing information-theoretic measures such as entropy, mutual information, and transfer entropy. This project is a Rust implementation of the [infomeasure](https://github.com/cbueth/infomeasure), designed to provide superior performance while maintaining API compatibility.

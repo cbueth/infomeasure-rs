@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // GPU-accelerated utilities for discrete (histogram-based) estimators.
-// This module is compiled only when the `gpu_support` feature is enabled.
+// This module is compiled only when the `gpu` feature is enabled.
 
 use futures_intrusive::channel::shared::oneshot_channel;
 use ndarray::Array2;

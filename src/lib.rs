@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "simd_support", feature(portable_simd))]
+#![cfg_attr(feature = "simd", feature(portable_simd))]
 
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //

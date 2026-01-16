@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // GPU-accelerated implementation of kernel entropy calculation
-// This module is only included when the `gpu_support` feature flag is enabled
+// This module is only included when the `gpu` feature flag is enabled
 
 use crate::estimators::approaches::kernel::KernelEntropy;
 use bytemuck::{Pod, Zeroable};

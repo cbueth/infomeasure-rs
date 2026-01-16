@@ -101,22 +101,22 @@ fn test_gaussian_kernel_performance() {
     let num_runs = 3; // Reduced number of runs to speed up testing
 
     // Create a file to store the results
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     let mut file = File::create("gaussian_gpu_fast_exp_performance.md").unwrap();
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     let mut file = File::create("gaussian_gpu_performance.md").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     let mut file = File::create("gaussian_fast_exp_performance.md").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     let mut file = File::create("gaussian_baseline_performance.md").unwrap();
 
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     writeln!(file, "# Gaussian Kernel GPU with Fast Exp Performance\n").unwrap();
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     writeln!(file, "# Gaussian Kernel GPU Performance\n").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     writeln!(file, "# Gaussian Kernel Fast Exp Performance\n").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     writeln!(file, "# Gaussian Kernel Baseline Performance\n").unwrap();
 
     writeln!(file, "| Data Size | Dimensions | Time (ms) |").unwrap();
@@ -140,19 +140,19 @@ fn test_gaussian_kernel_performance() {
         }
     }
 
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     println!(
         "Gaussian kernel GPU with Fast Exp performance results have been saved to gaussian_gpu_fast_exp_performance.md"
     );
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     println!(
         "Gaussian kernel GPU performance results have been saved to gaussian_gpu_performance.md"
     );
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     println!(
         "Gaussian kernel Fast Exp performance results have been saved to gaussian_fast_exp_performance.md"
     );
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     println!(
         "Gaussian kernel baseline performance results have been saved to gaussian_baseline_performance.md"
     );
@@ -169,22 +169,22 @@ fn test_box_kernel_performance() {
     let num_runs = 3; // Reduced number of runs to speed up testing
 
     // Create a file to store the results
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     let mut file = File::create("box_gpu_fast_exp_performance.md").unwrap();
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     let mut file = File::create("box_gpu_performance.md").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     let mut file = File::create("box_fast_exp_performance.md").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     let mut file = File::create("box_baseline_performance.md").unwrap();
 
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     writeln!(file, "# Box Kernel GPU with Fast Exp Performance\n").unwrap();
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     writeln!(file, "# Box Kernel GPU Performance\n").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     writeln!(file, "# Box Kernel Fast Exp Performance\n").unwrap();
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     writeln!(file, "# Box Kernel Baseline Performance\n").unwrap();
 
     writeln!(file, "| Data Size | Dimensions | Time (ms) |").unwrap();
@@ -208,17 +208,17 @@ fn test_box_kernel_performance() {
         }
     }
 
-    #[cfg(all(feature = "gpu_support", feature = "fast_exp"))]
+    #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     println!(
         "Box kernel GPU with Fast Exp performance results have been saved to box_gpu_fast_exp_performance.md"
     );
-    #[cfg(all(feature = "gpu_support", not(feature = "fast_exp")))]
+    #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
     println!("Box kernel GPU performance results have been saved to box_gpu_performance.md");
-    #[cfg(all(not(feature = "gpu_support"), feature = "fast_exp"))]
+    #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
     println!(
         "Box kernel Fast Exp performance results have been saved to box_fast_exp_performance.md"
     );
-    #[cfg(all(not(feature = "gpu_support"), not(feature = "fast_exp")))]
+    #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
     println!(
         "Box kernel baseline performance results have been saved to box_baseline_performance.md"
     );

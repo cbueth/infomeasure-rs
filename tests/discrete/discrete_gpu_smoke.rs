@@ -1,4 +1,4 @@
-#![cfg(feature = "gpu_support")]
+#![cfg(feature = "gpu")]
 
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //

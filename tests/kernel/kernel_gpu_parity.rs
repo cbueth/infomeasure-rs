@@ -11,7 +11,7 @@ use rand::{Rng, SeedableRng};
 use rstest::rstest;
 
 #[rstest]
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 fn test_kernel_mi_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
     let seed = 42;
     let mut rng = StdRng::seed_from_u64(seed);
@@ -47,7 +47,7 @@ fn test_kernel_mi_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
 }
 
 #[rstest]
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 fn test_kernel_te_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
     let seed = 44;
     let mut rng = StdRng::seed_from_u64(seed);

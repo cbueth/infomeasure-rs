@@ -6,6 +6,11 @@
 name = "infomeasure"
 version = "0.1.0"
 edition = "2024"
+description = "Information theory measures and entropy calculations for Rust"
+license = "MIT OR Apache-2.0"
+repository = "https://codeberg.org/cbueth/infomeasure-rs"
+keywords = ["entropy", "information-theory", "mutual-information", "information-measures", "statistics"]
+categories = ["mathematics", "science"]
 
 [dependencies]
 ndarray = "0.17" # For numerical computations
@@ -23,8 +28,8 @@ rand_distr = "0.4"
 
 [features]
 default = []
-simd_support = []
-gpu_support = []
+simd = []
+gpu = []
 fast_exp = []
 
 [dev-dependencies]

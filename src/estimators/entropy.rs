@@ -221,7 +221,7 @@ impl Entropy {
     ///
     /// # GPU Acceleration
     ///
-    /// When compiled with the `gpu_support` feature flag, this method will use GPU
+    /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration for datasets with 2000 or more points, providing significant
     /// performance improvements for large datasets.
     pub fn new_kernel(
@@ -245,7 +245,7 @@ impl Entropy {
     ///
     /// # GPU Acceleration
     ///
-    /// When compiled with the `gpu_support` feature flag, this method will use GPU
+    /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration based on the kernel type and dataset size:
     ///
     /// - For Gaussian kernel: GPU is used for datasets with 500 or more points
@@ -274,7 +274,7 @@ impl Entropy {
     ///
     /// # GPU Acceleration
     ///
-    /// When compiled with the `gpu_support` feature flag, this method will use GPU
+    /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration for datasets with 2000 or more points, providing significant
     /// performance improvements for large datasets and high-dimensional data.
     pub fn nd_kernel<const K: usize>(
@@ -298,7 +298,7 @@ impl Entropy {
     ///
     /// # GPU Acceleration
     ///
-    /// When compiled with the `gpu_support` feature flag, this method will use GPU
+    /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration based on the kernel type and dataset size:
     ///
     /// - For Gaussian kernel: GPU is used for datasets with 500 or more points, providing

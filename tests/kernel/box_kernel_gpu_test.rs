@@ -11,10 +11,10 @@ use crate::test_helpers::{generate_random_nd_data, measure_execution_time};
 
 /// Test that compares the CPU and GPU implementations of the box kernel
 ///
-/// This test is only run when the `gpu_support` feature is enabled.
+/// This test is only run when the `gpu` feature is enabled.
 /// It verifies that the GPU implementation produces the same results as the CPU implementation.
 #[test]
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 fn test_box_kernel_cpu_vs_gpu() {
     // Set up test parameters
     let seed = 42;
@@ -106,11 +106,11 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
 
 /// Test that verifies the GPU fallback mechanism works correctly
 ///
-/// This test is only run when the `gpu_support` feature is enabled.
+/// This test is only run when the `gpu` feature is enabled.
 /// It tests that the GPU implementation falls back to the CPU implementation
 /// under certain conditions and produces the same results.
 #[test]
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 fn test_box_kernel_gpu_fallback() {
     // Set up test parameters
     let seed = 42;
@@ -226,10 +226,10 @@ fn test_box_kernel_fallback<const K: usize>(
 
 /// Test that measures the performance of the box kernel CPU and GPU implementations
 ///
-/// This test is only run when the `gpu_support` feature is enabled.
+/// This test is only run when the `gpu` feature is enabled.
 /// It measures the execution time of both implementations and prints the speedup.
 #[test]
-#[cfg(feature = "gpu_support")]
+#[cfg(feature = "gpu")]
 #[ignore]
 fn test_box_kernel_performance() {
     // Set up test parameters

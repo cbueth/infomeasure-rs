@@ -19,7 +19,7 @@ use ndarray::{Array1, Array2};
 /// Joint entropy is supported by reducing the joint space of multiple variables to a single
 /// discrete representation before estimation.
 ///
-/// GPU acceleration (optional): When compiled with the `gpu_support` feature, `from_rows` may
+/// GPU acceleration (optional): When compiled with the `gpu` feature, `from_rows` may
 /// use a WGSL compute shader to accelerate dense per-row histogramming for 2D inputs with a small
 /// global value range. If the GPU path is unavailable or inapplicable, it transparently falls back
 /// to the CPU implementation.
@@ -35,7 +35,7 @@ impl DiscreteEntropy {
 
     /// Build a vector of DiscreteEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>) -> Vec<Self> {
-        #[cfg(feature = "gpu_support")]
+        #[cfg(feature = "gpu")]
         {
             if let Some(counts_per_row) =
                 crate::estimators::approaches::discrete::mle_gpu::gpu_histogram_rows_dense(&data)

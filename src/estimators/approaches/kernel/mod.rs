@@ -5,6 +5,6 @@
 mod kernel_estimator; // core kernel entropy implementation
 pub use kernel_estimator::*; // re-export KernelEntropy, KernelData, etc.
 
-// Include the GPU implementations when the gpu_support feature flag is enabled
-#[cfg(feature = "gpu_support")]
+// Include the GPU implementations when the gpu feature flag is enabled
+#[cfg(feature = "gpu")]
 pub mod kernel_gpu;
