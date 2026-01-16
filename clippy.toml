@@ -1,0 +1,27 @@
+# Allow multiple crate versions temporarily while dependencies get updated
+# This is common in complex dependency trees and not harmful for compilation
+allowed-duplicate-crates = [
+    "bitflags",
+    "syn",
+    "thiserror",
+    "thiserror-impl",
+    "hashbrown",
+    "core-foundation",
+    "core-graphics-types",
+    "windows",
+    "windows-core",
+    "windows-implement",
+    "windows-interface",
+    "windows-link",
+    "windows-result",
+    "windows-strings",
+    "windows-targets",
+    "windows_aarch64_gnullvm",
+    "windows_aarch64_msvc",
+    "windows_i686_gnu",
+    "windows_i686_gnullvm",
+    "windows_i686_msvc",
+    "windows_x86_64_gnu",
+    "windows_x86_64_gnullvm",
+    "windows_x86_64_msvc"
+]
