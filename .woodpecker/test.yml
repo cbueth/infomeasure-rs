@@ -7,14 +7,17 @@ when:
     branch: [main, develop]
 
 matrix:
-  RUST: [stable, beta, nightly]
-  FEATURES: ["", simd, fast_exp]
-
-exclude:
-  - RUST: stable
-    FEATURES: simd
-  - RUST: beta
-    FEATURES: simd
+  include:
+    - RUST: stable
+      FEATURES: ""
+    - RUST: beta
+      FEATURES: ""
+    - RUST: stable
+      FEATURES: "fast_exp"
+    - RUST: beta
+      FEATURES: "fast_exp"
+    - RUST: nightly
+      FEATURES: "simd"
 
 steps:
   - name: build
