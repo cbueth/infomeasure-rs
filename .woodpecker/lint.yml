@@ -22,8 +22,6 @@ steps:
   - name: doc
     image: rust:latest
     environment:
-      RUSTDOCFLAGS: "--html-in-header katex-header.html"
+      RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
     commands:
       - cargo doc --no-deps --all-features
-      # Check if documentation builds without warnings
-      - grep -q "warning" target/doc/infomeasure/index.html && exit 1 || true
