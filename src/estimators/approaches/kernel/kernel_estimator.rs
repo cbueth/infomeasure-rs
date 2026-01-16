@@ -935,6 +935,7 @@ impl From<Array2<f64>> for KernelData {
 /// ```
 /// use infomeasure::estimators::entropy::Entropy;
 /// use infomeasure::estimators::entropy::LocalValues;
+/// use infomeasure::estimators::traits::GlobalValue;
 /// use ndarray::Array1;
 ///
 /// // Create some 1D data
