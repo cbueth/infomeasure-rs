@@ -12,8 +12,8 @@ use infomeasure::estimators::approaches::expfam::utils::knn_radii;
 
 fn brute_force_lp<const K: usize>(points: &[[f64; K]], p: f64, i: usize, j: usize) -> f64 {
     let mut acc = 0.0;
-    for d in 0..K {
-        acc += (points[i][d] - points[j][d]).abs().powf(p);
+    for (pi, pj) in points[i].iter().zip(points[j].iter()) {
+        acc += (pi - pj).abs().powf(p);
     }
     acc.powf(1.0 / p)
 }

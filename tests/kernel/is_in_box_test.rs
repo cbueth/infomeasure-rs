@@ -12,10 +12,10 @@ use rstest::rstest;
 #[case(vec![0.0, 0.0], vec![0.1, 0.1], 0.2, true)] // 2D inside
 #[case(vec![0.0, 0.0], vec![0.21, 0.1], 0.2, false)] // 2D outside X
 #[case(vec![0.0, 0.0], vec![0.1, 0.21], 0.2, false)] // 2D outside Y
-#[case(vec![0.0, 0.0, 0.0, 0.0], vec![0.1, 0.1, 0.1, 0.1], 0.2, true)] // 4D inside (SIMD path candidate)
+#[case(vec![0.0, 0.0, 0.0, 0.0], vec![0.1, 0.1, 0.1, 0.1], 0.2, true)] // 4D inside
 #[case(vec![0.0, 0.0, 0.0, 0.0], vec![0.1, 0.3, 0.1, 0.1], 0.2, false)] // 4D outside
-#[case(vec![0.0; 8], vec![0.1; 8], 0.2, true)] // 8D inside (SIMD path candidate)
-#[case(vec![0.0; 8], vec![0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.21], 0.2, false)] // 8D outside (SIMD path candidate)
+#[case(vec![0.0; 8], vec![0.1; 8], 0.2, true)] // 8D inside
+#[case(vec![0.0; 8], vec![0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.21], 0.2, false)] // 8D outside
 fn test_is_in_box_parametrized(
     #[case] query: Vec<f64>,
     #[case] point: Vec<f64>,

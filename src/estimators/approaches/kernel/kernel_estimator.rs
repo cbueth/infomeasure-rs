@@ -58,10 +58,6 @@
 //! handling, proper dimension-dependent normalization, and bandwidth scaling to match
 //! the behavior of scipy.stats.gaussian_kde.
 //!
-//! When compiled with the `simd` feature flag, this implementation uses SIMD
-//! (Single Instruction, Multiple Data) optimizations for faster distance calculations,
-//! particularly beneficial for high-dimensional data and large datasets.
-//!
 //! ## GPU Acceleration
 //!
 //! When compiled with the `gpu` feature flag, this implementation can use GPU
@@ -88,12 +84,6 @@ use kiddo::{ImmutableKdTree, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
-#[cfg(feature = "simd")]
-use std::simd::cmp::SimdPartialOrd;
-#[cfg(feature = "simd")]
-use std::simd::num::SimdFloat;
-#[cfg(feature = "simd")]
-use std::simd::{StdFloat, f64x4, f64x8};
 
 /// Kernel-based transfer entropy estimator.
 ///
@@ -1295,73 +1285,12 @@ impl<const K: usize> KernelEntropy<K> {
     /// Helper to check if a point is within the hypercube (L-infinity distance)
     #[inline(always)]
     pub fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
-        #[cfg(feature = "simd")]
-        {
-            let mut dim = 0;
-            if K >= 8 {
-                let r_eps_vec8 = f64x8::splat(r_eps);
-                while dim + 8 <= K {
-                    let q_vec = f64x8::from_array([
-                        query_point[dim],
-                        query_point[dim + 1],
-                        query_point[dim + 2],
-                        query_point[dim + 3],
-                        query_point[dim + 4],
-                        query_point[dim + 5],
-                        query_point[dim + 6],
-                        query_point[dim + 7],
-                    ]);
-                    let p_vec = f64x8::from_array([
-                        p[dim],
-                        p[dim + 1],
-                        p[dim + 2],
-                        p[dim + 3],
-                        p[dim + 4],
-                        p[dim + 5],
-                        p[dim + 6],
-                        p[dim + 7],
-                    ]);
-                    let diff = (q_vec - p_vec).abs();
-                    if !diff.simd_le(r_eps_vec8).all() {
-                        return false;
-                    }
-                    dim += 8;
-                }
+        for dim in 0..K {
+            if (query_point[dim] - p[dim]).abs() > r_eps {
+                return false;
             }
-            if K >= 4 {
-                let r_eps_vec4 = f64x4::splat(r_eps);
-                while dim + 4 <= K {
-                    let q_vec = f64x4::from_array([
-                        query_point[dim],
-                        query_point[dim + 1],
-                        query_point[dim + 2],
-                        query_point[dim + 3],
-                    ]);
-                    let p_vec = f64x4::from_array([p[dim], p[dim + 1], p[dim + 2], p[dim + 3]]);
-                    let diff = (q_vec - p_vec).abs();
-                    if !diff.simd_le(r_eps_vec4).all() {
-                        return false;
-                    }
-                    dim += 4;
-                }
-            }
-            while dim < K {
-                if (query_point[dim] - p[dim]).abs() > r_eps {
-                    return false;
-                }
-                dim += 1;
-            }
-            true
         }
-        #[cfg(not(feature = "simd"))]
-        {
-            for dim in 0..K {
-                if (query_point[dim] - p[dim]).abs() > r_eps {
-                    return false;
-                }
-            }
-            true
-        }
+        true
     }
 
     /// Calculates the squared Mahalanobis distance between two points
@@ -1545,98 +1474,28 @@ impl<const K: usize> KernelEntropy<K> {
         for batch in 0..num_batches {
             let start_idx = batch * batch_size;
 
-            // Use SIMD to process multiple points in parallel
-            #[cfg(feature = "simd")]
-            {
-                // Create arrays to store neighbor counts for each point in the batch
-                let mut neighbor_counts = [0.0f64; 4];
+            let r = self.bandwidth / 2.0;
+            let r_eps = r + 1e-15;
+            // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
+            // within_unsorted uses squared distance for SquaredEuclidean.
+            let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
-                let r = self.bandwidth / 2.0;
-                let r_eps = r + 1e-15;
-                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+            for i in 0..batch_size {
+                let idx = start_idx + i;
+                let query_point = &self.points[idx];
 
-                // Process each point in the batch
-                for (i, count) in neighbor_counts.iter_mut().enumerate().take(batch_size) {
-                    let idx = start_idx + i;
-                    let query_point = &self.points[idx];
+                let candidates = self
+                    .tree
+                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
 
-                    // Find neighbors (this part remains scalar as it depends on the KD-tree)
-                    let candidates = self
-                        .tree
-                        .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
-
-                    let mut cnt = 0usize;
-                    for candidate in candidates {
-                        let p = &self.points[candidate.item as usize];
-                        if self.is_in_box(query_point, p, r_eps) {
-                            cnt += 1;
-                        }
+                let mut count = 0usize;
+                for candidate in candidates {
+                    let p = &self.points[candidate.item as usize];
+                    if self.is_in_box(query_point, p, r_eps) {
+                        count += 1;
                     }
-
-                    *count = cnt as f64;
                 }
-
-                // Use SIMD for the normalization and log transform
-                let counts_vec = f64x4::from_array(neighbor_counts);
-                let n_volume_vec = f64x4::splat(n_volume);
-
-                // Calculate -(counts / n_volume).ln() for all points in parallel
-                let normalized = counts_vec / n_volume_vec;
-                let log_values = -normalized.ln();
-
-                // Store results back to the output array
-                for i in 0..batch_size {
-                    local_values[start_idx + i] = log_values[i];
-                }
-            }
-
-            // Fallback for non-SIMD case
-            #[cfg(not(feature = "simd"))]
-            {
-                // // For each point, find neighbors within bandwidth/2 using Manhattan distance
-                // // This creates a hypercube with side length = bandwidth centered at the query point
-                // for (i, query_point) in self.points.iter().enumerate() {
-                //     // Use Manhattan distance (L1 norm) to find points within a hypercube
-                //     // The bandwidth/2 is used because Manhattan distance measures from the center to the edge
-                //     let neighbors = self.tree.within_unsorted::<Manhattan>(
-                //         query_point,
-                //         self.bandwidth / 2.0f64
-                //     );
-                //
-                //     // Count the number of neighbors (including the point itself)
-                //     local_values[i] = neighbors.len() as f64;
-                // }
-                //
-                // // Apply normalization and log transform for entropy calculation: H = -E[log(f(x))]
-                // // f(x) = count / (N * volume), so log(f(x)) = log(count) - log(N * volume)
-                // // and -log(f(x)) = log(N * volume) - log(count) = log((N * volume) / count)
-                // local_values.mapv_inplace(|x| -(x / n_volume).ln());
-                //
-                // local_values
-                let r = self.bandwidth / 2.0;
-                let r_eps = r + 1e-15;
-                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-                // within_unsorted uses squared distance for SquaredEuclidean.
-                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
-
-                for i in 0..batch_size {
-                    let idx = start_idx + i;
-                    let query_point = &self.points[idx];
-
-                    let candidates = self
-                        .tree
-                        .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
-
-                    let mut count = 0usize;
-                    for candidate in candidates {
-                        let p = &self.points[candidate.item as usize];
-                        if self.is_in_box(query_point, p, r_eps) {
-                            count += 1;
-                        }
-                    }
-                    local_values[idx] = count as f64;
-                }
+                local_values[idx] = count as f64;
             }
         }
 
@@ -1662,8 +1521,6 @@ impl<const K: usize> KernelEntropy<K> {
             local_values[i] = count as f64;
         }
 
-        // Apply normalization and log transform to remaining points
-        #[cfg(not(feature = "simd"))]
         local_values.mapv_inplace(|x| if x > 0.0 { -(x / n_volume).ln() } else { 0.0 });
 
         local_values
