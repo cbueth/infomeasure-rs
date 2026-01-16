@@ -7,27 +7,40 @@ when:
     branch: [main, develop]
 
 matrix:
-  RUST: [stable, beta]
-  FEATURES: ["", simd_support, fast_exp]
+  RUST: [stable, beta, nightly]
+  FEATURES: ["", simd, fast_exp]
+
+exclude:
+  - RUST: stable
+    FEATURES: simd
+  - RUST: beta
+    FEATURES: simd
 
 steps:
   - name: build
     image: rust
     environment:
       FEATURES: ${FEATURES}
+      RUST: ${RUST}
     commands:
       - rustup default ${RUST}
-      - cargo build -j 4 --workspace --features ${FEATURES}
+      - if [ -n "${FEATURES}" ]; then
+          cargo build -j 4 --workspace --features ${FEATURES};
+        else
+          cargo build -j 4 --workspace;
+        fi
 
   - name: test
     image: rust
     environment:
       FEATURES: ${FEATURES}
+      RUST: ${RUST}
     commands:
       # Install micromamba for Python validation
       - curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
       - mv bin/micromamba /usr/local/bin/
-      - micromamba shell init -s bash -p /opt/conda
+      - export MAMBA_ROOT_PREFIX=/opt/conda
+      - eval "$(./bin/micromamba shell hook -s posix)"
       # Create Python environment
       - micromamba create -f tests/validation_crate/environment.yml
       # Initialize conda in current shell
