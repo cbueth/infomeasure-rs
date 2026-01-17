@@ -2,12 +2,19 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+#[cfg(feature = "gpu")]
 use infomeasure::estimators::LocalValues;
+#[cfg(feature = "gpu")]
 use infomeasure::estimators::mutual_information::MutualInformation;
+#[cfg(feature = "gpu")]
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
+#[cfg(feature = "gpu")]
 use ndarray::Array1;
+#[cfg(feature = "gpu")]
 use rand::rngs::StdRng;
+#[cfg(feature = "gpu")]
 use rand::{Rng, SeedableRng};
+#[cfg(feature = "gpu")]
 use rstest::rstest;
 
 #[rstest]

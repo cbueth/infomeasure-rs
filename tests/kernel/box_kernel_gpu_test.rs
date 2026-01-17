@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+#[cfg(feature = "gpu")]
 use approx::assert_relative_eq;
+#[cfg(feature = "gpu")]
 use infomeasure::estimators::entropy::{Entropy, LocalValues};
+#[cfg(feature = "gpu")]
 use ndarray::Array2;
 
 // Import test helper functions
+#[cfg(feature = "gpu")]
 use crate::test_helpers::{generate_random_nd_data, measure_execution_time};
 
 /// Test that compares the CPU and GPU implementations of the box kernel
@@ -47,6 +51,7 @@ fn test_box_kernel_cpu_vs_gpu() {
 }
 
 /// Helper function to compare CPU and GPU implementations of the box kernel
+#[cfg(feature = "gpu")]
 fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
     data: Array2<f64>,
     bandwidth: f64,
@@ -159,6 +164,7 @@ fn test_box_kernel_gpu_fallback() {
 }
 
 /// Helper function to test the GPU fallback mechanism
+#[cfg(feature = "gpu")]
 fn test_box_kernel_fallback<const K: usize>(
     data: Array2<f64>,
     bandwidth: f64,
@@ -267,6 +273,7 @@ fn test_box_kernel_performance() {
 }
 
 /// Helper function to measure the performance of CPU and GPU implementations of the box kernel
+#[cfg(feature = "gpu")]
 fn measure_box_kernel_performance<const K: usize>(
     data: Array2<f64>,
     bandwidth: f64,
