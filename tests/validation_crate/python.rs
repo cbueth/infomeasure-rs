@@ -57,9 +57,32 @@ fn create_venv_with_uv() -> bool {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let venv_path = Path::new(&manifest_dir).join(".venv");
 
+    let base_dir = if env::var("CARGO_MANIFEST_DIR").is_ok() {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let manifest_path = Path::new(&manifest_dir);
+        if manifest_path.join("Cargo.toml").exists()
+            && manifest_path
+                .join("tests/validation_crate/Cargo.toml")
+                .exists()
+        {
+            // Running from main workspace - use validation crate directory
+            manifest_path
+                .join("tests/validation_crate")
+                .to_string_lossy()
+                .to_string()
+        } else if manifest_path.join("requirements.txt").exists() {
+            // Running from validation crate directory
+            manifest_dir
+        } else {
+            ".".to_string()
+        }
+    } else {
+        ".".to_string()
+    };
+
     match Command::new(&uv)
         .args(["venv", venv_path.to_str().unwrap()])
-        .current_dir(&manifest_dir)
+        .current_dir(&base_dir)
         .status()
     {
         Ok(status) if status.success() => {
@@ -87,12 +110,36 @@ fn create_venv_with_uv() -> bool {
 ///
 /// `true` if dependencies were installed successfully, `false` otherwise.
 fn install_venv_dependencies(uv: &std::path::PathBuf) -> bool {
-    // Get the cargo manifest directory to find requirements.txt
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
-        // Fallback for doctests: try relative path from current working directory
+    // Get the correct directory for requirements.txt
+    // When running as dependency, CARGO_MANIFEST_DIR points to main workspace
+    // When running standalone, it points to this crate
+    let base_dir = if env::var("CARGO_MANIFEST_DIR").is_ok() {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        // Check if we're running as dependency (main workspace)
+        let manifest_path = Path::new(&manifest_dir);
+        if manifest_path.join("Cargo.toml").exists()
+            && manifest_path
+                .join("tests/validation_crate/Cargo.toml")
+                .exists()
+        {
+            // Running from main workspace - use validation crate directory
+            manifest_path
+                .join("tests/validation_crate")
+                .to_string_lossy()
+                .to_string()
+        } else if manifest_path.join("requirements.txt").exists() {
+            // Running from validation crate directory
+            manifest_dir
+        } else {
+            // Fallback - try to find validation crate directory
+            ".".to_string()
+        }
+    } else {
+        // Fallback for doctests
         ".".to_string()
-    });
-    let requirements_file = Path::new(&manifest_dir).join("requirements.txt");
+    };
+
+    let requirements_file = Path::new(&base_dir).join("requirements.txt");
     if !requirements_file.exists() {
         eprintln!("requirements.txt not found at {:?}", requirements_file);
         return false;
@@ -100,7 +147,7 @@ fn install_venv_dependencies(uv: &std::path::PathBuf) -> bool {
 
     match Command::new(&uv)
         .args(["pip", "install", "-r", requirements_file.to_str().unwrap()])
-        .current_dir(&manifest_dir)
+        .current_dir(&base_dir)
         .status()
     {
         Ok(status) => status.success(),
@@ -152,10 +199,33 @@ fn run_in_environment(args: &[&str]) -> Result<String, String> {
 ///
 /// The path to the Python executable
 fn get_venv_python_path() -> String {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
-        // Fallback for doctests: try relative path
+    // Get the correct base directory for the venv
+    let base_dir = if env::var("CARGO_MANIFEST_DIR").is_ok() {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let manifest_path = Path::new(&manifest_dir);
+        if manifest_path.join("Cargo.toml").exists()
+            && manifest_path
+                .join("tests/validation_crate/Cargo.toml")
+                .exists()
+        {
+            // Running from main workspace - use validation crate directory
+            manifest_path
+                .join("tests/validation_crate")
+                .to_string_lossy()
+                .to_string()
+        } else if manifest_path.join(".venv").exists()
+            || manifest_path.join("requirements.txt").exists()
+        {
+            // Running from validation crate directory
+            manifest_dir
+        } else {
+            // Fallback - try to find validation crate directory
+            ".".to_string()
+        }
+    } else {
+        // Fallback for doctests
         ".".to_string()
-    });
+    };
 
     let venv_python = if cfg!(target_os = "windows") {
         ".venv/Scripts/python.exe"
@@ -163,7 +233,7 @@ fn get_venv_python_path() -> String {
         ".venv/bin/python"
     };
 
-    Path::new(&manifest_dir)
+    Path::new(&base_dir)
         .join(venv_python)
         .to_str()
         .unwrap()
