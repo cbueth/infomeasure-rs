@@ -5,34 +5,28 @@
 //! Python validation module for comparing the Rust implementation with the Python infomeasure package.
 //!
 //! This module provides functionality for validating the Rust implementation against
-//! the Python infomeasure package.
+//! the Python infomeasure package using a uv virtual environment for isolation.
 
 use ndarray::Array1;
 use rand::{Rng, thread_rng};
 use serde::{Serialize, de::DeserializeOwned};
+use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-/// Checks if the micromamba environment exists.
+/// Checks if the uv virtual environment exists.
 ///
 /// # Returns
 ///
 /// `true` if the environment exists, `false` otherwise.
 fn environment_exists() -> bool {
-    let output = Command::new("micromamba").args(["env", "list"]).output();
-
-    match output {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout.contains("infomeasure-rs-validation")
-        }
-        Err(_) => false,
-    }
+    let venv_python = get_venv_python_path();
+    std::path::Path::new(&venv_python).exists()
 }
 
-/// Creates the micromamba environment if it doesn't exist.
+/// Creates the uv virtual environment if it doesn't exist.
 ///
 /// # Returns
 ///
@@ -42,32 +36,82 @@ fn ensure_environment() -> bool {
         return true;
     }
 
-    // Get the path to the environment.yml file
-    let env_file = Path::new("tests/validation_crate/environment.yml");
-    if !env_file.exists() {
-        eprintln!("environment.yml not found at {:?}", env_file);
-        return false;
-    }
-    match Command::new("micromamba")
-        .args(["env", "create", "-f", env_file.to_str().unwrap()])
-        .output()
+    // Create uv virtual environment
+    create_venv_with_uv()
+}
+
+/// Creates a virtual environment using uv.
+///
+/// # Returns
+///
+/// `true` if the environment was created successfully, `false` otherwise.
+fn create_venv_with_uv() -> bool {
+    let uv = match which::which("uv") {
+        Ok(uv) => uv,
+        Err(e) => {
+            eprintln!("uv not found: {}", e);
+            return false;
+        }
+    };
+
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let venv_path = Path::new(&manifest_dir).join(".venv");
+
+    match Command::new(&uv)
+        .args(["venv", venv_path.to_str().unwrap()])
+        .current_dir(&manifest_dir)
+        .status()
     {
-        Ok(o) if o.status.success() => true,
-        Ok(o) => {
-            eprintln!(
-                "Failed to create env: {}",
-                String::from_utf8_lossy(&o.stderr)
-            );
+        Ok(status) if status.success() => {
+            // Install dependencies after creating venv
+            install_venv_dependencies(&uv)
+        }
+        Ok(_) => {
+            eprintln!("Failed to create uv virtual environment");
             false
         }
         Err(e) => {
-            eprintln!("Failed to execute micromamba: {}", e);
+            eprintln!("Failed to execute uv venv: {}", e);
             false
         }
     }
 }
 
-/// Runs a command in the micromamba environment.
+/// Installs Python dependencies in the virtual environment.
+///
+/// # Arguments
+///
+/// * `uv` - Path to the uv executable
+///
+/// # Returns
+///
+/// `true` if dependencies were installed successfully, `false` otherwise.
+fn install_venv_dependencies(uv: &std::path::PathBuf) -> bool {
+    // Get the cargo manifest directory to find requirements.txt
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
+        // Fallback for doctests: try relative path from current working directory
+        ".".to_string()
+    });
+    let requirements_file = Path::new(&manifest_dir).join("requirements.txt");
+    if !requirements_file.exists() {
+        eprintln!("requirements.txt not found at {:?}", requirements_file);
+        return false;
+    }
+
+    match Command::new(&uv)
+        .args(["pip", "install", "-r", requirements_file.to_str().unwrap()])
+        .current_dir(&manifest_dir)
+        .status()
+    {
+        Ok(status) => status.success(),
+        Err(e) => {
+            eprintln!("Failed to install dependencies: {}", e);
+            false
+        }
+    }
+}
+
+/// Runs a command in the uv virtual environment.
 ///
 /// # Arguments
 ///
@@ -77,37 +121,53 @@ fn ensure_environment() -> bool {
 ///
 /// The output of the command
 fn run_in_environment(args: &[&str]) -> Result<String, String> {
-    let micromamba = which_micromamba()?;
-    let out = Command::new(&micromamba)
-        .args(["run", "-n", "infomeasure-rs-validation"])
-        .args(args)
+    let python_path = get_venv_python_path();
+
+    if !std::path::Path::new(&python_path).exists() {
+        return Err(format!("Python executable not found at {}", python_path));
+    }
+
+    let mut cmd = Command::new(&python_path);
+    cmd.args(args);
+
+    let output = cmd
         .output()
-        .map_err(|e| format!("failed to execute: {}", e))?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).to_string())
+        .map_err(|e| format!("failed to execute python: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
         Err(format!(
-            "Command failed: {}",
-            String::from_utf8_lossy(&out.stderr)
+            "Python failed: stderr='{}', stdout='{}'",
+            stderr, stdout
         ))
     }
 }
 
-/// Gets the path to the micromamba executable.
+/// Gets the path to the Python executable in the uv virtual environment.
 ///
 /// # Returns
 ///
-/// The path to the micromamba executable
-fn which_micromamba() -> Result<String, String> {
-    let out = Command::new("which")
-        .arg("micromamba")
-        .output()
-        .map_err(|e| format!("which micromamba failed: {}", e))?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+/// The path to the Python executable
+fn get_venv_python_path() -> String {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
+        // Fallback for doctests: try relative path
+        ".".to_string()
+    });
+
+    let venv_python = if cfg!(target_os = "windows") {
+        ".venv/Scripts/python.exe"
     } else {
-        Err("micromamba not found".into())
-    }
+        ".venv/bin/python"
+    };
+
+    Path::new(&manifest_dir)
+        .join(venv_python)
+        .to_str()
+        .unwrap()
+        .to_string()
 }
 
 /// Saves data to a temporary file and returns the file path.
@@ -156,6 +216,9 @@ fn save_data_to_temp_file<T: Serialize>(data: &[T]) -> Result<std::path::PathBuf
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_entropy_generic;
+///
+/// let data = vec![1, 2, 3, 1, 2, 3];
 /// // For discrete approach with integer data
 /// let entropy = calculate_entropy_generic(&data, "discrete", &[]).unwrap();
 ///
@@ -173,7 +236,7 @@ pub fn calculate_entropy_generic<T: Serialize>(
 ) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     let data_file = save_data_to_temp_file(data)?;
     let temp_dir = std::env::temp_dir();
@@ -204,7 +267,7 @@ print(est.result())
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     output
@@ -304,7 +367,7 @@ print(json.dumps(est.local_vals().tolist()))
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);
@@ -371,7 +434,7 @@ print(json.dumps(est.local_vals().tolist()))
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);
@@ -398,6 +461,9 @@ print(json.dumps(est.local_vals().tolist()))
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_entropy;
+///
+/// let data = vec![1, 2, 3, 1, 2, 3];
 /// // For discrete approach
 /// let entropy = calculate_entropy(&data, "discrete", &[]).unwrap();
 ///
@@ -434,6 +500,9 @@ pub fn calculate_entropy(
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_entropy_float;
+///
+/// let data = vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0];
 /// // For kernel approach with float data
 /// let kernel_kwargs = [
 ///     ("kernel".to_string(), "\"box\"".to_string()),
@@ -467,6 +536,9 @@ pub fn calculate_entropy_float(
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_local_entropy_generic;
+///
+/// let data = vec![1, 2, 3, 1, 2, 3];
 /// // For discrete approach with integer data
 /// let local_entropy = calculate_local_entropy_generic(&data, "discrete", &[]).unwrap();
 ///
@@ -484,7 +556,7 @@ pub fn calculate_local_entropy_generic<T: Serialize>(
 ) -> Result<Vec<f64>, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     let data_file = save_data_to_temp_file(data)?;
     let temp_dir = std::env::temp_dir();
@@ -515,7 +587,7 @@ print(json.dumps(est.local_vals().tolist()))
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     serde_json::from_str::<Vec<f64>>(output.trim())
@@ -540,6 +612,9 @@ print(json.dumps(est.local_vals().tolist()))
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_local_entropy;
+///
+/// let data = vec![1, 2, 3, 1, 2, 3];
 /// // For discrete approach
 /// let local_entropy = calculate_local_entropy(&data, "discrete", &[]).unwrap();
 ///
@@ -576,6 +651,9 @@ pub fn calculate_local_entropy(
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_local_entropy_float;
+///
+/// let data = vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0];
 /// // For kernel approach with float data
 /// let kernel_kwargs = [
 ///     ("kernel".to_string(), "\"box\"".to_string()),
@@ -635,6 +713,9 @@ pub fn convert_array_to_base2(entropy: &Array1<f64>) -> Array1<f64> {
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_entropy_float_nd;
+///
+/// let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 /// // For kernel approach with 2D float data
 /// let kernel_kwargs = [
 ///     ("kernel".to_string(), "\"gaussian\"".to_string()),
@@ -650,7 +731,7 @@ pub fn calculate_entropy_float_nd(
 ) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     if data.len() % dims != 0 {
         return Err(format!(
@@ -684,6 +765,9 @@ pub fn calculate_entropy_float_nd(
 /// # Examples
 ///
 /// ```
+/// use validation::python::calculate_local_entropy_float_nd;
+///
+/// let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 /// // For kernel approach with 2D float data
 /// let kernel_kwargs = [
 ///     ("kernel".to_string(), "\"gaussian\"".to_string()),
@@ -699,7 +783,7 @@ pub fn calculate_local_entropy_float_nd(
 ) -> Result<Vec<f64>, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     if data.len() % dims != 0 {
         return Err(format!(
@@ -737,7 +821,7 @@ pub fn calculate_cross_entropy_float_nd(
 ) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     if data_p.len() % dims != 0 || data_q.len() % dims != 0 {
         return Err(format!(
@@ -788,7 +872,7 @@ print(est.result())
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(p_file);
     let _ = std::fs::remove_file(q_file);
@@ -841,7 +925,7 @@ print(timer.timeit(number={num})/{num})
         num = num_runs
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     output
         .trim()
@@ -869,7 +953,7 @@ pub fn benchmark_entropy_generic<T: Serialize>(
 ) -> Result<f64, String> {
     // Ensure the environment exists
     if !ensure_environment() {
-        return Err("Failed to ensure micromamba environment exists".into());
+        return Err("Failed to ensure uv virtual environment exists".into());
     }
     let data_file = save_data_to_temp_file(data)?;
     let temp_dir = std::env::temp_dir();
@@ -904,7 +988,7 @@ print(timer.timeit(number={num})/{num})
         num = num_runs
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     output
@@ -940,6 +1024,8 @@ print(timer.timeit(number={num})/{num})
 ///
 /// # Example
 /// ```
+/// use validation::python::benchmark_entropy_float_nd;
+///
 /// let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 /// let dims = 2;
 /// let approach = "method";
@@ -995,6 +1081,7 @@ pub fn benchmark_entropy_float_nd(
 ///
 /// # Example
 /// ```rust
+/// use validation::python::calculate_ordinal_joint_entropy_two_float;
 /// use std::collections::HashMap;
 ///
 /// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
@@ -1056,7 +1143,7 @@ print(est_joint.result())
     );
     std::fs::write(&script_path, script)
         .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(x_file);
     let _ = std::fs::remove_file(y_file);
@@ -1136,7 +1223,7 @@ print(0.0 if len(keys)==0 else sum([-px[k]*math.log(qy[k]) for k in keys if px[k
     );
     std::fs::write(&script_path, script)
         .map_err(|e| format!("Failed to write temporary script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(x_file);
     let _ = std::fs::remove_file(y_file);
@@ -1189,7 +1276,7 @@ print(est.result())
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     output
@@ -1237,7 +1324,7 @@ print(json.dumps(est.local_vals().tolist()))
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     serde_json::from_str::<Vec<f64>>(output.trim())
@@ -1289,7 +1376,7 @@ print(est.result())
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     let _ = std::fs::remove_file(cond_file);
@@ -1344,7 +1431,7 @@ print(json.dumps(est.local_vals().tolist()))
         kw = _kwargs_str
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(data_file);
     let _ = std::fs::remove_file(cond_file);
@@ -1394,7 +1481,7 @@ print(json.dumps((src_hist.tolist(), dest_hist.tolist(), dest_future.flatten().t
         ss = step_size,
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);
@@ -1404,6 +1491,160 @@ print(json.dumps((src_hist.tolist(), dest_hist.tolist(), dest_future.flatten().t
             e, output
         )
     })
+}
+
+/// Calculates unit ball volume using Python infomeasure package.
+///
+/// # Arguments
+///
+/// * `m` - The dimension of the unit ball
+///
+/// # Returns
+///
+/// The volume of the m-dimensional unit ball
+pub fn calculate_unit_ball_volume(m: usize) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let script = format!(
+        "from infomeasure.estimators.utils.unit_ball_volume import unit_ball_volume as ubv\nprint(ubv({m}))"
+    );
+    let output = run_in_environment(&["-c", &script])?;
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse unit_ball_volume: {}", e))
+}
+
+/// Calculates common entropy components using Python infomeasure package.
+///
+/// # Arguments
+///
+/// * `data` - 2D array of data points as rows
+/// * `k` - The k parameter for the calculation
+///
+/// # Returns
+///
+/// A tuple containing (V_m, rho_k, N, m) where:
+/// - V_m: Volume component
+/// - rho_k: Vector of density components
+/// - N: Number of points
+/// - m: Dimension
+pub fn calculate_common_entropy_components(
+    data: &[Vec<f64>],
+    k: usize,
+) -> Result<(f64, Vec<f64>, usize, usize), String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(data)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_common_components_{}.py", uid));
+    let script = format!(
+        r#"
+import sys, json, numpy as np
+from infomeasure.estimators.utils.exponential_family import calculate_common_entropy_components as calc
+with open("{df}", "r") as f:
+    X = np.asarray(json.load(f), dtype=float)
+k = {k}
+V_m, rho_k, N, m = calc(X, k)
+print(json.dumps({{"V_m": float(V_m), "rho_k": list(map(float, rho_k)), "N": int(N), "m": int(m)}}))
+"#,
+        df = data_file.to_str().unwrap(),
+        k = k
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+
+    let v: serde_json::Value = serde_json::from_str(output.trim())
+        .map_err(|e| format!("Failed to parse JSON output: {}", e))?;
+
+    let v_m = v
+        .get("V_m")
+        .and_then(|x| x.as_f64())
+        .ok_or_else(|| "Missing V_m field".to_string())?;
+    let n = v.get("N").and_then(|x| x.as_u64()).unwrap() as usize;
+    let m = v.get("m").and_then(|x| x.as_u64()).unwrap() as usize;
+    let rho_k = v
+        .get("rho_k")
+        .and_then(|x| x.as_array())
+        .ok_or_else(|| "Missing rho_k field".to_string())?
+        .iter()
+        .map(|e| e.as_f64().unwrap())
+        .collect::<Vec<_>>();
+
+    Ok((v_m, rho_k, n, m))
+}
+
+/// Symbolizes ordinal series using Python infomeasure package.
+///
+/// # Arguments
+///
+/// * `series` - The input time series data
+/// * `emb_dim` - Embedding dimension
+/// * `step_size` - Step size between embeddings
+/// * `to_int` - Whether to return integer codes
+/// * `stable` - Whether to use stable ranking
+///
+/// # Returns
+///
+/// Vector of symbolized codes
+pub fn calculate_symbolize_series(
+    series: &[f64],
+    emb_dim: usize,
+    step_size: usize,
+    to_int: bool,
+    stable: bool,
+) -> Result<Vec<i64>, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure micromamba environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("symbolize_series_{}.py", uid));
+    let script = format!(
+        r#"
+import json, numpy as np
+from infomeasure.estimators.utils.ordinal import symbolize_series
+with open("{df}", "r") as f:
+    series = np.asarray(json.load(f), dtype=float)
+emb_dim = {emb_dim}
+step_size = {step_size}
+to_int = {to_int}
+stable = {stable}
+res = symbolize_series(series, emb_dim, step_size, to_int=to_int, stable=stable)
+print(json.dumps(list(map(int, res.tolist()))))
+"#,
+        df = data_file.to_str().unwrap(),
+        emb_dim = emb_dim,
+        step_size = step_size,
+        to_int = if to_int { "True" } else { "False" },
+        stable = if stable { "True" } else { "False" }
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    serde_json::from_str::<Vec<i64>>(output.trim())
+        .map_err(|e| format!("Failed to parse symbolize_series output: {}", e))
 }
 
 /// Calculates cte_observations using the Python infomeasure package.
@@ -1455,7 +1696,7 @@ print(json.dumps((src_hist.tolist(), dest_hist.tolist(), dest_future.flatten().t
         ss = step_size,
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);
@@ -1520,7 +1761,7 @@ print(est.result())
             .join(", ")
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);
@@ -1585,7 +1826,7 @@ print(est.result())
             .join(", ")
     );
     std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
-    let output = run_in_environment(&["python", script_path.to_str().unwrap()])?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(src_file);
     let _ = std::fs::remove_file(dst_file);

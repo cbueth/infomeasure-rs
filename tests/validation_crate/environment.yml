@@ -1,6 +1,0 @@
-name: infomeasure-rs-validation
-channels:
-  - conda-forge
-dependencies:
-  - python
-  - infomeasure
