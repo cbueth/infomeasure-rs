@@ -6,6 +6,7 @@ use approx::assert_abs_diff_eq;
 use ndarray::Array1;
 
 use infomeasure::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+use infomeasure::estimators::approaches::ordinal::ordinal_utils::symbolize_series_u64;
 use infomeasure::estimators::{GlobalValue, LocalValues};
 
 fn python_ordinal_entropy(series: &Array1<f64>, order: usize) -> (f64, Option<Vec<f64>>) {
@@ -92,6 +93,89 @@ fn ordinal_python_parity_param_grid() {
             assert_eq!(locals_rust.len(), locals_py.len());
             for (lr, lp) in locals_rust.iter().zip(locals_py.iter()) {
                 assert_abs_diff_eq!(*lr, *lp, epsilon = 1e-10);
+            }
+        }
+    }
+}
+
+#[test]
+fn parity_symbolize_series_grid_stable_true() {
+    use validation::python;
+
+    // Series without ties to avoid ambiguity when stable=False; here we use stable=True
+    let series_list: Vec<Vec<f64>> = vec![
+        vec![0., 1., 2., 3., 4., 5., 6., 7.],
+        vec![0., 7., 2., 3., 45., 7.5, 1., 8., 4., 5., 2.5, 7.2, 8.1],
+        vec![
+            3., 1., 4., 1.5, 5., 9., 2., 6., 2., 5., 3.5, 5., 8., 9.7, 3.,
+        ],
+    ];
+    let embedding_dims = [2usize, 3, 4, 5];
+    let steps = [1usize, 2, 3];
+
+    for data in series_list.iter() {
+        let series = Array1::from(data.clone());
+        for &m in &embedding_dims {
+            for &tau in &steps {
+                // Skip invalid combos where not enough length
+                let span = (m - 1) * tau;
+                if series.len() <= span {
+                    continue;
+                }
+
+                let rust_codes = symbolize_series_u64(&series, m, tau, true)
+                    .iter()
+                    .map(|&x| x as i64)
+                    .collect::<Vec<_>>();
+                let py_codes = python::calculate_symbolize_series(
+                    series.as_slice().unwrap(),
+                    m,
+                    tau,
+                    true,
+                    true,
+                )
+                .unwrap();
+                assert_eq!(
+                    rust_codes.len(),
+                    py_codes.len(),
+                    "length mismatch for m={m}, tau={tau}"
+                );
+                for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
+                    assert_eq!(*r, *p, "code mismatch at idx {i} for m={m}, tau={tau}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn parity_symbolize_series_stable_false_no_ties() {
+    use validation::python;
+
+    // data without ties to avoid ambiguity when stable=False
+    let series = Array1::from(vec![4., 1., 3.2, 99., 3., 2., 9., 6., 7., 3.1]);
+    let embedding_dims = [2usize, 3, 4];
+    let steps = [1usize, 2, 3];
+
+    for &m in &embedding_dims {
+        for &tau in &steps {
+            if series.len() <= (m - 1) * tau {
+                continue;
+            }
+            let rust_codes = symbolize_series_u64(&series, m, tau, false)
+                .iter()
+                .map(|&x| x as i64)
+                .collect::<Vec<_>>();
+            let py_codes =
+                python::calculate_symbolize_series(series.as_slice().unwrap(), m, tau, true, false)
+                    .unwrap();
+            assert_eq!(
+                rust_codes.len(),
+                py_codes.len(),
+                "length mismatch for m={m}, tau={tau}"
+            );
+            for (i, (r, p)) in rust_codes.iter().zip(py_codes.iter()).enumerate() {
+                assert_eq!(*r, *p, "code mismatch at idx {i} for m={m}, tau={tau}");
             }
         }
     }

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 /// If stable is true, ties are resolved by the original index order (stable),
 /// matching numpy.argsort(stable=True).
 /// If stable is false, ties are resolved arbitrarily (unstable).
-pub fn argsort(window: &[f64], idx: &mut [usize], stable: bool) {
+pub(crate) fn argsort(window: &[f64], idx: &mut [usize], stable: bool) {
     for (i, val) in idx.iter_mut().enumerate() {
         *val = i;
     }
@@ -112,7 +112,7 @@ fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
 
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
-pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
+pub(crate) fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
     let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
     let mut next_id: i32 = 0;
     let mut out = Vec::with_capacity(codes.len());
@@ -198,4 +198,169 @@ pub fn symbolize_series_u64(
         out.push(code_u64);
     }
     Array1::from(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_argsort_basic() {
+        let window = [3.0, 1.0, 4.0, 2.0];
+        let mut idx = [0usize; 4];
+        argsort(&window, &mut idx, true);
+        assert_eq!(idx, [1, 3, 0, 2]);
+
+        argsort(&window, &mut idx, false);
+        assert_eq!(idx, [1, 3, 0, 2]);
+    }
+
+    #[test]
+    fn test_argsort_stable_with_ties() {
+        let window = [1.0, 2.0, 1.0, 0.0];
+        let mut idx = [0usize; 4];
+        // Indices of 1.0 are 0 and 2.
+        // Stable sort should keep them as 0 then 2.
+        argsort(&window, &mut idx, true);
+        assert_eq!(idx, [3, 0, 2, 1]);
+    }
+
+    #[test]
+    fn test_argsort_unstable_with_ties() {
+        let window = [1.0, 2.0, 1.0, 0.0];
+        let mut idx = [0usize; 4];
+        // Unstable sort doesn't guarantee order of ties.
+        argsort(&window, &mut idx, false);
+
+        // Verify that it is a valid sort
+        for i in 0..3 {
+            assert!(window[idx[i]] <= window[idx[i + 1]]);
+        }
+
+        // In this specific case, 0.0 is at index 3, 2.0 is at index 1.
+        assert_eq!(idx[0], 3);
+        assert_eq!(idx[3], 1);
+        // idx[1] and idx[2] must be 0 and 2 in some order.
+        assert!((idx[1] == 0 && idx[2] == 2) || (idx[1] == 2 && idx[2] == 0));
+    }
+
+    #[test]
+    fn test_argsort_empty() {
+        let window: [f64; 0] = [];
+        let mut idx: [usize; 0] = [];
+        argsort(&window, &mut idx, true);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_argsort_single_element() {
+        let window = [42.0];
+        let mut idx = [0usize];
+        argsort(&window, &mut idx, true);
+        assert_eq!(idx, [0]);
+    }
+
+    #[test]
+    fn test_argsort_nan() {
+        let window = [1.0, f64::NAN, 0.0];
+        let mut idx = [0usize; 3];
+        // Our implementation treats NaN as "Greater" than everything.
+
+        // Stable:
+        argsort(&window, &mut idx, true);
+        // 0.0 (idx 2) < 1.0 (idx 0) < NaN (idx 1)
+        assert_eq!(idx, [2, 0, 1]);
+
+        // Unstable:
+        argsort(&window, &mut idx, false);
+        assert_eq!(idx, [2, 0, 1]);
+    }
+
+    #[test]
+    fn test_remap_u64_to_i32_parametrized() {
+        use ndarray::array;
+
+        let test_cases: [(&str, Array1<u64>, Array1<i32>); 6] = [
+            (
+                "basic",
+                array![100, 200, 100, 300, 200, 400],
+                array![0, 1, 0, 2, 1, 3],
+            ),
+            ("empty", Array1::<u64>::zeros(0), Array1::<i32>::zeros(0)),
+            (
+                "all_same",
+                Array1::from_elem(5, 42u64),
+                Array1::from_elem(5, 0i32),
+            ),
+            (
+                "all_unique",
+                array![10, 20, 30, 40, 50],
+                array![0, 1, 2, 3, 4],
+            ),
+            (
+                "first_occurrence_order",
+                array![50, 10, 50, 30, 10, 30],
+                array![0, 1, 0, 2, 1, 2],
+            ),
+            (
+                "large_values",
+                array![u64::MAX, u64::MIN, u64::MAX, 1234567890123456789u64],
+                array![0, 1, 0, 2],
+            ),
+        ];
+
+        for (name, input, expected) in test_cases.iter() {
+            assert_eq!(
+                remap_u64_to_i32(input),
+                *expected,
+                "test case {name:?} failed"
+            );
+        }
+    }
+
+    #[test]
+    fn test_symbolize_series_u64_basic() {
+        use ndarray::array;
+
+        let series = array![1.0, 2.0, 3.0, 2.0, 1.0];
+
+        // Order 1 - each point is independent
+        let result = symbolize_series_u64(&series, 1, 1, true);
+        assert_eq!(result.len(), 5);
+
+        // Order 2 - pattern size 2
+        let result = symbolize_series_u64(&series, 2, 1, true);
+        assert_eq!(result.len(), 4); // 5 - (2-1)*1
+
+        // Order 3 - pattern size 3
+        let result = symbolize_series_u64(&series, 3, 1, true);
+        assert_eq!(result.len(), 3); // 5 - (3-1)*1
+    }
+
+    #[test]
+    fn test_symbolize_series_u64_empty() {
+        use ndarray::array;
+
+        let series = array![];
+        let result = symbolize_series_u64(&series, 2, 1, true);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "The embedding order must be a positive integer.")]
+    fn test_symbolize_series_u64_invalid_order() {
+        use ndarray::array;
+
+        let series = array![1.0, 2.0, 3.0];
+        symbolize_series_u64(&series, 0, 1, true);
+    }
+
+    #[test]
+    #[should_panic(expected = "The step_size must be a positive integer.")]
+    fn test_symbolize_series_u64_invalid_step() {
+        use ndarray::array;
+
+        let series = array![1.0, 2.0, 3.0];
+        symbolize_series_u64(&series, 2, 0, true);
+    }
 }

@@ -1285,7 +1285,7 @@ impl<const K: usize> KernelEntropy<K> {
 
     /// Helper to check if a point is within the hypercube (L-infinity distance)
     #[inline(always)]
-    pub fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
+    pub(crate) fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
         for dim in 0..K {
             if (query_point[dim] - p[dim]).abs() > r_eps {
                 return false;
@@ -1660,5 +1660,83 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
         // which handles CPU/GPU dispatching and kernel type selection.
         let densities = self.kde_probability_density();
         densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::estimators::entropy::Entropy;
+    use ndarray::Array2;
+
+    #[test]
+    fn test_is_in_box_1d_inside() {
+        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
+        let q = [0.0];
+        let p = [0.1];
+        assert!(kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_1d_outside() {
+        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
+        let q = [0.0];
+        let p = [0.3];
+        assert!(!kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_2d_inside() {
+        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
+        let q = [0.0, 0.0];
+        let p = [0.1, 0.1];
+        assert!(kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_2d_outside_x() {
+        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
+        let q = [0.0, 0.0];
+        let p = [0.21, 0.1];
+        assert!(!kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_2d_outside_y() {
+        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
+        let q = [0.0, 0.0];
+        let p = [0.1, 0.21];
+        assert!(!kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_4d_inside() {
+        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
+        let q = [0.0, 0.0, 0.0, 0.0];
+        let p = [0.1, 0.1, 0.1, 0.1];
+        assert!(kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_4d_outside() {
+        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
+        let q = [0.0, 0.0, 0.0, 0.0];
+        let p = [0.1, 0.3, 0.1, 0.1];
+        assert!(!kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_8d_inside() {
+        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
+        let q = [0.0; 8];
+        let p = [0.1; 8];
+        assert!(kernel.is_in_box(&q, &p, 0.2));
+    }
+
+    #[test]
+    fn test_is_in_box_8d_outside() {
+        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
+        let q = [0.0; 8];
+        let p = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.21];
+        assert!(!kernel.is_in_box(&q, &p, 0.2));
     }
 }
