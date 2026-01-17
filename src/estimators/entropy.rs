@@ -23,8 +23,33 @@ use ndarray::{Array1, Array2};
 
 /// Entropy estimation methods for various data types
 ///
-/// This struct provides static methods for creating entropy estimators
-/// for different types of data and estimation approaches.
+/// This struct provides static factory methods for creating entropy estimators
+/// for different types of data and estimation approaches. All estimators
+/// implement the [`GlobalValue`] and
+/// [`LocalValues`] traits.
+///
+/// # Example Usage
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// // Discrete entropy for categorical data
+/// let discrete_data = array!(1, 2, 1, 3, 2, 1);
+/// let discrete_entropy = Entropy::new_discrete(discrete_data);
+/// println!("Discrete entropy: {}", discrete_entropy.global_value());
+///
+/// // Kernel entropy for continuous data (2D example)
+/// let continuous_data = array![[1.0, 1.5], [2.0, 3.0], [4.0, 5.0]];
+/// let kernel_entropy = Entropy::nd_kernel::<2>(continuous_data, 1.0);
+/// println!("Kernel entropy: {}", kernel_entropy.global_value());
+///
+/// // Ordinal entropy for time series
+/// let time_series = array![1.0, 2.0, 1.5, 3.0, 2.5];
+/// let ordinal_entropy = Entropy::new_ordinal(time_series, 3);
+/// println!("Ordinal entropy: {}", ordinal_entropy.global_value());
+/// ```
 pub struct Entropy;
 
 // Non-generic implementation (1D default case)
