@@ -23,7 +23,7 @@ fn bench_unified_discrete_entropy(c: &mut Criterion) {
     let python_num_runs = 10; // Number of runs for Python benchmarking
 
     // Create a CSV file to store the results
-    let mut csv_file = File::create("unified_benchmark_results.csv").unwrap();
+    let mut csv_file = File::create("../internal/unified_benchmark_results.csv").unwrap();
     writeln!(csv_file, "Test Type,Parameter,Rust Time (ns),Python Time (ns),Speedup Ratio,Rust Entropy,Python Entropy").unwrap();
 
     // Create a benchmark group for different data sizes

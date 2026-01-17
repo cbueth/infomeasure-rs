@@ -20,11 +20,15 @@ fn bench_count_frequencies(c: &mut Criterion) {
     let states: &[i32] = &[16, 64, 256, 1024, 4096]; // up to MAX_DENSE_RANGE
 
     // CSV for results
+    let csv_path = "../internal/count_frequencies_benchmark_results.csv";
+    if let Some(parent) = std::path::Path::new(csv_path).parent() {
+        std::fs::create_dir_all(parent).expect("create parent directories");
+    }
     let mut csv = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open("count_frequencies_benchmark_results.csv")
+        .open(csv_path)
         .expect("open csv");
     writeln!(csv, "Size,NumStates,OffsetMode,TimeNsPerIter").unwrap();
 

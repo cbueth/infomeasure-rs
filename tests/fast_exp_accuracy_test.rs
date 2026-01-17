@@ -44,7 +44,9 @@ fn test_fast_exp_accuracy() {
     let inputs: Vec<f64> = (0..100).map(|i| -5.0 + i as f64 * 0.05).collect();
 
     // Create a file to store the results
-    let mut file = File::create("fast_exp_accuracy.txt").unwrap();
+    let parent_dir = std::path::Path::new("../internal");
+    std::fs::create_dir_all(parent_dir).unwrap();
+    let mut file = File::create("../internal/fast_exp_accuracy.txt").unwrap();
     writeln!(file, "# Fast Exp Accuracy Test\n").unwrap();
     writeln!(file, "Input,Std_Exp,Fast_Exp,Relative_Error,Absolute_Error").unwrap();
 

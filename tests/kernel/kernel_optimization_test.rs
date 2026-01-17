@@ -168,15 +168,18 @@ fn test_box_kernel_performance() {
     let seed = 42;
     let num_runs = 3; // Reduced number of runs to speed up testing
 
+    // Create parent directory once before all file operations
+    std::fs::create_dir_all("../../internal").unwrap();
+
     // Create a file to store the results
     #[cfg(all(feature = "gpu", feature = "fast_exp"))]
-    let mut file = File::create("box_gpu_fast_exp_performance.md").unwrap();
+    let mut file = File::create("../../internal/box_gpu_fast_exp_performance.md").unwrap();
     #[cfg(all(feature = "gpu", not(feature = "fast_exp")))]
-    let mut file = File::create("box_gpu_performance.md").unwrap();
+    let mut file = File::create("../../internal/box_gpu_performance.md").unwrap();
     #[cfg(all(not(feature = "gpu"), feature = "fast_exp"))]
-    let mut file = File::create("box_fast_exp_performance.md").unwrap();
+    let mut file = File::create("../../internal/box_fast_exp_performance.md").unwrap();
     #[cfg(all(not(feature = "gpu"), not(feature = "fast_exp")))]
-    let mut file = File::create("box_baseline_performance.md").unwrap();
+    let mut file = File::create("../../internal/box_baseline_performance.md").unwrap();
 
     #[cfg(all(feature = "gpu", feature = "fast_exp"))]
     writeln!(file, "# Box Kernel GPU with Fast Exp Performance\n").unwrap();
