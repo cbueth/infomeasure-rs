@@ -6,6 +6,16 @@ use std::time::{Duration, Instant};
 
 // Import and re-export commonly used items
 pub use approx::assert_relative_eq;
+
+/// Print only if verbose mode is enabled (cargo test --verbose)
+#[macro_export]
+macro_rules! verbose_println {
+    ($($arg:tt)*) => {
+        if std::env::var("CARGO_TERM_VERBOSE").is_ok() {
+            println!($($arg)*);
+        }
+    };
+}
 pub use ndarray::Array2;
 pub use rand::rngs::StdRng;
 pub use rand::{Rng, SeedableRng};
@@ -57,8 +67,8 @@ pub fn assert_entropy_values_close(
     max_relative: f64,
     test_name: &str,
 ) {
-    // Print comparison info before assertion
-    println!("Comparing in {test_name}: Rust={rust_val}, Python={python_val}");
+    // Print comparison info before assertion if verbose
+    verbose_println!("Comparing in {test_name}: Rust={rust_val}, Python={python_val}");
 
     assert_relative_eq!(
         rust_val,
