@@ -70,7 +70,7 @@ println!("Kernel entropy: {}", kernel_entropy);
 ## Documentation
 
 - **[API Reference](https://docs.rs/infomeasure)** - Complete documentation
-- **[Examples](examples/)** - Usage examples
+- **[Examples](https://codeberg.org/cbueth/infomeasure-rs/src/branch/main/examples)** - Usage examples
 
 ## Advanced Features
 
