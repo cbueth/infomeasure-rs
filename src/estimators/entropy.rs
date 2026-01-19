@@ -416,6 +416,8 @@ impl Entropy {
     }
 
     /// Create a Rényi entropy estimator (1D convenience constructor)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new_renyi_1d(
         data: Array1<f64>,
         k: usize,
@@ -426,6 +428,8 @@ impl Entropy {
     }
 
     /// Create a Rényi entropy estimator for N-dimensional data (const-generic K)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn renyi_nd<const K: usize>(
         data: Array2<f64>,
         k: usize,
@@ -436,6 +440,8 @@ impl Entropy {
     }
 
     /// Create a Tsallis entropy estimator (1D convenience constructor)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new_tsallis_1d(
         data: Array1<f64>,
         k: usize,
@@ -446,6 +452,8 @@ impl Entropy {
     }
 
     /// Create a Tsallis entropy estimator for N-dimensional data (const-generic K)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn tsallis_nd<const K: usize>(
         data: Array2<f64>,
         k: usize,
@@ -456,6 +464,8 @@ impl Entropy {
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator (1D convenience constructor)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new_kl_1d(
         data: Array1<f64>,
         k: usize,
@@ -465,6 +475,8 @@ impl Entropy {
     }
 
     /// Create a Kozachenko–Leonenko entropy estimator for N-dimensional data (const-generic K)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn kl_nd<const K: usize>(
         data: Array2<f64>,
         k: usize,
