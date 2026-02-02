@@ -15,6 +15,12 @@ use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalVa
 /// H_hat = psi(N) - psi(k) + ln(V_m) + (m/N) * sum_i ln(rho_k,i)
 /// where V_m is the m-dimensional unit-ball volume (Euclidean) and rho_k,i is the
 /// distance to the k-th nearest neighbor of point i (self excluded).
+///
+/// **Important Note**: This estimator requires the logarithm base to be specified during
+/// construction via the `base` field or `with_base()` method. Unlike other entropy
+/// estimators in this library, results cannot be converted to a different base
+/// afterwards using simple logarithmic conversion due to the internal mathematical
+/// formulation of the KL estimator.
 pub struct KozachenkoLeonenkoEntropy<const K: usize> {
     pub nd: NdDataset<K>,
     pub k: usize,
@@ -89,6 +95,8 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
 
 impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     /// Construct from 2D data (rows = samples, cols = dimensions)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new(data: Array2<f64>, k: usize, noise_level: f64) -> Self {
         assert!(data.ncols() == K, "data.ncols() must equal K");
         let data = super::utils::add_noise(data, noise_level);
@@ -103,6 +111,8 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     }
 
     /// Construct from 1D data (convenience)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new_1d(data: Array1<f64>, k: usize, noise_level: f64) -> KozachenkoLeonenkoEntropy<1> {
         let n = data.len();
         let a2 = data.into_shape_with_order((n, 1)).expect("reshape 1d->2d");
@@ -110,6 +120,8 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
     }
 
     /// Construct from a vector of K-dimensional points (already materialized)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn from_points(points: Vec<[f64; K]>, k: usize, noise_level: f64) -> Self {
         assert!(k >= 1);
         let n = points.len();

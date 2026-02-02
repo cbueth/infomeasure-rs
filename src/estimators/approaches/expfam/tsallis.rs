@@ -13,6 +13,12 @@ use crate::estimators::traits::{
 };
 
 /// Tsallis entropy estimator (kNN-based, exponential-family formulation)
+///
+/// **Important Note**: This estimator requires the logarithm base to be specified during
+/// construction via the `base` field or `with_base()` method. Unlike other entropy
+/// estimators in this library, results cannot be converted to a different base
+/// afterwards using simple logarithmic conversion due to the internal mathematical
+/// formulation of the Tsallis entropy in the exponential family.
 pub struct TsallisEntropy<const K: usize> {
     pub nd: NdDataset<K>,
     pub k: usize,
@@ -107,6 +113,8 @@ impl<const K: usize> CrossEntropy for TsallisEntropy<K> {
 
 impl<const K: usize> TsallisEntropy<K> {
     /// Construct from 2D data
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new(data: Array2<f64>, k: usize, q: f64, noise_level: f64) -> Self {
         assert!(data.ncols() == K, "data.ncols() must equal K");
         let data = super::utils::add_noise(data, noise_level);
@@ -122,6 +130,8 @@ impl<const K: usize> TsallisEntropy<K> {
     }
 
     /// Build a vector of TsallisEntropy estimators, one per row of a 2D array.
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn from_rows(data: Array2<f64>, k: usize, q: f64, noise_level: f64) -> Vec<Self> {
         let n_rows = data.nrows();
         let mut out = Vec::with_capacity(n_rows);
@@ -136,6 +146,8 @@ impl<const K: usize> TsallisEntropy<K> {
     }
 
     /// Construct from 1D data (convenience)
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn new_1d(data: Array1<f64>, k: usize, q: f64, noise_level: f64) -> TsallisEntropy<1> {
         let n = data.len();
         let a2 = data.into_shape_with_order((n, 1)).expect("reshape 1d->2d");
@@ -143,6 +155,8 @@ impl<const K: usize> TsallisEntropy<K> {
     }
 
     /// Construct from points
+    ///
+    /// Uses natural logarithm (base e) by default. Use `with_base()` to change the logarithm base.
     pub fn from_points(points: Vec<[f64; K]>, k: usize, q: f64, noise_level: f64) -> Self {
         assert!(k >= 1);
         let n = points.len();
