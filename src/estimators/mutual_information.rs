@@ -89,6 +89,49 @@ macro_rules! new_kernel_cmi {
     }};
 }
 
+/// Macro for creating a new `KozachenkoLeonenkoMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_kl_mi {
+    ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr) => {{
+        const D_JOINT: usize = $d1 + $d2;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoMutualInformation2::<D_JOINT, $d1, $d2>::new($series, $k, $noise)
+    }};
+    ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoMutualInformation3::<D_JOINT, $d1, $d2, $d3>::new($series, $k, $noise)
+    }};
+    ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoMutualInformation4::<D_JOINT, $d1, $d2, $d3, $d4>::new($series, $k, $noise)
+    }};
+    ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoMutualInformation5::<D_JOINT, $d1, $d2, $d3, $d4, $d5>::new($series, $k, $noise)
+    }};
+    ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr, $d6:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5 + $d6;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoMutualInformation6::<D_JOINT, $d1, $d2, $d3, $d4, $d5, $d6>::new($series, $k, $noise)
+    }};
+}
+
+/// Macro for creating a new `KozachenkoLeonenkoConditionalMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_kl_cmi {
+    ($series:expr, $cond:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d_cond;
+        const D1_COND: usize = $d1 + $d_cond;
+        const D2_COND: usize = $d2 + $d_cond;
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoConditionalMutualInformation::<
+            $d1,
+            $d2,
+            $d_cond,
+            D_JOINT,
+            D1_COND,
+            D2_COND,
+        >::new($series, $cond, $k, $noise)
+    }};
+}
+
 pub struct MutualInformation;
 
 impl MutualInformation {
@@ -385,5 +428,58 @@ impl MutualInformation {
         bandwidth: f64,
     ) -> KernelMutualInformation4<D_JOINT, D1, D2, D3, D4> {
         KernelMutualInformation4::new(series, "box".to_string(), bandwidth)
+    }
+    /// Create a Kozachenko-Leonenko (KL) mutual information estimator.
+    pub fn new_kl(
+        series: &[Array1<f64>],
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoMutualInformation2<2, 1, 1> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        KozachenkoLeonenkoMutualInformation2::new(&series_2d, k, noise_level)
+    }
+
+    /// Create a multi-dimensional Kozachenko-Leonenko (KL) mutual information estimator.
+    pub fn nd_kl<const D_JOINT: usize, const D1: usize, const D2: usize>(
+        series: &[Array2<f64>],
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoMutualInformation2<D_JOINT, D1, D2> {
+        KozachenkoLeonenkoMutualInformation2::new(series, k, noise_level)
+    }
+
+    /// Create a Kozachenko-Leonenko (KL) conditional mutual information estimator.
+    pub fn new_cmi_kl(
+        series: &[Array1<f64>],
+        cond: &Array1<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoConditionalMutualInformation<1, 1, 1, 3, 2, 2> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        let cond_2d = cond.clone().insert_axis(Axis(1));
+        KozachenkoLeonenkoConditionalMutualInformation::new(&series_2d, &cond_2d, k, noise_level)
+    }
+
+    /// Create a multi-dimensional Kozachenko-Leonenko (KL) conditional mutual information estimator.
+    pub fn nd_cmi_kl<
+        const D1: usize,
+        const D2: usize,
+        const DZ: usize,
+        const D_JOINT: usize,
+        const D1Z: usize,
+        const D2Z: usize,
+    >(
+        series: &[Array2<f64>],
+        cond: &Array2<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z> {
+        KozachenkoLeonenkoConditionalMutualInformation::new(series, cond, k, noise_level)
     }
 }
