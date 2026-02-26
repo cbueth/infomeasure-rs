@@ -187,6 +187,79 @@ macro_rules! new_renyi_cmi {
     }};
 }
 
+/// Macro for creating a new `TsallisMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_tsallis_mi {
+    ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr) => {{
+        const D_JOINT: usize = $d1 + $d2;
+        $crate::estimators::approaches::expfam::tsallis::TsallisMutualInformation2::<
+            D_JOINT,
+            $d1,
+            $d2,
+        >::new($series, $k, $q, $noise)
+    }};
+    ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3;
+        $crate::estimators::approaches::expfam::tsallis::TsallisMutualInformation3::<
+            D_JOINT,
+            $d1,
+            $d2,
+            $d3,
+        >::new($series, $k, $q, $noise)
+    }};
+    ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4;
+        $crate::estimators::approaches::expfam::tsallis::TsallisMutualInformation4::<
+            D_JOINT,
+            $d1,
+            $d2,
+            $d3,
+            $d4,
+        >::new($series, $k, $q, $noise)
+    }};
+    ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5;
+        $crate::estimators::approaches::expfam::tsallis::TsallisMutualInformation5::<
+            D_JOINT,
+            $d1,
+            $d2,
+            $d3,
+            $d4,
+            $d5,
+        >::new($series, $k, $q, $noise)
+    }};
+    ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr, $d6:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5 + $d6;
+        $crate::estimators::approaches::expfam::tsallis::TsallisMutualInformation6::<
+            D_JOINT,
+            $d1,
+            $d2,
+            $d3,
+            $d4,
+            $d5,
+            $d6,
+        >::new($series, $k, $q, $noise)
+    }};
+}
+
+/// Macro for creating a new `TsallisConditionalMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_tsallis_cmi {
+    ($series:expr, $cond:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d_cond;
+        const D1_COND: usize = $d1 + $d_cond;
+        const D2_COND: usize = $d2 + $d_cond;
+        $crate::estimators::approaches::expfam::tsallis::TsallisConditionalMutualInformation::<
+            $d1,
+            $d2,
+            $d_cond,
+            D_JOINT,
+            D1_COND,
+            D2_COND,
+        >::new($series, $cond, $k, $q, $noise)
+    }};
+}
+
 /// Macro for creating a new `KozachenkoLeonenkoMutualInformation` estimator.
 #[macro_export]
 macro_rules! new_kl_mi {
@@ -638,6 +711,64 @@ impl MutualInformation {
         noise_level: f64,
     ) -> RenyiConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z> {
         RenyiConditionalMutualInformation::new(series, cond, k, alpha, noise_level)
+    }
+
+    /// Create a Tsallis mutual information estimator.
+    pub fn new_tsallis(
+        series: &[Array1<f64>],
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisMutualInformation2<2, 1, 1> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        TsallisMutualInformation2::new(&series_2d, k, q, noise_level)
+    }
+
+    /// Create a multi-dimensional Tsallis mutual information estimator.
+    pub fn nd_tsallis<const D_JOINT: usize, const D1: usize, const D2: usize>(
+        series: &[Array2<f64>],
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisMutualInformation2<D_JOINT, D1, D2> {
+        TsallisMutualInformation2::new(series, k, q, noise_level)
+    }
+
+    /// Create a Tsallis conditional mutual information estimator.
+    pub fn new_cmi_tsallis(
+        series: &[Array1<f64>],
+        cond: &Array1<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisConditionalMutualInformation<1, 1, 1, 3, 2, 2> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        let cond_2d = cond.clone().insert_axis(Axis(1));
+        TsallisConditionalMutualInformation::new(&series_2d, &cond_2d, k, q, noise_level)
+    }
+
+    /// Create a multi-dimensional Tsallis conditional mutual information estimator.
+    pub fn nd_cmi_tsallis<
+        const D1: usize,
+        const D2: usize,
+        const DZ: usize,
+        const D_JOINT: usize,
+        const D1Z: usize,
+        const D2Z: usize,
+    >(
+        series: &[Array2<f64>],
+        cond: &Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z> {
+        TsallisConditionalMutualInformation::new(series, cond, k, q, noise_level)
     }
 
     /// Create a Kozachenko-Leonenko (KL) mutual information estimator.
