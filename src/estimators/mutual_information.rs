@@ -35,6 +35,10 @@ use crate::estimators::approaches::expfam::renyi::{
 use crate::estimators::approaches::expfam::tsallis::{
     TsallisConditionalMutualInformation, TsallisMutualInformation2,
 };
+use crate::estimators::approaches::ordinal::ordinal_estimator::{
+    OrdinalConditionalMutualInformation, OrdinalMutualInformation,
+};
+
 /// Macro for creating a new `KernelMutualInformation` estimator.
 ///
 /// This macro automatically calculates the required joint dimensions
@@ -384,6 +388,27 @@ impl MutualInformation {
         cond: &Array1<i32>,
     ) -> DiscreteConditionalMutualInformation<ShrinkEntropy> {
         DiscreteConditionalMutualInformation::new(series, cond, ShrinkEntropy::new)
+    }
+
+    /// Create an Ordinal-based mutual information estimator.
+    pub fn new_ordinal(
+        series: &[Array1<f64>],
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalMutualInformation {
+        OrdinalMutualInformation::new(series, order, step_size, stable)
+    }
+
+    /// Create an Ordinal-based conditional mutual information estimator.
+    pub fn new_cmi_ordinal(
+        series: &[Array1<f64>],
+        cond: &Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalConditionalMutualInformation {
+        OrdinalConditionalMutualInformation::new(series, cond, order, step_size, stable)
     }
 
     /// Create a Kernel-based conditional mutual information estimator.
