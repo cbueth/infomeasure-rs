@@ -8,6 +8,10 @@ use rand::prelude::*;
 use rand_distr::Normal;
 use std::num::NonZeroUsize;
 
+    /// Type I (Algorithm 1) uses strict inequality (dist < eps) for neighbor counting in marginal spaces.
+    Type1,
+    /// Type II (Algorithm 2) uses non-strict inequality (dist <= eps) and a modified formula.
+    Type2,
 /// Add Gaussian noise to a 2D array.
 pub(crate) fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
     if noise_level <= 0.0 {
@@ -21,15 +25,30 @@ pub(crate) fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> 
     data
 }
 
-/// Compute the volume of the unit m-ball in R^m.
-/// c_m = pi^{m/2} / Gamma(m/2 + 1)
-/// We use a simple implementation via statrs gamma function.
-pub(crate) fn unit_ball_volume(m: usize) -> f64 {
-    use statrs::function::gamma::gamma;
-    let m_f = m as f64;
-    let numerator = std::f64::consts::PI.powf(m_f / 2.0);
-    let denom = gamma(m_f / 2.0 + 1.0);
-    numerator / denom
+/// Compute the volume of the unit m-ball in R^m with radius r.
+/// This matches Python's unit_ball_volume(d, r=r, p=p).
+/// For KL entropy, Python uses r=1/2, which gives:
+/// - For p=∞: c_d = 1 (since (2*r)^d = 1 when r=1/2)
+/// - For p=2: c_d = π^(d/2) / (Γ(1+d/2) * 2^d)
+pub fn unit_ball_volume(m: usize, p: f64) -> f64 {
+    unit_ball_volume_with_radius(m, p, 1.0)
+}
+
+/// Compute the unit ball volume with a specific radius r.
+/// This matches Python's unit_ball_volume(d, r=r, p=p).
+pub fn unit_ball_volume_with_radius(m: usize, p: f64, r: f64) -> f64 {
+    if p.is_infinite() {
+        return unit_ball_volume_chebyshev_with_radius(m, r);
+    }
+    if p == 2.0 {
+        use statrs::function::gamma::gamma;
+        let m_f = m as f64;
+        let numerator = std::f64::consts::PI.powf(m_f / 2.0) * r.powf(m_f);
+        let denom = gamma(m_f / 2.0 + 1.0);
+        numerator / denom
+    } else {
+        use statrs::function::gamma::gamma;
+        let m_f = m as f64;
 }
 
 /// Convert an ArrayView2<f64> with exactly K columns into Vec<[f64; K]> points.
@@ -115,15 +134,55 @@ pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64
 }
 
 /// Compute common components used by exponential-family kNN estimators.
+/// This is the standard version (r=1) used by Rényi and Tsallis entropy.
 /// Mirrors Python calculate_common_entropy_components.
 pub(crate) fn calculate_common_entropy_components_at<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
 ) -> (f64, Vec<f64>, usize, usize) {
-    let v_m = unit_ball_volume(K);
+    let v_m = unit_ball_volume_with_radius(K, 2.0, 1.0);
     let rho_k = knn_radii_at::<K>(data, k, at);
     let n = rho_k.len(); // N if at is None, M if at is Some(target)
+    (v_m, rho_k, n, K)
+}
+
+/// Compute common components used by exponential-family kNN estimators using Chebyshev metric.
+/// This is the standard version (r=1) used by Rényi and Tsallis entropy.
+#[allow(dead_code)]
+pub(crate) fn calculate_common_entropy_components_at_chebyshev<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> (f64, Vec<f64>, usize, usize) {
+    let v_m = unit_ball_volume_chebyshev_with_radius(K, 1.0);
+    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at);
+    let n = rho_k.len();
+    (v_m, rho_k, n, K)
+}
+
+/// Compute common components for KL entropy specifically (uses r=1/2).
+/// Mirrors Python's KL entropy implementation.
+pub(crate) fn calculate_common_entropy_components_at_kl<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> (f64, Vec<f64>, usize, usize) {
+    let v_m = unit_ball_volume_with_radius(K, 2.0, 0.5);
+    let rho_k = knn_radii_at::<K>(data, k, at);
+    let n = rho_k.len();
+    (v_m, rho_k, n, K)
+}
+
+/// Compute common components for KL entropy using Chebyshev metric (uses r=1/2).
+pub(crate) fn calculate_common_entropy_components_at_chebyshev_kl<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> (f64, Vec<f64>, usize, usize) {
+    let v_m = unit_ball_volume_chebyshev_with_radius(K, 0.5);
+    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at);
+    let n = rho_k.len();
     (v_m, rho_k, n, K)
 }
 
@@ -132,6 +191,7 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use ndarray::{Array2, array};
+    use rstest::rstest;
 
     /// Compute common components used by exponential-family kNN estimators for self-evaluation.
     pub(crate) fn calculate_common_entropy_components<const K: usize>(
@@ -154,18 +214,16 @@ mod tests {
         assert_eq!(no_noise, data);
     }
 
-    #[test]
-    fn unit_ball_volume_known_values() {
-        // m = 1 -> volume = 2 (length of [-1, 1])
-        assert_abs_diff_eq!(unit_ball_volume(1), 2.0, epsilon = 1e-12);
-        // m = 2 -> area = pi
-        assert_abs_diff_eq!(unit_ball_volume(2), std::f64::consts::PI, epsilon = 1e-12);
-        // m = 3 -> volume = 4/3 * pi
-        assert_abs_diff_eq!(
-            unit_ball_volume(3),
-            4.0 * std::f64::consts::PI / 3.0,
-            epsilon = 1e-6
-        );
+    #[rstest]
+    #[case(1, 2.0, 2.0)]
+    #[case(2, 2.0, std::f64::consts::PI)]
+    #[case(3, 2.0, 4.0 * std::f64::consts::PI / 3.0)]
+    #[case(2, f64::INFINITY, 4.0)]
+    #[case(2, 1.0, 2.0)]
+    #[case(3, f64::INFINITY, 8.0)] // (2*1)^3 = 8
+    #[case(3, 1.0, 4.0 / 3.0)] // (2^3 * gamma(2)^3) / gamma(4) = 8 * 1 / 6 = 1.333...
+    fn unit_ball_volume_known_values(#[case] d: usize, #[case] p: f64, #[case] expected: f64) {
+        assert_abs_diff_eq!(unit_ball_volume(d, p), expected, epsilon = 1e-12);
     }
 
     #[test]
