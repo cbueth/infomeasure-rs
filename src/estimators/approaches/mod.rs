@@ -25,8 +25,14 @@ pub use discrete::zhang::ZhangEntropy;
 
 // Exponential family estimators
 pub use expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
+pub use expfam::ksg::{
+    KsgConditionalMutualInformation, KsgConditionalTransferEntropy, KsgMutualInformation2,
+    KsgMutualInformation3, KsgMutualInformation4, KsgMutualInformation5, KsgMutualInformation6,
+    KsgTransferEntropy,
+};
 pub use expfam::renyi::RenyiEntropy;
 pub use expfam::tsallis::TsallisEntropy;
+pub use expfam::utils::KsgType;
 
 // Kernel and Ordinal
 pub use kernel::KernelEntropy;
