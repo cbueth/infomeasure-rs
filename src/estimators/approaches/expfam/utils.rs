@@ -106,8 +106,15 @@ pub(crate) fn knn_radii_at<const K: usize>(
             // No need to exclude self if we are querying another dataset
             let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k).unwrap());
             let kth = neigh.remove(k - 1);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            radii.push(dist2.sqrt());
+            // kiddo's into() for SquaredEuclidean returns the squared distance.
+            // For Manhattan and Chebyshev it returns the actual distance.
+            // We use a trick here: since we don't know M's behavior easily,
+            // we'll handle SquaredEuclidean explicitly.
+            if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
+                radii.push(dist.sqrt());
+            } else {
+                radii.push(dist);
+            }
         }
         radii
     } else {
@@ -115,22 +122,47 @@ pub(crate) fn knn_radii_at<const K: usize>(
             k < n,
             "k must be <= N-1 when querying within the same dataset"
         );
-        // Query k+1 neighbors (including self), take index k (0-based) and sqrt distance
         let mut radii = Vec::with_capacity(n);
         for p in points.iter() {
-            let mut neigh =
-                tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
+            let mut neigh = tree.nearest_n::<M>(p, NonZeroUsize::new(k + 1).unwrap());
             let kth = neigh.remove(k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            radii.push(dist2.sqrt());
+            let (dist, _idx): (f64, u64) = kth.into();
+            if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
+                radii.push(dist.sqrt());
+            } else {
+                radii.push(dist);
+            }
         }
         radii
     }
 }
 
+/// Compute kNN radii (Euclidean distances to the k-th nearest neighbor).
+pub(crate) fn knn_radii_at<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> Vec<f64> {
+    knn_radii_at_with_metric::<K, SquaredEuclidean>(data, k, at)
+}
+
+/// Compute kNN radii using Chebyshev metric.
+pub(crate) fn knn_radii_at_chebyshev<const K: usize>(
+    data: ArrayView2<'_, f64>,
+    k: usize,
+    at: Option<ArrayView2<'_, f64>>,
+) -> Vec<f64> {
+    knn_radii_at_with_metric::<K, Chebyshev>(data, k, at)
+}
+
 /// Compute kNN radii (Euclidean distances to the k-th nearest neighbor), excluding self.
 pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
     knn_radii_at::<K>(data, k, None)
+}
+
+/// Compute kNN radii (Chebyshev distances to the k-th nearest neighbor), excluding self.
+pub fn knn_radii_chebyshev<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
+    knn_radii_at_chebyshev::<K>(data, k, None)
 }
 
 /// Compute common components used by exponential-family kNN estimators.
