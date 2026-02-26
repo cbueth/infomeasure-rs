@@ -21,34 +21,49 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
 pub use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 use ndarray::{Array1, Array2};
 
-/// Entropy estimation methods for various data types
+/// Facade for creating various entropy estimators.
 ///
-/// This struct provides static factory methods for creating entropy estimators
-/// for different types of data and estimation approaches. All estimators
-/// implement the [`GlobalValue`] and
-/// [`LocalValues`] traits.
+/// This struct provides a unified interface for all entropy estimation techniques supported
+/// by the library. It includes methods for discrete, kernel-based, ordinal, and
+/// exponential family (k-NN) estimators.
 ///
-/// # Example Usage
+/// Each estimator can be used to compute the global entropy value or local entropy values
+/// (if supported) using the [`GlobalValue`] and [`LocalValues`] traits.
+///
+/// # Mathematical Notation
+/// - $H(X)$: Shannon entropy of random variable $X$.
+/// - $H(X, Y)$: Joint entropy of random variables $X$ and $Y$.
+/// - $H(P||Q)$: Cross-entropy between distributions $P$ and $Q$.
+///
+/// # Examples
 ///
 /// ```rust
 /// use infomeasure::estimators::entropy::Entropy;
-/// use infomeasure::estimators::traits::GlobalValue;
-/// use ndarray::array;
+/// use infomeasure::estimators::traits::{GlobalValue, JointEntropy};
+/// use ndarray::{array, Array1, Array2};
 ///
-/// // Discrete entropy for categorical data
-/// let discrete_data = array!(1, 2, 1, 3, 2, 1);
-/// let discrete_entropy = Entropy::new_discrete(discrete_data);
-/// println!("Discrete entropy: {}", discrete_entropy.global_value());
+/// // 1. Discrete Shannon Entropy (MLE)
+/// let data = array![1, 2, 1, 3, 2, 1];
+/// let entropy = Entropy::new_discrete(data).global_value();
+/// println!("MLE Entropy: {}", entropy);
 ///
-/// // Kernel entropy for continuous data (2D example)
+/// // 2. Kernel Density Entropy (continuous data)
 /// let continuous_data = array![[1.0, 1.5], [2.0, 3.0], [4.0, 5.0]];
+/// // Specify 2D points via const generic
 /// let kernel_entropy = Entropy::nd_kernel::<2>(continuous_data, 1.0);
 /// println!("Kernel entropy: {}", kernel_entropy.global_value());
 ///
-/// // Ordinal entropy for time series
+/// // 3. Ordinal entropy for time series
 /// let time_series = array![1.0, 2.0, 1.5, 3.0, 2.5];
 /// let ordinal_entropy = Entropy::new_ordinal(time_series, 3);
 /// println!("Ordinal entropy: {}", ordinal_entropy.global_value());
+///
+/// // 4. Joint Entropy of two discrete variables
+/// let x = array![1, 2, 1, 3, 2, 1];
+/// let y = array![0, 1, 0, 1, 0, 1];
+/// // Using any discrete estimator that implements JointEntropy
+/// let joint = Entropy::joint_discrete(&[x, y], ());
+/// println!("Joint entropy: {}", joint);
 /// ```
 pub struct Entropy;
 
@@ -65,22 +80,40 @@ impl Entropy {
     /// A discrete entropy estimator configured for the provided data
     /// Create a Maximum-Likelihood (Shannon) discrete entropy estimator for integer data.
     ///
-    /// Uses the empirical distribution p_i = n_i / N. Supports local values via LocalValues.
+    /// The MLE entropy is computed as:
+    /// $H(X) = - \sum_{i} \hat{p}_i \ln \hat{p}_i$
+    /// where $\hat{p}_i = n_i / N$ is the empirical probability of the $i$-th bin.
+    ///
+    /// This estimator is asymptotically unbiased but exhibits significant negative bias
+    /// for finite samples, especially when $N/K$ is small.
+    ///
+    /// Supports local values via [`LocalValues`].
     pub fn new_discrete(data: Array1<i32>) -> DiscreteEntropy {
         DiscreteEntropy::new(data)
     }
 
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
-    /// Adds $(K-1)/(2N)$ to the MLE estimate; supports local values (uniformly offset).
+    /// The Miller-Madow correction adds $(K-1)/(2N)$ to the MLE estimate:
+    /// $\hat{H}_{MM} = \hat{H}_{MLE} + \frac{K-1}{2N}$
+    /// where $K$ is the number of bins with non-zero counts and $N$ is the sample size.
+    ///
+    /// This is the simplest bias correction and works well when $N \gg K$.
+    /// Supports local values (uniformly offset by the correction term).
     pub fn new_miller_madow(data: Array1<i32>) -> MillerMadowEntropy {
         MillerMadowEntropy::new(data)
     }
 
     /// Create a James–Stein shrinkage discrete entropy estimator.
     ///
-    /// Shrinks the empirical distribution towards the uniform target using a data-driven
-    /// lambda in $\[0,1\]$; supports local values.
+    /// The shrinkage estimator shrinks the empirical distribution towards a uniform
+    /// target distribution using a data-driven shrinkage parameter $\lambda \in [0, 1]$:
+    /// $\hat{p}_i^{\text{shrink}} = \lambda \hat{p}_i^{\text{uniform}} + (1-\lambda) \hat{p}_i^{\text{MLE}}$
+    ///
+    /// This estimator provides a good trade-off between bias and variance and is
+    /// particularly robust in high-dimensional or undersampled regimes.
+    ///
+    /// Supports local values via [`LocalValues`].
     pub fn new_shrink(data: Array1<i32>) -> ShrinkEntropy {
         ShrinkEntropy::new(data)
     }
@@ -120,7 +153,12 @@ impl Entropy {
 
     /// Create a Chao–Shen coverage-adjusted discrete entropy estimator.
     ///
-    /// Good for unseen-mass correction in undersampled regimes; global-only.
+    /// The Chao-Shen estimator accounts for unobserved species through coverage estimation:
+    /// $\hat{H}_{CS} = - \sum_{i=1}^{K} \frac{\hat{p}_i^{CS} \ln \hat{p}_i^{CS}}{1 - (1 - \hat{p}_i^{CS})^N}$
+    /// where $\hat{p}_i^{CS} = C \hat{p}_i^{MLE}$ and $C$ is the estimated sample coverage.
+    ///
+    /// Recommended for undersampled regimes with many singletons. Global-only.
+    /// Matches the implementation in the Python `infomeasure` package.
     pub fn new_chao_shen(data: Array1<i32>) -> ChaoShenEntropy {
         ChaoShenEntropy::new(data)
     }

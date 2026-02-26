@@ -10,22 +10,6 @@
 //! - [`GlobalValue`] - Provides `.global_value()` method for scalar results
 //! - [`LocalValues`] - Provides `.local_values()` method for per-sample contributions
 //! - [`OptionalLocalValues`] - Fallible local value extraction
-//!
-//! # Usage Pattern
-//!
-//! ```rust
-//! use infomeasure::estimators::entropy::Entropy;
-//! use infomeasure::estimators::traits::{GlobalValue, LocalValues};
-//! use ndarray::array;
-//!
-//! // Create estimator
-//! let data = array!(1, 2, 1, 3, 2, 1);
-//! let estimator = Entropy::new_discrete(data);
-//!
-//! // Extract results
-//! let global = estimator.global_value();
-//! let local = estimator.local_values();
-//! ```
 
 pub mod approaches;
 pub mod entropy;
@@ -34,5 +18,8 @@ pub mod traits;
 pub mod transfer_entropy;
 pub mod utils;
 
+// Re-export commonly used types for external access
+pub use approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
+pub use approaches::expfam::ksg::KsgType;
 pub use entropy::Entropy;
 pub use traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
