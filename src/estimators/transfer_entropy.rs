@@ -670,6 +670,204 @@ impl TransferEntropy {
         )
     }
 
+    /// Create a Miller-Madow discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_miller_madow(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<MillerMadowEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            MillerMadowEntropy::new,
+        )
+    }
+
+    /// Create a Chao-Shen discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_chao_shen(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<ChaoShenEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            ChaoShenEntropy::new,
+        )
+    }
+
+    /// Create an NSB discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_nsb(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<NsbEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            |data| NsbEntropy::new(data, None),
+        )
+    }
+
+    /// Create an ANSB discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_ansb(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<AnsbEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            |data| AnsbEntropy::new(data, None, 0.1),
+        )
+    }
+
+    /// Create a Bonachela discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_bonachela(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<BonachelaEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            BonachelaEntropy::new,
+        )
+    }
+
+    /// Create a Grassberger discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_grassberger(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<GrassbergerEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            GrassbergerEntropy::new,
+        )
+    }
+
+    /// Create a Zhang discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_zhang(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<ZhangEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            ZhangEntropy::new,
+        )
+    }
+
+    /// Create a Chao-Wang-Jost discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_chao_wang_jost(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<ChaoWangJostEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            ChaoWangJostEntropy::new,
+        )
+    }
+
+    /// Create a Bayes discrete conditional transfer entropy estimator.
+    pub fn new_cte_discrete_bayes(
+        source: &Array1<i32>,
+        destination: &Array1<i32>,
+        condition: &Array1<i32>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DiscreteConditionalTransferEntropy<BayesEntropy> {
+        DiscreteConditionalTransferEntropy::new(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            |data| BayesEntropy::new(data, AlphaParam::Jeffrey, None),
+        )
+    }
+
     /// Create a James-Stein shrinkage discrete conditional transfer entropy estimator.
     pub fn new_cte_discrete_shrink(
         source: &Array1<i32>,
@@ -689,6 +887,53 @@ impl TransferEntropy {
             cond_hist_len,
             step_size,
             ShrinkEntropy::new,
+        )
+    }
+
+    /// Create an Ordinal-based transfer entropy estimator.
+    pub fn new_ordinal(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        order: usize,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalTransferEntropy {
+        OrdinalTransferEntropy::new(
+            source,
+            dest,
+            order,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            stable,
+        )
+    }
+
+    /// Create an Ordinal-based conditional transfer entropy estimator.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_cte_ordinal(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        cond: &Array1<f64>,
+        order: usize,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalConditionalTransferEntropy {
+        OrdinalConditionalTransferEntropy::new(
+            source,
+            dest,
+            cond,
+            order,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            stable,
         )
     }
 
@@ -848,253 +1093,6 @@ impl TransferEntropy {
         )
     }
 
-    /// Create a Miller-Madow bias-corrected discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_miller_madow(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<MillerMadowEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            MillerMadowEntropy::new,
-        )
-    }
-
-    /// Create a Chao-Shen discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_chao_shen(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<ChaoShenEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            ChaoShenEntropy::new,
-        )
-    }
-
-    /// Create a NSB discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_nsb(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<NsbEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            |data| NsbEntropy::new(data, None),
-        )
-    }
-
-    /// Create a ANSB discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_ansb(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<AnsbEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            |data| AnsbEntropy::new(data, None, 0.0),
-        )
-    }
-
-    /// Create a Bonachela discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_bonachela(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<BonachelaEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            BonachelaEntropy::new,
-        )
-    }
-
-    /// Create an Ordinal-based transfer entropy estimator.
-    pub fn new_ordinal(
-        source: &Array1<f64>,
-        dest: &Array1<f64>,
-        order: usize,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        step_size: usize,
-        stable: bool,
-    ) -> OrdinalTransferEntropy {
-        OrdinalTransferEntropy::new(
-            source,
-            dest,
-            order,
-            src_hist_len,
-            dest_hist_len,
-            step_size,
-            stable,
-        )
-    }
-
-    /// Create an Ordinal-based conditional transfer entropy estimator.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_cte_ordinal(
-        source: &Array1<f64>,
-        dest: &Array1<f64>,
-        cond: &Array1<f64>,
-        order: usize,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-        stable: bool,
-    ) -> OrdinalConditionalTransferEntropy {
-        OrdinalConditionalTransferEntropy::new(
-            source,
-            dest,
-            cond,
-            order,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            stable,
-        )
-    }
-
-    /// Create a Kernel-based conditional transfer entropy estimator.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_cte_kernel(
-        source: &Array1<f64>,
-        destination: &Array1<f64>,
-        condition: &Array1<f64>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-        bandwidth: f64,
-    ) -> KernelConditionalTransferEntropy<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3> {
-        let source_2d = source.clone().insert_axis(Axis(1));
-        let dest_2d = destination.clone().insert_axis(Axis(1));
-        let cond_2d = condition.clone().insert_axis(Axis(1));
-        KernelConditionalTransferEntropy::new(
-            &source_2d,
-            &dest_2d,
-            &cond_2d,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            GrassbergerEntropy::new,
-        )
-    }
-
-    /// Create a Zhang discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_zhang(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<ZhangEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            ZhangEntropy::new,
-        )
-    }
-
-    /// Create a Chao-Wang-Jost discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_chao_wang_jost(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<ChaoWangJostEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            ChaoWangJostEntropy::new,
-        )
-    }
-
-    /// Create a Bayes discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_bayes(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
-        src_hist_len: usize,
-        dest_hist_len: usize,
-        cond_hist_len: usize,
-        step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<BayesEntropy> {
-        DiscreteConditionalTransferEntropy::new(
-            source,
-            destination,
-            condition,
-            src_hist_len,
-            dest_hist_len,
-            cond_hist_len,
-            step_size,
-            |data| BayesEntropy::new(data, AlphaParam::Jeffrey, None),
     /// Create a KSG-based transfer entropy estimator.
     pub fn new_ksg(
         source: &Array1<f64>,
