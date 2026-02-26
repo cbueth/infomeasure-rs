@@ -2,30 +2,9 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::traits::DistanceMetric;
-use kiddo::{ImmutableKdTree, Manhattan, SquaredEuclidean};
+use kiddo::{Chebyshev, ImmutableKdTree, Manhattan, SquaredEuclidean};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
-
-/// Chebyshev distance metric (L-infinity norm) for kiddo.
-pub struct Chebyshev;
-
-impl<const K: usize> DistanceMetric<f64, K> for Chebyshev {
-    fn dist(a: &[f64; K], b: &[f64; K]) -> f64 {
-        let mut max = 0.0;
-        for i in 0..K {
-            let diff = (a[i] - b[i]).abs();
-            if diff > max {
-                max = diff;
-            }
-        }
-        max
-    }
-
-    fn dist1(a: f64, b: f64) -> f64 {
-        (a - b).abs()
-    }
-}
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 ///
@@ -68,7 +47,12 @@ impl<const K: usize> NdDataset<K> {
     /// # Panics
     /// Panics if the number of columns doesn't match the template parameter K
     pub fn from_array2(data: Array2<f64>) -> Self {
-        assert!(data.ncols() == K, "data.ncols() must equal K");
+        assert!(
+            data.ncols() == K,
+            "data.ncols() must equal K, but got {} vs. {}",
+            data.ncols(),
+            K
+        );
         let points = Self::convert_to_points(data.view());
         Self::from_points(points)
     }
@@ -207,6 +191,26 @@ impl<const K: usize> NdDataset<K> {
             out.push(dists[k - 1]);
         }
         out
+    }
+
+    /// Chebyshev metric (L-infinity): distance to k-th neighbor per point (self-excluded)
+    pub fn kth_neighbor_radii_chebyshev(&self, k: usize) -> Vec<f64> {
+        assert!(k >= 1);
+        if self.n == 0 {
+            return Vec::new();
+        }
+        assert!(k < self.n, "k must be <= N-1 for self-queries");
+
+        let mut radii = Vec::with_capacity(self.n);
+        for p in self.points.iter() {
+            let mut neigh = self
+                .tree
+                .nearest_n::<Chebyshev>(p, NonZeroUsize::new(k + 1).unwrap());
+            let kth = neigh.remove(k);
+            let (dist, _idx): (f64, u64) = kth.into();
+            radii.push(dist);
+        }
+        radii
     }
 
     /// Convert a 2D array to a vector of fixed-size points for batch processing.
