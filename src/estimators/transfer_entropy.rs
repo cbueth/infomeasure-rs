@@ -105,6 +105,56 @@ macro_rules! new_kernel_cte {
     }};
 }
 
+/// Macro for creating a new `KozachenkoLeonenkoTransferEntropy` estimator.
+#[macro_export]
+macro_rules! new_kl_te {
+    ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $noise:expr) => {{
+        const D_JOINT: usize = $d_target + ($src_hist * $d_src) + ($dest_hist * $d_target);
+        const D_XP_YP: usize = ($src_hist * $d_src) + ($dest_hist * $d_target);
+        const D_YP: usize = $dest_hist * $d_target;
+        const D_YF_YP: usize = $d_target + ($dest_hist * $d_target);
+
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoTransferEntropy::<
+            $src_hist,
+            $dest_hist,
+            $step,
+            $d_src,
+            $d_target,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >::new($source, $dest, $k, $noise)
+    }};
+}
+
+/// Macro for creating a new `KozachenkoLeonenkoConditionalTransferEntropy` estimator.
+#[macro_export]
+macro_rules! new_kl_cte {
+    ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $noise:expr) => {{
+        const D_JOINT: usize =
+            $d_target + ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_XP_YP_ZP: usize =
+            ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YP_ZP: usize = ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YF_YP_ZP: usize = $d_target + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+
+        $crate::estimators::approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoConditionalTransferEntropy::<
+            $src_hist,
+            $dest_hist,
+            $cond_hist,
+            $step,
+            $d_src,
+            $d_target,
+            $d_cond,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >::new($source, $dest, $cond, $k, $noise)
+    }};
+}
+
 pub struct TransferEntropy;
 
 impl TransferEntropy {
@@ -828,5 +878,71 @@ impl TransferEntropy {
             step_size,
             |data| BayesEntropy::new(data, AlphaParam::Jeffrey, None),
         )
+    }
+    /// Create a Kozachenko-Leonenko (KL) based conditional transfer entropy estimator.
+    pub fn new_cte_kl(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        condition: &Array1<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoConditionalTransferEntropy<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let destination_2d = destination.clone().insert_axis(Axis(1));
+        let condition_2d = condition.clone().insert_axis(Axis(1));
+        KozachenkoLeonenkoConditionalTransferEntropy::<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3>::new(
+            &source_2d,
+            &destination_2d,
+            &condition_2d,
+            k,
+            noise_level,
+        )
+    }
+
+    /// Create a multi-dimensional Kozachenko-Leonenko (KL) based conditional transfer entropy estimator.
+    pub fn nd_cte_kl<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const COND_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_COND: usize,
+        const D_JOINT: usize,
+        const D_XP_YP_ZP: usize,
+        const D_YP_ZP: usize,
+        const D_YF_YP_ZP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        condition: &Array2<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    > {
+        KozachenkoLeonenkoConditionalTransferEntropy::<
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >::new(source, destination, condition, k, noise_level)
     }
 }
