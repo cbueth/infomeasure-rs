@@ -17,7 +17,11 @@ categories = ["mathematics", "science"]
 
 [dependencies]
 ndarray = "0.17" # For numerical computations
-kiddo = "5.2.0"  # KDtree
+kiddo = "5.2.4"
+# kiddo = { path = "../kiddo" }  # Local development: uncomment or use --config flag
+# For local development with git branch:
+# [patch.crates-io]
+# kiddo = { git = "https://github.com/cbueth/kiddo.git", branch = "feat/optional-boundary-inclusiveness" }
 plotters = "0.3.7"
 wgpu = "26.0"
 pollster = "0.3"  # For blocking on async operations
@@ -28,6 +32,10 @@ ndarray-stats = "0.7.0"  # covariance matrix
 ndarray-linalg = { version = "0.18.1", features = ["openblas-static"] }  # .cholesky
 rand = "0.8"
 rand_distr = "0.4"
+
+
+[patch.crates-io]
+kiddo = { git = "https://github.com/cbueth/kiddo.git", branch = "feat/optional-boundary-inclusiveness" }
 
 [features]
 default = []
