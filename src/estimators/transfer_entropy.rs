@@ -144,6 +144,82 @@ macro_rules! new_ksg_te {
     }};
 }
 
+/// Macro for creating a new `KsgConditionalTransferEntropy` estimator.
+#[macro_export]
+macro_rules! new_ksg_cte {
+    ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $noise:expr) => {{
+        const D_JOINT: usize =
+            $d_target + ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_XP_YP_ZP: usize =
+            ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YP_ZP: usize = ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YF_YP_ZP: usize = $d_target + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+
+        $crate::estimators::approaches::expfam::ksg_te::KsgConditionalTransferEntropy::<
+            $src_hist,
+            $dest_hist,
+            $cond_hist,
+            $step,
+            $d_src,
+            $d_target,
+            $d_cond,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >::new($source, $dest, $cond, $k, $noise)
+    }};
+}
+
+/// Macro for creating a new `RenyiTransferEntropy` estimator.
+#[macro_export]
+macro_rules! new_renyi_te {
+    ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $alpha:expr, $noise:expr) => {{
+        const D_JOINT: usize = $d_target + ($src_hist * $d_src) + ($dest_hist * $d_target);
+        const D_XP_YP: usize = ($src_hist * $d_src) + ($dest_hist * $d_target);
+        const D_YP: usize = $dest_hist * $d_target;
+        const D_YF_YP: usize = $d_target + ($dest_hist * $d_target);
+
+        $crate::estimators::approaches::expfam::renyi::RenyiTransferEntropy::<
+            $src_hist,
+            $dest_hist,
+            $step,
+            $d_src,
+            $d_target,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >::new($source, $dest, $k, $alpha, $noise)
+    }};
+}
+
+/// Macro for creating a new `RenyiConditionalTransferEntropy` estimator.
+#[macro_export]
+macro_rules! new_renyi_cte {
+    ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $alpha:expr, $noise:expr) => {{
+        const D_JOINT: usize =
+            $d_target + ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_XP_YP_ZP: usize =
+            ($src_hist * $d_src) + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YP_ZP: usize = ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+        const D_YF_YP_ZP: usize = $d_target + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
+
+        $crate::estimators::approaches::expfam::renyi::RenyiConditionalTransferEntropy::<
+            $src_hist,
+            $dest_hist,
+            $cond_hist,
+            $step,
+            $d_src,
+            $d_target,
+            $d_cond,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >::new($source, $dest, $cond, $k, $alpha, $noise)
+    }};
+}
 /// Macro for creating a new `KozachenkoLeonenkoTransferEntropy` estimator.
 #[macro_export]
 macro_rules! new_kl_te {
@@ -1046,6 +1122,253 @@ impl TransferEntropy {
             D_YP_ZP,
             D_YF_YP_ZP,
         >::new(source, destination, condition, k, noise_level)
+    }
+
+    /// Create a Rényi-based transfer entropy estimator.
+    pub fn new_renyi(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiTransferEntropy<1, 1, 1, 1, 1, 3, 2, 1, 2> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let destination_2d = destination.clone().insert_axis(Axis(1));
+        RenyiTransferEntropy::<1, 1, 1, 1, 1, 3, 2, 1, 2>::new(
+            &source_2d,
+            &destination_2d,
+            k,
+            alpha,
+            noise_level,
+        )
+    }
+
+    /// Create a multi-dimensional Rényi-based transfer entropy estimator.
+    pub fn nd_renyi<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_JOINT: usize,
+        const D_XP_YP: usize,
+        const D_YP: usize,
+        const D_YF_YP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    > {
+        RenyiTransferEntropy::<
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >::new(source, destination, k, alpha, noise_level)
+    }
+
+    /// Create a Tsallis-based transfer entropy estimator.
+    pub fn new_tsallis(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisTransferEntropy<1, 1, 1, 1, 1, 3, 2, 1, 2> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let destination_2d = destination.clone().insert_axis(Axis(1));
+        TsallisTransferEntropy::<1, 1, 1, 1, 1, 3, 2, 1, 2>::new(
+            &source_2d,
+            &destination_2d,
+            k,
+            q,
+            noise_level,
+        )
+    }
+
+    /// Create a multi-dimensional Tsallis-based transfer entropy estimator.
+    pub fn nd_tsallis<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_JOINT: usize,
+        const D_XP_YP: usize,
+        const D_YP: usize,
+        const D_YF_YP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> TsallisTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    > {
+        TsallisTransferEntropy::<
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >::new(source, destination, k, q, noise_level)
+    }
+
+    /// Create a Kozachenko-Leonenko (KL) based transfer entropy estimator.
+    pub fn new_kl(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoTransferEntropy<1, 1, 1, 1, 1, 3, 2, 1, 2> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let destination_2d = destination.clone().insert_axis(Axis(1));
+        KozachenkoLeonenkoTransferEntropy::<1, 1, 1, 1, 1, 3, 2, 1, 2>::new(
+            &source_2d,
+            &destination_2d,
+            k,
+            noise_level,
+        )
+    }
+
+    /// Create a multi-dimensional Kozachenko-Leonenko (KL) based transfer entropy estimator.
+    pub fn nd_kl<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_JOINT: usize,
+        const D_XP_YP: usize,
+        const D_YP: usize,
+        const D_YF_YP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> KozachenkoLeonenkoTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    > {
+        KozachenkoLeonenkoTransferEntropy::<
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >::new(source, destination, k, noise_level)
+    }
+
+    /// Create a Rényi-based conditional transfer entropy estimator.
+    pub fn new_cte_renyi(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        condition: &Array1<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiConditionalTransferEntropy<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let destination_2d = destination.clone().insert_axis(Axis(1));
+        let condition_2d = condition.clone().insert_axis(Axis(1));
+        RenyiConditionalTransferEntropy::<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3>::new(
+            &source_2d,
+            &destination_2d,
+            &condition_2d,
+            k,
+            alpha,
+            noise_level,
+        )
+    }
+
+    /// Create a multi-dimensional Rényi-based conditional transfer entropy estimator.
+    pub fn nd_cte_renyi<
+        const SRC_HIST: usize,
+        const DEST_HIST: usize,
+        const COND_HIST: usize,
+        const STEP_SIZE: usize,
+        const D_SOURCE: usize,
+        const D_TARGET: usize,
+        const D_COND: usize,
+        const D_JOINT: usize,
+        const D_XP_YP_ZP: usize,
+        const D_YP_ZP: usize,
+        const D_YF_YP_ZP: usize,
+    >(
+        source: &Array2<f64>,
+        destination: &Array2<f64>,
+        condition: &Array2<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    > {
+        RenyiConditionalTransferEntropy::<
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >::new(source, destination, condition, k, alpha, noise_level)
     }
 
         )
