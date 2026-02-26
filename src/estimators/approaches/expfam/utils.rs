@@ -2,18 +2,24 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::{ImmutableKdTree, SquaredEuclidean};
+use kiddo::traits::DistanceMetric;
+use kiddo::{Chebyshev, ImmutableKdTree, SquaredEuclidean};
 use ndarray::{Array2, ArrayView2};
 use rand::prelude::*;
 use rand_distr::Normal;
 use std::num::NonZeroUsize;
 
+/// KSG Mutual Information Estimator Type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KsgType {
     /// Type I (Algorithm 1) uses strict inequality (dist < eps) for neighbor counting in marginal spaces.
     Type1,
     /// Type II (Algorithm 2) uses non-strict inequality (dist <= eps) and a modified formula.
     Type2,
+}
+
 /// Add Gaussian noise to a 2D array.
-pub(crate) fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
+pub fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
     if noise_level <= 0.0 {
         return data;
     }
@@ -49,6 +55,23 @@ pub fn unit_ball_volume_with_radius(m: usize, p: f64, r: f64) -> f64 {
     } else {
         use statrs::function::gamma::gamma;
         let m_f = m as f64;
+        let numerator = (2.0 * r * gamma(1.0 + 1.0 / p)).powf(m_f);
+        let denom = gamma(1.0 + m_f / p);
+        numerator / denom
+    }
+}
+
+/// Compute the volume of the unit m-ball in R^m under L-infinity norm with radius r.
+/// V_m = (2*r)^m
+pub fn unit_ball_volume_chebyshev(m: usize) -> f64 {
+    unit_ball_volume_chebyshev_with_radius(m, 1.0)
+}
+
+/// Compute the volume of the unit m-ball in R^m under L-infinity norm with radius r.
+/// V_m = (2*r)^m
+/// For KL entropy (r=1/2), this gives c_d = 1
+pub fn unit_ball_volume_chebyshev_with_radius(m: usize, r: f64) -> f64 {
+    (2.0 * r).powf(m as f64)
 }
 
 /// Convert an ArrayView2<f64> with exactly K columns into Vec<[f64; K]> points.
@@ -74,15 +97,11 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
     points
 }
 
-/// Compute kNN radii (Euclidean distances to the k-th nearest neighbor).
+/// Compute kNN radii using specified metric.
 ///
 /// If `at` is None, it computes distances within the same dataset `data` (excluding self).
 /// If `at` is Some(target), it computes distances from points in `target` to their k-th neighbors in `data`.
-///
-/// - data is shape (N, K)
-/// - target is shape (M, K)
-/// - k >= 1
-pub(crate) fn knn_radii_at<const K: usize>(
+pub(crate) fn knn_radii_at_with_metric<const K: usize, M: DistanceMetric<f64, K> + 'static>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
@@ -103,9 +122,10 @@ pub(crate) fn knn_radii_at<const K: usize>(
         let target_points = to_points::<K>(target_data);
         let mut radii = Vec::with_capacity(m);
         for p in target_points.iter() {
-            // No need to exclude self if we are querying another dataset
-            let mut neigh = tree.nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k).unwrap());
+            let mut neigh = tree.nearest_n::<M>(p, NonZeroUsize::new(k).unwrap());
             let kth = neigh.remove(k - 1);
+            let (dist, _idx): (f64, u64) = kth.into();
+            // If M is SquaredEuclidean, we must sqrt it.
             // kiddo's into() for SquaredEuclidean returns the squared distance.
             // For Manhattan and Chebyshev it returns the actual distance.
             // We use a trick here: since we don't know M's behavior easily,

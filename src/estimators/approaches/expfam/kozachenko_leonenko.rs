@@ -2,13 +2,19 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::SquaredEuclidean;
+use kiddo::Chebyshev;
 use ndarray::{Array1, Array2};
-use std::num::NonZeroUsize;
+use statrs::function::gamma::digamma;
 
-use super::utils::unit_ball_volume;
+use super::utils::{KsgType, unit_ball_volume_chebyshev_with_radius, unit_ball_volume_with_radius};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
+use crate::estimators::traits::{
+    ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
+    GlobalValue, JointEntropy, LocalValues, MutualInformationEstimator, OptionalLocalValues,
+    TransferEntropyEstimator,
+};
+use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
+use ndarray::{Axis, concatenate};
 
 /// Kozachenko–Leonenko (KL) differential entropy estimator (kNN-based, Euclidean metric)
 ///
@@ -24,8 +30,10 @@ use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalVa
 pub struct KozachenkoLeonenkoEntropy<const K: usize> {
     pub nd: NdDataset<K>,
     pub k: usize,
+    pub ksg_type: KsgType,
     pub base: f64,
     pub noise_level: f64,
+    pub use_chebyshev: bool,
 }
 
 impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
@@ -57,15 +65,22 @@ impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
 
 impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
     fn cross_entropy(&self, other: &KozachenkoLeonenkoEntropy<K>) -> f64 {
-        use super::utils::calculate_common_entropy_components_at;
         use statrs::function::gamma::digamma;
 
         // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
-        let (v_m, rho_k, _n_p, dimension) = calculate_common_entropy_components_at::<K>(
-            other.nd.view(),
-            self.k,
-            Some(self.nd.view()),
-        );
+        let (v_m, rho_k, _n_p, dimension) = if self.use_chebyshev {
+            super::utils::calculate_common_entropy_components_at_chebyshev_kl::<K>(
+                other.nd.view(),
+                self.k,
+                Some(self.nd.view()),
+            )
+        } else {
+            super::utils::calculate_common_entropy_components_at_kl::<K>(
+                other.nd.view(),
+                self.k,
+                Some(self.nd.view()),
+            )
+        };
 
         let n_q = other.nd.n as f64;
         let ln_base = self.base.ln();
@@ -83,11 +98,15 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
             return 0.0;
         }
 
-        // Parity with Python implementation: uses n_q (M) in digamma and denominator
-        let hx = -digamma(self.k as f64)
+        let mut psi_k = digamma(self.k as f64);
+        if self.ksg_type == KsgType::Type2 {
+            psi_k -= 1.0 / (self.k as f64);
+        }
+
+        let hx = -psi_k
             + digamma(n_q)
             + v_m.ln()
-            + (dimension as f64) * sum_ln_rho / n_q;
+            + (dimension as f64) * (sum_ln_rho / (count as f64) + 2.0f64.ln());
 
         hx / ln_base
     }
@@ -105,9 +124,21 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
         Self {
             nd,
             k,
+            ksg_type: KsgType::Type1,
             base: std::f64::consts::E,
             noise_level,
+            use_chebyshev: true,
         }
+    }
+
+    pub fn with_type(mut self, ksg_type: KsgType) -> Self {
+        self.ksg_type = ksg_type;
+        self
+    }
+
+    pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
+        self.use_chebyshev = use_chebyshev;
+        self
     }
 
     /// Construct from 1D data (convenience)
@@ -143,25 +174,43 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
 
 impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
     fn global_value(&self) -> f64 {
-        use statrs::function::gamma::digamma;
-        if self.nd.n == 0 {
+        if self.nd.n <= 1 {
             return 0.0;
         }
-        let v_m = unit_ball_volume(K);
+        let n_samples = self.nd.n;
+        let n_f = n_samples as f64;
+        let ln_base = self.base.ln();
+        let log_b = |x: f64| -> f64 { x.ln() / ln_base };
 
-        // Gather kNN radii
-        let mut sum_ln_r = 0.0f64;
+        let c_d = if self.use_chebyshev {
+            unit_ball_volume_chebyshev_with_radius(K, 0.5)
+        } else {
+            unit_ball_volume_with_radius(K, 2.0, 0.5)
+        };
+
+        let mut sum_ln_eps = 0.0f64;
         let mut cnt = 0usize;
-        for p in self.nd.points.iter() {
-            let mut neigh = self
-                .nd
-                .tree
-                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
-            let kth = neigh.remove(self.k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            let r = dist2.sqrt();
+        for i in 0..n_samples {
+            let p = &self.nd.points[i];
+
+            let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
+            let neighbors = if self.use_chebyshev {
+                self.nd.tree.nearest_n::<Chebyshev>(p, max_qty)
+            } else {
+                self.nd
+                    .tree
+                    .nearest_n::<kiddo::SquaredEuclidean>(p, max_qty)
+            };
+
+            let dist = neighbors[self.k].distance;
+            let r = if self.use_chebyshev {
+                dist
+            } else {
+                dist.sqrt()
+            };
+
             if r > 0.0 {
-                sum_ln_r += r.ln();
+                sum_ln_eps += (2.0 * r).ln();
                 cnt += 1;
             }
         }
@@ -169,47 +218,64 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
             return 0.0;
         }
 
-        let n_f = self.nd.n as f64;
-        let ln_base = self.base.ln();
-        let log_b = |x: f64| -> f64 { x.ln() / ln_base };
+        let mut psi_k = digamma(self.k as f64);
+        if self.ksg_type == KsgType::Type2 {
+            psi_k -= 1.0 / (self.k as f64);
+        }
 
-        let term_digamma = (digamma(n_f) - digamma(self.k as f64)) / ln_base;
-        let term_volume = log_b(v_m);
-        let term_radii = (K as f64) * (sum_ln_r / (cnt as f64)) / ln_base; // average ln(r)
+        let term_digamma = (statrs::function::gamma::digamma(n_f) - psi_k) / ln_base;
+        let term_volume = log_b(c_d);
+        let term_radii = (K as f64) * (sum_ln_eps / (cnt as f64)) / ln_base;
         term_digamma + term_volume + term_radii
     }
 }
 
 impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
     fn local_values(&self) -> Array1<f64> {
-        // Local values often exposed as -ln f_hat(x_i); here we return per-sample
-        // contributions (m * ln rho_k,i) up to additive constants, but to keep parity
-        // simple and because Python exposes local values via the estimator, we compute
-        // full local contributions such that their mean equals the global value.
-        // H = A + (m/N) * sum ln rho_k,i  => per-sample h_i = A + m * ln rho_k,i
-        use statrs::function::gamma::digamma;
-        if self.nd.n == 0 {
-            return Array1::zeros(0);
+        if self.nd.n <= 1 {
+            return Array1::zeros(self.nd.n);
         }
-        let v_m = unit_ball_volume(K);
-        let n_f = self.nd.n as f64;
+        let n_samples = self.nd.n;
+        let n_f = n_samples as f64;
         let ln_base = self.base.ln();
         let log_b = |x: f64| -> f64 { x.ln() / ln_base };
-        let a_const = (digamma(n_f) - digamma(self.k as f64)) / ln_base + log_b(v_m);
 
-        let mut out = Array1::<f64>::zeros(self.nd.n);
-        for (i, p) in self.nd.points.iter().enumerate() {
-            let mut neigh = self
-                .nd
-                .tree
-                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
-            let kth = neigh.remove(self.k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            let r = dist2.sqrt();
-            if r > 0.0 {
-                out[i] = a_const + (K as f64) * log_b(r);
+        let c_d = if self.use_chebyshev {
+            unit_ball_volume_chebyshev_with_radius(K, 0.5)
+        } else {
+            unit_ball_volume_with_radius(K, 2.0, 0.5)
+        };
+
+        let mut psi_k = digamma(self.k as f64);
+        if self.ksg_type == KsgType::Type2 {
+            psi_k -= 1.0 / (self.k as f64);
+        }
+
+        let a_const = (statrs::function::gamma::digamma(n_f) - psi_k) / ln_base + log_b(c_d);
+
+        let mut out = Array1::<f64>::zeros(n_samples);
+        for i in 0..n_samples {
+            let p = &self.nd.points[i];
+
+            let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
+            let neighbors = if self.use_chebyshev {
+                self.nd.tree.nearest_n::<Chebyshev>(p, max_qty)
             } else {
-                // If zero radius due to duplicates, drop the ln term
+                self.nd
+                    .tree
+                    .nearest_n::<kiddo::SquaredEuclidean>(p, max_qty)
+            };
+
+            let dist = neighbors[self.k].distance;
+            let r = if self.use_chebyshev {
+                dist
+            } else {
+                dist.sqrt()
+            };
+
+            if r > 0.0 {
+                out[i] = a_const + (K as f64) * log_b(2.0 * r);
+            } else {
                 out[i] = a_const;
             }
         }
