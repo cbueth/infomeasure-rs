@@ -6,10 +6,18 @@ use ndarray::Array1;
 
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+use crate::estimators::approaches::discrete::{
+    DiscreteConditionalMutualInformation, DiscreteConditionalTransferEntropy,
+    DiscreteMutualInformation, DiscreteTransferEntropy,
+};
 use crate::estimators::approaches::ordinal::ordinal_utils::{
     lehmer_code, symbolize_series_compact,
 };
-use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
+use crate::estimators::traits::{
+    ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
+    GlobalValue, JointEntropy, LocalValues, MutualInformationEstimator, OptionalLocalValues,
+    TransferEntropyEstimator,
+};
 use ndarray::s;
 
 /// Ordinal (permutation) entropy estimator.
@@ -188,3 +196,187 @@ impl LocalValues for OrdinalEntropy {
         self.inner.local_values()
     }
 }
+
+impl OptionalLocalValues for OrdinalEntropy {
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        self.inner.local_values_opt()
+    }
+}
+
+/// Ordinal mutual information estimator.
+pub struct OrdinalMutualInformation {
+    inner: DiscreteMutualInformation<DiscreteEntropy>,
+}
+
+impl OrdinalMutualInformation {
+    pub fn new(series: &[Array1<f64>], order: usize, step_size: usize, stable: bool) -> Self {
+        let code_arrays: Vec<Array1<i32>> = series
+            .iter()
+            .map(|s| symbolize_series_compact(s, order, step_size, stable))
+            .collect();
+        let inner = DiscreteMutualInformation::new(&code_arrays, DiscreteEntropy::new);
+        Self { inner }
+    }
+}
+
+impl GlobalValue for OrdinalMutualInformation {
+    fn global_value(&self) -> f64 {
+        self.inner.global_value()
+    }
+}
+
+impl OptionalLocalValues for OrdinalMutualInformation {
+    fn supports_local(&self) -> bool {
+        self.inner.supports_local()
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        self.inner.local_values_opt()
+    }
+}
+
+impl MutualInformationEstimator for OrdinalMutualInformation {}
+
+/// Ordinal conditional mutual information estimator.
+pub struct OrdinalConditionalMutualInformation {
+    inner: DiscreteConditionalMutualInformation<DiscreteEntropy>,
+}
+
+impl OrdinalConditionalMutualInformation {
+    pub fn new(
+        series: &[Array1<f64>],
+        cond: &Array1<f64>,
+        order: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> Self {
+        let code_arrays: Vec<Array1<i32>> = series
+            .iter()
+            .map(|s| symbolize_series_compact(s, order, step_size, stable))
+            .collect();
+        let cond_codes = symbolize_series_compact(cond, order, step_size, stable);
+        let inner = DiscreteConditionalMutualInformation::new(
+            &code_arrays,
+            &cond_codes,
+            DiscreteEntropy::new,
+        );
+        Self { inner }
+    }
+}
+
+impl GlobalValue for OrdinalConditionalMutualInformation {
+    fn global_value(&self) -> f64 {
+        self.inner.global_value()
+    }
+}
+
+impl OptionalLocalValues for OrdinalConditionalMutualInformation {
+    fn supports_local(&self) -> bool {
+        self.inner.supports_local()
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        self.inner.local_values_opt()
+    }
+}
+
+impl ConditionalMutualInformationEstimator for OrdinalConditionalMutualInformation {}
+
+/// Ordinal transfer entropy estimator.
+pub struct OrdinalTransferEntropy {
+    inner: DiscreteTransferEntropy<DiscreteEntropy>,
+}
+
+impl OrdinalTransferEntropy {
+    pub fn new(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        order: usize,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> Self {
+        let src_codes = symbolize_series_compact(source, order, step_size, stable);
+        let dest_codes = symbolize_series_compact(dest, order, step_size, stable);
+        let inner = DiscreteTransferEntropy::new(
+            &src_codes,
+            &dest_codes,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            DiscreteEntropy::new,
+        );
+        Self { inner }
+    }
+}
+
+impl GlobalValue for OrdinalTransferEntropy {
+    fn global_value(&self) -> f64 {
+        self.inner.global_value()
+    }
+}
+
+impl OptionalLocalValues for OrdinalTransferEntropy {
+    fn supports_local(&self) -> bool {
+        self.inner.supports_local()
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        self.inner.local_values_opt()
+    }
+}
+
+impl TransferEntropyEstimator for OrdinalTransferEntropy {}
+
+/// Ordinal conditional transfer entropy estimator.
+pub struct OrdinalConditionalTransferEntropy {
+    inner: DiscreteConditionalTransferEntropy<DiscreteEntropy>,
+}
+
+impl OrdinalConditionalTransferEntropy {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        cond: &Array1<f64>,
+        order: usize,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> Self {
+        let src_codes = symbolize_series_compact(source, order, step_size, stable);
+        let dest_codes = symbolize_series_compact(dest, order, step_size, stable);
+        let cond_codes = symbolize_series_compact(cond, order, step_size, stable);
+        let inner = DiscreteConditionalTransferEntropy::new(
+            &src_codes,
+            &dest_codes,
+            &cond_codes,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            DiscreteEntropy::new,
+        );
+        Self { inner }
+    }
+}
+
+impl GlobalValue for OrdinalConditionalTransferEntropy {
+    fn global_value(&self) -> f64 {
+        self.inner.global_value()
+    }
+}
+
+impl OptionalLocalValues for OrdinalConditionalTransferEntropy {
+    fn supports_local(&self) -> bool {
+        self.inner.supports_local()
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        self.inner.local_values_opt()
+    }
+}
+
+impl ConditionalTransferEntropyEstimator for OrdinalConditionalTransferEntropy {}
