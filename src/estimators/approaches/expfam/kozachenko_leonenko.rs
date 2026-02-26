@@ -216,3 +216,676 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
         out
     }
 }
+
+impl<const K: usize> OptionalLocalValues for KozachenkoLeonenkoEntropy<K> {
+    fn supports_local(&self) -> bool {
+        true
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Ok(self.local_values())
+    }
+}
+
+macro_rules! impl_kl_mi {
+    ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
+        #[doc = concat!("Kozachenko-Leonenko mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
+            pub k: usize,
+            pub ksg_type: KsgType,
+            pub data: Vec<Array2<f64>>,
+            pub base: f64,
+            pub noise_level: f64,
+            pub use_chebyshev: bool,
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> $name<D_JOINT, $($d_param),*> {
+            pub fn new(series: &[Array2<f64>], k: usize, noise_level: f64) -> Self {
+                assert_eq!(series.len(), $num_rvs, "Number of series must match estimator type");
+                let noisy_data = series.iter().map(|s| super::utils::add_noise(s.clone(), noise_level)).collect();
+                Self {
+                    k,
+                    ksg_type: KsgType::Type1,
+                    data: noisy_data,
+                    base: std::f64::consts::E,
+                    noise_level,
+                    use_chebyshev: true,
+                }
+            }
+
+            pub fn with_type(mut self, ksg_type: KsgType) -> Self {
+                self.ksg_type = ksg_type;
+                self
+            }
+
+            pub fn with_base(mut self, base: f64) -> Self {
+                self.base = base;
+                self
+            }
+
+            pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
+                self.use_chebyshev = use_chebyshev;
+                self
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> GlobalValue for $name<D_JOINT, $($d_param),*> {
+            fn global_value(&self) -> f64 {
+                let mut marginal_sum = 0.0;
+                $(
+                    let m_est = KozachenkoLeonenkoEntropy::<$d_param>::new(self.data[$d_idx].clone(), self.k, 0.0)
+                        .with_type(self.ksg_type)
+                        .with_chebyshev(self.use_chebyshev)
+                        .with_base(self.base);
+                    marginal_sum += m_est.global_value();
+                )*
+
+                let joint_data = concatenate(
+                    Axis(1),
+                    &self.data.iter().map(|d| d.view()).collect::<Vec<_>>()
+                ).unwrap();
+                let joint_est = KozachenkoLeonenkoEntropy::<D_JOINT>::new(joint_data, self.k, 0.0)
+                    .with_type(self.ksg_type)
+                    .with_chebyshev(self.use_chebyshev)
+                    .with_base(self.base);
+
+                marginal_sum - joint_est.global_value()
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> OptionalLocalValues for $name<D_JOINT, $($d_param),*> {
+            fn supports_local(&self) -> bool { false }
+            fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+                Err("Local values are not implemented for KL-based mutual information.")
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> MutualInformationEstimator for $name<D_JOINT, $($d_param),*> {}
+    }
+}
+
+impl_kl_mi!(KozachenkoLeonenkoMutualInformation2, 2, (D1, D2), (0, 1));
+impl_kl_mi!(
+    KozachenkoLeonenkoMutualInformation3,
+    3,
+    (D1, D2, D3),
+    (0, 1, 2)
+);
+impl_kl_mi!(
+    KozachenkoLeonenkoMutualInformation4,
+    4,
+    (D1, D2, D3, D4),
+    (0, 1, 2, 3)
+);
+impl_kl_mi!(
+    KozachenkoLeonenkoMutualInformation5,
+    5,
+    (D1, D2, D3, D4, D5),
+    (0, 1, 2, 3, 4)
+);
+impl_kl_mi!(
+    KozachenkoLeonenkoMutualInformation6,
+    6,
+    (D1, D2, D3, D4, D5, D6),
+    (0, 1, 2, 3, 4, 5)
+);
+
+/// Kozachenko-Leonenko conditional mutual information estimator
+pub struct KozachenkoLeonenkoConditionalMutualInformation<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> {
+    pub k: usize,
+    pub ksg_type: KsgType,
+    pub data: [Array2<f64>; 2],
+    pub cond: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+    pub use_chebyshev: bool,
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> KozachenkoLeonenkoConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    pub fn new(series: &[Array2<f64>], cond: &Array2<f64>, k: usize, noise_level: f64) -> Self {
+        assert_eq!(series.len(), 2);
+        let noisy_data = [
+            super::utils::add_noise(series[0].clone(), noise_level),
+            super::utils::add_noise(series[1].clone(), noise_level),
+        ];
+        let noisy_cond = super::utils::add_noise(cond.clone(), noise_level);
+        Self {
+            k,
+            ksg_type: KsgType::Type1,
+            data: noisy_data,
+            cond: noisy_cond,
+            base: std::f64::consts::E,
+            noise_level,
+            use_chebyshev: true,
+        }
+    }
+
+    pub fn with_type(mut self, ksg_type: KsgType) -> Self {
+        self.ksg_type = ksg_type;
+        self
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+
+    pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
+        self.use_chebyshev = use_chebyshev;
+        self
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> GlobalValue for KozachenkoLeonenkoConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    fn global_value(&self) -> f64 {
+        // I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)
+        let xz = concatenate(Axis(1), &[self.data[0].view(), self.cond.view()]).unwrap();
+        let yz = concatenate(Axis(1), &[self.data[1].view(), self.cond.view()]).unwrap();
+        let xyz = concatenate(
+            Axis(1),
+            &[self.data[0].view(), self.data[1].view(), self.cond.view()],
+        )
+        .unwrap();
+
+        let h_xz = KozachenkoLeonenkoEntropy::<D1Z>::new(xz, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_yz = KozachenkoLeonenkoEntropy::<D2Z>::new(yz, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_xyz = KozachenkoLeonenkoEntropy::<D_JOINT>::new(xyz, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_z = KozachenkoLeonenkoEntropy::<DZ>::new(self.cond.clone(), self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+
+        h_xz + h_yz - h_xyz - h_z
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> OptionalLocalValues
+    for KozachenkoLeonenkoConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for KL-based conditional mutual information.")
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> ConditionalMutualInformationEstimator
+    for KozachenkoLeonenkoConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+}
+
+/// Kozachenko-Leonenko transfer entropy estimator
+pub struct KozachenkoLeonenkoTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> {
+    pub k: usize,
+    pub ksg_type: KsgType,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+    pub use_chebyshev: bool,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+>
+    KozachenkoLeonenkoTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    pub fn new(source: &Array2<f64>, dest: &Array2<f64>, k: usize, noise_level: f64) -> Self {
+        Self {
+            k,
+            ksg_type: KsgType::Type1,
+            source: source.clone(),
+            dest: dest.clone(),
+            base: std::f64::consts::E,
+            noise_level,
+            use_chebyshev: true,
+        }
+    }
+
+    pub fn with_type(mut self, ksg_type: KsgType) -> Self {
+        self.ksg_type = ksg_type;
+        self
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+
+    pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
+        self.use_chebyshev = use_chebyshev;
+        self
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> GlobalValue
+    for KozachenkoLeonenkoTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        let noisy_src = super::utils::add_noise(self.source.clone(), self.noise_level);
+        let noisy_dest = super::utils::add_noise(self.dest.clone(), self.noise_level);
+
+        let (yf, yp, xp) = te_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >(&noisy_src, &noisy_dest, false);
+
+        // TE(X -> Y) = I(X_past; Y_future | Y_past) = H(X_past, Y_past) + H(Y_future, Y_past) - H(X_past, Y_future, Y_past) - H(Y_past)
+        let xpyp = concatenate(Axis(1), &[xp.view(), yp.view()]).unwrap();
+        let yfyp = concatenate(Axis(1), &[yf.view(), yp.view()]).unwrap();
+        let xpyfyp = concatenate(Axis(1), &[xp.view(), yf.view(), yp.view()]).unwrap();
+
+        let h_xpyp = KozachenkoLeonenkoEntropy::<D_XP_YP>::new(xpyp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_yfyp = KozachenkoLeonenkoEntropy::<D_YF_YP>::new(yfyp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_xpyfyp = KozachenkoLeonenkoEntropy::<D_JOINT>::new(xpyfyp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_yp = KozachenkoLeonenkoEntropy::<D_YP>::new(yp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+
+        h_xpyp + h_yfyp - h_xpyfyp - h_yp
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> OptionalLocalValues
+    for KozachenkoLeonenkoTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for KL-based transfer entropy.")
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> TransferEntropyEstimator
+    for KozachenkoLeonenkoTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+}
+
+/// Kozachenko-Leonenko conditional transfer entropy estimator
+pub struct KozachenkoLeonenkoConditionalTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> {
+    pub k: usize,
+    pub ksg_type: KsgType,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub cond: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+    pub use_chebyshev: bool,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+>
+    KozachenkoLeonenkoConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    pub fn new(
+        source: &Array2<f64>,
+        dest: &Array2<f64>,
+        cond: &Array2<f64>,
+        k: usize,
+        noise_level: f64,
+    ) -> Self {
+        Self {
+            k,
+            ksg_type: KsgType::Type1,
+            source: source.clone(),
+            dest: dest.clone(),
+            cond: cond.clone(),
+            base: std::f64::consts::E,
+            noise_level,
+            use_chebyshev: true,
+        }
+    }
+
+    pub fn with_type(mut self, ksg_type: KsgType) -> Self {
+        self.ksg_type = ksg_type;
+        self
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+
+    pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
+        self.use_chebyshev = use_chebyshev;
+        self
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> GlobalValue
+    for KozachenkoLeonenkoConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        let noisy_src = super::utils::add_noise(self.source.clone(), self.noise_level);
+        let noisy_dest = super::utils::add_noise(self.dest.clone(), self.noise_level);
+        let noisy_cond = super::utils::add_noise(self.cond.clone(), self.noise_level);
+
+        let (yf, yp, xp, zp) = cte_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >(&noisy_src, &noisy_dest, &noisy_cond, false);
+
+        // CTE(X -> Y | Z) = I(X_past; Y_future | Y_past, Z_past) = H(X_past, Y_past, Z_past) + H(Y_future, Y_past, Z_past) - H(X_past, Y_future, Y_past, Z_past) - H(Y_past, Z_past)
+        let xpypzp = concatenate(Axis(1), &[xp.view(), yp.view(), zp.view()]).unwrap();
+        let yfypzp = concatenate(Axis(1), &[yf.view(), yp.view(), zp.view()]).unwrap();
+        let xpyfypzp = concatenate(Axis(1), &[xp.view(), yf.view(), yp.view(), zp.view()]).unwrap();
+        let ypzp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
+
+        let h_xpypzp = KozachenkoLeonenkoEntropy::<D_XP_YP_ZP>::new(xpypzp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_yfypzp = KozachenkoLeonenkoEntropy::<D_YF_YP_ZP>::new(yfypzp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_xpyfypzp = KozachenkoLeonenkoEntropy::<D_JOINT>::new(xpyfypzp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+        let h_ypzp = KozachenkoLeonenkoEntropy::<D_YP_ZP>::new(ypzp, self.k, 0.0)
+            .with_type(self.ksg_type)
+            .with_chebyshev(self.use_chebyshev)
+            .with_base(self.base)
+            .global_value();
+
+        h_xpypzp + h_yfypzp - h_xpyfypzp - h_ypzp
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> OptionalLocalValues
+    for KozachenkoLeonenkoConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for KL-based conditional transfer entropy.")
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> ConditionalTransferEntropyEstimator
+    for KozachenkoLeonenkoConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+}
