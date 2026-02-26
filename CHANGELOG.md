@@ -5,43 +5,6 @@ All notable changes to this project are being documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### 🚀 Upcoming Features & Improvements
-- **Benchmarks**: Complete comprehensive benchmarks for all MI/TE estimators and document performance characteristics.
-- **Documentation**: Enhance public API documentation with usage examples and detailed mathematical references (KaTeX).
-- **GPU Polish**: Verify and optimize GPU performance for multi-dimensional random variables in kernel estimators.
-- **API Consistency**: Add missing facade methods for Renyi, Tsallis, and Kozachenko-Leonenko (C)MI/TE.
-
-
-## [0.2.0-beta.1] - 2026-02-25
-
-### 🎯 Beta Release - Python Parity Achieved
-
-#### Core Fixes for Python Parity
-- **KL Entropy**: Fixed unit ball volume calculation to match Python's r=1/2 convention
-  - Added `unit_ball_volume_with_radius()` and `unit_ball_volume_chebyshev_with_radius()`
-  - Created separate utility functions for KL (r=1/2) vs Rényi/Tsallis (r=1)
-- **Kernel MI**: Fixed data transposition in validation tests (rows vs columns for Python)
-- **KSG Implementation**: Updated to use strict boundary handling matching Python's scipy
-  - Uses `within_with_condition(..., inclusive=false)` for Type 1 estimators
-  - Maintains proper self-exclusion with `(eps > 0 ? 1 : 0)` subtraction
-
-#### Test Coverage Expansion
-- Added more test values for KSG tests: k=1,2,3,4,5 with NoTies, Ties, Gaussian scenarios
-- All tests now pass with 1128 passing, 6 ignored (edge cases documented)
-
-#### Known Edge Cases (Ignored Tests)
-- Ties + Type2 + k=1: Numerical differences with duplicate points
-- Ties + Type1 + Euclidean + small k: Boundary handling differences
-- Discrete Shrink: ~1e-15 numerical precision difference
-- Kernel MI with 4RV: Possible validation format difference with >2 variables
-- Type1 vs Type2: Larger difference than expected with new boundary handling
-
-#### Dependencies
-- Updated to use kiddo with `within_with_condition` support for strict boundary queries
-
-
 ## [0.1.0-alpha.1] - 2026-01-17
 
 ### 🚀 Major Features Added
