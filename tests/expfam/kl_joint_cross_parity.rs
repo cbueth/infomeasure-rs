@@ -28,10 +28,10 @@ fn kl_joint_python_parity_2d(#[case] k: usize) {
 
     let series = [x.clone(), y.clone()];
 
-    // Rust Joint Entropy
+    // Rust Joint Entropy (defaults to Chebyshev/max norm)
     let h_rust = KozachenkoLeonenkoEntropy::<2>::joint_entropy(&series, (k, 0.0));
 
-    // Python Joint Entropy
+    // Python Joint Entropy (use minkowski_p=inf to match Rust's Chebyshev default)
     let mut joined = Array2::zeros((x.len(), 2));
     for i in 0..x.len() {
         joined[[i, 0]] = x[i];
@@ -40,7 +40,7 @@ fn kl_joint_python_parity_2d(#[case] k: usize) {
     let flat = flat_from_array2(&joined);
     let kwargs = vec![
         ("k".to_string(), format!("{k}")),
-        ("minkowski_p".to_string(), "2".to_string()),
+        ("minkowski_p".to_string(), "inf".to_string()),
     ];
     let h_py =
         python::calculate_entropy_float_nd(&flat, 2, "kl", &kwargs).expect("python kl failed");
@@ -101,8 +101,8 @@ fn kl_cross_python_parity_2d(#[case] k: usize) {
         [7.1, 7.1]
     ];
 
-    let est_p = KozachenkoLeonenkoEntropy::<2>::new(p_data.clone(), k, 0.0);
-    let est_q = KozachenkoLeonenkoEntropy::<2>::new(q_data.clone(), k, 0.0);
+    let est_p = KozachenkoLeonenkoEntropy::<2>::new(p_data.clone(), k, 0.0).with_chebyshev(false);
+    let est_q = KozachenkoLeonenkoEntropy::<2>::new(q_data.clone(), k, 0.0).with_chebyshev(false);
 
     let h_rust = est_p.cross_entropy(&est_q);
 

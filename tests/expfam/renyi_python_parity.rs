@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+#![allow(clippy::disallowed_names, clippy::unnecessary_to_owned)]
+
 use approx::assert_abs_diff_eq;
 use ndarray::{Array1, Array2};
 use validation::python;

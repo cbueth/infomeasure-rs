@@ -5,6 +5,11 @@
 //! Module containing tests for exponential family entropy estimators.
 mod kl_joint_cross_parity;
 mod kl_python_parity;
+mod ksg_parity;
+mod ksg_sanity;
+mod ksg_test;
 mod python_validation_expfam;
+mod renyi_parity;
 mod renyi_python_parity;
+mod tsallis_parity;
 mod tsallis_python_parity;
