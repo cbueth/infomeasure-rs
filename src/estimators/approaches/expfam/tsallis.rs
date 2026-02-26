@@ -3,14 +3,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use kiddo::SquaredEuclidean;
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Axis, concatenate};
 use std::num::NonZeroUsize;
 
-use super::utils::{calculate_common_entropy_components_at, unit_ball_volume};
+use super::utils::{add_noise, calculate_common_entropy_components_at, unit_ball_volume};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use crate::estimators::traits::{
-    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+    ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
+    GlobalValue, JointEntropy, LocalValues, MutualInformationEstimator, OptionalLocalValues,
+    TransferEntropyEstimator,
 };
+use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 
 /// Tsallis entropy estimator (kNN-based, exponential-family formulation)
 ///
@@ -183,7 +186,7 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
             return 0.0;
         }
 
-        let v_m = unit_ball_volume(K);
+        let v_m = unit_ball_volume(K, 2.0);
 
         // Compute kNN radii via KD-tree (exclude self by requesting k+1 and skipping self)
         let mut rho_k: Vec<f64> = Vec::with_capacity(self.nd.n);
@@ -260,4 +263,594 @@ impl<const K: usize> OptionalLocalValues for TsallisEntropy<K> {
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
         Err("Local values are not implemented for kNN-based Tsallis entropy.")
     }
+}
+
+macro_rules! impl_tsallis_mi {
+    ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
+        #[doc = concat!("Tsallis mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
+            pub k: usize,
+            pub q: f64,
+            pub data: Vec<Array2<f64>>,
+            pub base: f64,
+            pub noise_level: f64,
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> $name<D_JOINT, $($d_param),*> {
+            pub fn new(series: &[Array2<f64>], k: usize, q: f64, noise_level: f64) -> Self {
+                assert_eq!(series.len(), $num_rvs, "Number of series must match estimator type");
+                let noisy_data = series.iter().map(|s| add_noise(s.clone(), noise_level)).collect();
+                Self {
+                    k,
+                    q,
+                    data: noisy_data,
+                    base: std::f64::consts::E,
+                    noise_level,
+                }
+            }
+
+            pub fn with_base(mut self, base: f64) -> Self {
+                self.base = base;
+                self
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> GlobalValue for $name<D_JOINT, $($d_param),*> {
+            fn global_value(&self) -> f64 {
+                let mut marginal_sum = 0.0;
+                $(
+                    let m_est = TsallisEntropy::<$d_param>::new(self.data[$d_idx].clone(), self.k, self.q, 0.0)
+                        .with_base(self.base);
+                    marginal_sum += m_est.global_value();
+                )*
+
+                let joint_data = concatenate(
+                    Axis(1),
+                    &self.data.iter().map(|d| d.view()).collect::<Vec<_>>()
+                ).unwrap();
+                let joint_est = TsallisEntropy::<D_JOINT>::new(joint_data, self.k, self.q, 0.0)
+                    .with_base(self.base);
+
+                marginal_sum - joint_est.global_value()
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> OptionalLocalValues for $name<D_JOINT, $($d_param),*> {
+            fn supports_local(&self) -> bool { false }
+            fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+                Err("Local values are not implemented for Tsallis mutual information.")
+            }
+        }
+
+        impl<const D_JOINT: usize, $(const $d_param: usize),*> MutualInformationEstimator for $name<D_JOINT, $($d_param),*> {}
+    }
+}
+
+impl_tsallis_mi!(TsallisMutualInformation2, 2, (D1, D2), (0, 1));
+impl_tsallis_mi!(TsallisMutualInformation3, 3, (D1, D2, D3), (0, 1, 2));
+impl_tsallis_mi!(TsallisMutualInformation4, 4, (D1, D2, D3, D4), (0, 1, 2, 3));
+impl_tsallis_mi!(
+    TsallisMutualInformation5,
+    5,
+    (D1, D2, D3, D4, D5),
+    (0, 1, 2, 3, 4)
+);
+impl_tsallis_mi!(
+    TsallisMutualInformation6,
+    6,
+    (D1, D2, D3, D4, D5, D6),
+    (0, 1, 2, 3, 4, 5)
+);
+
+/// Tsallis conditional mutual information estimator
+pub struct TsallisConditionalMutualInformation<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> {
+    pub k: usize,
+    pub q: f64,
+    pub data: [Array2<f64>; 2],
+    pub cond: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> TsallisConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    pub fn new(
+        series: &[Array2<f64>],
+        cond: &Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> Self {
+        assert_eq!(series.len(), 2);
+        let noisy_data = [
+            add_noise(series[0].clone(), noise_level),
+            add_noise(series[1].clone(), noise_level),
+        ];
+        let noisy_cond = add_noise(cond.clone(), noise_level);
+        Self {
+            k,
+            q,
+            data: noisy_data,
+            cond: noisy_cond,
+            base: std::f64::consts::E,
+            noise_level,
+        }
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> GlobalValue for TsallisConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    fn global_value(&self) -> f64 {
+        // I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)
+        let xz = concatenate(Axis(1), &[self.data[0].view(), self.cond.view()]).unwrap();
+        let yz = concatenate(Axis(1), &[self.data[1].view(), self.cond.view()]).unwrap();
+        let xyz = concatenate(
+            Axis(1),
+            &[self.data[0].view(), self.data[1].view(), self.cond.view()],
+        )
+        .unwrap();
+
+        let h_xz = TsallisEntropy::<D1Z>::new(xz, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_yz = TsallisEntropy::<D2Z>::new(yz, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_xyz = TsallisEntropy::<D_JOINT>::new(xyz, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_z = TsallisEntropy::<DZ>::new(self.cond.clone(), self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+
+        h_xz + h_yz - h_xyz - h_z
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> OptionalLocalValues for TsallisConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for Tsallis conditional mutual information.")
+    }
+}
+
+impl<
+    const D1: usize,
+    const D2: usize,
+    const DZ: usize,
+    const D_JOINT: usize,
+    const D1Z: usize,
+    const D2Z: usize,
+> ConditionalMutualInformationEstimator
+    for TsallisConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+{
+}
+
+/// Tsallis transfer entropy estimator
+pub struct TsallisTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> {
+    pub k: usize,
+    pub q: f64,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+>
+    TsallisTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    pub fn new(
+        source: &Array2<f64>,
+        dest: &Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> Self {
+        Self {
+            k,
+            q,
+            source: source.clone(),
+            dest: dest.clone(),
+            base: std::f64::consts::E,
+            noise_level,
+        }
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> GlobalValue
+    for TsallisTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        // TE(X -> Y) = H(X_past, Y_past) + H(Y_future, Y_past) - H(X_past, Y_future, Y_past) - H(Y_past)
+        let noisy_src = add_noise(self.source.clone(), self.noise_level);
+        let noisy_dest = add_noise(self.dest.clone(), self.noise_level);
+
+        let (yf, yp, xp) = te_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >(&noisy_src, &noisy_dest, false);
+
+        let xpyp = concatenate(Axis(1), &[xp.view(), yp.view()]).unwrap();
+        let yfyp = concatenate(Axis(1), &[yf.view(), yp.view()]).unwrap();
+        let xpyfyp = concatenate(Axis(1), &[xp.view(), yf.view(), yp.view()]).unwrap();
+
+        let h_xpyp = TsallisEntropy::<D_XP_YP>::new(xpyp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_yfyp = TsallisEntropy::<D_YF_YP>::new(yfyp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_xpyfyp = TsallisEntropy::<D_JOINT>::new(xpyfyp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_yp = TsallisEntropy::<D_YP>::new(yp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+
+        h_xpyp + h_yfyp - h_xpyfyp - h_yp
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> OptionalLocalValues
+    for TsallisTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for Tsallis transfer entropy.")
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> TransferEntropyEstimator
+    for TsallisTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+}
+
+/// Tsallis conditional transfer entropy estimator
+pub struct TsallisConditionalTransferEntropy<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> {
+    pub k: usize,
+    pub q: f64,
+    pub source: Array2<f64>,
+    pub dest: Array2<f64>,
+    pub cond: Array2<f64>,
+    pub base: f64,
+    pub noise_level: f64,
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+>
+    TsallisConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    pub fn new(
+        source: &Array2<f64>,
+        dest: &Array2<f64>,
+        cond: &Array2<f64>,
+        k: usize,
+        q: f64,
+        noise_level: f64,
+    ) -> Self {
+        Self {
+            k,
+            q,
+            source: source.clone(),
+            dest: dest.clone(),
+            cond: cond.clone(),
+            base: std::f64::consts::E,
+            noise_level,
+        }
+    }
+
+    pub fn with_base(mut self, base: f64) -> Self {
+        self.base = base;
+        self
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> GlobalValue
+    for TsallisConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn global_value(&self) -> f64 {
+        // CTE(X -> Y | Z) = H(X_past, Y_past, Z_past) + H(Y_future, Y_past, Z_past) - H(X_past, Y_future, Y_past, Z_past) - H(Y_past, Z_past)
+        let noisy_src = add_noise(self.source.clone(), self.noise_level);
+        let noisy_dest = add_noise(self.dest.clone(), self.noise_level);
+        let noisy_cond = add_noise(self.cond.clone(), self.noise_level);
+
+        let (yf, yp, xp, zp) = cte_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >(&noisy_src, &noisy_dest, &noisy_cond, false);
+
+        let xpyfzp = concatenate(Axis(1), &[xp.view(), yp.view(), zp.view()]).unwrap();
+        let yfypzp = concatenate(Axis(1), &[yf.view(), yp.view(), zp.view()]).unwrap();
+        let xpyfypzp = concatenate(Axis(1), &[xp.view(), yf.view(), yp.view(), zp.view()]).unwrap();
+        let ypzp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
+
+        let h_xpyfzp = TsallisEntropy::<D_XP_YP_ZP>::new(xpyfzp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_yfypzp = TsallisEntropy::<D_YF_YP_ZP>::new(yfypzp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_xpyfypzp = TsallisEntropy::<D_JOINT>::new(xpyfypzp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+        let h_ypzp = TsallisEntropy::<D_YP_ZP>::new(ypzp, self.k, self.q, 0.0)
+            .with_base(self.base)
+            .global_value();
+
+        h_xpyfzp + h_yfypzp - h_xpyfypzp - h_ypzp
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> OptionalLocalValues
+    for TsallisConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn supports_local(&self) -> bool {
+        false
+    }
+    fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        Err("Local values are not implemented for Tsallis conditional transfer entropy.")
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> ConditionalTransferEntropyEstimator
+    for TsallisConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
 }
