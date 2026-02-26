@@ -958,20 +958,72 @@ impl TransferEntropy {
         )
     }
 
-    /// Create a Grassberger discrete conditional transfer entropy estimator.
-    pub fn new_cte_discrete_grassberger(
-        source: &Array1<i32>,
-        destination: &Array1<i32>,
-        condition: &Array1<i32>,
+    /// Create an Ordinal-based transfer entropy estimator.
+    pub fn new_ordinal(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        order: usize,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+        stable: bool,
+    ) -> OrdinalTransferEntropy {
+        OrdinalTransferEntropy::new(
+            source,
+            dest,
+            order,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            stable,
+        )
+    }
+
+    /// Create an Ordinal-based conditional transfer entropy estimator.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_cte_ordinal(
+        source: &Array1<f64>,
+        dest: &Array1<f64>,
+        cond: &Array1<f64>,
+        order: usize,
         src_hist_len: usize,
         dest_hist_len: usize,
         cond_hist_len: usize,
         step_size: usize,
-    ) -> DiscreteConditionalTransferEntropy<GrassbergerEntropy> {
-        DiscreteConditionalTransferEntropy::new(
+        stable: bool,
+    ) -> OrdinalConditionalTransferEntropy {
+        OrdinalConditionalTransferEntropy::new(
             source,
-            destination,
-            condition,
+            dest,
+            cond,
+            order,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            stable,
+        )
+    }
+
+    /// Create a Kernel-based conditional transfer entropy estimator.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_cte_kernel(
+        source: &Array1<f64>,
+        destination: &Array1<f64>,
+        condition: &Array1<f64>,
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+        bandwidth: f64,
+    ) -> KernelConditionalTransferEntropy<1, 1, 1, 1, 1, 1, 1, 4, 3, 2, 3> {
+        let source_2d = source.clone().insert_axis(Axis(1));
+        let dest_2d = destination.clone().insert_axis(Axis(1));
+        let cond_2d = condition.clone().insert_axis(Axis(1));
+        KernelConditionalTransferEntropy::new(
+            &source_2d,
+            &dest_2d,
+            &cond_2d,
             src_hist_len,
             dest_hist_len,
             cond_hist_len,
