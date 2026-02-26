@@ -62,8 +62,8 @@ println!("Kernel entropy: {}", kernel_entropy);
 | Feature | Discrete | Kernel | Ordinal | k-NN |
 |---------|----------|--------|---------|------|
 | **Entropy** | ✅ | ✅ | ✅ | ✅ |
-| **Mutual Information** | ✅ | ✅ | 🔄 | 🔄 |
-| **Transfer Entropy** | ✅ | ✅ | 🔄 | 🔄 |
+| **Mutual Information** | ✅ | ✅ | ✅ | ✅ |
+| **Transfer Entropy** | ✅ | ✅ | ✅ | ✅ |
 
 ✅ = Available | 🔄 = In Development | ❌ = Planned
 
