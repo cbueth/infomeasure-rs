@@ -17,3 +17,5 @@ mod kernel;
 mod ordinal;
 #[path = "test_helpers.rs"]
 pub mod test_helpers;
+#[path = "utils/mod.rs"]
+mod utils;
