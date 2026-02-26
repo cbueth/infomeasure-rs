@@ -5,7 +5,7 @@
 #![allow(clippy::disallowed_names, clippy::unnecessary_to_owned)]
 
 use approx::assert_abs_diff_eq;
-use ndarray::{Array1, Array2, array};
+use ndarray::{Array2, array};
 use rstest::rstest;
 
 use infomeasure::estimators::approaches::expfam::ksg::KsgMutualInformation2;

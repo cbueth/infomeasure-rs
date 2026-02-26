@@ -64,7 +64,7 @@ fn ordinal_mi_parity(#[values(3, 4)] order: usize, #[values(1, 2)] step_size: us
             ],
         );
 
-    let py_uid = format!(
+    let _py_uid = format!(
         "{}_{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -72,7 +72,7 @@ fn ordinal_mi_parity(#[values(3, 4)] order: usize, #[values(1, 2)] step_size: us
             .as_nanos(),
         0
     );
-    let py_joint_script = format!(
+    let _py_joint_script = format!(
         "import infomeasure as im, numpy as np; from infomeasure.estimators.utils.ordinal import reduce_joint_space; print(reduce_joint_space((np.array({:?}), np.array({:?}))).tolist())",
         py_codes1, py_codes2
     );

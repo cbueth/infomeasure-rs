@@ -5,14 +5,12 @@
 #![allow(clippy::disallowed_names, clippy::unnecessary_to_owned)]
 
 use approx::assert_abs_diff_eq;
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Axis};
 use rstest::rstest;
 
 use infomeasure::estimators::approaches::expfam::ksg::{
-    KsgConditionalMutualInformation, KsgConditionalTransferEntropy, KsgMutualInformation2,
-    KsgTransferEntropy,
+    KsgConditionalTransferEntropy, KsgMutualInformation2, KsgTransferEntropy,
 };
-use infomeasure::estimators::approaches::expfam::utils::KsgType;
 use infomeasure::estimators::traits::GlobalValue;
 use validation::python;
 

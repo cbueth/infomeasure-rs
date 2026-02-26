@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use infomeasure::estimators::utils::te_slicing::{cte_observations, te_observations};
 use ndarray::Array1;
-use infomeasure::estimators::utils::te_slicing::{te_observations, cte_observations};
-use validation::python;
-use rstest::rstest;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use rstest::rstest;
+use validation::python;
 
 #[rstest]
 #[case(10, 3, 2, 2)]
@@ -36,8 +36,14 @@ fn test_te_observations_parity_random(
     let (rust_future, rust_dest_hist, rust_src_hist) =
         te_observations(&src, &dest, src_hist_len, dest_hist_len, step_size, false);
 
-    let (py_src_hist, py_dest_hist, py_future) =
-        python::calculate_te_observations(&src_vec, &dest_vec, src_hist_len, dest_hist_len, step_size).unwrap();
+    let (py_src_hist, py_dest_hist, py_future) = python::calculate_te_observations(
+        &src_vec,
+        &dest_vec,
+        src_hist_len,
+        dest_hist_len,
+        step_size,
+    )
+    .unwrap();
 
     // Verify future
     assert_eq!(rust_future.len(), py_future.len());
@@ -80,11 +86,27 @@ fn test_cte_observations_parity_random(
     let dest = Array1::from(dest_vec.clone());
     let cond = Array1::from(cond_vec.clone());
 
-    let (rust_future, rust_dest_hist, rust_src_hist, rust_cond_hist) =
-        cte_observations(&src, &dest, &cond, src_hist_len, dest_hist_len, cond_hist_len, step_size, false);
+    let (rust_future, rust_dest_hist, rust_src_hist, rust_cond_hist) = cte_observations(
+        &src,
+        &dest,
+        &cond,
+        src_hist_len,
+        dest_hist_len,
+        cond_hist_len,
+        step_size,
+        false,
+    );
 
-    let (py_src_hist, py_dest_hist, py_future, py_cond_hist) =
-        python::calculate_cte_observations(&src_vec, &dest_vec, &cond_vec, src_hist_len, dest_hist_len, cond_hist_len, step_size).unwrap();
+    let (py_src_hist, py_dest_hist, py_future, py_cond_hist) = python::calculate_cte_observations(
+        &src_vec,
+        &dest_vec,
+        &cond_vec,
+        src_hist_len,
+        dest_hist_len,
+        cond_hist_len,
+        step_size,
+    )
+    .unwrap();
 
     // Verify future
     assert_eq!(rust_future.len(), py_future.len());
@@ -123,8 +145,14 @@ fn test_te_observations_explicit() {
     let dest_hist_len = 2;
     let step_size = 2;
 
-    let (dest_future, dest_history, src_history) =
-        te_observations(&source, &dest, src_hist_len, dest_hist_len, step_size, false);
+    let (dest_future, dest_history, src_history) = te_observations(
+        &source,
+        &dest,
+        src_hist_len,
+        dest_hist_len,
+        step_size,
+        false,
+    );
 
     // max_delay = max(3, 2) * 2 = 6
     // n = 10
