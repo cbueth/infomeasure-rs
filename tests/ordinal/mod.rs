@@ -6,4 +6,6 @@
 mod ordinal_entropy;
 mod ordinal_joint_and_cross_parity;
 mod ordinal_lehmer;
+mod ordinal_mi_te_parity;
+mod ordinal_parity;
 mod ordinal_python_parity;
