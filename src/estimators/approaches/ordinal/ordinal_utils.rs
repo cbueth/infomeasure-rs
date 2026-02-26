@@ -112,7 +112,7 @@ fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
 
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
-pub(crate) fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
+pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
     let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
     let mut next_id: i32 = 0;
     let mut out = Vec::with_capacity(codes.len());
