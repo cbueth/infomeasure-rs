@@ -392,8 +392,8 @@ fn ksg_te_parity_comprehensive(
     let p_val = if use_cheb { "np.inf" } else { "2" };
 
     let te_python = python::calculate_te(
-        &data_src.as_slice().unwrap().to_vec(),
-        &data_dst.as_slice().unwrap().to_vec(),
+        data_src.as_slice().unwrap(),
+        data_dst.as_slice().unwrap(),
         "ksg",
         &[
             ("k".to_string(), k.to_string()),
@@ -437,9 +437,9 @@ fn ksg_cte_parity_comprehensive(
     let p_val = if use_cheb { "np.inf" } else { "2" };
 
     let cte_python = python::calculate_cte(
-        &data_src.as_slice().unwrap().to_vec(),
-        &data_dst.as_slice().unwrap().to_vec(),
-        &data_cnd.as_slice().unwrap().to_vec(),
+        data_src.as_slice().unwrap(),
+        data_dst.as_slice().unwrap(),
+        data_cnd.as_slice().unwrap(),
         "ksg",
         &[
             ("k".to_string(), k.to_string()),
