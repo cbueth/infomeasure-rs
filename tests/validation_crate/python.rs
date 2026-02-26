@@ -6,6 +6,34 @@
 //!
 //! This module provides functionality for validating the Rust implementation against
 //! the Python infomeasure package using a uv virtual environment for isolation.
+//!
+//! ## Data Format Conventions
+//!
+//! ### Entropy Estimation
+//! - **Single variable**: Pass as a single 2D array with shape `(n_samples, n_features)`
+//!   - Example: `im.entropy(data.reshape(-1, 1), approach="kl")`
+//!   - The Python script expects the dataset wrapped in a single element list: `[dataset]`
+//!
+//! ### Joint Entropy
+//! - **Multiple variables**: Pass as a tuple of arrays or a single 2D array
+//!   - Example: `im.entropy((x, y), approach="kl")` for separate variables
+//!   - Or: `im.entropy(joint_data, approach="kl")` for `(n_samples, n_features)` data
+//!
+//! ### Mutual Information
+//! - **Multiple variables**: Pass each variable as a separate parameter
+//!   - Example: `im.mutual_information(x, y, approach="ksg")`
+//!   - Each variable should be a separate array, not wrapped
+//!
+//! ### Transfer Entropy
+//! - **Source/Destination**: Pass as separate parameters with optional conditioning
+//!   - Example: `im.transfer_entropy(source, dest, cond=condition, approach="ksg")`
+//!
+//! ## Key Implementation Notes
+//!
+//! 1. **For entropy**: The data should be wrapped in a single-element list so the Python script
+//!    treats it as one dataset, not multiple separate variables.
+//! 2. **For MI/TE**: Each variable should be a separate element in the data list.
+//! 3. **Cross-entropy**: Two separate parameters, not a tuple.
 
 use ndarray::Array1;
 use rand::{Rng, thread_rng};
@@ -167,7 +195,7 @@ fn install_venv_dependencies(uv: &std::path::PathBuf) -> bool {
 /// # Returns
 ///
 /// The output of the command
-fn run_in_environment(args: &[&str]) -> Result<String, String> {
+pub fn run_in_environment(args: &[&str]) -> Result<String, String> {
     let python_path = get_venv_python_path();
 
     if !std::path::Path::new(&python_path).exists() {
@@ -326,11 +354,43 @@ pub fn calculate_entropy_generic<T: Serialize>(
         .join(", ");
     let script = format!(
         r#"
-import infomeasure as im, json
+import infomeasure as im, json, numpy as np
+from numpy import inf
 with open("{df}", "r") as f:
     data = json.load(f)
-est = im.estimator(data, measure="h", approach="{ap}", base="e", {kw})
-print(est.result())
+data_arrays = []
+if isinstance(data, list) and len(data) > 0 and (isinstance(data[0], list) or isinstance(data[0], np.ndarray)):
+    for s in data:
+        arr = np.array(s)
+        is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+        if is_continuous and arr.ndim == 1:
+            arr = arr.reshape(-1, 1)
+        data_arrays.append(arr)
+else:
+    arr = np.array(data)
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+
+# For entropy, im.estimator expects either a single array (multivariate data)
+# or a tuple of arrays (joint variables).
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="h", approach="{ap}")
+if len(data_arrays) == 1:
+    est = EstimatorClass(data_arrays[0], **kwargs_dict)
+else:
+    # Pass joint variables as a tuple to the constructor
+    est = EstimatorClass(tuple(data_arrays), **kwargs_dict)
+if hasattr(est, 'symbols'):
+    import sys
+    print(f"DEBUG_SYMBOLS: {{[s.tolist() for s in est.symbols]}}", file=sys.stderr)
+res = est.result()
+# If res is inf, Python might print 'inf'. Rust's parse::<f64> handles 'inf'.
+# But if it's some other non-numeric, it might fail.
+print(res)
 "#,
         df = data_file.to_str().unwrap(),
         ap = approach,
@@ -646,10 +706,20 @@ pub fn calculate_local_entropy_generic<T: Serialize>(
         .join(", ");
     let script = format!(
         r#"
-import infomeasure as im, json
+import infomeasure as im, json, numpy as np
+from numpy import inf
 with open("{df}", "r") as f:
     data = json.load(f)
-est = im.estimator(data, measure="h", approach="{ap}", base="e", {kw})
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="h", approach="{ap}")
+if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+    # This might be multivariate data passed as list of lists
+    arr = np.array(data)
+    est = EstimatorClass(arr, **kwargs_dict)
+else:
+    est = EstimatorClass(np.array(data), **kwargs_dict)
 print(json.dumps(est.local_vals().tolist()))
 "#,
         df = data_file.to_str().unwrap(),
@@ -811,10 +881,15 @@ pub fn calculate_entropy_float_nd(
         ));
     }
     let n = data.len() / dims;
-    let rows: Vec<Vec<f64>> = (0..n)
+
+    // For entropy, we need to pass the data as a single 2D array, not as a list of points
+    // Reshape the flat data into a 2D array of shape (n, dims)
+    let dataset: Vec<Vec<f64>> = (0..n)
         .map(|i| (0..dims).map(|j| data[i * dims + j]).collect())
         .collect();
-    calculate_entropy_generic(&rows, approach, kwargs)
+
+    // Wrap the dataset in a single element vector so the generic function treats it as one dataset
+    calculate_entropy_generic(&[dataset], approach, kwargs)
 }
 
 /// Calculates local entropy values using the Python infomeasure package with n-dimensional float data.
@@ -928,7 +1003,8 @@ pub fn calculate_cross_entropy_float_nd(
         .join(", ");
     let script = format!(
         r#"
-import infomeasure as im, json
+import infomeasure as im, json, numpy as np
+from numpy import inf
 with open("{pf}", "r") as f:
     p = json.load(f)
 with open("{qf}", "r") as f:
@@ -1335,10 +1411,22 @@ pub fn calculate_mi<T: Serialize>(
 import infomeasure as im, json, numpy as np
 with open("{df}", "r") as f:
     data = json.load(f)
-# Convert nested lists to numpy arrays for im.estimator
-# If data[i] is a list of lists (multi-D RV), np.array(data[i]).T makes it (N, D)
-data_arrays = [np.array(s).T for s in data]
-est = im.estimator(*data_arrays, measure="mi", approach="{ap}", base="e", {kw})
+
+data_arrays = []
+for s in data:
+    arr = np.array(s)
+    # Don't automatically reshape to (N,1) for discrete/ordinal
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="mi", approach="{ap}")
+# Pass individual variables as separate arguments
+est = EstimatorClass(*data_arrays, **kwargs_dict)
 print(est.result())
 "#,
         df = data_file.to_str().unwrap(),
@@ -1385,8 +1473,20 @@ pub fn calculate_local_mi<T: Serialize>(
 import infomeasure as im, json, numpy as np
 with open("{df}", "r") as f:
     data = json.load(f)
-data_arrays = [np.array(s) for s in data]
-est = im.estimator(*data_arrays, measure="mi", approach="{ap}", base="e", {kw})
+
+data_arrays = []
+for s in data:
+    arr = np.array(s)
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="mi", approach="{ap}")
+est = EstimatorClass(*data_arrays, **kwargs_dict)
 print(json.dumps(est.local_vals().tolist()))
 "#,
         df = data_file.to_str().unwrap(),
@@ -1435,9 +1535,25 @@ with open("{df}", "r") as f:
     data = json.load(f)
 with open("{cf}", "r") as f:
     cond = json.load(f)
-data_arrays = [np.array(s) for s in data]
-cond_array = np.array(cond)
-est = im.estimator(*data_arrays, cond=cond_array, measure="cmi", approach="{ap}", base="e", {kw})
+
+data_arrays = []
+for s in data:
+    arr = np.array(s)
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+
+cond_arr = np.array(cond)
+is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+if is_continuous and cond_arr.ndim == 1:
+    cond_arr = cond_arr.reshape(-1, 1)
+
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="cmi", approach="{ap}")
+est = EstimatorClass(*data_arrays, cond=cond_arr, **kwargs_dict)
 print(est.result())
 "#,
         df = data_file.to_str().unwrap(),
@@ -1490,9 +1606,25 @@ with open("{df}", "r") as f:
     data = json.load(f)
 with open("{cf}", "r") as f:
     cond = json.load(f)
-data_arrays = [np.array(s) for s in data]
-cond_array = np.array(cond)
-est = im.estimator(*data_arrays, cond=cond_array, measure="cmi", approach="{ap}", base="e", {kw})
+
+data_arrays = []
+for s in data:
+    arr = np.array(s)
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+
+cond_arr = np.array(cond)
+is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+if is_continuous and cond_arr.ndim == 1:
+    cond_arr = cond_arr.reshape(-1, 1)
+
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="cmi", approach="{ap}")
+est = EstimatorClass(*data_arrays, cond=cond_arr, **kwargs_dict)
 print(json.dumps(est.local_vals().tolist()))
 "#,
         df = data_file.to_str().unwrap(),
@@ -1815,10 +1947,21 @@ with open("{sf}", "r") as f:
     src = np.array(json.load(f))
 with open("{df}", "r") as f:
     dst = np.array(json.load(f))
+
+# Align with robust reshaping for continuous/discrete
+is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+if is_continuous:
+    src_arr = src.reshape(-1, 1) if src.ndim == 1 else src
+    dst_arr = dst.reshape(-1, 1) if dst.ndim == 1 else dst
+else:
+    src_arr = src
+    dst_arr = dst
+
 # Filter out 'base' from kwargs if present to avoid conflict with explicit base
 kw_dict = {{{kw_dict_str}}}
 explicit_base = kw_dict.pop("base", "e")
-est = im.estimator(src, dst, measure="te", approach="{ap}", base=explicit_base, **kw_dict)
+EstimatorClass = im.get_estimator_class(measure="te", approach="{ap}")
+est = EstimatorClass(src_arr, dst_arr, base=explicit_base, **kw_dict)
 print(est.result())
 "#,
         sf = src_file.to_str().unwrap(),
@@ -1879,10 +2022,23 @@ with open("{df}", "r") as f:
     dst = np.array(json.load(f))
 with open("{cf}", "r") as f:
     cnd = np.array(json.load(f))
+
+# Align with robust reshaping for continuous/discrete
+is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+if is_continuous:
+    src_arr = src.reshape(-1, 1) if src.ndim == 1 else src
+    dst_arr = dst.reshape(-1, 1) if dst.ndim == 1 else dst
+    cnd_arr = cnd.reshape(-1, 1) if cnd.ndim == 1 else cnd
+else:
+    src_arr = src
+    dst_arr = dst
+    cnd_arr = cnd
+
 # Filter out 'base' from kwargs if present to avoid conflict with explicit base
 kw_dict = {{{kw_dict_str}}}
 explicit_base = kw_dict.pop("base", "e")
-est = im.estimator(src, dst, cond=cnd, measure="te", approach="{ap}", base=explicit_base, **kw_dict)
+EstimatorClass = im.get_estimator_class(measure="cte", approach="{ap}")
+est = EstimatorClass(src_arr, dst_arr, cond=cnd_arr, base=explicit_base, **kw_dict)
 print(est.result())
 "#,
         sf = src_file.to_str().unwrap(),

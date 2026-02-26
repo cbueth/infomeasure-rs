@@ -1,2 +1,2 @@
-infomeasure
+infomeasure>=0.6.0
 numba
