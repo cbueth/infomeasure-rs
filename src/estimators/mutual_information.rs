@@ -144,6 +144,49 @@ macro_rules! new_ksg_cmi {
     }};
 }
 
+/// Macro for creating a new `RenyiMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_renyi_mi {
+    ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr) => {{
+        const D_JOINT: usize = $d1 + $d2;
+        $crate::estimators::approaches::expfam::renyi::RenyiMutualInformation2::<D_JOINT, $d1, $d2>::new($series, $k, $alpha, $noise)
+    }};
+    ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3;
+        $crate::estimators::approaches::expfam::renyi::RenyiMutualInformation3::<D_JOINT, $d1, $d2, $d3>::new($series, $k, $alpha, $noise)
+    }};
+    ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4;
+        $crate::estimators::approaches::expfam::renyi::RenyiMutualInformation4::<D_JOINT, $d1, $d2, $d3, $d4>::new($series, $k, $alpha, $noise)
+    }};
+    ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5;
+        $crate::estimators::approaches::expfam::renyi::RenyiMutualInformation5::<D_JOINT, $d1, $d2, $d3, $d4, $d5>::new($series, $k, $alpha, $noise)
+    }};
+    ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d3:expr, $d4:expr, $d5:expr, $d6:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d3 + $d4 + $d5 + $d6;
+        $crate::estimators::approaches::expfam::renyi::RenyiMutualInformation6::<D_JOINT, $d1, $d2, $d3, $d4, $d5, $d6>::new($series, $k, $alpha, $noise)
+    }};
+}
+
+/// Macro for creating a new `RenyiConditionalMutualInformation` estimator.
+#[macro_export]
+macro_rules! new_renyi_cmi {
+    ($series:expr, $cond:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
+        const D_JOINT: usize = $d1 + $d2 + $d_cond;
+        const D1_COND: usize = $d1 + $d_cond;
+        const D2_COND: usize = $d2 + $d_cond;
+        $crate::estimators::approaches::expfam::renyi::RenyiConditionalMutualInformation::<
+            $d1,
+            $d2,
+            $d_cond,
+            D_JOINT,
+            D1_COND,
+            D2_COND,
+        >::new($series, $cond, $k, $alpha, $noise)
+    }};
+}
+
 /// Macro for creating a new `KozachenkoLeonenkoMutualInformation` estimator.
 #[macro_export]
 macro_rules! new_kl_mi {
@@ -537,6 +580,64 @@ impl MutualInformation {
         noise_level: f64,
     ) -> KsgConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND> {
         KsgConditionalMutualInformation::new(series, cond, k, noise_level)
+    }
+
+    /// Create a Rényi mutual information estimator.
+    pub fn new_renyi(
+        series: &[Array1<f64>],
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiMutualInformation2<2, 1, 1> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        RenyiMutualInformation2::new(&series_2d, k, alpha, noise_level)
+    }
+
+    /// Create a multi-dimensional Rényi mutual information estimator.
+    pub fn nd_renyi<const D_JOINT: usize, const D1: usize, const D2: usize>(
+        series: &[Array2<f64>],
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiMutualInformation2<D_JOINT, D1, D2> {
+        RenyiMutualInformation2::new(series, k, alpha, noise_level)
+    }
+
+    /// Create a Rényi conditional mutual information estimator.
+    pub fn new_cmi_renyi(
+        series: &[Array1<f64>],
+        cond: &Array1<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiConditionalMutualInformation<1, 1, 1, 3, 2, 2> {
+        let series_2d: Vec<Array2<f64>> = series
+            .iter()
+            .map(|s| s.clone().insert_axis(Axis(1)))
+            .collect();
+        let cond_2d = cond.clone().insert_axis(Axis(1));
+        RenyiConditionalMutualInformation::new(&series_2d, &cond_2d, k, alpha, noise_level)
+    }
+
+    /// Create a multi-dimensional Rényi conditional mutual information estimator.
+    pub fn nd_cmi_renyi<
+        const D1: usize,
+        const D2: usize,
+        const DZ: usize,
+        const D_JOINT: usize,
+        const D1Z: usize,
+        const D2Z: usize,
+    >(
+        series: &[Array2<f64>],
+        cond: &Array2<f64>,
+        k: usize,
+        alpha: f64,
+        noise_level: f64,
+    ) -> RenyiConditionalMutualInformation<D1, D2, DZ, D_JOINT, D1Z, D2Z> {
+        RenyiConditionalMutualInformation::new(series, cond, k, alpha, noise_level)
     }
 
     /// Create a Kozachenko-Leonenko (KL) mutual information estimator.
