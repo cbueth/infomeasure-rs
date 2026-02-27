@@ -21,6 +21,7 @@ mod discrete_sanity;
 mod discrete_utils;
 mod grassberger_parity;
 mod grassberger_sanity;
+mod joint_entropy_parity;
 mod miller_madow_cross_entropy_sanity;
 mod miller_madow_parity;
 mod miller_madow_sanity;
