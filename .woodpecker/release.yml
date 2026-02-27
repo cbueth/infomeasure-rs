@@ -25,3 +25,22 @@ steps:
     commands:
       - export PATH="$HOME/.cargo/bin:$PATH"
       - release-plz release --forge gitea
+
+  - name: update-citation
+    image: debian:stable-slim
+    commands:
+      - |
+        # Get version from Cargo.toml
+        VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+        TODAY=$(date +%Y-%m-%d)
+        
+        # Update CITATION.cff
+        sed -i "s/^version:.*/version: \"$VERSION\"/" CITATION.cff
+        sed -i "s/^date-released:.*/date-released: \"$TODAY\"/" CITATION.cff
+        
+        # Commit and push changes
+        git config --global user.email "ci@codeberg.org"
+        git config --global user.name "Woodpecker CI"
+        git add CITATION.cff
+        git commit -m "chore: update CITATION.cff to v$VERSION" || true
+        git push
