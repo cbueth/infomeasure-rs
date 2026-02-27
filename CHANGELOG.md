@@ -30,6 +30,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+### Migration from 0.0.x to 0.1.0
+- **Breaking**: `simd` feature flag removed
+- **Breaking**: `GlobalValue` and `LocalValues` refactored across all estimators
+- **Added**: Comprehensive Python parity test suite
+- **Improved**: GPU acceleration with automatic fallback
+- **Enhanced**: Documentation with mathematical notation
+
+
+---
+
 ## January 2026
 
 ### 2026-01-17 - Final Alpha Release & CI Migration
@@ -110,73 +120,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **🎉 Initial Release**: First implementation of infomeasure-rs library
 - **Python Interface**: Initial Python parity validation framework using `micromamba`
 - **Architecture**: Established core trait system and estimator patterns
-
----
-
-## Feature Status Matrix
-
-| Feature | Status | GPU Support | Python Parity |
-|---------|--------|-------------|---------------|
-| Discrete Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-| Kernel Entropy | ✅ Complete | ✅ Available | ✅ Validated |
-| Ordinal Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-| Exponential Family Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-| Discrete Mutual Information | ✅ Complete | ❌ N/A | ✅ Validated |
-| Discrete Transfer Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-| Kernel Mutual Information | ✅ Complete | ✅ Available | ✅ Validated |
-| Kernel Transfer Entropy | ✅ Complete | ✅ Available | ✅ Validated |
-| Ordinal Mutual Information | ✅ Complete | ❌ N/A | ✅ Validated |
-| Ordinal Transfer Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-| k-NN Mutual Information | ✅ Complete | ❌ N/A | ✅ Validated |
-| k-NN Transfer Entropy | ✅ Complete | ❌ N/A | ✅ Validated |
-
----
-
-## Feature Flags
-
-| Flag | Description | Performance Impact                |
-|------|-------------|-----------------------------------|
-| `gpu` | Enable GPU acceleration for kernel estimators | 10-50x speedup for large datasets |
-| `fast_exp` | Fast exponential approximations | Speedup for accuracy degradation  |
-
----
-
-## Performance Benchmarks
-
-### GPU Acceleration Results
-- **Gaussian Kernel**: 500+ samples for GPU activation
-- **Box Kernel**: 2000+ samples for GPU activation
-- **Speedup**: 10-50x performance improvement over CPU
-- **Memory**: Optimized for large dataset processing
-
-### Python Comparison
-- **Speed**: 10-100x performance improvements over reference implementation
-- **Accuracy**: Numerical parity with infomeasure Python package
-- **Memory**: Reduces memory footprint for large datasets
-
----
-
-## Development Infrastructure
-
-### CI/CD Pipeline
-- **Platform**: Woodpecker CI
-- **Matrix**: Rust stable/beta with feature flag testing
-- **Python**: UV-based environment management
-- **Quality**: Automated linting, formatting, and documentation
-
-### Development Tools
-- **Pre-commit**: Automated code quality checks using [`prek`](https://prek.j178.dev/)
-- **REUSE**: License compliance automation https://reuse.software/
-- **Documentation**: KaTeX mathematical rendering
-- **Testing**: Python parity validation framework, validating against parent package https://github.com/cbueth/infomeasure
-
----
-
-## Migration Notes
-
-### From 0.0.x to 0.1.0-alpha
-- **Breaking**: `simd` feature flag removed
-- **Breaking**: `GlobalValue` and `LocalValues` refactored across all estimators
-- **Added**: Comprehensive Python parity test suite
-- **Improved**: GPU acceleration with automatic fallback
-- **Enhanced**: Documentation with mathematical notation
