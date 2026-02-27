@@ -195,6 +195,19 @@ impl Entropy {
         NsbEntropy::new(data, k_override)
     }
 
+    /// Compute the joint entropy of multiple discrete variables.
+    ///
+    /// Uses the Maximum Likelihood (MLE) estimator for the joint distribution.
+    /// $H(X, Y, \dots) = -\sum_{i, j, \dots} p(i, j, \dots) \ln p(i, j, \dots)$
+    ///
+    /// # Arguments
+    ///
+    /// * `series` - Slice of integer arrays, each representing a random variable
+    /// * `params` - Optional parameters (currently unused)
+    pub fn joint_discrete(series: &[Array1<i32>], params: ()) -> f64 {
+        DiscreteEntropy::joint_entropy(series, params)
+    }
+
     // Batch (rows) constructors for 2D integer data
     // These mirror the per-row constructors found in approaches::<estimator>::from_rows
     // and provide a convenient facade-level API.
