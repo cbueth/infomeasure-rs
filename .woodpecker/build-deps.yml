@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Build pre-cached Docker images with Rust dependencies
+
+when:
+  - branch: main
+    event: [manual, cron]
+    path: [Cargo.toml, Cargo.lock]
+
+matrix:
+  RUST: [stable, beta]
+
+variables:
+  - &repo "cbueth/infomeasure-rs"
+
+steps:
+  - name: build
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      dockerfile: .docker/Dockerfile
+      repo: *repo
+      registry: codeberg.org
+      tags: latest,${RUST}
+      username: cbueth
+      password:
+        from_secret: CODEBERG_PACKAGES_TOKEN
+      build_args:
+        - RUST=${RUST}
+#      single-snapshot: true  # exclude source files from final image

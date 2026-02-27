@@ -60,6 +60,12 @@ fn environment_exists() -> bool {
 ///
 /// `true` if the environment was created successfully or already exists, `false` otherwise.
 fn ensure_environment() -> bool {
+    // First check /root/.venv as a fallback (for CI)
+    let root_venv_python = "/root/.venv/bin/python";
+    if Path::new(root_venv_python).exists() {
+        return true;
+    }
+
     if environment_exists() {
         return true;
     }
@@ -227,6 +233,12 @@ pub fn run_in_environment(args: &[&str]) -> Result<String, String> {
 ///
 /// The path to the Python executable
 fn get_venv_python_path() -> String {
+    // First check /root/.venv as a fallback (useful for CI/Docker environments)
+    let root_venv_python = "/root/.venv/bin/python";
+    if Path::new(root_venv_python).exists() {
+        return root_venv_python.to_string();
+    }
+
     // Get the correct base directory for the venv
     let base_dir = if env::var("CARGO_MANIFEST_DIR").is_ok() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
