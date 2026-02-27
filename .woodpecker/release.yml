@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Publish workflow: runs when a PR with "release" label is merged
+# merge Release PR -> auto publish
+
+when:
+  - event: pull_request_closed
+    evaluate: 'CI_COMMIT_PULL_REQUEST_LABELS contains "release"'
+
+steps:
+  - name: install-release-plz
+    image: rust:latest
+    commands:
+      - cargo install --locked release-plz
+
+  - name: release
+    image: rust:latest
+    environment:
+      RELEASE_PLZ_TOKEN:
+        from_secret: codeberg_token
+      CARGO_REGISTRY_TOKEN:
+        from_secret: crates_io_token
+    commands:
+      - export PATH="$HOME/.cargo/bin:$PATH"
+      - release-plz release --forge gitea
