@@ -19,5 +19,7 @@ steps:
       - cargo install --locked release-plz
       - git config --global user.email "ci@cbueth.de"
       - git config --global user.name "release-plz bot"
+      - git config --global credential.helper "store --file=/tmp/git-credentials"
+      - echo "https://$RELEASE_PLZ_TOKEN@codeberg.org" > /tmp/git-credentials
       - export PATH="$HOME/.cargo/bin:$PATH"
       - release-plz release-pr --forge gitea --git-token "$RELEASE_PLZ_TOKEN"
