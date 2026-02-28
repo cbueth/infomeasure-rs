@@ -10,7 +10,7 @@ when:
     branch: main
 
 steps:
-  - name: install-release-plz
+  - name: release-plz pr
     image: rust:latest
     environment:
       RELEASE_PLZ_TOKEN:
@@ -18,4 +18,4 @@ steps:
     commands:
       - cargo install --locked release-plz
       - export PATH="$HOME/.cargo/bin:$PATH"
-      - release-plz release-pr --forge gitea
+      - release-plz release-pr --forge gitea --git-token "$RELEASE_PLZ_TOKEN"
