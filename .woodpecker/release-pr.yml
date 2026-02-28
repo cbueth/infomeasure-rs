@@ -12,14 +12,10 @@ when:
 steps:
   - name: install-release-plz
     image: rust:latest
-    commands:
-      - cargo install --locked release-plz
-
-  - name: release-pr
-    image: rust:latest
     environment:
       RELEASE_PLZ_TOKEN:
         from_secret: codeberg_token
     commands:
+      - cargo install --locked release-plz
       - export PATH="$HOME/.cargo/bin:$PATH"
       - release-plz release-pr --forge gitea
