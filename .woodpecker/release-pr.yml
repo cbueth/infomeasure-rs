@@ -8,6 +8,7 @@
 when:
   - event: push
     branch: main
+  - event: manual
 
 steps:
   - name: install-release-plz
