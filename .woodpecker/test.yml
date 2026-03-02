@@ -13,12 +13,11 @@ matrix:
 
 steps:
   - name: build
-    image: rust
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
     commands:
-      - rustup default ${RUST}
       - if [ -n "${FEATURES}" ]; then
           cargo build -j 4 --workspace --features ${FEATURES};
         else
@@ -26,21 +25,11 @@ steps:
         fi
 
   - name: test
-    image: rust
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
     commands:
-      # Install uv for Python validation
-      - curl -LsSf https://astral.sh/uv/install.sh | sh
-      - export PATH="/root/.local/bin:$PATH"
-      # Set up Python environment with uv
-      - cd tests/validation_crate
-      - uv venv
-      - uv pip install -r requirements.txt
-      - cd ../..
-
-      # Run tests with current feature set
       - if [ -n "${FEATURES}" ]; then
           cargo test -j 4 --workspace --features ${FEATURES};
         else

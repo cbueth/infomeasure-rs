@@ -6,21 +6,22 @@ when:
   - event: [push, pull_request]
     branch: [main, develop]
 
+matrix:
+  RUST: [stable, beta]
+
 steps:
   - name: fmt
-    image: rust:latest
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
-      - rustup component add rustfmt
       - cargo fmt --all -- --check
 
   - name: clippy
-    image: rust:latest
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
-      - rustup component add clippy
       - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
 
   - name: doc
-    image: rust:latest
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
     commands:
