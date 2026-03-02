@@ -33,6 +33,7 @@ COPY Cargo.toml Cargo.lock .
 COPY tests/validation_crate/ /build/tests/validation_crate/
 
 RUN mkdir -p src && \
+    echo "pub fn dummy() {}" > src/lib.rs && \
     cargo build --workspace && \
     cargo build --workspace --tests && \
     rustup component add rustfmt clippy
