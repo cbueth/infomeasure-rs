@@ -29,9 +29,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
 WORKDIR /build
-COPY Cargo.toml Cargo.lock ./
-COPY tests/validation_crate/Cargo.toml ./tests/validation_crate/ 2>/dev/null || true
-COPY tests/validation_crate/requirements.txt ./tests/validation_crate/ 2>/dev/null || true
+COPY Cargo.toml Cargo.lock .
+COPY tests/validation_crate/ ./
 
 RUN mkdir -p src && \
     cargo build --workspace && \
