@@ -28,3 +28,4 @@ steps:
         from_secret: CODEBERG_PACKAGES_TOKEN
       build_args:
         - RUST=${RUST}
+      single-snapshot: true  # exclude source files from final image

@@ -25,20 +25,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv for Python package management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
+# Pre-install Rust tools
+RUN rustup component add rustfmt clippy
+
+# Set up workspace for dependency pre-building
 WORKDIR /build
 COPY Cargo.toml Cargo.lock .
-COPY tests/validation_crate/ /build/tests/validation_crate/
 
-RUN mkdir -p src && \
-    echo "pub fn dummy() {}" > src/lib.rs && \
-    cargo build --workspace && \
-    cargo build --workspace --tests && \
-    rustup component add rustfmt clippy
+# Create dummy lib.rs to build without actual source
+RUN mkdir -p src && echo "pub fn dummy() {}" > src/lib.rs
 
-WORKDIR /build/tests/validation_crate
-RUN uv venv && uv pip install -r requirements.txt
+# Pre-build dependencies (lib only, not tests/benchmarks - they'll be built in CI)
+RUN cargo build --lib --workspace
 
-WORKDIR /build
+# Clean up dummy source
+RUN rm -rf src
