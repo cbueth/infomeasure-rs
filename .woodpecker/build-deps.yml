@@ -6,7 +6,7 @@
 
 when:
   - branch: main
-    event: [push, manual, cron]
+    event: [manual, cron]
     path: [Cargo.toml, Cargo.lock]
 
 matrix:
@@ -25,6 +25,6 @@ steps:
       tags: latest,${RUST}
       username: cbueth
       password:
-        from_secret: FORGE_TOKEN
+        from_secret: CODEBERG_PACKAGES_TOKEN
       build_args:
         - RUST=${RUST}
