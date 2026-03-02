@@ -13,14 +13,14 @@ when:
     branch: main
 
 steps:
-  - name: release
+  - name: release-pr
     image: woodpeckerci/plugin-ready-release-go
     settings:
       git_email: ci@cbueth.de
-      git_name: CI Bot
       forge_token:
         from_secret: FORGE_TOKEN
       forge_type: gitea
+      release_prefix: Release
 
 ---
 
