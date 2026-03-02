@@ -6,7 +6,10 @@
 # Build with: --build-arg RUST=stable or --build-arg RUST=beta
 
 ARG RUST=stable
-FROM rust:${RUST}
+FROM ghcr.io/rust-lang/rust:latest
+
+# Set the Rust version (stable or beta)
+RUN rustup default ${RUST}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
