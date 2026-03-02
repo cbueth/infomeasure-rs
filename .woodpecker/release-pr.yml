@@ -15,11 +15,13 @@ steps:
     environment:
       RELEASE_PLZ_TOKEN:
         from_secret: codeberg_token
+      GIT_TOKEN:
+        from_secret: codeberg_token
     commands:
       - cargo install --locked release-plz
-      - git config --global user.email "ci@cbueth.de"
-      - git config --global user.name "release-plz bot"
-      - git config --global credential.helper store
+      - git config --local user.email "ci@cbueth.de"
+      - git config --local user.name "release-plz bot"
+      - git config --local credential.helper store
       - echo "https://$RELEASE_PLZ_TOKEN@codeberg.org" > /tmp/git-credentials
       - export PATH="$HOME/.cargo/bin:$PATH"
-      - release-plz release-pr --forge gitea --git-token "$RELEASE_PLZ_TOKEN"
+      - release-plz release-pr --forge gitea
