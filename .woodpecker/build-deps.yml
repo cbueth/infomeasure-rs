@@ -25,6 +25,6 @@ steps:
       tags: latest,${RUST}
       username: cbueth
       password:
-        from_secret: CODEBERG_TOKEN
+        from_secret: FORGE_TOKEN
       build_args:
         - RUST=${RUST}
