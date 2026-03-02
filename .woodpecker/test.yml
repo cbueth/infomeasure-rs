@@ -5,6 +5,11 @@
 when:
   - event: [push, pull_request]
     branch: [main, develop]
+    path:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - tests/**
 
 matrix:
   RUST: [stable, beta]
@@ -35,3 +40,8 @@ steps:
         else
           cargo test -j 4 --workspace;
         fi
+
+  - name: doctest
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    commands:
+      - cargo test --doc
