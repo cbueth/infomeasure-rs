@@ -13,7 +13,7 @@ matrix:
   RUST: [stable, beta]
 
 variables:
-  - &repo "codeberg.org/cbueth/infomeasure-rs"
+  - &repo "cbueth/infomeasure-rs"
 
 steps:
   - name: build
