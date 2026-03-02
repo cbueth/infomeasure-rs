@@ -19,6 +19,8 @@ matrix:
 steps:
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
@@ -31,6 +33,8 @@ steps:
 
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
@@ -43,5 +47,7 @@ steps:
 
   - name: doctest
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     commands:
       - cargo test --doc

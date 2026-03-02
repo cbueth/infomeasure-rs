@@ -40,11 +40,13 @@ COPY . .
 # Pre-build dependencies (including tests/benchmarks to caching everything)
 RUN cargo build --workspace
 
-# Remove source code to keep image minimal. Only cargo cache remaing
-RUN rm -rf src tests benches
+# Remove benches to keep image smaller. Keep src/ for source code.
+# Cargo cache remains with pre-built dependencies.
+RUN rm -rf benches
 
 # Install Python dependencies for validation tests
+# Move to /root/.venv for easy mounting in CI
 WORKDIR /build/tests/validation_crate
-RUN uv venv && uv pip install -r requirements.txt
+RUN uv venv /root/.venv && uv pip install -r requirements.txt
 
 WORKDIR /build
