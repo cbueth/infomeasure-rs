@@ -23,13 +23,27 @@ steps:
       CARGO_REGISTRY_TOKEN:
         from_secret: crates_io_token
     commands:
+      - git config --global user.email "ci@cbueth.de"
+      - git config --global user.name "release-plz bot"
       - export PATH="$HOME/.cargo/bin:$PATH"
       - release-plz release --forge gitea
 
   - name: update-citation
     image: debian:stable-slim
+    environment:
+      RELEASE_PLZ_TOKEN:
+        from_secret: codeberg_token
     commands:
       - |
+        # Configure git with token for push
+        git config --global user.email "ci@cbueth.de"
+        git config --global user.name "CI Bot"
+        git config --global credential.helper store
+        echo "https://$RELEASE_PLZ_TOKEN@codeberg.org" > /tmp/git-credentials
+        
+        # Pull latest to avoid race conditions
+        git pull origin main
+        
         # Get version from Cargo.toml
         VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
         TODAY=$(date +%Y-%m-%d)
@@ -39,8 +53,6 @@ steps:
         sed -i "s/^date-released:.*/date-released: \"$TODAY\"/" CITATION.cff
         
         # Commit and push changes
-        git config --global user.email "ci@codeberg.org"
-        git config --global user.name "Woodpecker CI"
         git add CITATION.cff
         git commit -m "chore: update CITATION.cff to v$VERSION" || true
         git push

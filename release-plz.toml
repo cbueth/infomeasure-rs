@@ -6,6 +6,7 @@
 # See: https://release-plz.dev/docs/config
 
 [workspace]
+repo_url = "https://$RELEASE_PLZ_TOKEN@codeberg.org/cbueth/infomeasure-rs"
 
 # Enable changelog generation (uses git-cliff internally)
 changelog_update = true
