@@ -34,13 +34,17 @@ RUN rustup component add rustfmt clippy
 
 # Set up workspace for dependency pre-building
 WORKDIR /build
-COPY Cargo.toml Cargo.lock .
+# copy full source
+COPY . .
 
-# Create dummy lib.rs to build without actual source
-RUN mkdir -p src && echo "pub fn dummy() {}" > src/lib.rs
+# Pre-build dependencies (including tests/benchmarks to caching everything)
+RUN cargo build --workspace
 
-# Pre-build dependencies (lib only, not tests/benchmarks - they'll be built in CI)
-RUN cargo build --lib --workspace
+# Remove source code to keep image minimal. Only cargo cache remaing
+RUN rm -rf src tests benches
 
-# Clean up dummy source
-RUN rm -rf src
+# Install Python dependencies for validation tests
+WORKDIR /build/tests/validation_crate
+RUN uv venv && uv pip install -r requirements.txt
+
+WORKDIR /build
