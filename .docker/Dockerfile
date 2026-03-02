@@ -30,7 +30,7 @@ ENV PATH="/root/.local/bin:$PATH"
 
 WORKDIR /build
 COPY Cargo.toml Cargo.lock .
-COPY tests/validation_crate/ ./
+COPY tests/validation_crate/ /build/tests/validation_crate/
 
 RUN mkdir -p src && \
     cargo build --workspace && \
