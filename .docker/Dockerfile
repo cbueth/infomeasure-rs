@@ -45,8 +45,9 @@ RUN cargo build --workspace
 RUN rm -rf benches
 
 # Install Python dependencies for validation tests
-# Move to /root/.venv for easy mounting in CI
+# Move to /root/.venv and create symlink for validation crate
 WORKDIR /build/tests/validation_crate
-RUN uv venv /root/.venv && uv pip install -r requirements.txt
+RUN uv venv /root/.venv && uv pip install -r requirements.txt && \
+    ln -sfn /root/.venv /build/tests/validation_crate/.venv
 
 WORKDIR /build

@@ -2,6 +2,10 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
+workspace:
+  base: /build
+  path: .
+
 when:
   - event: [push, pull_request]
     branch: [main, develop]
@@ -12,22 +16,16 @@ matrix:
 steps:
   - name: fmt
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     commands:
       - cargo fmt --all -- --check
 
   - name: clippy
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     commands:
       - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
 
   - name: doc
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - /root/.venv:/woodpecker/src/codeberg.org/cbueth/infomeasure-rs/tests/validation_crate/.venv
     environment:
       RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
     commands:
