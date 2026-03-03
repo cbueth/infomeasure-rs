@@ -11,6 +11,10 @@ FROM ghcr.io/rust-lang/rust:latest
 # Set the Rust version (stable or beta)
 RUN rustup default ${RUST}
 
+ENV CARGO_HOME=/root/.cargo
+ENV CARGO_TARGET_DIR=/root/.cargo/target
+ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install uv for Python package management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+RUN ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Pre-install Rust tools
 RUN rustup component add rustfmt clippy

@@ -14,6 +14,7 @@ when:
       - Cargo.lock
       - src/**
       - tests/**
+  - event: manual
 
 matrix:
   RUST: [stable, beta]
