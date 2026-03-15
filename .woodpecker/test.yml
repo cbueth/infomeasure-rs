@@ -20,32 +20,15 @@ matrix:
   RUST: [stable, beta]
   FEATURES: [""]  # fast_exp degrades the accuracy, making tests fail; not testing gpu on CI
 
+# Named volume for cargo cache - persists between CI runs
+volumes:
+  - cargo-cache:/usr/local/cargo
 
 steps:
-  - name: debug
-    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    commands:
-      - |
-        set -e
-        echo "=== Environment ==="
-        echo "CARGO_HOME: ${CARGO_HOME:-unset}"
-        echo "CARGO_TARGET_DIR: ${CARGO_TARGET_DIR:-unset}"
-        echo ""
-        echo "=== /usr/local/cargo ==="
-        test -d /usr/local/cargo && echo "exists" || echo "not found"
-        echo "=== /usr/local/cargo/target (first 10) ==="
-        test -d /usr/local/cargo/target && ls -d /usr/local/cargo/target/*/ 2>/dev/null | head -10 || echo "not found"
-        echo "=== /root/.cargo ==="
-        test -d /root/.cargo && echo "exists" || echo "not found (expected)"
-        echo "=== /build ==="
-        ls -la /build/ | head -20
-        echo ""
-        echo "=== cargo versions ==="
-        cargo --version
-        rustc --version
-
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - cargo-cache:/usr/local/cargo
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
@@ -58,9 +41,12 @@ steps:
 
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - cargo-cache:/usr/local/cargo
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
+      UV_VENV_CLEAR: "1"
     commands:
       - if [ -n "${FEATURES}" ]; then
           cargo test -j 4 --workspace --features ${FEATURES};
@@ -70,5 +56,7 @@ steps:
 
   - name: doctest
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    volumes:
+      - cargo-cache:/usr/local/cargo
     commands:
       - cargo test --doc
