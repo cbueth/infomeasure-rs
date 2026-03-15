@@ -51,9 +51,9 @@ steps:
       RUST: ${RUST}
     commands:
       - if [ -n "${FEATURES}" ]; then
-          cargo build -j 4 --workspace --features ${FEATURES};
+          cargo build -j 4 --workspace --features ${FEATURES} --locked;
         else
-          cargo build -j 4 --workspace;
+          cargo build -j 4 --workspace --locked;
         fi
 
   - name: test
@@ -63,12 +63,12 @@ steps:
       RUST: ${RUST}
     commands:
       - if [ -n "${FEATURES}" ]; then
-          cargo test -j 4 --workspace --features ${FEATURES};
+          cargo test -j 4 --workspace --features ${FEATURES} --locked;
         else
-          cargo test -j 4 --workspace;
+          cargo test -j 4 --workspace --locked;
         fi
 
   - name: doctest
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
-      - cargo test --doc
+      - cargo test --doc --locked

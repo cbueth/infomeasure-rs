@@ -43,6 +43,12 @@ COPY . .
 # Pre-build dependencies (including tests/benchmarks to caching everything)
 RUN cargo build --workspace
 
+# Debug: verify cargo cache location
+RUN echo "=== CARGO_HOME ===" && echo $CARGO_HOME && \
+    echo "=== CARGO_TARGET_DIR ===" && echo $CARGO_TARGET_DIR && \
+    echo "=== Default cargo home ===" && ls -la /usr/local/cargo/ && \
+    echo "=== Target dir contents ===" && ls -la /usr/local/cargo/target/ || echo "target dir empty or not found"
+
 # Remove benches and local cargo config to keep image smaller and avoid conflicts
 # Cargo cache at default location (/usr/local/cargo/target) will be preserved
 RUN rm -rf benches .cargo

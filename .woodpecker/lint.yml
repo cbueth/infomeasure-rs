@@ -40,16 +40,16 @@ steps:
   - name: fmt
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
-      - cargo fmt --all -- --check
+      - cargo fmt --all -- --check --locked
 
   - name: clippy
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
-      - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
+      - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo --locked
 
   - name: doc
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
     commands:
-      - cargo doc --no-deps --all-features
+      - cargo doc --no-deps --all-features --locked
