@@ -26,25 +26,21 @@ steps:
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     commands:
       - |
+        set -e
         echo "=== Environment ==="
         echo "CARGO_HOME: ${CARGO_HOME:-unset}"
         echo "CARGO_TARGET_DIR: ${CARGO_TARGET_DIR:-unset}"
-        echo "PATH: $PATH"
         echo ""
-        echo "=== /usr/local/cargo (expected cargo home) ==="
-        ls -la /usr/local/cargo/ 2>/dev/null || echo "not found"
-        echo ""
-        echo "=== /usr/local/cargo/target (first 20) ==="
-        ls /usr/local/cargo/target/ 2>/dev/null | head -20 || echo "not found"
-        echo ""
-        echo "=== /root/.cargo (old location - should not exist) ==="
-        ls -la /root/.cargo/ 2>/dev/null || echo "not found (expected)"
-        echo ""
+        echo "=== /usr/local/cargo ==="
+        test -d /usr/local/cargo && echo "exists" || echo "not found"
+        echo "=== /usr/local/cargo/target (first 10) ==="
+        test -d /usr/local/cargo/target && ls -d /usr/local/cargo/target/*/ 2>/dev/null | head -10 || echo "not found"
+        echo "=== /root/.cargo ==="
+        test -d /root/.cargo && echo "exists" || echo "not found (expected)"
         echo "=== /build ==="
-        ls -la /build/
+        ls -la /build/ | head -20
         echo ""
-        echo "=== which cargo ==="
-        which cargo
+        echo "=== cargo versions ==="
         cargo --version
         rustc --version
 
