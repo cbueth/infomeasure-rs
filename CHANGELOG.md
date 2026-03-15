@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.1.0-beta.1) - 2026-03-03
+## [0.1.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.1.0-beta.1) - 2026-03-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### Misc
 
+- develop [[#4](https://codeberg.org/cbueth/infomeasure-rs/pulls/4)]
 - chore: bump to `beta` [[#1](https://codeberg.org/cbueth/infomeasure-rs/pulls/1)]
 
 ## [0.1.0-alpha.1] - 2026-01-17
