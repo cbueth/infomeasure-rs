@@ -11,9 +11,8 @@ FROM ghcr.io/rust-lang/rust:latest
 # Set the Rust version (stable or beta)
 RUN rustup default ${RUST}
 
-ENV CARGO_HOME=/root/.cargo
-ENV CARGO_TARGET_DIR=/root/.cargo/target
-ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
+# Use default cargo locations (no override needed)
+# Cargo will use /usr/local/cargo for cache and /usr/local/cargo/target for builds
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -44,9 +43,9 @@ COPY . .
 # Pre-build dependencies (including tests/benchmarks to caching everything)
 RUN cargo build --workspace
 
-# Remove benches to keep image smaller. Keep src/ for source code.
-# Cargo cache remains with pre-built dependencies.
-RUN rm -rf benches
+# Remove benches and local cargo config to keep image smaller and avoid conflicts
+# Cargo cache at default location (/usr/local/cargo/target) will be preserved
+RUN rm -rf benches .cargo
 
 # Install Python dependencies for validation tests
 # Create venv and symlink for validation crate
