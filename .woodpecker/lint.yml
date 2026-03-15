@@ -14,29 +14,41 @@ when:
 matrix:
   RUST: [stable, beta]
 
-# Named volume for cargo cache - persists between CI runs
-volumes:
-  - cargo-cache:/usr/local/cargo
-
 steps:
+  - name: debug
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    commands:
+      - |
+        set -e
+        echo "=== Environment ==="
+        echo "CARGO_HOME: ${CARGO_HOME:-unset}"
+        echo "CARGO_TARGET_DIR: ${CARGO_TARGET_DIR:-unset}"
+        echo ""
+        echo "=== /usr/local/cargo ==="
+        test -d /usr/local/cargo && echo "exists" || echo "not found"
+        echo "=== /usr/local/cargo/target (first 10) ==="
+        test -d /usr/local/cargo/target && ls -d /usr/local/cargo/target/*/ 2>/dev/null | head -10 || echo "not found"
+        echo "=== /root/.cargo ==="
+        test -d /root/.cargo && echo "exists" || echo "not found (expected)"
+        echo "=== /build ==="
+        ls -la /build/ | head -20
+        echo ""
+        echo "=== cargo versions ==="
+        cargo --version
+        rustc --version
+
   - name: fmt
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - cargo-cache:/usr/local/cargo
     commands:
       - cargo fmt --all -- --check
 
   - name: clippy
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - cargo-cache:/usr/local/cargo
     commands:
       - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
 
   - name: doc
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    volumes:
-      - cargo-cache:/usr/local/cargo
     environment:
       RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
     commands:
