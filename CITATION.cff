@@ -1,0 +1,29 @@
+cff-version: "1.2.0"
+type: software
+license: MIT OR Apache-2.0
+version: 0.1.0-alpha.1
+
+title: infomeasure-rs
+abstract: |
+  High-performance Rust library for information-theoretic measures
+  including entropy, mutual information, and transfer entropy with
+  multiple estimation approaches (discrete, kernel, ordinal, exponential family).
+
+authors:
+    - family-names: "Büth"
+      given-names: "Carlson Moses"
+      orcid: "https://orcid.org/0000-0003-2298-8438"
+      email: code@cbueth.de
+
+repository-code: "https://codeberg.org/cbueth/infomeasure-rs"
+url: "https://docs.rs/infomeasure"
+
+keywords:
+  - entropy
+  - information-theory
+  - mutual-information
+  - transfer-entropy
+  - statistics
+  - rust
+
+date-released: "2025-07-13"

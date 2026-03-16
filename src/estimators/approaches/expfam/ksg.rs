@@ -105,11 +105,11 @@ macro_rules! impl_ksg_mi {
                             // Type 1 uses strict inequality: dist < eps
                             // Python uses: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                             if eps > 0.0 {
-                                // Use strict inequality via within_with_condition
+                                // Use strict inequality via within_exclusive
                                 let strict_count = if self.use_chebyshev {
-                                    m_tree.within_with_condition::<Chebyshev>(p, eps, false).len()
+                                    m_tree.within_exclusive::<Chebyshev>(p, eps, false).len()
                                 } else {
-                                    m_tree.within_with_condition::<SquaredEuclidean>(p, eps.powi(2), false).len()
+                                    m_tree.within_exclusive::<SquaredEuclidean>(p, eps.powi(2), false).len()
                                 };
                                 // Subtract 1 to exclude the point itself (same as Python)
                                 strict_count - 1
@@ -319,36 +319,33 @@ impl<
                     // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                     let c_xz = if self.use_chebyshev {
                         xz_tree
-                            .within_with_condition::<Chebyshev>(p_xz, eps, false)
+                            .within_exclusive::<Chebyshev>(p_xz, eps, false)
                             .len()
                             - 1
                     } else {
                         xz_tree
-                            .within_with_condition::<SquaredEuclidean>(p_xz, eps.powi(2), false)
+                            .within_exclusive::<SquaredEuclidean>(p_xz, eps.powi(2), false)
                             .len()
                             - 1
                     };
 
                     let c_yz = if self.use_chebyshev {
                         yz_tree
-                            .within_with_condition::<Chebyshev>(p_yz, eps, false)
+                            .within_exclusive::<Chebyshev>(p_yz, eps, false)
                             .len()
                             - 1
                     } else {
                         yz_tree
-                            .within_with_condition::<SquaredEuclidean>(p_yz, eps.powi(2), false)
+                            .within_exclusive::<SquaredEuclidean>(p_yz, eps.powi(2), false)
                             .len()
                             - 1
                     };
 
                     let c_z = if self.use_chebyshev {
-                        z_tree
-                            .within_with_condition::<Chebyshev>(p_z, eps, false)
-                            .len()
-                            - 1
+                        z_tree.within_exclusive::<Chebyshev>(p_z, eps, false).len() - 1
                     } else {
                         z_tree
-                            .within_with_condition::<SquaredEuclidean>(p_z, eps.powi(2), false)
+                            .within_exclusive::<SquaredEuclidean>(p_z, eps.powi(2), false)
                             .len()
                             - 1
                     };
