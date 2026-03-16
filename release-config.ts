@@ -1,25 +1,4 @@
 export default {
-  // For now use beta versions - append -beta.X suffix
-  // This wraps around the default label-based version bumping
-  getNextVersion: async ({ nextVersion, latestVersion }) => {
-    // nextVersion is the version calculated from PR labels (major/minor/patch bump)
-    // We append -beta.X to it
-
-    // Check latestVersion to determine beta number
-    const current = nextVersion || latestVersion || '0.1.0';
-
-    // Match existing alpha/beta suffix
-    const match = current.match(/^v?\d+\.\d+\.\d+-([a-z]+)\.(\d+)/);
-    if (match) {
-      const [, prerelease, num] = match;
-      // Increment existing prerelease
-      return current.replace(/-[a-z]+\.\d+$/, `-${prerelease}.${parseInt(num) + 1}`);
-    }
-
-    // First beta - use the calculated version + -beta.1
-    return `${current}-beta.1`;
-  },
-
   changeTypes: [
     {
       title: '💥 Breaking changes',
