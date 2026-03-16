@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Automated release workflow using plugin-ready-release-go
+# 
+# Flow:
+# 1. Push to main → Creates Release PR (preparation)
+# 2. Release PR merged (with "release" label) → Publish to crates.io + creates tag/release on Codeberg
+
+when:
+  - event: push
+    branch: main
+
+steps:
+  - name: release-pr
+    image: woodpeckerci/plugin-ready-release-go
+    settings:
+      git_email: ci@cbueth.de
+      forge_token:
+        from_secret: FORGE_TOKEN
+      forge_type: gitea
+      release_prefix: Release
+
+---
+
+when:
+  - event: pull_request
+    status: closed
+    evaluate: 'CI_COMMIT_PULL_REQUEST_LABELS contains "release"'
+
+steps:
+  - name: publish-crates
+    image: rust
+    environment:
+      CARGO_REGISTRY_TOKEN:
+        from_secret: crates_io_token
+    commands:
+      - cargo publish

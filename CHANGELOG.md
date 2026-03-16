@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## January 2026
+## [0.0.11] - 2026-01-17
 
 ### 2026-01-17 - Final Alpha Release & CI Migration
 - **CI**: Migrated from `micromamba` to `uv` for Python validation
@@ -91,7 +91,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## September 2025
+## [0.0.4] - 2025-10-05
+
+### 2025-10-05 - Legacy Cleanup
+- **Cleanup**: Removed legacy symbolisation function
+- **Fix**: Added KL entropy and improved tests, fixed expfam and ordinal tests
+
+---
+
+## [0.0.3] - 2025-09-21
 
 ### 2025-09-21 - Exponential Family Estimators
 - **Major Feature**: Added exponential-family (kNN-based) entropy estimators
@@ -100,21 +108,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## October 2025
-
-### 2025-10-05 - Legacy Cleanup
-- **Cleanup**: Removed legacy symbolisation function
-- **Fix**: Added KL entropy and improved tests, fixed expfam and ordinal tests
-
----
-
-## July 2025
+## [0.0.2] - 2025-07-19
 
 ### 2025-07-19 - GPU Acceleration & Testing
 - **🚀 GPU Feature**: Implemented GPU-accelerated kernel entropy estimation
 - **Performance**: Significant speedup for large datasets (500+ samples)
 - **Testing**: Centralized test utilities into `test_helpers`
 - **Usability**: Made CPU fallback less verbose and improved benchmarks
+
+---
+
+## [0.0.1] - 2025-07-13
 
 ### 2025-07-13 - Project Foundation
 - **🎉 Initial Release**: First implementation of infomeasure-rs library

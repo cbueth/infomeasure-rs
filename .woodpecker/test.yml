@@ -2,23 +2,34 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
+workspace:
+  base: /build
+  path: .
+
 when:
   - event: [push, pull_request]
     branch: [main, develop]
+    path:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - tests/**
+  - event: manual
 
 matrix:
   RUST: [stable, beta]
   FEATURES: [""]  # fast_exp degrades the accuracy, making tests fail; not testing gpu on CI
 
-
 steps:
   - name: build
-    image: rust
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
+      CARGO_HOME: /usr/local/cargo
+      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
-      - rustup default ${RUST}
       - if [ -n "${FEATURES}" ]; then
           cargo build -j 4 --workspace --features ${FEATURES};
         else
@@ -26,23 +37,25 @@ steps:
         fi
 
   - name: test
-    image: rust
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
+      CARGO_HOME: /usr/local/cargo
+      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
-      # Install uv for Python validation
-      - curl -LsSf https://astral.sh/uv/install.sh | sh
-      - export PATH="/root/.local/bin:$PATH"
-      # Set up Python environment with uv
-      - cd tests/validation_crate
-      - uv venv
-      - uv pip install -r requirements.txt
-      - cd ../..
-
-      # Run tests with current feature set
       - if [ -n "${FEATURES}" ]; then
           cargo test -j 4 --workspace --features ${FEATURES};
         else
           cargo test -j 4 --workspace;
         fi
+
+  - name: doctest
+    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    environment:
+      CARGO_HOME: /usr/local/cargo
+      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
+    commands:
+      - cargo test --doc
