@@ -9,7 +9,6 @@ workspace:
 when:
   - event: [push, pull_request]
     branch: [main, develop]
-  - event: manual
 
 matrix:
   RUST: [stable, beta]
