@@ -64,6 +64,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
         required_limits: wgpu::Limits::default(),
         memory_hints: wgpu::MemoryHints::default(),
         trace: wgpu::Trace::default(),
+        experimental_features: wgpu::ExperimentalFeatures::disabled(),
     })) {
         Ok(pair) => pair,
         Err(_) => return None,
@@ -159,7 +160,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Histogram Pipeline Layout"),
         bind_group_layouts: &[&bgl],
-        push_constant_ranges: &[],
+        immediate_size: 0,
     });
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -223,7 +224,7 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     slice.map_async(wgpu::MapMode::Read, move |v| {
         sender.send(v).ok();
     });
-    device.poll(wgpu::PollType::Wait).ok()?;
+    device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
     let _ = block_on(receiver.receive())?;
     let view = slice.get_mapped_range();
     let counts_u32: Vec<u32> = bytemuck::cast_slice(&view).to_vec();
