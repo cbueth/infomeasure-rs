@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Release-plz configuration for Kiddo-style PR workflow
+# See: https://release-plz.dev/docs/config
+
+[workspace]
+
+# Enable changelog generation (uses git-cliff internally)
+changelog_update = true
+
+# Create releases on Codeberg (Gitea)
+git_release_enable = true
+
+# Mark pre-releases (alpha, beta, rc) as pre-release on Codeberg
+git_release_type = "pre"
+git_release_draft = true
+
+# Publish to crates.io
+publish = true
+
+# Don't release on every push - only when release PR is merged
+# This is controlled by the label-based trigger in Woodpecker
+release_always = false
+
+[changelog]
+# Use Keep a Changelog format - matches existing CHANGELOG.md
+header = """# Changelog
+
+All notable changes to this project are being documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+"""
+
+# Group commits by type
+commit_parsers = [
+    { message = "^feat", group = "🚀 Features" },
+    { message = "^fix", group = "🐛 Bug Fixes" },
+    { message = "^docs", group = "📚 Documentation" },
+    { message = "^refactor", group = "♻️ Refactoring" },
+    { message = "^test", group = "✅ Tests" },
+    { message = "^perf", group = "⚡ Performance" },
+    { message = "^.*", group = "Other" },
+]

@@ -8,6 +8,8 @@ allowed-duplicate-crates = [
     "hashbrown",
     "core-foundation",
     "core-graphics-types",
+    "foldhash",
+    "redox_syscall",
     "windows",
     "windows-core",
     "windows-implement",

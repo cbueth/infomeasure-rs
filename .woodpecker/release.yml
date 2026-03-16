@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Automated release workflow using plugin-ready-release-go
-# 
+#
 # Flow:
 # 1. Push to main → Creates Release PR (preparation)
 # 2. Release PR merged (with "release" label) → Publish to crates.io + creates tag/release on Codeberg

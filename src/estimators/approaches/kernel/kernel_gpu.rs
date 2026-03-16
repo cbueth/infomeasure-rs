@@ -264,6 +264,7 @@ impl<const K: usize> KernelEntropy<K> {
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             trace: wgpu::Trace::default(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
         }))?;
 
         // Prepare data for GPU
@@ -404,7 +405,7 @@ impl<const K: usize> KernelEntropy<K> {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gaussian Kernel Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         // Create compute pipeline
@@ -483,7 +484,7 @@ impl<const K: usize> KernelEntropy<K> {
 
         // Wait for the GPU to finish
         device
-            .poll(wgpu::PollType::Wait)
+            .poll(wgpu::PollType::wait_indefinitely())
             .expect("Failed to poll device");
 
         // Get the mapped data
@@ -551,6 +552,7 @@ impl<const K: usize> KernelEntropy<K> {
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::default(),
             trace: wgpu::Trace::default(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
         }))?;
 
         // Prepare data for GPU
@@ -673,7 +675,7 @@ impl<const K: usize> KernelEntropy<K> {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Box Kernel Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         // Create compute pipeline
@@ -752,7 +754,7 @@ impl<const K: usize> KernelEntropy<K> {
 
         // Wait for the GPU to finish
         device
-            .poll(wgpu::PollType::Wait)
+            .poll(wgpu::PollType::wait_indefinitely())
             .expect("Failed to poll device");
 
         // Get the mapped data
