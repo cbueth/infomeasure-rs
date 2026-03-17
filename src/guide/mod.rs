@@ -50,6 +50,7 @@
 //! - [Cross-Entropy](cross_entropy) - $H_Q(P)$
 //
 //! ### Mutual Information
+//! - [Mutual Information](mutual_information) - $I(X;Y)$
 //! - [Conditional MI](cond_mi) - $I(X;Y|Z)$
 //!
 //! ### Transfer Entropy
@@ -81,6 +82,7 @@ pub mod introduction;
 pub mod jsd;
 pub mod kld;
 pub mod macros;
+pub mod mutual_information;
 pub mod settings;
 pub mod statistical_tests;
 pub mod transfer_entropy;

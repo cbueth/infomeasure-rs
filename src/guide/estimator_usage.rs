@@ -163,6 +163,9 @@
 //! In other words, MI measures the average reduction in uncertainty about $X$ that results from
 //! learning the value of $Y$, or vice versa.
 //!
+//! For a comprehensive guide to mutual information including mathematical definitions,
+//! properties, and interpretation, see the [Mutual Information Guide](super::mutual_information).
+//!
 //! ### Global Mutual Information
 //!
 //! $$I(X;Y) = \\sum_{x, y} p(x, y) \\log \\frac{p(x,y)}{p(x) p(y)}$$
@@ -486,6 +489,7 @@
 //!
 //! ## Related Guides
 //!
+//! - **[Mutual Information Guide](super::mutual_information)** - Comprehensive MI documentation
 //! - **[Estimator Selection Guide](super::estimator_selection)** - Choose the right estimator
 //! - **[Entropy Module Docs](../estimators/entropy/index.html)** - Detailed entropy API
 //! - **[Mutual Information Module Docs](../estimators/mutual_information/index.html)** - Detailed MI API
