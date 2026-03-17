@@ -25,13 +25,22 @@
 //!
 //! ## Features
 //!
-//! | Measure | Discrete | Kernel | Ordinal | Exponential Family |
-//! |---------|----------|--------|---------|-------------------|
-//! | Entropy | ✅ | ✅ | ✅ | ✅ |
-//! | Mutual Information | ✅ | ✅ | 🔄 | 🔄 |
-//! | Transfer Entropy | ✅ | ✅ | 🔄 | 🔄 |
+//! | Measure | Discrete | Kernel | Ordinal | Exp. Family | Notes |
+//! |---------|----------|--------|---------|-------------|-------|
+//! | Entropy | ✅ | ✅ | ✅ | ✅ | All variants |
+//! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
+//! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ |  |
+//! | Cross-Entropy | ✅[^1] | ❌ | ✅ | ❌ | Only possible if theoretically clearly defined |
+//! | KLD | ❌ | ❌ | ❌ | ❌ | Planned |
+//! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
+//! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
+//! | CMI | ✅ | ✅ | ✅ | ✅ | Conditional MI |
+//! | TE | ✅ | ✅ | ✅ | ✅ | Transfer Entropy |
+//! | CTE | ✅ | ✅ | ✅ | ✅ | Conditional TE |
 //!
-//! ✅ = Implemented | 🔄 = In Progress | ❌ = Planned
+//! ✅ = Implemented | ❌ = Not implemented
+//!
+//! [^1]: Cross-entropy is implemented only where theoretically well-defined: for discrete distributions (via probability estimation) and ordinal estimators (via permutation patterns). Kernel and k-NN based estimators don't have a natural cross-entropy formulation without additional assumptions about the density estimation.
 //!
 //! ## Estimation Approaches
 //!
