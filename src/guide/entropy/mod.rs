@@ -121,5 +121,21 @@
 //! let continuous_data = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 //! let h_kernel = Entropy::nd_kernel::<2>(continuous_data, 1.0).global_value();
 //! ```
+//!
+//! ## See Also
+//!
+//! - [Discrete Entropy](discrete) - Histogram-based estimators
+//! - [Mutual Information](super::mutual_information) - $I(X;Y) = H(X) + H(Y) - H(X,Y)$
+//! - [Conditional Entropy](super::cond_entropy) - $H(X|Y) = H(X,Y) - H(Y)$
+//! - [KLD](super::kld) - $D_{KL}(P||Q) = H_Q(P) - H(P)$
+//! - [JSD](super::jsd) - $JSD = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
+//! - [Estimator Selection](super::estimator_selection) - Choosing estimators
+//!
+//! ## References
+//!
+//! - Shannon, C. E. (1948). A Mathematical Theory of Communication
+//! - Cover, T. M., & Thomas, J. A. (2012). Elements of Information Theory
+//! - Rényi, A. (1961). On measures of entropy and information
+//! - Tsallis, C. (1988). Possible generalization of Boltzmann-Gibbs statistics
 
 pub mod discrete;

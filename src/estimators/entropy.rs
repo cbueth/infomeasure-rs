@@ -30,6 +30,17 @@ use ndarray::{Array1, Array2};
 /// Each estimator can be used to compute the global entropy value or local entropy values
 /// (if supported) using the [`GlobalValue`] and [`LocalValues`] traits.
 ///
+/// # Relationship to Other Measures
+///
+/// Entropy is the foundation for many information-theoretic measures:
+///
+/// - **Mutual Information**: $I(X;Y) = H(X) + H(Y) - H(X,Y)$
+/// - **Conditional Entropy**: $H(X|Y) = H(X,Y) - H(Y)$
+/// - **Kullback-Leibler Divergence**: $D_{KL}(P||Q) = H_Q(P) - H(P)$
+/// - **Jensen-Shannon Divergence**: $JSD(P||Q) = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
+///
+/// See the [Entropy Guide](crate::guide::entropy) for detailed documentation.
+///
 /// # Mathematical Notation
 /// - $H(X)$: Shannon entropy of random variable $X$.
 /// - $H(X, Y)$: Joint entropy of random variables $X$ and $Y$.

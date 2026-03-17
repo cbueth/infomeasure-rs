@@ -35,8 +35,9 @@
 //! ## Related Measures
 //!
 //! - [Entropy Guide](super::entropy) - Base entropy computation
+//! - [Cross-Entropy Guide](super::cross_entropy) - $H_Q(P)$
 //! - [JSD Guide](super::jsd) - Jensen-Shannon Divergence (symmetric)
-//! - [Cross-Entropy Guide](super::cross_entropy) - Cross-entropy $H_Q(P)$
+//! - [Mutual Information](super::mutual_information) - $I(X;Y) = D_{KL}(p(x,y) || p(x)p(y))$
 //!
 //! ## References
 //!

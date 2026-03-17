@@ -70,6 +70,23 @@
 //! - **[Crate Root](../index.html)** - Main crate documentation
 //! - **[GitHub Repository](https://codeberg.org/cbueth/infomeasure-rs)** - Source code
 //! - **[Python Package](https://github.com/cbueth/infomeasure)** - For when you need runtime flexibility
+//!
+//! ## Concept Index
+//!
+//! Quick reference for information-theoretic measures:
+//!
+//! | Measure | Description | Guide |
+//! |---------|-------------|-------|
+//! | **Entropy** $H(X)$ | Uncertainty/information content of a single variable | [entropy] |
+//! | **Joint Entropy** $H(X,Y)$ | Uncertainty of multiple variables together | [entropy] |
+//! | **Conditional Entropy** $H(X|Y)$ | Uncertainty remaining in X after knowing Y | [cond_entropy] |
+//! | **Cross-Entropy** $H_Q(P)$ | Encoding info using wrong distribution Q | [cross_entropy] |
+//! | **KLD** $D_{KL}(P||Q)$ | Information lost using Q to approximate P | [kld] |
+//! | **JSD** $JSD(P||Q)$ | Symmetric divergence between P and Q | [jsd] |
+//! | **MI** $I(X;Y)$ | Shared information between X and Y | [mutual_information] |
+//! | **CMI** $I(X;Y|Z)$ | MI between X and Y given Z | [cond_mi] |
+//! | **TE** $T_{X \to Y}$ | Directed info flow from X to Y (time series) | [transfer_entropy] |
+//! | **CTE** $T_{X \to Y|Z}$ | TE from X to Y conditioned on Z | [cond_te] |
 
 pub mod cond_entropy;
 pub mod cond_mi;

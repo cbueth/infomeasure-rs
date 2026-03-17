@@ -29,4 +29,6 @@
 //! ## See Also
 //!
 //! - [Entropy Guide](super::entropy) - Base entropy
-//! - [KLD Guide](super::kld) - Kullback-Leibler Divergence
+//! - [KLD Guide](super::kld) - $D_{KL}(P||Q) = H_Q(P) - H(P)$
+//! - [JSD Guide](super::jsd) - Uses entropy combinations
+//! - [Mutual Information](super::mutual_information) - Related dependence measure

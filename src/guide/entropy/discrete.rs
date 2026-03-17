@@ -49,3 +49,9 @@
 //! - **Undersampled**: Chao-Shen, Chao-Wang-Jost, ANSB
 //!
 //! See the [Estimator Selection Guide](crate::guide::estimator_selection) for detailed recommendations.
+//!
+//! ## See Also
+//!
+//! - [Entropy Overview](super) - All entropy estimators
+//! - [Mutual Information](super::super::mutual_information) - Uses entropy
+//! - [Conditional Entropy](super::super::cond_entropy) - Uses joint entropy

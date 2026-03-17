@@ -42,6 +42,7 @@
 //! - [Entropy Guide](super::entropy) - Base entropy computation
 //! - [KLD Guide](super::kld) - Kullback-Leibler Divergence (asymmetric)
 //! - [Cross-Entropy Guide](super::cross_entropy) - Cross-entropy $H_Q(P)$
+//! - [Mutual Information](super::mutual_information) - $I(X;Y) = D_{KL}(p(x,y) || p(x)p(y))$
 //!
 //! ## References
 //!

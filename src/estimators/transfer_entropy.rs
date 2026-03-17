@@ -340,6 +340,18 @@ pub struct TransferEntropy;
 /// Each estimator can be used to compute the global TE value or local TE values
 /// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
 ///
+/// # Relationship to Other Measures
+///
+/// Transfer entropy is a directional (asymmetric) measure of information flow between time series:
+///
+/// - **Mutual Information**: $I(X;Y)$ - non-directional dependence
+/// - **Time-lagged MI**: $I(X_{t-u}; Y_t)$ - directional but without conditioning
+/// - **Conditional MI**: $I(X;Y|Z)$ - MI with conditioning (but not time-lagged)
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - MI with time lags + conditioning on target's past
+/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with additional conditioning
+///
+/// For a detailed conceptual guide, see the [Transfer Entropy Guide](crate::guide::transfer_entropy).
+///
 /// # Examples
 ///
 /// This section provides examples for all TE/CTE estimators available through the `TransferEntropy` facade.

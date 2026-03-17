@@ -60,5 +60,6 @@
 //! ## See Also
 //!
 //! - [Entropy Guide](super::entropy) - Base entropy
-//! - [Estimator Usage Guide](super::estimator_usage) - $I(X;Y) = H(X) - H(X|Y)$
-//! - [Mutual Information Guide](super::estimator_usage) - MI uses conditional entropy
+//! - [Mutual Information](super::mutual_information) - $I(X;Y) = H(X) - H(X|Y)$
+//! - [Conditional MI](super::cond_mi) - $I(X;Y|Z)$
+//! - [Transfer Entropy](super::transfer_entropy) - $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$

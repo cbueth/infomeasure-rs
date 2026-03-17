@@ -326,6 +326,17 @@ pub struct MutualInformation;
 /// Each estimator can be used to compute the global MI value or local MI values
 /// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
 ///
+/// # Relationship to Other Measures
+///
+/// Mutual information is related to several other information-theoretic measures:
+///
+/// - **Entropy**: $I(X;X) = H(X)$ (MI with itself is entropy)
+/// - **Conditional MI**: $I(X;Y|Z)$ - MI with a conditioning variable
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - directed MI for time series
+/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with conditioning
+///
+/// For a detailed conceptual guide, see the [Mutual Information Guide](crate::guide::mutual_information).
+///
 /// # Examples
 ///
 /// This section provides examples for all MI/CMI estimators available through the `MutualInformation` facade.

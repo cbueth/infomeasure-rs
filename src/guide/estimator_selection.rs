@@ -263,6 +263,8 @@
 //! ## Related Guides
 //!
 //! - **[Estimator Usage Guide](super::estimator_usage)** - How to use the API
-//! - **[Entropy Module Docs](../estimators/entropy/index.html)** - Detailed entropy API
-//! - **[Mutual Information Module Docs](../estimators/mutual_information/index.html)** - Detailed MI API
-//! - **[Transfer Entropy Module Docs](../estimators/transfer_entropy/index.html)** - Detailed TE API
+//! - **[Entropy Guide](super::entropy)** - Entropy overview
+//! - **[Mutual Information Guide](super::mutual_information)** - MI overview
+//! - **[Transfer Entropy Guide](super::transfer_entropy)** - TE overview
+//! - **[Conditional MI Guide](super::cond_mi)** - CMI overview
+//! - **[Conditional TE Guide](super::cond_te)** - CTE overview
