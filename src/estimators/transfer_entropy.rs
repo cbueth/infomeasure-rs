@@ -2,6 +2,14 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Transfer Entropy Estimators
+//!
+//! This module provides estimators for computing transfer entropy $T_{X \to Y}$ and
+//! conditional transfer entropy $T_{X \to Y|Z}$.
+//!
+//! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
+//! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+
 use crate::estimators::approaches::discrete::{
     DiscreteConditionalTransferEntropy, DiscreteTransferEntropy,
 };

@@ -2,6 +2,14 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Mutual Information Estimators
+//!
+//! This module provides estimators for computing mutual information $I(X;Y)$ and
+//! conditional mutual information $I(X;Y|Z)$.
+//!
+//! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
+//! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+
 use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
 use crate::estimators::approaches::discrete::bayes::{AlphaParam, BayesEntropy};
 use crate::estimators::approaches::discrete::bonachela::BonachelaEntropy;

@@ -15,7 +15,7 @@
 //! use ndarray::array;
 //!
 //! // Discrete entropy
-//! let data = array!(1, 2, 1, 3, 2, 1);
+//! let data = array![1, 2, 1, 3, 2, 1];
 //! let entropy = Entropy::new_discrete(data).global_value();
 //!
 //! // Kernel entropy for continuous data
@@ -69,5 +69,13 @@
 //! This crate is designed to be a high-performance Rust backend for the
 //! [infomeasure](https://github.com/cbueth/infomeasure) Python package, maintaining
 //! API parity while providing significant performance improvements.
+//!
+//! ## Guides
+//!
+//! - **[Estimator Usage Guide](guide/estimator_usage)** - How to use this crate
+//! - **[Estimator Selection Guide](guide/estimator_selection)** - Choosing the right estimator
+//!
+//! For more details on the theory behind these measures, see the Python package documentation.
 
 pub mod estimators;
+pub mod guide;
