@@ -2,10 +2,6 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#![doc(
-    html_logo_url = "https://raw.githubusercontent.com/cbueth/infomeasure/refs/heads/main/docs/_static/im_icon_transparent-200x200.png"
-)]
-
 //! High-performance Rust library for information-theoretic measures including entropy,
 //! mutual information, and transfer entropy with multiple estimation approaches.
 //!
@@ -87,6 +83,12 @@
 //! - **[Estimator Selection Guide](guide/estimator_selection)** - Choosing the right estimator
 //!
 //! For more details on the theory behind these measures, see the Python package documentation.
+//!
+//! # Performance
+//!
+//! Performance benchmarks are available in the `docs/benchmarks.md` file.
+//! Run `cargo doc` and look for the benchmarks.md file in the target documentation,
+//! or view it online at: <https://github.com/cbueth/infomeasure-rs/tree/main/docs/benchmarks.md>
 
 pub mod estimators;
 pub mod guide;

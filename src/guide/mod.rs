@@ -24,7 +24,7 @@
 //! use ndarray::array;
 //!
 //! let data = array![0, 1, 0, 1, 0, 1, 0, 1];
-//! let entropy = Entropy::new_discrete(data).global_value();
+//! let entropy = Entropy::new_nsb(data, None).global_value();
 //! ```
 //!
 //! This approach:
@@ -64,6 +64,7 @@
 //! ### Configuration
 //! - [Settings](settings) - Configuration options
 //! - [Statistical Tests](statistical_tests) - Hypothesis testing
+//! - [Benchmarks](benchmarks) - Performance benchmarks
 //!
 //! ## Quick Links
 //!
@@ -88,6 +89,7 @@
 //! | **TE** $T_{X \to Y}$ | Directed info flow from X to Y (time series) | [transfer_entropy] |
 //! | **CTE** $T_{X \to Y|Z}$ | TE from X to Y conditioned on Z | [cond_te] |
 
+pub mod benchmarks;
 pub mod cond_entropy;
 pub mod cond_mi;
 pub mod cond_te;

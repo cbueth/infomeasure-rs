@@ -9,6 +9,7 @@ target
 
 # Outputs
 internal/
+scripts/benchmarks_data/
 **.png
 **.csv
 
