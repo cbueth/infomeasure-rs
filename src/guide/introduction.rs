@@ -36,7 +36,7 @@
 //! | Entropy | ✅ | ✅ | ✅ | ✅ | All variants |
 //! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
 //! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ | |
-//! | Cross-Entropy | ✅[^1] | ❌ | ✅ | ❌ | Only possible if theoretically clearly defined |
+//! | Cross-Entropy | ✅[^1] | ✅ | ✅ | ✅ | All approaches |
 //! | KLD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
@@ -46,4 +46,4 @@
 //!
 //! ✅ = Implemented | ❌ = Not implemented
 //!
-//! [^1]: Cross-entropy is implemented only where theoretically well-defined: for discrete distributions (via probability estimation) and ordinal estimators (via permutation patterns). Kernel and k-NN based estimators don't have a natural cross-entropy formulation without additional assumptions about the density estimation.
+//! [^1]: For discrete estimators, cross-entropy is only available for MLE, Miller-Madow, and Bayesian estimators. NSB, Chao-Shen, and Chao-Wang-Jost do not support cross-entropy due to theoretical inconsistencies in applying bias corrections to cross-entropy.
