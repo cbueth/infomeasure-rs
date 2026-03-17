@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! # infomeasure-rs
-//!
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/cbueth/infomeasure/refs/heads/main/docs/_static/im_icon_transparent-200x200.png"
+)]
+
 //! High-performance Rust library for information-theoretic measures including entropy,
 //! mutual information, and transfer entropy with multiple estimation approaches.
 //!
-//! ## Quick Start
+//! # Quick Start
 //!
 //! ```rust
 //! use infomeasure::estimators::entropy::Entropy;
@@ -23,7 +25,7 @@
 //! let kernel_entropy = Entropy::nd_kernel::<2>(continuous, 1.0).global_value();
 //! ```
 //!
-//! ## Features
+//! # Features
 //!
 //! | Measure | Discrete | Kernel | Ordinal | Exp. Family | Notes |
 //! |---------|----------|--------|---------|-------------|-------|
@@ -42,24 +44,24 @@
 //!
 //! [^1]: Cross-entropy is implemented only where theoretically well-defined: for discrete distributions (via probability estimation) and ordinal estimators (via permutation patterns). Kernel and k-NN based estimators don't have a natural cross-entropy formulation without additional assumptions about the density estimation.
 //!
-//! ## Estimation Approaches
+//! # Estimation Approaches
 //!
-//! ### Discrete Estimation
+//! ## Discrete Estimation
 //! Histogram-based probability estimation for categorical or binned data.
 //! Supports 11+ bias-corrected estimators (MLE, Miller-Madow, NSB, etc.).
 //!
-//! ### Kernel Estimation
+//! ## Kernel Estimation
 //! Non-parametric density estimation for continuous data using Box and Gaussian kernels.
 //! Optional GPU acceleration for large datasets.
 //!
-//! ### Ordinal Pattern Analysis
+//! ## Ordinal Pattern Analysis
 //! Permutation pattern encoding for time series data, robust to amplitude variations.
 //!
-//! ### Exponential Family (k-NN)
+//! ## Exponential Family (k-NN)
 //! Distance-based estimation using k-nearest neighbours for differential entropy.
 //! Supports Rényi and Tsallis generalized entropies.
 //!
-//! ## Architecture
+//! # Architecture
 //!
 //! The library follows a four-layer architecture:
 //!
@@ -68,18 +70,18 @@
 //! 3. **Core Infrastructure**: Shared traits and data structures
 //! 4. **Performance Layer**: Optional GPU acceleration and mathematical optimisations
 //!
-//! ## Feature Flags
+//! # Feature Flags
 //!
 //! - `gpu`: Enable GPU acceleration for kernel estimators
 //! - `fast_exp`: Use fast exponential approximations (trades accuracy for speed)
 //!
-//! ## Python Compatibility
+//! # Python Compatibility
 //!
 //! This crate is designed to be a high-performance Rust backend for the
 //! [infomeasure](https://github.com/cbueth/infomeasure) Python package, maintaining
 //! API parity while providing significant performance improvements.
 //!
-//! ## Guides
+//! # Guides
 //!
 //! - **[Estimator Usage Guide](guide/estimator_usage)** - How to use this crate
 //! - **[Estimator Selection Guide](guide/estimator_selection)** - Choosing the right estimator
