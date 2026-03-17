@@ -28,17 +28,21 @@
 //! use infomeasure::estimators::entropy::Entropy;
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
+//! use approx::assert_abs_diff_eq;
 //!
 //! let data = array![0, 1, 0, 1, 0, 1, 0, 1];
 //!
-//! // MLE (fastest)
+//! // MLE (fastest): uniform binary has H = log(2) ≈ 0.693147 nats
 //! let h_mle = Entropy::new_discrete(data.clone()).global_value();
+//! assert_abs_diff_eq!(h_mle, 0.693147, epsilon = 1e-4);
 //!
-//! // Miller-Madow (simple bias correction)
+//! // Miller-Madow (simple bias correction): slightly higher than MLE
 //! let h_mm = Entropy::new_miller_madow(data.clone()).global_value();
+//! assert!(h_mm > h_mle);
 //!
-//! // Shrinkage (good for small samples)
+//! // Shrinkage (good for small samples): regularized estimate
 //! let h_shrink = Entropy::new_shrink(data).global_value();
+//! assert!(h_shrink >= 0.0);
 //! ```
 //!
 //! ## When to Use Which?

@@ -113,28 +113,26 @@
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
 //!
-//! // Common driver Z influences both X and Y
+//! // Z drives both X and Y, but X and Y are conditionally independent given Z
+//! // Z: 0,1,0,1,0,1,0,1,0,1
+//! // X = Z (copy)
+//! // Y = 1-Z (inverse - still driven by Z)
 //! let z = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
-//!
-//! // X is simply a copy of Z (X -> Y is spurious)
 //! let x = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
-//!
-//! // Y is also driven by Z (no direct X -> Y causation)
-//! let y = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let y = array![1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
 //!
 //! // Unconditional TE from X to Y appears non-zero (spurious!)
 //! let te_spurious = TransferEntropy::new_discrete_mle(&x, &y, 1, 1, 1).global_value();
+//! assert!(te_spurious >= 0.0);
 //!
 //! // Conditional TE conditioning on Z removes the spurious link
 //! let te_conditional = TransferEntropy::new_cte_discrete_mle(
 //!     &x, &y, &z,
 //!     1, 1, 1, 1
 //! ).global_value();
-//!
-//! // Both should be non-negative
-//! assert!(te_spurious >= 0.0);
 //! assert!(te_conditional >= 0.0);
-//! // With proper data, te_conditional should be close to zero
+//! // After conditioning on common driver, CTE should be smaller
+//! assert!(te_conditional <= te_spurious);
 //! ```
 //!
 //! ## See Also

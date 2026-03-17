@@ -56,12 +56,15 @@
 //!
 //! // NSB for correlated data
 //! let h_nsb = Entropy::new_nsb(small_data.clone(), None).global_value();
+//! assert!(h_nsb >= 0.0);
 //!
 //! // Shrinkage for independent data
 //! let h_shrink = Entropy::new_shrink(small_data.clone()).global_value();
+//! assert!(h_shrink >= 0.0);
 //!
 //! // Chao-Shen for incomplete sampling
 //! let h_chao = Entropy::new_chao_shen(small_data.clone()).global_value();
+//! assert!(h_chao >= 0.0);
 //! ```
 //!
 //! **Medium samples (100 ≤ N < 1000)**
@@ -117,9 +120,11 @@
 //!
 //! // KL entropy - good for high-dimensional or small/medium samples
 //! let h_kl = Entropy::new_kl_1d(continuous_data.clone(), 3, 1e-10).global_value();
+//! assert!(h_kl >= 0.0);
 //!
 //! // Kernel entropy - good for low-dimensional, large samples
 //! let h_kernel = Entropy::new_kernel(continuous_data.clone(), 1.0).global_value();
+//! assert!(h_kernel >= 0.0);
 //! ```
 //!
 //! ### Mutual Information Estimation
@@ -139,9 +144,11 @@
 //!
 //! // KSG - efficient for large samples
 //! let mi_ksg = MutualInformation::new_ksg(&[x.clone(), y.clone()], 3, 1e-10).global_value();
+//! assert!(mi_ksg >= 0.0);
 //!
 //! // Kernel - more control over bandwidth
 //! let mi_kernel = MutualInformation::new_kernel(&[x, y], 1.0).global_value();
+//! assert!(mi_kernel >= 0.0);
 //! ```
 //!
 //! ### Transfer Entropy Estimation
@@ -156,8 +163,8 @@
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
 //!
-//! let source = array![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-//! let dest = array![1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5];
+//! let source = array![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+//! let dest = array![1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5];
 //!
 //! // Kernel TE
 //! let te_kernel = TransferEntropy::new_kernel(
@@ -165,11 +172,13 @@
 //!     &dest,
 //!     1, 1, 1, 1.0
 //! ).global_value();
+//! assert!(te_kernel >= 0.0);
 //!
-//! // KSG TE
+//! // KSG TE - requires more samples for reliable estimation
 //! let te_ksg = TransferEntropy::new_ksg(
 //!     &source, &dest, 1, 1, 1, 3, 1e-10
 //! ).global_value();
+//! assert!(te_ksg.is_finite()); // Check is finite (can be 0 or positive)
 //! ```
 //!
 //! ## Time Series Data (Ordinal Approach)
@@ -199,9 +208,11 @@
 //!
 //! // Ordinal entropy with embedding dimension 3
 //! let h_ord = Entropy::new_ordinal(ts1.clone(), 3).global_value();
+//! assert!(h_ord >= 0.0);
 //!
 //! // Ordinal MI
 //! let mi_ord = MutualInformation::new_ordinal(&[ts1, ts2], 3, 1, true).global_value();
+//! assert!(mi_ord >= 0.0);
 //! ```
 //!
 //! ## Performance Considerations

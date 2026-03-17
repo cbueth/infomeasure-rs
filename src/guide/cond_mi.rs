@@ -74,11 +74,13 @@
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
 //!
+//! // X and Y are conditionally independent given Z
 //! let x = array![0, 1, 0, 1, 0, 1];
 //! let y = array![0, 0, 1, 1, 0, 1];
 //! let z = array![0, 0, 0, 1, 1, 1];
 //!
 //! let cmi = MutualInformation::new_cmi_discrete_mle(&[x, y], &z).global_value();
+//! assert!(cmi >= 0.0); // Should be 0 or very small if truly independent
 //! ```
 //!
 //! ## See Also

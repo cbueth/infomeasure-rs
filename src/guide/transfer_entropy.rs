@@ -119,7 +119,7 @@
 //! use ndarray::array;
 //!
 //! // Synthetic causal system: X -> Y
-//! // Y(t) = X(t-1) + noise
+//! // Y(t) = X(t-1)
 //! let x = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
 //! let y = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0];
 //!
@@ -130,9 +130,9 @@
 //!     1, // target history
 //!     1  // step
 //! ).global_value();
-//! assert!(te_xy >= 0.0);
+//! assert!(te_xy > 0.0); // Positive TE for causal influence
 //!
-//! // TE from Y to X should be near zero (no reverse causation)
+//! // TE from Y to X should be lower (no reverse causation)
 //! let te_yx = TransferEntropy::new_discrete_mle(
 //!     &y, &x,
 //!     1, // source history
@@ -140,8 +140,8 @@
 //!     1  // step
 //! ).global_value();
 //! assert!(te_yx >= 0.0);
-//! // In this simple case both may be similar, but with proper causal
-//! // data generation the asymmetry becomes clear
+//! // For this deterministic system, TE(X->Y) > TE(Y->X)
+//! assert!(te_xy > te_yx);
 //! ```
 //!
 //! ## Example
@@ -160,6 +160,7 @@
 //!     1, // dest history length
 //!     1  // step size
 //! ).global_value();
+//! assert!(te >= 0.0); // TE is always non-negative
 //! ```
 //!
 //! ## See Also

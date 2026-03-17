@@ -112,14 +112,17 @@
 //! use infomeasure::estimators::entropy::Entropy;
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
+//! use approx::assert_abs_diff_eq;
 //!
-//! // Discrete entropy
-//! let discrete_data = array![0, 1, 0, 1, 0, 1];
+//! // Discrete entropy: uniform distribution over 2 symbols has H = log(2) ≈ 0.693147
+//! let discrete_data = array![0, 1, 0, 1, 0, 1, 0, 1];
 //! let h = Entropy::new_discrete(discrete_data).global_value();
+//! assert_abs_diff_eq!(h, 0.693147, epsilon = 1e-4); // ≈ log(2)
 //!
-//! // Kernel entropy
+//! // Kernel entropy is always non-negative
 //! let continuous_data = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 //! let h_kernel = Entropy::nd_kernel::<2>(continuous_data, 1.0).global_value();
+//! assert!(h_kernel >= 0.0);
 //! ```
 //!
 //! ## See Also
