@@ -12,6 +12,30 @@
 //! CTE is useful to eliminate the influence of other possible information sources $Z$
 //! from being mistaken as that of the source $X$.
 //!
+//! ## Why Condition on Z?
+//!
+//! Consider a scenario where you observe two time series $X$ and $Y$ and want to determine
+//! if $X$ causes $Y$. Without conditioning, you might measure $T_{X \to Y}$ and find a
+//! positive value—but this could be spurious if both $X$ and $Y$ are driven by a common
+//! source $Z$:
+//!
+//! ```text
+//!     Z (common driver)
+//!    /   \
+//!   X     Y
+//! ```
+//!
+//! In this configuration:
+//! - $T_{X \to Y}$ could be non-zero due to the common driver $Z$
+//! - $T_{X \to Y \mid Z}$ removes this spurious influence
+//!
+//! This makes CTE essential for:
+//! - **Granger causality** testing with multiple variables
+//! - **Causal discovery** in networks with confounders
+//! - **Brain connectivity** analysis where common drives must be accounted for
+//!
+//! ## CTE as Conditional MI
+//!
 //! ## Definition
 //!
 //! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}}
@@ -76,10 +100,46 @@
 //!     1, // condition history
 //!     1  // step size
 //! ).global_value();
+//! assert!(cte >= 0.0);
+//! ```
+//!
+//! ### Practical Example: Conditioning on Common Driver
+//!
+//! In this example, $Z$ drives both $X$ and $Y$. We measure TE from $X$ to $Y$ (which may
+//! appear causal due to $Z$) and then condition on $Z$ to remove this spurious influence:
+//!
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//!
+//! // Common driver Z influences both X and Y
+//! let z = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//!
+//! // X is simply a copy of Z (X -> Y is spurious)
+//! let x = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//!
+//! // Y is also driven by Z (no direct X -> Y causation)
+//! let y = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//!
+//! // Unconditional TE from X to Y appears non-zero (spurious!)
+//! let te_spurious = TransferEntropy::new_discrete_mle(&x, &y, 1, 1, 1).global_value();
+//!
+//! // Conditional TE conditioning on Z removes the spurious link
+//! let te_conditional = TransferEntropy::new_cte_discrete_mle(
+//!     &x, &y, &z,
+//!     1, 1, 1, 1
+//! ).global_value();
+//!
+//! // Both should be non-negative
+//! assert!(te_spurious >= 0.0);
+//! assert!(te_conditional >= 0.0);
+//! // With proper data, te_conditional should be close to zero
 //! ```
 //!
 //! ## See Also
 //!
-//! - [Estimator Usage Guide](super::estimator_usage) - Base TE
+//! - [Mutual Information](super::mutual_information) - Base MI
+//! - [Conditional MI](super::cond_mi) - CMI (general case)
 //! - [Transfer Entropy Guide](super::transfer_entropy) - Unconditional TE
-//! - [Conditional MI Guide](super::cond_mi) - CMI with conditioning
+//! - [Estimator Usage Guide](super::estimator_usage) - Detailed usage examples

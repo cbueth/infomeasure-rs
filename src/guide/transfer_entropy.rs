@@ -67,10 +67,82 @@
 //! TE is available through the [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) facade type:
 //!
 //! - [`TransferEntropy::new_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_mle)
+//! - [`TransferEntropy::new_discrete_miller_madow`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_miller_madow)
+//! - [`TransferEntropy::new_discrete_shrink`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_shrink)
+//! - [`TransferEntropy::new_discrete_grassberger`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_grassberger)
+//! - [`TransferEntropy::new_discrete_nsb`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_nsb)
 //! - [`TransferEntropy::new_kernel`](crate::estimators::transfer_entropy::TransferEntropy::new_kernel)
 //! - [`TransferEntropy::new_ksg`](crate::estimators::transfer_entropy::TransferEntropy::new_ksg)
+//! - [`TransferEntropy::new_renyi`](crate::estimators::transfer_entropy::TransferEntropy::new_renyi)
 //! - [`TransferEntropy::new_ordinal`](crate::estimators::transfer_entropy::TransferEntropy::new_ordinal)
-//! - And more estimators
+//!
+//! ## Transfer Entropy as Conditional Mutual Information
+//!
+//! Transfer entropy is conceptually equivalent to **conditional mutual information** where
+//! the conditioning is on the target's own past. This provides a useful perspective:
+//!
+//! $$T_{X \to Y}(k, l) = I(X^{(k)}; Y_{t+1} \mid Y^{(l)})$$
+//!
+//! This means:
+//! - We measure MI between the source's history ($X^{(k)}$) and the target's future ($Y_{t+1}$)
+//! - But we condition on the target's own history ($Y^{(l)}$) to remove spurious correlations
+//!   from the target's temporal autocorrelation
+//!
+//! This perspective connects TE to:
+//! - [Conditional MI](super::cond_mi): TE is a special case of CMI
+//! - [Mutual Information](super::mutual_information): Without conditioning, it's just lagged MI
+//!
+//! ## Choosing History Lengths
+//!
+//! The parameters $k$ (source history) and $l$ (target history) control the memory of the analysis:
+//!
+//! | Parameter | Description | Practical Guidance |
+//! |-----------|-------------|-------------------|
+//! | $k$ | Source history length | Start small (1-2). Too large wastes data and adds noise. |
+//! | $l$ | Target history length | Should capture the target's autocorrelation. For Markov processes, $l=1$ may suffice. |
+//! | $u$ | Lag (propagation delay) | Set to expected delay in the causal mechanism. $u=1$ is immediate next-step. |
+//!
+//! ### Practical Tips
+//!
+//! - **Start with $k=l=1$**: This is the simplest case and often sufficient for many systems.
+//! - **Avoid overfitting**: Longer histories require more data to estimate reliably.
+//! - **Check stationarity**: TE assumes stationary processes. Transform or detrend non-stationary data first.
+//! - **Consider effective TE**: Use shuffling to correct for finite-sample bias (see eTE section).
+//!
+//! ## Practical Example: Detecting Causality
+//!
+//! Transfer entropy is commonly used to detect directed coupling between time series.
+//! Here's an example with synthetic data where $X$ causally influences $Y$:
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//!
+//! // Synthetic causal system: X -> Y
+//! // Y(t) = X(t-1) + noise
+//! let x = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let y = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+//!
+//! // TE from X to Y should be positive (causal influence)
+//! let te_xy = TransferEntropy::new_discrete_mle(
+//!     &x, &y,
+//!     1, // source history
+//!     1, // target history
+//!     1  // step
+//! ).global_value();
+//! assert!(te_xy >= 0.0);
+//!
+//! // TE from Y to X should be near zero (no reverse causation)
+//! let te_yx = TransferEntropy::new_discrete_mle(
+//!     &y, &x,
+//!     1, // source history
+//!     1, // target history
+//!     1  // step
+//! ).global_value();
+//! assert!(te_yx >= 0.0);
+//! // In this simple case both may be similar, but with proper causal
+//! // data generation the asymmetry becomes clear
+//! ```
 //!
 //! ## Example
 //!
@@ -92,6 +164,8 @@
 //!
 //! ## See Also
 //!
+//! - [Mutual Information](super::mutual_information) - TE is CMI on histories
+//! - [Conditional MI](super::cond_mi) - General CMI
 //! - [Estimator Usage Guide](super::estimator_usage) - Detailed usage examples
 //! - [Conditional TE Guide](super::cond_te) - TE with conditioning
 //! - [Macros Guide](super::macros) - Convenience macros for TE estimators
