@@ -482,7 +482,121 @@
 //! assert!(mi >= 0.0);
 //! ```
 //!
-//! ## Feature Flags
+//! ## Typical Workflows
+//!
+//! This section shows common patterns for different data types and analysis goals.
+//!
+//! ### Discrete Data Pipeline
+//!
+//! For categorical or count data:
+//!
+//! 1. **Prepare data**: Ensure data is integer-valued (use `i32` or `u32`)
+//! 2. **Choose estimator**: MLE for large samples ($N > 1000$), bias-corrected for small samples
+//! 3. **Compute**: Use [`Entropy::new_discrete`](crate::estimators::entropy::Entropy::new_discrete) or [`MutualInformation::new_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_discrete_mle)
+//!
+//! ```rust
+//! use infomeasure::estimators::entropy::Entropy;
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//!
+//! // Raw categorical data (e.g., survey responses, sensor states)
+//! let category_a = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let category_b = array![0, 0, 1, 1, 0, 0, 1, 1, 0, 1];
+//!
+//! // Entropy of single variable
+//! let h = Entropy::new_discrete(category_a.clone()).global_value();
+//! assert!(h > 0.0);
+//!
+//! // Mutual information between two variables
+//! let mi = MutualInformation::new_discrete_mle(&[category_a, category_b]).global_value();
+//! assert!(mi >= 0.0);
+//! ```
+//!
+//! ### Continuous Data Pipeline
+//!
+//! For real-valued data:
+//!
+//! 1. **Prepare data**: Use `ndarray::Array1<f64>` or `Array2<f64>` for multivariate
+//! 2. **Choose estimator**: KSG for general use, kernel for more control over bandwidth
+//! 3. **Set parameters**: $k$ (neighbors) typically 3-5 for KSG; bandwidth for kernel
+//! 4. **Compute**: Use [`MutualInformation::new_ksg`](crate::estimators::mutual_information::MutualInformation::new_ksg)
+//!
+//! ```rust
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//!
+//! // Two correlated continuous variables
+//! let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+//! let y = array![0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5]; // y = x + 0.5
+//!
+//! // KSG estimator - good for moderate-dimensional continuous data
+//! let mi_ksg = MutualInformation::new_ksg(&[x.clone(), y.clone()], 3, 1e-10).global_value();
+//! assert!(mi_ksg > 0.0);
+//!
+//! // Kernel estimator - more control over bandwidth
+//! let mi_kernel = MutualInformation::new_kernel(&[x, y], 1.0).global_value();
+//! assert!(mi_kernel > 0.0);
+//! ```
+//!
+//! ### Time Series Analysis Pipeline
+//!
+//! For temporal dependencies and causality:
+//!
+//! 1. **Prepare data**: Time series as `Array1<f64>`
+//! 2. **Choose measure**:
+//!    - Lagged MI: $I(X_{t-u}; Y_t)$ for undirected dependencies
+//!    - Transfer Entropy: $T_{X \to Y}$ for directed causal influence
+//!    - Conditional TE: $T_{X \to Y|Z}$ to control for confounders
+//! 3. **Set history lengths**: Start with $k=l=1$, increase for longer memory
+//! 4. **Compute**: Use [`TransferEntropy::new_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_mle) or continuous variants
+//!
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//!
+//! // Time series: X drives Y with delay
+//! let x = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let y = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0]; // Y(t) = X(t-1)
+//!
+//! // Transfer entropy X -> Y (source history, dest history, step)
+//! let te_xy = TransferEntropy::new_discrete_mle(&x, &y, 1, 1, 1).global_value();
+//! assert!(te_xy >= 0.0);
+//!
+//! // Reverse direction should be lower
+//! let te_yx = TransferEntropy::new_discrete_mle(&y, &x, 1, 1, 1).global_value();
+//! assert!(te_yx >= 0.0);
+//! ```
+//!
+//! ### Using Local Values for Time-Resolved Analysis
+//!
+//! Some estimators support local (per-sample) values for time-resolved analysis:
+//!
+//! ```rust
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//! use infomeasure::estimators::traits::{GlobalValue, LocalValues};
+//! use ndarray::array;
+//! use ndarray::Zip;
+//!
+//! let x = array![0, 0, 1, 1, 0, 0, 1, 1];
+//! let y = array![0, 0, 0, 1, 1, 1, 1, 1];
+//!
+//! let mi_global = MutualInformation::new_discrete_mle(&[x.clone(), y.clone()]).global_value();
+//! let estimator = MutualInformation::new_discrete_mle(&[x, y]);
+//! let mi_local = estimator.local_values();
+//!
+//! // Global MI is mean of local values
+//! let local_mean = mi_local.mean().unwrap();
+//! assert!((mi_global - local_mean).abs() < 1e-10);
+//!
+//! // Count positive local MI values (informative co-occurrences)
+//! let positive_count = mi_local.mapv(|v| if v > 0.0 { 1 } else { 0 }).sum();
+//! assert!(positive_count > 0);
+//! ```
+//!
+//! ### Feature Flags
 //!
 //! - `gpu`: Enable GPU acceleration for kernel estimators
 //! - `fast_exp`: Use fast exponential approximations (trades accuracy for speed)

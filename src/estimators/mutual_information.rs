@@ -436,6 +436,11 @@ pub struct MutualInformation;
 ///
 /// ## Continuous MI Estimators
 ///
+/// **When to use**: Continuous estimators work best with real-valued data. Use:
+/// - **Kernel**: When you need explicit control over bandwidth
+/// - **KSG**: Generally preferred for most continuous use cases (more robust)
+/// - **Rényi/Tsallis**: For generalized entropy approaches
+///
 /// ### Kernel MI (1D)
 ///
 /// ```rust
@@ -490,6 +495,11 @@ pub struct MutualInformation;
 ///
 /// ## Ordinal MI Estimators
 ///
+/// **When to use**: Ordinal estimators are ideal for time series analysis because they:
+/// - Are robust to amplitude variations and monotonic transformations
+/// - Capture temporal ordering through permutation patterns
+/// - Work well with noisy data
+///
 /// ```rust
 /// use infomeasure::estimators::mutual_information::MutualInformation;
 /// use infomeasure::estimators::traits::GlobalValue;
@@ -502,6 +512,11 @@ pub struct MutualInformation;
 /// ```
 ///
 /// ## Conditional MI (CMI) Estimators
+///
+/// **When to use**: Use CMI when you need to:
+/// - Measure dependence between X and Y while controlling for Z
+/// - Detect direct vs indirect dependencies in networks
+/// - Identify synergy (information only in combination) vs redundancy (shared info)
 ///
 /// ### Discrete CMI
 ///
@@ -557,6 +572,31 @@ pub struct MutualInformation;
 /// let z = array![0.5, 1.5, 1.0, 2.5, 2.0, 3.5, 3.0, 4.5];
 /// let cmi = MutualInformation::new_cmi_ordinal(&[x, y], &z, 3, 1, true).global_value();
 /// assert!(cmi >= 0.0);
+/// ```
+///
+/// ## Multivariate MI Example
+///
+/// For more than two variables:
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// // Three variables: X, Y, Z
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 1, 1, 0, 0, 1, 1];
+/// let z = array![0, 1, 0, 1, 0, 1, 0, 1];
+///
+/// // Pairwise MI between all pairs
+/// let mi_xy = MutualInformation::new_discrete_mle(&[x.clone(), y.clone()]).global_value();
+/// let mi_xz = MutualInformation::new_discrete_mle(&[x.clone(), z.clone()]).global_value();
+/// let mi_yz = MutualInformation::new_discrete_mle(&[y.clone(), z.clone()]).global_value();
+///
+/// // All non-negative
+/// assert!(mi_xy >= 0.0);
+/// assert!(mi_xz >= 0.0);
+/// assert!(mi_yz >= 0.0);
 /// ```
 impl MutualInformation {
     /// Create a Maximum-Likelihood (Shannon) discrete mutual information estimator.

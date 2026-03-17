@@ -425,6 +425,11 @@ pub struct TransferEntropy;
 ///
 /// ## Continuous TE Estimators
 ///
+/// **When to use**: Continuous TE for real-valued time series:
+/// - **Kernel**: When you need explicit control over bandwidth
+/// - **KSG**: Generally preferred (more robust to parameter choices)
+/// - **Rényi/Tsallis**: For generalized entropy approaches
+///
 /// ### Kernel TE
 ///
 /// ```rust
@@ -466,6 +471,11 @@ pub struct TransferEntropy;
 ///
 /// ## Ordinal TE Estimators
 ///
+/// **When to use**: Ordinal TE is ideal for time series because:
+/// - Robust to amplitude variations and monotonic transformations
+/// - Captures temporal dynamics through permutation patterns
+/// - Computationally efficient for long time series
+///
 /// ```rust
 /// use infomeasure::estimators::transfer_entropy::TransferEntropy;
 /// use infomeasure::estimators::traits::GlobalValue;
@@ -478,6 +488,11 @@ pub struct TransferEntropy;
 /// ```
 ///
 /// ## Conditional TE (CTE) Estimators
+///
+/// **When to use**: Use CTE to:
+/// - Measure directed information flow while controlling for confounders
+/// - Identify true causal drivers vs spurious correlations from common causes
+/// - Analyze brain connectivity or gene regulatory networks with known confounders
 ///
 /// ### Discrete CTE
 ///
