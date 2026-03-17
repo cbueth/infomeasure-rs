@@ -159,7 +159,41 @@
 //!
 //! ## Computing Mutual Information
 //!
-//! Mutual Information measures the dependence between variables.
+//! Mutual Information (MI) quantifies the information shared between two random variables $X$ and $Y$.
+//! In other words, MI measures the average reduction in uncertainty about $X$ that results from
+//! learning the value of $Y$, or vice versa.
+//!
+//! ### Global Mutual Information
+//!
+//! $$I(X;Y) = \\sum_{x, y} p(x, y) \\log \\frac{p(x,y)}{p(x) p(y)}$$
+//!
+//! where $p(x,y)$ is the joint probability distribution and $p(x)$, $p(y)$ are marginals.
+//! MI is zero if and only if $X$ and $Y$ are independent.
+//!
+//! ### Local Mutual Information
+//!
+//! Similar to local entropy, one can compute **local** or **point-wise mutual information**:
+//!
+//! $$i(x; y) = \\log_b \\left( \\frac{p(x, y)}{p(x) p(y)} \\right)$$
+//!
+//! The global MI is the average of local MI:
+//!
+//! $$I(X; Y) = \\langle i(x: y) \\rangle$$
+//!
+//! Local MI values can be positive or negative (negative values indicate misinforming relationships),
+//! but the global MI is always non-negative.
+//!
+//! In this crate, local MI can be accessed via the [`LocalValues`](crate::estimators::traits::LocalValues) trait
+//! on MI estimators that support it.
+//!
+//! ### Time-lagged Mutual Information
+//!
+//! For time series, variables might share information with a delay (lag):
+//!
+//! $$I(X_{t-u}; Y_t) = \\sum_{x_{t-u}, y_t} p(x_{t-u}, y_t) \\log \\frac{p(x_{t-u}, y_t)}{p(x_{t-u}) p(y_t)}$$
+//!
+//! where $u$ is the propagation time or lag between the series.
+//! The transfer entropy estimators support specifying history lengths and lags.
 //!
 //! ### Discrete Mutual Information
 //!

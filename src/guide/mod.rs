@@ -53,6 +53,7 @@
 //! - [Conditional MI](cond_mi) - $I(X;Y|Z)$
 //!
 //! ### Transfer Entropy
+//! - [Transfer Entropy](transfer_entropy) - $T_{X \\to Y}$
 //! - [Conditional TE](cond_te) - $T_{X \\to Y|Z}$
 //!
 //! ### Composite Measures (Planned)
@@ -82,3 +83,4 @@ pub mod kld;
 pub mod macros;
 pub mod settings;
 pub mod statistical_tests;
+pub mod transfer_entropy;

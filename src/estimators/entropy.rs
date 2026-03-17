@@ -37,33 +37,261 @@ use ndarray::{Array1, Array2};
 ///
 /// # Examples
 ///
+/// This section provides examples for all entropy estimators available through the `Entropy` facade.
+///
+/// ## Discrete Estimators (Shannon-based)
+///
+/// ### Maximum Likelihood (MLE)
+///
 /// ```rust
 /// use infomeasure::estimators::entropy::Entropy;
-/// use infomeasure::estimators::traits::{GlobalValue, JointEntropy};
-/// use ndarray::{array, Array1, Array2};
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
 ///
-/// // 1. Discrete Shannon Entropy (MLE)
 /// let data = array![1, 2, 1, 3, 2, 1];
 /// let entropy = Entropy::new_discrete(data).global_value();
-/// println!("MLE Entropy: {}", entropy);
+/// assert!(entropy > 0.0);
+/// ```
 ///
-/// // 2. Kernel Density Entropy (continuous data)
-/// let continuous_data = array![[1.0, 1.5], [2.0, 3.0], [4.0, 5.0]];
-/// // Specify 2D points via const generic
-/// let kernel_entropy = Entropy::nd_kernel::<2>(continuous_data, 1.0);
-/// println!("Kernel entropy: {}", kernel_entropy.global_value());
+/// ### Miller–Madow (bias correction)
 ///
-/// // 3. Ordinal entropy for time series
-/// let time_series = array![1.0, 2.0, 1.5, 3.0, 2.5];
-/// let ordinal_entropy = Entropy::new_ordinal(time_series, 3);
-/// println!("Ordinal entropy: {}", ordinal_entropy.global_value());
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
 ///
-/// // 4. Joint Entropy of two discrete variables
+/// let data = array![0, 1, 0, 2, 1, 0];
+/// let h_mm = Entropy::new_miller_madow(data).global_value();
+/// assert!(h_mm > 0.0);
+/// ```
+///
+/// ### Shrinkage (James–Stein)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4];
+/// let h_shrink = Entropy::new_shrink(data).global_value();
+/// assert!(h_shrink > 0.0);
+/// ```
+///
+/// ### Grassberger (digamma-based)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0];
+/// let h_grassberger = Entropy::new_grassberger(data).global_value();
+/// assert!(h_grassberger > 0.0);
+/// ```
+///
+/// ### Zhang (fast series-based)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0];
+/// let h_zhang = Entropy::new_zhang(data).global_value();
+/// assert!(h_zhang > 0.0);
+/// ```
+///
+/// ## Coverage-Based and Bayesian Discrete Estimators
+///
+/// ### Chao–Shen (coverage-adjusted)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4, 5, 0];
+/// let h_chao_shen = Entropy::new_chao_shen(data).global_value();
+/// assert!(h_chao_shen > 0.0);
+/// ```
+///
+/// ### Chao–Wang–Jost
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4, 5, 0];
+/// let h_cwj = Entropy::new_chao_wang_jost(data).global_value();
+/// assert!(h_cwj > 0.0);
+/// ```
+///
+/// ### Bayesian (Dirichlet prior)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use infomeasure::estimators::approaches::discrete::bayes::AlphaParam;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0];
+/// let h_bayes = Entropy::new_bayes(data, AlphaParam::Jeffrey, None).global_value();
+/// assert!(h_bayes > 0.0);
+/// ```
+///
+/// ### NSB (Nemenman–Shafee–Bialek)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4, 5];
+/// let h_nsb = Entropy::new_nsb(data, None).global_value();
+/// assert!(h_nsb > 0.0);
+/// ```
+///
+/// ### ANSB (asymptotic NSB)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4, 5];
+/// let h_ansb = Entropy::new_ansb(data, None).global_value();
+/// assert!(h_ansb > 0.0);
+/// ```
+///
+/// ### Bonachela (de-noised)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![0, 1, 0, 2, 1, 0, 3, 4, 5];
+/// let h_bonachela = Entropy::new_bonachela(data).global_value();
+/// assert!(h_bonachela > 0.0);
+/// ```
+///
+/// ## Row-wise Discrete Estimators
+///
+/// Create multiple estimators from rows of a 2D array:
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![[0, 1, 0, 2], [1, 0, 1, 0], [2, 2, 0, 1]];
+/// let estimators = Entropy::new_discrete_rows(data);
+/// for est in estimators.iter() {
+///     assert!(est.global_value() > 0.0);
+/// }
+/// ```
+///
+/// ## Continuous Estimators
+///
+/// ### Kernel Density Estimation
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// // 1D kernel entropy
+/// let data_1d = array![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let h_kernel_1d = Entropy::new_kernel(data_1d, 1.0).global_value();
+/// assert!(h_kernel_1d > 0.0);
+///
+/// // Multi-dimensional kernel entropy (2D points)
+/// let data_2d = array![[1.0, 1.5], [2.0, 3.0], [4.0, 5.0]];
+/// let h_kernel_2d = Entropy::nd_kernel::<2>(data_2d, 1.0).global_value();
+/// assert!(h_kernel_2d > 0.0);
+/// ```
+///
+/// ### Kozachenko–Leonenko (k-NN based)
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+/// let h_kl = Entropy::new_kl_1d(data, 3, 1e-10).global_value();
+/// assert!(h_kl > 0.0);
+/// ```
+///
+/// ### Rényi Entropy
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let h_renyi = Entropy::new_renyi_1d(data, 3, 2.0, 1e-10).global_value();
+/// assert!(h_renyi >= 0.0);
+/// ```
+///
+/// ### Tsallis Entropy
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let data = array![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let h_tsallis = Entropy::new_tsallis_1d(data, 3, 1.5, 1e-10).global_value();
+/// assert!(h_tsallis >= 0.0);
+/// ```
+///
+/// ## Ordinal (Permutation) Entropy
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let time_series = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5];
+/// let h_ordinal = Entropy::new_ordinal(time_series, 3).global_value();
+/// assert!(h_ordinal >= 0.0);
+/// ```
+///
+/// ## Joint Entropy
+///
+/// ```rust
+/// use infomeasure::estimators::entropy::Entropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
 /// let x = array![1, 2, 1, 3, 2, 1];
 /// let y = array![0, 1, 0, 1, 0, 1];
-/// // Using any discrete estimator that implements JointEntropy
 /// let joint = Entropy::joint_discrete(&[x, y], ());
-/// println!("Joint entropy: {}", joint);
+/// assert!(joint > 0.0);
+/// ```
+///
+/// ## Cross-Entropy
+///
+/// Cross-entropy is available through the [`CrossEntropy`] trait on ordinal estimators:
+///
+/// ```rust
+/// use infomeasure::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+/// use infomeasure::estimators::traits::{CrossEntropy, GlobalValue};
+/// use ndarray::array;
+///
+/// // Two time series with similar structure
+/// let x = array![1.0, 2.0, 1.5, 3.0, 2.5];
+/// let y = array![1.1, 1.9, 1.4, 3.1, 2.6];
+///
+/// let ex = OrdinalEntropy::new(x, 3);
+/// let ey = OrdinalEntropy::new(y, 3);
+///
+/// let h_x = ex.global_value();
+/// let h_q_p = ex.cross_entropy(&ey);
+/// assert!(h_q_p >= h_x);
 /// ```
 pub struct Entropy;
 
