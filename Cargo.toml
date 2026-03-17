@@ -67,3 +67,15 @@ harness = false
 [[bench]]
 name = "count_frequencies_benchmark"
 harness = false
+
+[[bench]]
+name = "entropy_discrete"
+harness = false
+
+[[bench]]
+name = "entropy_ordinal"
+harness = false
+
+[[bench]]
+name = "entropy_expfam"
+harness = false
