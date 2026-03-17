@@ -79,3 +79,27 @@ harness = false
 [[bench]]
 name = "entropy_expfam"
 harness = false
+
+[[bench]]
+name = "mi"
+harness = false
+
+[[bench]]
+name = "te"
+harness = false
+
+[[bench]]
+name = "entropy_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "mi_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "mi_expfam"
+harness = false
+
+[[bench]]
+name = "kernel_gpu"
+harness = false
