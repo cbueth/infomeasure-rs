@@ -39,8 +39,9 @@
 //!
 //! ## Related Measures
 //!
-//! - [Entropy Guide](super::super::estimators::entropy) - Base entropy computation
+//! - [Entropy Guide](super::entropy) - Base entropy computation
 //! - [KLD Guide](super::kld) - Kullback-Leibler Divergence (asymmetric)
+//! - [Cross-Entropy Guide](super::cross_entropy) - Cross-entropy $H_Q(P)$
 //!
 //! ## References
 //!

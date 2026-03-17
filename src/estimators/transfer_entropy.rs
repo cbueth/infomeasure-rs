@@ -331,6 +331,183 @@ macro_rules! new_kl_cte {
 
 pub struct TransferEntropy;
 
+/// Facade for creating transfer entropy (TE) and conditional transfer entropy (CTE) estimators.
+///
+/// This struct provides a unified interface for all TE/CTE estimation techniques supported
+/// by the library. It includes methods for discrete, kernel-based, ordinal, and
+/// exponential family (k-NN) estimators.
+///
+/// Each estimator can be used to compute the global TE value or local TE values
+/// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
+///
+/// # Examples
+///
+/// This section provides examples for all TE/CTE estimators available through the `TransferEntropy` facade.
+///
+/// ## Discrete TE Estimators
+///
+/// ### Maximum Likelihood (MLE)
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_mle(&source, &dest, 1, 1, 1).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### Miller–Madow
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_miller_madow(&source, &dest, 1, 1, 1).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### Shrinkage
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_shrink(&source, &dest, 1, 1, 1).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### Grassberger
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_grassberger(&source, &dest, 1, 1, 1).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### NSB
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_nsb(&source, &dest, 1, 1, 1).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ## Continuous TE Estimators
+///
+/// ### Kernel TE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let dest = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let te = TransferEntropy::new_kernel(&source, &dest, 1, 1, 1, 1.0).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### KSG TE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let dest = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let te = TransferEntropy::new_ksg(&source, &dest, 1, 1, 1, 3, 1e-10).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ### Rényi TE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let dest = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let te = TransferEntropy::new_renyi(&source, &dest, 3, 2.0, 1e-10).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ## Ordinal TE Estimators
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let dest = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let te = TransferEntropy::new_ordinal(&source, &dest, 3, 1, 1, 1, true).global_value();
+/// assert!(te.is_finite());
+/// ```
+///
+/// ## Conditional TE (CTE) Estimators
+///
+/// ### Discrete CTE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+/// let cond = array![0, 0, 0, 1, 0, 1, 1, 1];
+/// let cte = TransferEntropy::new_cte_discrete_mle(&source, &dest, &cond, 1, 1, 1, 1).global_value();
+/// assert!(cte.is_finite());
+/// ```
+///
+/// ### Kernel CTE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let dest = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let cond = array![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5];
+/// let cte = TransferEntropy::new_cte_kernel(&source, &dest, &cond, 1, 1, 1, 1, 1.0).global_value();
+/// assert!(cte.is_finite());
+/// ```
+///
+/// ### KSG CTE
+///
+/// ```rust
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let source = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let dest = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let cond = array![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5];
+/// let cte = TransferEntropy::new_cte_ksg(&source, &dest, &cond, 1, 1, 1, 1, 3, 1e-10).global_value();
+/// assert!(cte.is_finite());
+/// ```
 impl TransferEntropy {
     /// Create a Maximum-Likelihood (Shannon) discrete transfer entropy estimator.
     pub fn new_discrete_mle(

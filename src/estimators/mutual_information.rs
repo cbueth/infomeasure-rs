@@ -317,6 +317,236 @@ macro_rules! new_kl_cmi {
 
 pub struct MutualInformation;
 
+/// Facade for creating mutual information (MI) and conditional mutual information (CMI) estimators.
+///
+/// This struct provides a unified interface for all MI/CMI estimation techniques supported
+/// by the library. It includes methods for discrete, kernel-based, ordinal, and
+/// exponential family (k-NN) estimators.
+///
+/// Each estimator can be used to compute the global MI value or local MI values
+/// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
+///
+/// # Examples
+///
+/// This section provides examples for all MI/CMI estimators available through the `MutualInformation` facade.
+///
+/// ## Discrete MI Estimators
+///
+/// ### Maximum Likelihood (MLE)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi = MutualInformation::new_discrete_mle(&[x, y]).global_value();
+/// assert!(mi > 0.0); // correlated data has positive MI
+/// ```
+///
+/// ### Miller–Madow (bias correction)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi_mm = MutualInformation::new_discrete_miller_madow(&[x, y]).global_value();
+/// assert!(mi_mm >= 0.0);
+/// ```
+///
+/// ### Shrinkage (James–Stein)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi_shrink = MutualInformation::new_discrete_shrink(&[x, y]).global_value();
+/// assert!(mi_shrink >= 0.0);
+/// ```
+///
+/// ### Grassberger
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi = MutualInformation::new_discrete_grassberger(&[x, y]).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### Chao–Shen
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi = MutualInformation::new_discrete_chao_shen(&[x, y]).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### NSB
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi = MutualInformation::new_discrete_nsb(&[x, y]).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### Bayes (Jeffrey prior)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let mi = MutualInformation::new_discrete_bayes(&[x, y]).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ## Continuous MI Estimators
+///
+/// ### Kernel MI (1D)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+/// let mi = MutualInformation::new_kernel(&[x, y], 1.0).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### Kernel MI (multi-dimensional)
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]];
+/// let y = array![[0.0], [1.0], [2.0]];
+/// let mi = MutualInformation::nd_kernel::<3, 2, 1>(&[x, y], 1.0).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### KSG (Kraskov–Stögbauer–Grassberger) MI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let y = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let mi = MutualInformation::new_ksg(&[x, y], 3, 1e-10).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ### Rényi MI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let y = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let mi = MutualInformation::new_renyi(&[x, y], 3, 2.0, 1e-10).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ## Ordinal MI Estimators
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let y = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let mi = MutualInformation::new_ordinal(&[x, y], 3, 1, true).global_value();
+/// assert!(mi >= 0.0);
+/// ```
+///
+/// ## Conditional MI (CMI) Estimators
+///
+/// ### Discrete CMI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let y = array![0, 0, 0, 0, 1, 1, 1, 1];
+/// let z = array![0, 0, 1, 1, 0, 0, 1, 1];
+/// let cmi = MutualInformation::new_cmi_discrete_mle(&[x, y], &z).global_value();
+/// assert!(cmi >= 0.0);
+/// ```
+///
+/// ### Kernel CMI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+/// let z = array![0.0, 0.5, 1.0, 1.5, 2.0, 2.5];
+/// let cmi = MutualInformation::new_cmi_kernel(&[x, y], &z, 1.0).global_value();
+/// assert!(cmi >= 0.0);
+/// ```
+///
+/// ### KSG CMI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let y = array![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
+/// let z = array![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5];
+/// let cmi = MutualInformation::new_cmi_ksg(&[x, y], &z, 3, 1e-10).global_value();
+/// assert!(cmi >= 0.0);
+/// ```
+///
+/// ### Ordinal CMI
+///
+/// ```rust
+/// use infomeasure::estimators::mutual_information::MutualInformation;
+/// use infomeasure::estimators::traits::GlobalValue;
+/// use ndarray::array;
+///
+/// let x = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let y = array![1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0];
+/// let z = array![0.5, 1.5, 1.0, 2.5, 2.0, 3.5, 3.0, 4.5];
+/// let cmi = MutualInformation::new_cmi_ordinal(&[x, y], &z, 3, 1, true).global_value();
+/// assert!(cmi >= 0.0);
+/// ```
 impl MutualInformation {
     /// Create a Maximum-Likelihood (Shannon) discrete mutual information estimator.
     pub fn new_discrete_mle(series: &[Array1<i32>]) -> DiscreteMutualInformation<DiscreteEntropy> {

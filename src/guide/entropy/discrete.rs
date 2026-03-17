@@ -48,4 +48,4 @@
 //! - **Correlated data**: NSB
 //! - **Undersampled**: Chao-Shen, Chao-Wang-Jost, ANSB
 //!
-//! See the [Estimator Selection Guide](super::super::estimator_selection) for detailed recommendations.
+//! See the [Estimator Selection Guide](crate::guide::estimator_selection) for detailed recommendations.

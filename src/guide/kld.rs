@@ -34,8 +34,9 @@
 //!
 //! ## Related Measures
 //!
-//! - [Entropy Guide](super::super::estimators::entropy) - Base entropy computation
+//! - [Entropy Guide](super::entropy) - Base entropy computation
 //! - [JSD Guide](super::jsd) - Jensen-Shannon Divergence (symmetric)
+//! - [Cross-Entropy Guide](super::cross_entropy) - Cross-entropy $H_Q(P)$
 //!
 //! ## References
 //!
