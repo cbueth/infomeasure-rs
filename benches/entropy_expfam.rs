@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::{Array1, Array2};

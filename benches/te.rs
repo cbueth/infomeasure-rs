@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use infomeasure::estimators::entropy::GlobalValue;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;

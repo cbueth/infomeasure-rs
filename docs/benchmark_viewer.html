@@ -7,13 +7,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -22,18 +22,18 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
+
         h1 { margin-bottom: 20px; color: #333; }
         h2 { margin: 20px 0 10px; color: #555; font-size: 18px; }
         h3 { font-size: 13px; color: #666; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        
+
         .controls-panel {
             background: #f8f9fa;
             padding: 16px;
             border-radius: 6px;
             margin-bottom: 20px;
         }
-        
+
         .controls-row {
             display: flex;
             flex-wrap: wrap;
@@ -41,20 +41,20 @@
             align-items: flex-end;
             margin-bottom: 16px;
         }
-        
+
         .control-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
             min-width: 140px;
         }
-        
+
         .control-group label {
             font-weight: 600;
             font-size: 13px;
             color: #555;
         }
-        
+
         .control-group select, .control-group input {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -63,14 +63,14 @@
             background: white;
             min-width: 140px;
         }
-        
+
         .checkbox-row {
             display: flex;
             gap: 20px;
             align-items: center;
             padding-top: 8px;
         }
-        
+
         .checkbox-row label {
             display: flex;
             align-items: center;
@@ -78,7 +78,7 @@
             font-size: 14px;
             cursor: pointer;
         }
-        
+
         .file-input {
             margin-bottom: 16px;
             padding: 16px;
@@ -88,10 +88,10 @@
             align-items: center;
             gap: 16px;
         }
-        
+
         .file-input input[type="file"] { font-size: 14px; }
         .file-input label { font-weight: 600; }
-        
+
         .error {
             color: #dc3545;
             padding: 12px;
@@ -99,35 +99,35 @@
             border-radius: 4px;
             margin-bottom: 16px;
         }
-        
+
         .chart-container {
             position: relative;
             height: 500px;
             margin-bottom: 30px;
         }
-        
+
         .stats-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        
+
         .stats-table th, .stats-table td {
             padding:10px 8px;
             text-align: left;
             border-bottom: 1px solid #eee;
         }
-        
+
         .stats-table th {
             background: #f8f9fa;
             font-weight: 600;
             position: sticky;
             top: 0;
         }
-        
+
         .stats-table tr:hover { background: #f8f9fa; }
         .stats-table .num { text-align: right; font-family: monospace; }
-        
+
         .preset-btn {
             padding: 8px 16px;
             font-size: 13px;
@@ -139,10 +139,10 @@
             margin-right: 8px;
             margin-bottom: 8px;
         }
-        
+
         .preset-btn:hover { background: #e9ecef; border-color: #adb5bd; }
         .preset-btn.active { background: #0d6efd; color: white; border-color: #0d6efd; }
-        
+
         .info-bar {
             font-size: 13px;
             color: #666;
@@ -151,7 +151,7 @@
             background: #fff3cd;
             border-radius: 4px;
         }
-        
+
         .radio-group {
             display: flex;
             gap: 16px;
@@ -161,7 +161,7 @@
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-        
+
         .radio-group label {
             display: flex;
             align-items: center;
@@ -172,7 +172,7 @@
             border-radius: 4px;
             transition: background 0.2s;
         }
-        
+
         .radio-group label:hover { background: #f0f0f0; }
         .radio-group input:checked + span {
             font-weight: 600;
@@ -183,15 +183,15 @@
 <body>
     <div class="container">
         <h1>📊 Infomeasure Benchmark Viewer</h1>
-        
+
         <div class="file-input">
             <label>Load Data:</label>
             <input type="file" id="fileInput" accept=".json" multiple>
             <span id="fileCount" style="color: #666; font-size: 13px;"></span>
         </div>
-        
+
         <div id="error" class="error" style="display: none;"></div>
-        
+
         <div class="controls-panel" id="controlsPanel" style="display: none;">
             <h3>Quick Presets</h3>
             <div id="presetContainer">
@@ -199,12 +199,12 @@
                 <button class="preset-btn" data-preset="mi">MI vs Size</button>
                 <button class="preset-btn" data-preset="te">TE vs Size</button>
             </div>
-            
+
             <h3 style="margin-top: 20px;">Estimator</h3>
             <div class="radio-group" id="estimatorRadio">
                 <label><input type="radio" name="estimator" value="" checked><span>All</span></label>
             </div>
-            
+
             <h3 style="margin-top: 20px;">Chart Settings</h3>
             <div class="controls-row">
                 <div class="control-group">
@@ -217,14 +217,14 @@
                         <option value="history_len">History Length</option>
                     </select>
                 </div>
-                
+
                 <div class="control-group" id="sizeFilterGroup" style="display: none;">
                     <label>Data Size (N)</label>
                     <select id="sizeFilterSelect">
                     </select>
                 </div>
             </div>
-            
+
             <div class="checkbox-row">
                 <label><input type="checkbox" id="logScale" checked> Log Y</label>
                 <label><input type="checkbox" id="logXScale" checked> Log X</label>
@@ -232,15 +232,15 @@
                 <label><input type="checkbox" id="showPoints" checked> Show Points</label>
             </div>
         </div>
-        
+
         <div class="info-bar" id="infoBar" style="display: none;">
             Loaded <span id="loadedCount">0</span> benchmarks
         </div>
-        
+
         <div class="chart-container">
             <canvas id="benchmarkChart"></canvas>
         </div>
-        
+
         <h2>📋 Benchmark Results</h2>
         <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
             <table class="stats-table" id="statsTable">
@@ -262,23 +262,23 @@
     <script>
         let benchmarkData = [];
         let chart = null;
-        
+
         const colors = [
             '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33',
             '#a65628', '#f781bf', '#999999', '#66c2a5', '#fc8d62', '#8da0cb'
         ];
-        
+
         const presets = {
             'entropy': { measure: 'entropy' },
             'mi': { measure: 'mi' },
             'te': { measure: 'te' }
         };
-        
+
         // File input handler
         document.getElementById('fileInput').addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             benchmarkData = [];
-            
+
             for (const file of files) {
                 try {
                     const text = await file.text();
@@ -290,7 +290,7 @@
                     showError(`Error loading ${file.name}: ${err.message}`);
                 }
             }
-            
+
             if (benchmarkData.length > 0) {
                 populateControls();
                 document.getElementById('controlsPanel').style.display = 'block';
@@ -301,41 +301,41 @@
                 hideError();
             }
         });
-        
+
         function populateControls() {
             const groups = [...new Set(benchmarkData.map(b => b.group))].sort();
-            
+
             // Estimator radio buttons
             const estRadio = document.getElementById('estimatorRadio');
             estRadio.innerHTML = '<label><input type="radio" name="estimator" value="" checked><span>All</span></label>';
             groups.forEach(g => {
                 estRadio.innerHTML += `<label><input type="radio" name="estimator" value="${g}"><span>${g}</span></label>`;
             });
-            
+
             document.querySelectorAll('input[name="estimator"]').forEach(radio => {
                 radio.addEventListener('change', () => {
                     updateXAxisOptions();
                     updateChart();
                 });
             });
-            
+
             updateXAxisOptions();
         }
-        
+
         function updateXAxisOptions() {
             const estimator = document.querySelector('input[name="estimator"]:checked')?.value || '';
             const xAxisSelect = document.getElementById('xAxisSelect');
             const allOptions = ['size', 'k', 'bandwidth', 'order', 'history_len'];
-            
+
             // Get current measure from active preset
             const activePreset = document.querySelector('.preset-btn.active');
             const measure = activePreset ? activePreset.dataset.preset : '';
-            
+
             // History length only applies to MI and TE
             const measureRestrictedOptions = measure && measure !== 'mi' && measure !== 'te' && measure !== 'cmi' && measure !== 'cte'
                 ? allOptions.filter(opt => opt !== 'history_len')
                 : allOptions;
-            
+
             // Determine which options are available for the selected estimator
             let availableOptions;
             if (!estimator) {
@@ -346,10 +346,10 @@
                     return estimatorData.some(b => extractValue(b.name, opt) !== null);
                 });
             }
-            
+
             // Store current selection
             const currentValue = xAxisSelect.value;
-            
+
             // Rebuild options
             const labels = {
                 size: 'Data Size (N)',
@@ -358,26 +358,26 @@
                 order: 'Order',
                 history_len: 'History Length'
             };
-            
-            xAxisSelect.innerHTML = availableOptions.map(opt => 
+
+            xAxisSelect.innerHTML = availableOptions.map(opt =>
                 `<option value="${opt}">${labels[opt]}</option>`
             ).join('');
-            
+
             // Restore selection if still valid, otherwise default to size
             if (availableOptions.includes(currentValue)) {
                 xAxisSelect.value = currentValue;
             } else {
                 xAxisSelect.value = 'size';
             }
-            
+
             updateSizeFilter();
         }
-        
+
         function updateSizeFilter() {
             const xAxis = document.getElementById('xAxisSelect').value;
             const sizeFilterGroup = document.getElementById('sizeFilterGroup');
             const sizeFilterSelect = document.getElementById('sizeFilterSelect');
-            
+
             // Show size filter only when X-axis is not "size"
             if (xAxis !== 'size') {
                 const estimator = document.querySelector('input[name="estimator"]:checked')?.value || '';
@@ -385,73 +385,73 @@
                 if (estimator) {
                     data = data.filter(b => b.group === estimator);
                 }
-                
+
                 // Get unique sizes, sorted descending
                 const sizes = [...new Set(data.map(b => extractValue(b.name, 'size')))].filter(s => s !== null).sort((a, b) => b - a);
-                
-                sizeFilterSelect.innerHTML = sizes.map(s => 
+
+                sizeFilterSelect.innerHTML = sizes.map(s =>
                     `<option value="${s}">${s}</option>`
                 ).join('');
-                
+
                 sizeFilterGroup.style.display = 'flex';
             } else {
                 sizeFilterGroup.style.display = 'none';
             }
         }
-        
+
         function applyPreset(name) {
             const preset = presets[name];
             if (!preset) return;
-            
+
             // Update button states
             document.querySelectorAll('.preset-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.dataset.preset === name) btn.classList.add('active');
             });
-            
+
             updateXAxisOptions();
             updateChart();
         }
-        
+
         function extractValue(name, key) {
             const params = name.split('/');
-            
+
             if (key === 'size') {
                 const sizePart = params[2] || '';
                 const match = sizePart.match(/(\d+)/);
                 return match ? parseInt(match[1]) : null;
             }
-            
+
             if (key === 'k') {
                 const match = name.match(/[/_]k(\d+)/);
                 return match ? parseInt(match[1]) : null;
             }
-            
+
             if (key === 'bandwidth') {
                 const match = name.match(/bw([\d.]+)/);
                 return match ? parseFloat(match[1]) : null;
             }
-            
+
             if (key === 'order') {
                 const match = name.match(/order(\d+)/);
                 return match ? parseInt(match[1]) : null;
             }
-            
+
             if (key === 'history_len') {
                 const match = name.match(/hist(\d+)/);
                 return match ? parseInt(match[1]) : null;
             }
-            
+
             return null;
         }
-        
+
         function formatGroupKey(item, groupBy, xAxis) {
             const estimator = item.group || 'unknown';
-            
+
             switch(groupBy) {
-                case 'group': 
+                case 'group':
                     return estimator;
-                case 'params': 
+                case 'params':
                     return item.name;
                 case 'auto': {
                     const dims = ['size', 'k', 'bandwidth', 'order', 'history_len'];
@@ -471,39 +471,39 @@
                     }
                     return estimator;
                 }
-                default: 
+                default:
                     return 'default';
             }
         }
-        
+
         function getEstimatorType(key) {
             if (key.includes(' ')) {
                 return key.split(' ')[0];
             }
             return key;
         }
-        
+
         function filterData() {
             const preset = document.querySelector('.preset-btn.active');
             const measure = preset ? preset.dataset.preset : '';
             const estimator = document.querySelector('input[name="estimator"]:checked')?.value || '';
             const xAxis = document.getElementById('xAxisSelect').value;
             const selectedSize = document.getElementById('sizeFilterSelect').value;
-            
+
             return benchmarkData.filter(b => {
                 if (measure && b.measure !== measure) return false;
                 if (estimator && b.group !== estimator) return false;
-                
+
                 // Filter by size when X-axis is not "size"
                 if (xAxis !== 'size' && selectedSize) {
                     const size = extractValue(b.name, 'size');
                     if (size !== parseInt(selectedSize)) return false;
                 }
-                
+
                 return true;
             });
         }
-        
+
         function updateChart() {
             const data = filterData();
             const xAxis = document.getElementById('xAxisSelect').value;
@@ -511,14 +511,14 @@
             const logXScale = document.getElementById('logXScale').checked;
             const showError = document.getElementById('showErrorBars').checked;
             const showPoints = document.getElementById('showPoints').checked;
-            
+
             // Group data - this connects lines within each group
             const grouped = {};
             data.forEach(item => {
                 const xVal = extractValue(item.name, xAxis);
                 // Skip items that don't have a value for the selected X-axis
                 if (xVal === null) return;
-                
+
                 const key = formatGroupKey(item, 'auto', xAxis);
                 if (!grouped[key]) grouped[key] = [];
                 grouped[key].push({
@@ -527,21 +527,21 @@
                     yerr: item.statistics.stddev
                 });
             });
-            
+
             // Sort each group by x to connect lines properly
             Object.values(grouped).forEach(arr => arr.sort((a, b) => a.x - b.x));
-            
+
             // Determine if we're showing all estimators or just one
             const selectedEstimator = document.querySelector('input[name="estimator"]:checked')?.value || '';
             const useEstimatorColors = !selectedEstimator; // Use estimator colors only when "All" is selected
-            
+
             // Build color map for estimator types
             const estimatorColors = {};
             const estimatorTypes = [...new Set(Object.keys(grouped).map(k => getEstimatorType(k)))];
             estimatorTypes.forEach((type, i) => {
                 estimatorColors[type] = colors[i % colors.length];
             });
-            
+
             // Create datasets - one line per group
             const datasets = Object.entries(grouped).map(([key, points], i) => {
                 const color = useEstimatorColors ? estimatorColors[getEstimatorType(key)] : colors[i % colors.length];
@@ -557,7 +557,7 @@
                     borderWidth: 2.5
                 };
             });
-            
+
             // Add error bars as thin lines
             if (showError) {
                 Object.entries(grouped).forEach(([key, points], i) => {
@@ -575,7 +575,7 @@
                         fill: false,
                         borderWidth: 1
                     });
-                    // Lower error  
+                    // Lower error
                     datasets.push({
                         label: `${key} -err`,
                         data: points.map(p => ({x: p.x, y: Math.max(0, p.y - p.yerr)})),
@@ -590,25 +590,25 @@
                     });
                 });
             }
-            
+
             if (chart) chart.destroy();
-            
+
             // Determine adaptive time unit based on data
             const allTimes = Object.values(grouped).flat().map(p => p.y);
-            const maxTime = Math.max(...allTimes);
-            
+            const minTime = Math.min(...allTimes);
+
             let timeUnit, timeLabel;
-            if (maxTime < 0.001) {
+            if (minTime < 0.001) {
                 timeUnit = 1e6;
                 timeLabel = 'Time (µs)';
-            } else if (maxTime < 1) {
+            } else if (minTime < 1) {
                 timeUnit = 1000;
                 timeLabel = 'Time (ms)';
             } else {
                 timeUnit = 1;
                 timeLabel = 'Time (s)';
             }
-            
+
             function formatTime(val) {
                 if (timeUnit === 1e6) {
                     const us = val * 1e6;
@@ -624,7 +624,7 @@
                 if (s < 1) return `${(s * 1000).toFixed(1)}ms`;
                 return `${s.toFixed(2)}s`;
             }
-            
+
             const ctx = document.getElementById('benchmarkChart').getContext('2d');
             chart = new Chart(ctx, {
                 type: 'line',
@@ -656,14 +656,14 @@
                                 filter: (legendItem, chartData) => {
                                     const label = legendItem.text;
                                     if (label.includes('+err') || label.includes('-err')) return false;
-                                    
+
                                     // When "All" estimators selected, show only one legend entry per estimator type
                                     if (!selectedEstimator) {
                                         const estimatorType = getEstimatorType(label);
                                         // Only show if this is the first occurrence of this estimator type
                                         const datasets = chartData.datasets;
-                                        const firstIndex = datasets.findIndex(d => 
-                                            !d.label.includes('+err') && !d.label.includes('-err') && 
+                                        const firstIndex = datasets.findIndex(d =>
+                                            !d.label.includes('+err') && !d.label.includes('-err') &&
                                             getEstimatorType(d.label) === estimatorType
                                         );
                                         // Replace label with just the estimator name (no brackets)
@@ -677,10 +677,10 @@
                     }
                 }
             });
-            
+
             updateTable();
         }
-        
+
         function getAxisLabel(key) {
             const labels = {
                 size: 'Data Size (N)',
@@ -691,7 +691,7 @@
             };
             return labels[key] || key;
         }
-        
+
         function updateTable() {
             const data = filterData();
             const tbody = document.querySelector('#statsTable tbody');
@@ -707,22 +707,22 @@
                 </tr>
             `).join('');
         }
-        
+
         function showError(msg) {
             const el = document.getElementById('error');
             el.textContent = msg;
             el.style.display = 'block';
         }
-        
+
         function hideError() { document.getElementById('error').style.display = 'none'; }
-        
+
         // Preset button listeners
         document.getElementById('presetContainer').addEventListener('click', (e) => {
             if (e.target.classList.contains('preset-btn')) {
                 applyPreset(e.target.dataset.preset);
             }
         });
-        
+
         // Control listeners
         document.getElementById('xAxisSelect').addEventListener('change', () => {
             updateSizeFilter();

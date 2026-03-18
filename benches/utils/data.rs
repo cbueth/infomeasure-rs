@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_mut)]
+
 use ndarray::{Array1, Array2};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

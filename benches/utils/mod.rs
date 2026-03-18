@@ -1,5 +1,6 @@
+#![allow(unused_imports, dead_code)]
+
 use ndarray::{Array1, Array2};
-use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Normal, Uniform};
 

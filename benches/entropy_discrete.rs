@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use criterion::{criterion_group, criterion_main};
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::Array1;
