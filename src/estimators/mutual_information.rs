@@ -9,6 +9,54 @@
 //!
 //! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
 //! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+//!
+//! ## Const Generics and Dimensions
+//!
+//! Due to Rust's current limitations with constant expressions in generic arguments (without
+//! `generic_const_exprs`), all dimensionalities—including derived ones—must be passed as explicit
+//! const generics. This ensures that the dimensionality of every internal estimator is known
+//! at compile-time, allowing for significant optimizations and type safety.
+//!
+//! ### Mutual Information (MI)
+//!
+//! $I(X_1; X_2; \dots; X_n) = \log p(X_1, \dots, X_n) - \sum \log p(X_i)$
+//!
+//! The estimators `KernelMutualInformation2` through `KernelMutualInformation6` support 2 to 6
+//! random variables respectively. They use:
+//! - `D_JOINT`: $\sum_{i=1}^n D_i$ - Total dimensionality of the joint space
+//! - `D1`, `D2`, ..., `Dn`: Dimensions of individual random variables
+//!
+//! **Example for 2 variables**: If $X$ has dimension $D_1$ and $Y$ has dimension $D_2$, then
+//! `D_JOINT = D_1 + D_2`.
+//!
+//! ### Conditional Mutual Information (CMI)
+//!
+//! $I(X; Y | Z) = \log \frac{p(X,Y,Z)p(Z)}{p(X,Z)p(Y,Z)}$
+//!
+//! The `KernelConditionalMutualInformation` and `KsgConditionalMutualInformation` structs use:
+//! - `D1`, `D2`: Dimensions of the input variables X and Y
+//! - `D_COND`: Dimension of the conditioning variable Z
+//! - `D_JOINT`: $D_1 + D_2 + D_{cond}$ - Total dimensionality including condition
+//! - `D1_COND`: $D_1 + D_{cond}$ - Dimension of X joined with condition
+//! - `D2_COND`: $D_2 + D_{cond}$ - Dimension of Y joined with condition
+//!
+//! ### Helper Macros
+//!
+//! To simplify instantiation and automatically calculate these dimensions, use the following macros:
+//! - `new_kernel_mi!` - Creates a `KernelMutualInformation` estimator (supports 2-6 variables)
+//! - `new_kernel_cmi!` - Creates a `KernelConditionalMutualInformation` estimator
+//! - `new_ksg_mi!` - Creates a `KsgMutualInformation` estimator
+//! - `new_ksg_cmi!` - Creates a `KsgConditionalMutualInformation` estimator
+//! - `new_renyi_mi!` - Creates a `RenyiMutualInformation` estimator
+//! - `new_renyi_cmi!` - Creates a `RenyiConditionalMutualInformation` estimator
+//! - `new_tsallis_mi!` - Creates a `TsallisMutualInformation` estimator
+//! - `new_tsallis_cmi!` - Creates a `TsallisConditionalMutualInformation` estimator
+//! - `new_kl_mi!` - Creates a KL-divergence based MI estimator
+//! - `new_jsd_mi!` - Creates a JSD-based MI estimator
+//! - `new_ordinal_mi!` - Creates an `OrdinalMutualInformation` estimator
+//!
+//! These macros handle the dimension calculations automatically based on the input
+//! dimensionalities you provide.
 
 use crate::estimators::approaches::discrete::ansb::AnsbEntropy;
 use crate::estimators::approaches::discrete::bayes::{AlphaParam, BayesEntropy};

@@ -9,6 +9,68 @@
 //!
 //! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
 //! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+//!
+//! ## Const Generics and Dimensions
+//!
+//! Due to Rust's current limitations with constant expressions in generic arguments (without
+//! `generic_const_exprs`), all dimensionalities—including derived ones—must be passed as explicit
+//! const generics. This ensures that the dimensionality of every internal estimator is known
+//! at compile-time, allowing for significant optimizations and type safety.
+//!
+//! ### Transfer Entropy (TE)
+//!
+//! $TE(X \to Y) = I(Y_{future}; X_{past} | Y_{past})$
+//!
+//! The `KernelTransferEntropy` and `KsgTransferEntropy` structs use:
+//! - `SRC_HIST`, `DEST_HIST`: History lengths.
+//! - `STEP_SIZE`: Delay between observations.
+//! - `D_SOURCE`, `D_TARGET`: Dimensionality of individual samples in X and Y.
+//! - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
+//! - `D_XP_YP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
+//! - `D_YP`: $DEST\_HIST \times D_{target}$
+//! - `D_YF_YP`: $D_{target} + (DEST\_HIST \times D_{target})$
+//!
+//! **Dimension Relations for TE**:
+//! - `D_JOINT` = `D_YF_YP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_XP_YP` = `D_YP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_YF_YP` = `D_TARGET` + `D_YP`
+//! - `D_YP` = `DEST_HIST` * `D_TARGET`
+//!
+//! ### Conditional Transfer Entropy (CTE)
+//!
+//! $CTE(X \to Y | Z) = I(Y_{future}; X_{past} | Y_{past}, Z_{past})$
+//!
+//! The `KernelConditionalTransferEntropy` and `KsgConditionalTransferEntropy` structs use:
+//! - `SRC_HIST`, `DEST_HIST`, `COND_HIST`: History lengths.
+//! - `STEP_SIZE`: Delay between observations.
+//! - `D_SOURCE`, `D_TARGET`, `D_COND`: Input dimensionality.
+//! - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+//! - `D_XP_YP_ZP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+//! - `D_YP_ZP`: $(DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+//! - `D_YF_YP_ZP`: $D_{target} + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+//!
+//! **Dimension Relations for CTE**:
+//! - `D_JOINT` = `D_YF_YP_ZP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_XP_YP_ZP` = `D_YP_ZP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_YF_YP_ZP` = `D_TARGET` + `D_YP_ZP`
+//! - `D_YP_ZP` = (`DEST_HIST` * `D_TARGET`) + (`COND_HIST` * `D_COND`)
+//!
+//! ### Helper Macros
+//!
+//! To simplify instantiation and automatically calculate these dimensions, use the following macros:
+//! - `new_kernel_te!` - Creates a `KernelTransferEntropy` estimator
+//! - `new_kernel_cte!` - Creates a `KernelConditionalTransferEntropy` estimator
+//! - `new_ksg_te!` - Creates a `KsgTransferEntropy` estimator
+//! - `new_ksg_cte!` - Creates a `KsgConditionalTransferEntropy` estimator
+//! - `new_renyi_te!` - Creates a `RenyiTransferEntropy` estimator
+//! - `new_renyi_cte!` - Creates a `RenyiConditionalTransferEntropy` estimator
+//! - `new_tsallis_te!` - Creates a `TsallisTransferEntropy` estimator
+//! - `new_tsallis_cte!` - Creates a `TsallisConditionalTransferEntropy` estimator
+//! - `new_ordinal_te!` - Creates an `OrdinalTransferEntropy` estimator
+//! - `new_ordinal_cte!` - Creates an `OrdinalConditionalTransferEntropy` estimator
+//!
+//! These macros handle the dimension calculations automatically based on the history lengths
+//! and input dimensionalities you provide.
 
 use crate::estimators::approaches::discrete::{
     DiscreteConditionalTransferEntropy, DiscreteTransferEntropy,
