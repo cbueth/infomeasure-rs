@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.1-rc.0) - 2026-03-19
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### 📚 Documentation
+
+- docs: Move macro dimension documentation [[#11](https://codeberg.org/cbueth/infomeasure-rs/pulls/11)]
+- docs: Add guides for facade/ crate usage and estimator selection [[#9](https://codeberg.org/cbueth/infomeasure-rs/pulls/9)]
+
+### 📦️ Dependency
+
+- chore: Update `kiddo` to v5.3.0 [[#13](https://codeberg.org/cbueth/infomeasure-rs/pulls/13)]
+
 ## [0.2.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-beta.1) - 2026-03-16
 
 ### ❤️ Thanks to all contributors! ❤️
