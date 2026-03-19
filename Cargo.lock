@@ -300,9 +300,9 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cmov"
-version = "0.4.6"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d5ce5728ecb5285a5dd35f02a6a8e34e0828e0b38e8e632e249a3fe3f320211"
+checksum = "de0758edba32d61d1fd9f4d69491b47604b91ee2f7e6b33de7e54ca4ebe55dc3"
 
 [[package]]
 name = "codespan-reporting"
@@ -1136,8 +1136,9 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kiddo"
-version = "5.2.4"
-source = "git+https://github.com/cbueth/kiddo.git?branch=feat%2Foptional-boundary-inclusiveness#3c19d7c55c872920eeaca32028ca0c0475a8eb58"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea504edb9bee0c3f348e54aa2ce2c10a5fe10de221f39b745c654f3b51220992"
 dependencies = [
  "aligned-vec",
  "array-init",
