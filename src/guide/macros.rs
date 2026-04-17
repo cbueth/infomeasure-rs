@@ -33,53 +33,32 @@
 //! use infomeasure::{new_kernel_mi, new_ksg_mi, ...};
 //! ```
 //!
-//! ### Mutual Information
+//! Find the fitting macro for each measure and estimator type in the following table:
 //!
-//! | Macro | Purpose |
-//! |-------|---------|
-//! | `new_kernel_mi` | Kernel MI |
-//! | `new_kernel_cmi` | Kernel CMI |
-//! | `new_ksg_mi` | KSG MI |
-//! | `new_ksg_cmi` | KSG CMI |
-//! | `new_renyi_mi` | Rényi MI |
-//! | `new_renyi_cmi` | Rényi CMI |
-//! | `new_tsallis_mi` | Tsallis MI |
-//! | `new_tsallis_cmi` | Tsallis CMI |
-//! | `new_kl_mi` | KL MI |
-//! | `new_kl_cmi` | KL CMI |
-//!
-//! ### Transfer Entropy
-//!
-//! | Macro | Purpose |
-//! |-------|---------|
-//! | `new_kernel_te` | Kernel TE |
-//! | `new_kernel_cte` | Kernel CTE |
-//! | `new_ksg_te` | KSG TE |
-//! | `new_ksg_cte` | KSG CTE |
-//! | `new_renyi_te` | Rényi TE |
-//! | `new_renyi_cte` | Rényi CTE |
-//! | `new_tsallis_te` | Tsallis TE |
-//! | `new_tsallis_cte` | Tsallis CTE |
-//! | `new_kl_te` | KL TE |
-//! | `new_kl_cte` | KL CTE |
+//! | Measure | [Kernel](crate::estimators::approaches::kernel) | [KSG](crate::estimators::approaches::expfam::ksg) | [Rényi](crate::estimators::approaches::expfam::renyi) | [Tsallis](crate::estimators::approaches::expfam::tsallis) | [KL](crate::estimators::approaches::expfam::kozachenko_leonenko) |
+//! |---------|--------|-----|-------|---------|-----|
+//! | **[MI](crate::guide::mutual_information)** | [`new_kernel_mi`](crate::new_kernel_mi) | [`new_ksg_mi`](crate::new_ksg_mi) | [`new_renyi_mi`](crate::new_renyi_mi) | [`new_tsallis_mi`](crate::new_tsallis_mi) | [`new_kl_mi`](crate::new_kl_mi) |
+//! | **[CMI](crate::guide::cond_mi)** | [`new_kernel_cmi`](crate::new_kernel_cmi) | [`new_ksg_cmi`](crate::new_ksg_cmi) | [`new_renyi_cmi`](crate::new_renyi_cmi) | [`new_tsallis_cmi`](crate::new_tsallis_cmi) | [`new_kl_cmi`](crate::new_kl_cmi) |
+//! | **[TE](crate::guide::transfer_entropy)** | [`new_kernel_te`](crate::new_kernel_te) | [`new_ksg_te`](crate::new_ksg_te) | [`new_renyi_te`](crate::new_renyi_te) | [`new_tsallis_te`](crate::new_tsallis_te) | [`new_kl_te`](crate::new_kl_te) |
+//! | **[CTE](crate::guide::cond_te)** | [`new_kernel_cte`](crate::new_kernel_cte) | [`new_ksg_cte`](crate::new_ksg_cte) | [`new_renyi_cte`](crate::new_renyi_cte) | [`new_tsallis_cte`](crate::new_tsallis_cte) | [`new_kl_cte`](crate::new_kl_cte) |
 //!
 //! ## Usage Examples
 //!
 //! ### 2-variable Mutual Information
 //!
-//! ```ignore
+//! ```rust
 //! use infomeasure::new_kernel_mi;
 //! use ndarray::array;
 //!
 //! let x = array![[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]];
 //! let y = array![[0.2], [0.4], [0.6]];
 //!
-//! let mi = new_kernel_mi!(&[x, y], "gaussian", 0.5, 2, 1);
+//! let mi = new_kernel_mi!(&[x, y], "gaussian".to_string(), 0.5, 2, 1);
 //! ```
 //!
 //! ### 3-variable Conditional Mutual Information
 //!
-//! ```ignore
+//! ```rust
 //! use infomeasure::new_kernel_cmi;
 //! use ndarray::array;
 //!
@@ -87,19 +66,19 @@
 //! let y = array![[0.2], [0.4], [0.6]];
 //! let z = array![[0.1], [0.2], [0.3]];
 //!
-//! let cmi = new_kernel_cmi!(&[x, y], z, "gaussian", 0.5, 2, 1, 1);
+//! let cmi = new_kernel_cmi!(&[x, y], &z, "gaussian".to_string(), 0.5, 2, 1, 1);
 //! ```
 //!
 //! ### Transfer Entropy
 //!
-//! ```ignore
+//! ```rust
 //! use infomeasure::new_kernel_te;
 //! use ndarray::array;
 //!
 //! let source = array![[0.1], [0.2], [0.3], [0.4], [0.5]];
 //! let dest = array![[0.2], [0.3], [0.4], [0.5], [0.6]];
 //!
-//! let te = new_kernel_te!(&source, &dest, 1, 1, "gaussian", 0.5, 1, 1);
+//! let te = new_kernel_te!(&source, &dest, 1, 1, 1, 1, 1, "gaussian".to_string(), 0.5);
 //! ```
 //!
 //! ## Macro Syntax Reference
@@ -139,5 +118,5 @@
 //!
 //! ## See Also
 //!
-//! - [Estimator Usage Guide](super::estimator_usage) - Full usage examples
-//! - [Estimator Selection Guide](super::estimator_selection) - Choosing the right estimator
+//! - [Estimator Usage Guide](super::estimator_usage) — Full usage examples
+//! - [Estimator Selection Guide](super::estimator_selection) — Choosing the right estimator

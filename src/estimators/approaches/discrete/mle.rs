@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -11,18 +12,21 @@ use ndarray::{Array1, Array2};
 
 /// Standard Shannon entropy estimator for discrete data using maximum likelihood (natural log base).
 ///
-/// This baseline estimator computes H = -Σ p_i ln p_i from empirical probabilities p_i = n_i/N.
-/// It supports local values via LocalValues, where each sample contributes -ln p(x).
+/// ## Theory
 ///
-/// Cross-entropy is supported between two distributions.
+/// The Maximum Likelihood Estimator (MLE), also known as the plug-in estimator, computes
+/// entropy directly from empirical frequencies:
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// $$\hat{H}_{MLE} = -\sum_{i=1}^{K} \hat{p}_i \log \hat{p}_i, \quad \hat{p}_i = \frac{n_i}{N}$$
 ///
-/// GPU acceleration (optional): When compiled with the `gpu` feature, `from_rows` may
-/// use a WGSL compute shader to accelerate dense per-row histogramming for 2D inputs with a small
-/// global value range. If the GPU path is unavailable or inapplicable, it transparently falls back
-/// to the CPU implementation.
+/// where:
+/// - $n_i$ are counts of unique values.
+/// - $N$ is the total number of samples.
+/// - $K$ is the number of unique bins.
+///
+/// While simple and fast, MLE is known to be negatively biased for small sample sizes.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct DiscreteEntropy {
     dataset: DiscreteDataset,
 }

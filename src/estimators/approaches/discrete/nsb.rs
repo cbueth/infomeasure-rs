@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -10,20 +11,26 @@ use statrs::function::gamma::{digamma, ln_gamma};
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
 ///
-/// A Bayesian estimator that averages over Dirichlet priors via a 1/K mixture, leading to
-/// numerically integrating expectations over β ∈ (0, ln K). This implementation uses adaptive
-/// Simpson integration and safeguards near β=0. Optionally override K when known. Global-only.
+/// ## Theory
 ///
-/// Cross-entropy is not implemented for NSB estimator.
-/// The NSB estimator is designed for single distribution entropy estimation
-/// and cross-entropy creates a theoretical inconsistency.
+/// The Nemenman-Shafee-Bialek (NSB) estimator [Nemenman et al., 2002](../../../../guide/references/index.html#nsb2002) is a Bayesian approach designed
+/// for extremely undersampled data. It addresses the "problem of priors" in entropy estimation
+/// by using a mixture of Dirichlet priors that results in a nearly flat prior over the
+/// entropy itself.
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// The estimator computes the expectation of entropy by integrating over the concentration
+/// parameter $\beta$:
 ///
-/// Local values are not supported for the NSB estimator.
-/// The NSB estimator is based on Bayesian integration over the entire
-/// distribution and local values cannot be meaningfully extracted.
+/// $$\hat{H}_{NSB} = \frac{\int \langle H \rangle_\beta \rho(\beta \mid \mathbf{n}) \, d\beta}{\int \rho(\beta \mid \mathbf{n}) \, d\beta}$$
+///
+/// where:
+/// - $\langle H \rangle_\beta$ is the expected entropy for a given $\beta$.
+/// - $\rho(\beta \mid \mathbf{n})$ is the posterior weight of $\beta$ given the counts $\mathbf{n}$.
+/// - $\beta$ is the parameter of the symmetric Dirichlet prior $Dir(\beta)$.
+///
+/// This implementation uses adaptive Simpson integration to compute these integrals numerically.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct NsbEntropy {
     dataset: DiscreteDataset,
     k_override: Option<usize>,

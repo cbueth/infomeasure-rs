@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -40,6 +41,8 @@ pub enum AlphaParam {
 ///
 /// Local values are not implemented for Bayes estimator as it is a Bayesian
 /// estimator that averages over Dirichlet priors.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct BayesEntropy {
     dataset: DiscreteDataset,
     alpha: AlphaParam,

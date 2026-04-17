@@ -72,6 +72,7 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
+use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
     MutualInformationEstimator, TransferEntropyEstimator,
@@ -99,6 +100,12 @@ use ndarray_stats::CorrelationExt;
 /// - `D_XP_YP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
 /// - `D_YP`: $DEST\_HIST \times D_{target}$
 /// - `D_YF_YP`: $D_{target} + (DEST\_HIST \times D_{target})$
+///
+/// Kernel-based transfer entropy estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "Kernel-based", "", "")]
 ///
 /// # Note on Dimensions
 /// These dimensions must satisfy the mathematical relations defined by the slicing logic.
@@ -347,6 +354,12 @@ impl<
 /// - `D_XP_YP_ZP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
 /// - `D_YP_ZP`: $(DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
 /// - `D_YF_YP_ZP`: $D_{target} + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+///
+/// Kernel-based conditional transfer entropy estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "Kernel-based", "", "")]
 ///
 /// # Note on Dimensions
 /// These dimensions must satisfy the mathematical relations defined by the slicing logic.
@@ -616,6 +629,10 @@ impl<
 macro_rules! impl_kernel_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("Kernel-based mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        ///
+        /// ## Theory
+        ///
+        #[doc = doc_snippets!(mi_formula "Kernel-based", "", "")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub kernel_type: String,
             pub bandwidth: f64,
@@ -716,6 +733,10 @@ impl_kernel_mi!(
 );
 
 /// Kernel-based conditional mutual information estimator for continuous data
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "Kernel-based", "", "")]
 ///
 /// # Const Generics
 /// - `D1`, `D2`, `D_COND`: Dimensions of input variables.

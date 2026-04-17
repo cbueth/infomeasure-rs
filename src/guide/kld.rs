@@ -4,42 +4,43 @@
 
 //! # Kullback-Leibler Divergence (KLD)
 //!
-//! **Note**: This is a placeholder page. KLD support is planned for a future release.
-//!
-//! ## Overview
-//!
 //! The Kullback-Leibler divergence (also known as relative entropy) measures
-//! the information lost when distribution Q is used to approximate distribution P:
+//! the difference between two probability distributions $P$ and $Q$. It
+//! represents the information lost when distribution $Q$ is used to approximate $P$.
 //!
-//! $$D_{KL}(P || Q) = \sum_{x} P(x) \log \frac{P(x)}{Q(x)} = H_Q(P) - H(P)$$
+//! ## Theory
 //!
-//! where $H_Q(P)$ is the cross-entropy and $H(P)$ is the entropy of P.
+//! For discrete random variables $P$ and $Q$:
 //!
-//! ## Current Status
+//! $$D_{KL}(P \parallel Q) = \sum_{x \in \mathcal{X}} P(x) \log \frac{P(x)}{Q(x)}$$
 //!
-//! KLD computation is not yet directly exposed in the Rust API. However, you can
-//! compute it manually using cross-entropy and entropy.
+//! This can be expressed in terms of cross-entropy $H_Q(P)$ and Shannon entropy $H(P)$:
 //!
-//! ```text
-//! KLD(P||Q) = H_Q(P) - H(P)
-//! Compute H(P) and H_Q(P) separately, then subtract
-//! ```
+//! $$D_{KL}(P \parallel Q) = H_Q(P) - H(P)$$
 //!
-//! ## Planned Implementation
+//! For continuous variables, it is defined as:
 //!
-//! Future versions will include:
-//! - Direct KLD computation via facade types
-//! - Support for all entropy estimators (discrete, kernel, ordinal, KL, Rényi, Tsallis)
-//! - Weighted KLD for multiple distributions
+//! $$D_{KL}(P \parallel Q) = \int P(x) \log \frac{P(x)}{Q(x)} \, dx$$
 //!
-//! ## Related Measures
+//! ## Interpretation
 //!
-//! - [Entropy Guide](super::entropy) - Base entropy computation
-//! - [Cross-Entropy Guide](super::cross_entropy) - $H_Q(P)$
-//! - [JSD Guide](super::jsd) - Jensen-Shannon Divergence (symmetric)
-//! - [Mutual Information](super::mutual_information) - $I(X;Y) = D_{KL}(p(x,y) || p(x)p(y))$
+//! KLD represents the "extra effort" or "surprise" when using an encoding based
+//! on $Q$ instead of the true distribution $P$. Unlike distance metrics, KLD is
+//! **asymmetric**: $D_{KL}(P \parallel Q) \neq D_{KL}(Q \parallel P)$.
+//!
+//! ## Implementation Status
+//!
+//! KLD is not yet directly implemented in this crate. However, it can be computed
+//! using the relationship $D_{KL}(P \parallel Q) = H_Q(P) - H(P)$ for estimators
+//! that support cross-entropy via the [`CrossEntropy`](crate::estimators::traits::CrossEntropy) trait.
+//!
+//! ## See Also
+//!
+//! - [Entropy Guide](super::entropy) — Base entropy
+//! - [Cross-Entropy Guide](super::cross_entropy) — Total encoding cost
+//! - [JSD Guide](super::jsd) - Symmetric divergence measure
 //!
 //! ## References
 //!
-//! - Cover, T. M., & Thomas, J. A. (2012). Elements of Information Theory
-//! - Kullback, S., & Leibler, R. A. (1951). On Information and Sufficiency
+//! - [Kullback & Leibler, 1951](../../guide/references/index.html#kullback1951)
+//! - [Cover & Thomas, 2012](../../guide/references/index.html#cover2012elements)

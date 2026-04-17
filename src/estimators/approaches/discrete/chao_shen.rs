@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -10,19 +11,23 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, OptionalLocalValues};
 
 /// Chao–Shen coverage-adjusted entropy estimator for discrete data (natural log base).
 ///
-/// Adjusts empirical probabilities by sample coverage C = 1 - f1/N and compensates for
-/// unseen mass via the leave-one-out estimator λ = 1 - (1 - C p)^N in the denominator.
-/// Recommended for undersampled data with many singletons; global-only.
+/// ## Theory
 ///
-/// Cross-entropy is not implemented for Chao Shen estimator.
-/// The Chao Shen correction creates theoretical inconsistencies when applied to cross-entropy
-/// due to fundamental issues with mixing bias corrections from different distributions.
+/// The Chao-Shen estimator [Chao & Shen, 2003](../../../../guide/references/index.html#chao2003) accounts for unobserved states by
+/// combining the Horvitz-Thompson adjustment with a sample coverage estimate $C$:
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// $$\hat{H}_{CS} = - \sum_{i=1}^{K} \frac{C \hat{p}_i^{ML} \log (C \hat{p}_i^{ML})}{1 - (1 - C \hat{p}_i^{ML})^N}$$
 ///
-/// Local values are not supported for the Chao Shen estimator.
-/// The Chao Shen correction is only defined for the global entropy.
+/// where:
+/// - $C = 1 - f_1/N$ is the Good-Turing estimate of sample coverage.
+/// - $f_1$ is the number of singletons (bins with count 1).
+/// - $\hat{p}_i^{ML}$ is the Maximum Likelihood estimate.
+/// - $N$ is the total number of samples.
+///
+/// This estimator is particularly useful for highly diverse populations where many states
+/// remain unobserved in the sample.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct ChaoShenEntropy {
     dataset: DiscreteDataset,
 }

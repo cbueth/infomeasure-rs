@@ -2,8 +2,52 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Discrete estimators module: groups all discrete-related submodules
-// and exposes them to the parent approaches module.
+//! # Discrete Estimators
+//!
+//! This module implements estimators for Shannon entropy and derived measures
+//! (Mutual Information, Transfer Entropy) for discrete/categorical data.
+//!
+//! ## Theory
+//!
+//! Discrete estimators use frequency counts (histograms) to estimate probabilities
+//! and then compute information measures. The most basic is the Maximum Likelihood
+//! Estimator (MLE):
+//!
+//! $$\hat{H} = -\sum_{i=1}^{K} \hat{p}_i \log \hat{p}_i, \quad \hat{p}_i = \frac{n_i}{N}$$
+//!
+//! where $n_i$ are counts of unique values, $N$ is total samples, and $K$ is number
+//! of unique values (bins).
+//!
+//! ## Bias Correction
+//!
+//! Discrete estimators are notoriously biased for small sample sizes. This module
+//! provides several bias-corrected variants:
+//!
+//! - **Miller-Madow**: Adds a simple correction term $(K-1)/(2N)$.
+//! - **Grassberger**: Uses digamma functions to reduce bias in small samples.
+//! - **Shrinkage (James-Stein)**: Regularizes probability estimates toward a uniform distribution.
+//! - **Chao-Shen**: Uses coverage estimation to account for unobserved states.
+//! - **NSB (Nemenman-Shafee-Bialek)**: A Bayesian estimator using a mixture of Dirichlet priors,
+//!   designed for extremely undersampled data.
+//!
+//! ## Measures Implemented
+//!
+//! This module provides generic wrappers that can take *any* of the discrete entropy
+//! estimators listed above and use them to compute:
+//!
+//! - **Mutual Information**: $I(X; Y) = H(X) + H(Y) - H(X, Y)$
+//! - **Conditional MI**: $I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)$
+//! - **Transfer Entropy**: $T(X \to Y) = I(X_{past}; Y_{future} | Y_{past})$
+//!
+//! ## See Also
+//! - [Discrete Entropy Guide](crate::guide::entropy::discrete) — Detailed comparison of estimators
+//! - [Estimator Approaches](super) — Overview of all estimation techniques
+//!
+//! ## References
+//!
+//! - [Grassberger, 1988](../../../../guide/references/index.html#grassberger1988)
+//! - [Hausser & Strimmer, 2009](../../../../guide/references/index.html#hausser2009)
+//! - [Nemenman et al., 2002](../../../../guide/references/index.html#nsb2002)
 
 pub mod discrete_utils;
 #[cfg(feature = "gpu")]
@@ -25,6 +69,7 @@ pub mod zhang;
 pub mod discrete_batch;
 
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
@@ -32,6 +77,10 @@ use crate::estimators::traits::{
 use ndarray::Array1;
 
 /// Discrete Mutual Information estimator using the entropy-summation formula.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(mi_formula "Discrete", "", "")]
 ///
 /// This estimator can wrap any discrete entropy estimator.
 pub struct DiscreteMutualInformation<E> {
@@ -97,6 +146,10 @@ impl<E: GlobalValue + OptionalLocalValues> MutualInformationEstimator
 }
 
 /// Discrete Conditional Mutual Information estimator using the entropy-summation formula.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "Discrete", "", "")]
 pub struct DiscreteConditionalMutualInformation<E> {
     marginal_conds: Vec<E>,
     joint_cond: E,
@@ -185,6 +238,10 @@ impl<E: GlobalValue + OptionalLocalValues> ConditionalMutualInformationEstimator
 }
 
 /// Discrete Transfer Entropy estimator using the entropy-summation formula (via CMI).
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "Discrete", "", "")]
 pub struct DiscreteTransferEntropy<E> {
     inner: DiscreteConditionalMutualInformation<E>,
 }
@@ -238,6 +295,10 @@ impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteTransferEntropy<E> 
 }
 
 /// Discrete Conditional Transfer Entropy estimator using the entropy-summation formula (via CMI).
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "Discrete", "", "")]
 pub struct DiscreteConditionalTransferEntropy<E> {
     inner: DiscreteConditionalMutualInformation<E>,
 }

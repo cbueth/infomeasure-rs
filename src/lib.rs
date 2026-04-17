@@ -33,14 +33,14 @@
 //! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
 //! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ | |
 //! | Cross-Entropy | ✅[^1] | ✅ | ✅ | ✅ | All approaches |
-//! | KLD | ❌ | ❌ | ❌ | ❌ | Planned |
+//! | KLD | ⚠️ | ⚠️ | ❌ | ⚠️ | Via cross-entropy |
 //! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
 //! | CMI | ✅ | ✅ | ✅ | ✅ | Conditional MI |
 //! | TE | ✅ | ✅ | ✅ | ✅ | Transfer Entropy |
 //! | CTE | ✅ | ✅ | ✅ | ✅ | Conditional TE |
 //!
-//! ✅ = Implemented | ❌ = Not implemented
+//! ✅ = Implemented | ⚠️ = Available via trait | ❌ = Not implemented
 //!
 //! [^1]: For discrete estimators, cross-entropy is only available for MLE, Miller-Madow, and Bayesian estimators. NSB, Chao-Shen, and Chao-Wang-Jost do not support cross-entropy due to theoretical inconsistencies in applying bias corrections to cross-entropy.
 //!
@@ -83,8 +83,8 @@
 //!
 //! # Guides
 //!
-//! - **[Estimator Usage Guide](guide/estimator_usage)** - How to use this crate
-//! - **[Estimator Selection Guide](guide/estimator_selection)** - Choosing the right estimator
+//! - **[Estimator Usage Guide](crate::guide::estimator_usage)** - How to use this crate
+//! - **[Estimator Selection Guide](crate::guide::estimator_selection)** - Choosing the right estimator
 //!
 //! For more details on the theory behind these measures, see the Python package documentation.
 

@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -10,18 +11,22 @@ use std::collections::HashMap;
 
 /// Shrinkage (James–Stein) entropy estimator for discrete data (natural log base).
 ///
-/// Forms a convex combination between the empirical distribution and the uniform target
-/// with a data-driven shrinkage intensity $λ ∈ \[0,1\]$. This reduces variance and bias
-/// in undersampled regimes. Supports local values via $-\ln p_\mathrm{shrink}(x)$.
+/// ## Theory
 ///
-/// Cross-entropy is not implemented for shrinkage estimator.
-/// The shrinkage correction is designed for bias correction in entropy
-/// estimation using a specific shrinkage target, and cross-entropy mixes
-/// probabilities from one distribution with corrections from another,
-/// creating a theoretical inconsistency.
+/// The Shrinkage estimator [Hausser & Strimmer, 2009](../../../../guide/references/index.html#hausser2009) regularizes the empirical probability
+/// distribution toward a uniform target using a data-driven shrinkage intensity $\lambda \in \[0,1\]$:
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// $$\hat{p}_i^{SHR} = \lambda t_i + (1-\lambda) \hat{p}_i^{ML}$$
+///
+/// where:
+/// - $t_i = 1/K$ is the uniform distribution target.
+/// - $\hat{p}_i^{ML}$ is the Maximum Likelihood estimate.
+/// - $\lambda$ is the shrinkage intensity, calculated to minimize the mean squared error.
+///
+/// This approach effectively reduces both variance and bias, particularly in undersampled
+/// regimes where many bins have zero or low counts.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct ShrinkEntropy {
     dataset: DiscreteDataset,
 }

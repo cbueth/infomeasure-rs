@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -10,18 +11,18 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, Optional
 
 /// Bonachela entropy estimator for discrete data (natural log base).
 ///
-/// De-biases the MLE via a harmonic-sum correction using counts (n_i + 1) Σ_{j=n_i+2}^{N+2} 1/j,
-/// then normalizes by (N+2). Recommended when the distribution is undersampled; global-only.
+/// ## Theory
 ///
-/// Cross-entropy is not implemented for Bonachela estimator due to
-/// theoretical inconsistencies in applying bias corrections from
-/// different distributions.
+/// The Bonachela estimator [Bonachela et al., 2008](../../../../guide/references/index.html#bonachela2008) is designed for very small sample
+/// sizes. It provides a bias correction based on a harmonic sum:
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// $$\hat{H}_{B} = \frac{1}{N+2} \sum_{i=1}^{K} \left( (n_i + 1) \sum_{j=n_i + 2}^{N+2} \frac{1}{j} \right)$$
 ///
-/// Local values are not implemented for Bonachela estimator due to
-/// theoretical inconsistencies in the mathematical foundation.
+/// where $n_i$ are the counts for each bin and $N$ is the total number of samples.
+/// This estimator is particularly robust when the number of observed samples is comparable
+/// to the number of bins.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct BonachelaEntropy {
     dataset: DiscreteDataset,
 }

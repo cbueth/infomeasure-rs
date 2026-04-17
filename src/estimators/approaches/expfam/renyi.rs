@@ -2,6 +2,47 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Rényi Entropy Estimators (kNN-based)
+//!
+//! This module implements estimators for Rényi entropy and its derived measures
+//! (Mutual Information, Transfer Entropy, etc.) using k-nearest neighbor distances.
+//!
+//! ## Theory
+//!
+//! The Rényi $\alpha$-entropy is a generalized family of one-parameter entropy:
+//!
+//! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left( \sum_{i=1}^{n} p_i^\alpha \right)$$
+//!
+//! In this module, we use the kNN-based estimation for continuous variables
+//! [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008):
+//!
+//! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
+//!
+//! where:
+//! - $V_m$ is the volume of the $m$-dimensional unit ball.
+//! - $\rho_{i,k}$ is the distance to the $k$-th nearest neighbor of point $i$.
+//! - $C_{k,\alpha} = [\Gamma(k)/\Gamma(k+1-\alpha)]^{1/(1-\alpha)}$ is a correction factor.
+//!
+//! As $\alpha \to 1$, Rényi entropy converges to Shannon entropy.
+//!
+//! ## Measures Implemented
+//!
+//! - **Entropy**: $H_\alpha(X)$
+//! - **Mutual Information**: $I_\alpha(X; Y) = H_\alpha(X) + H_\alpha(Y) - H_\alpha(X, Y)$
+//! - **Conditional MI**: $I_\alpha(X; Y | Z) = H_\alpha(X, Z) + H_\alpha(Y, Z) - H_\alpha(X, Y, Z) - H_\alpha(Z)$
+//! - **Transfer Entropy**: $T_\alpha(X \to Y)$ estimated via the CMI entropy-summation formula.
+//!
+//! ## See Also
+//! - [Entropy Guide](crate::guide::entropy) — Conceptual background
+//! - [Tsallis Estimators](super::tsallis) — Non-additive generalized entropy
+//! - [KSG Estimators](super::ksg) — kNN-based MI optimized for Shannon entropy
+//!
+//! ## References
+//!
+//! - [Rényi, 1976](../../../../guide/references/index.html#renyi1976)
+//! - [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008)
+
+use crate::estimators::doc_macros::doc_snippets;
 use kiddo::SquaredEuclidean;
 use ndarray::{Array1, Array2, Axis, concatenate};
 use std::num::NonZeroUsize;
@@ -16,6 +57,18 @@ use crate::estimators::traits::{
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 
 /// Rényi entropy estimator (kNN-based, exponential-family formulation)
+///
+/// ## Theory
+///
+/// For continuous variables, the Rényi $\alpha$-entropy is estimated using kNN distances as
+/// [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008):
+///
+/// $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
+///
+/// where:
+/// - $V_m$ is the volume of the $m$-dimensional unit ball.
+/// - $\rho_{i,k}$ is the distance to the $k$-th nearest neighbor of point $i$.
+/// - $C_{k,\alpha} = [\Gamma(k)/\Gamma(k+1-\alpha)]^{1/(1-\alpha)}$ is a correction factor.
 ///
 /// **Important Note**: This estimator requires the logarithm base to be specified during
 /// construction via the `base` field or `with_base()` method. Unlike other entropy
@@ -265,6 +318,10 @@ impl<const K: usize> OptionalLocalValues for RenyiEntropy<K> {
 macro_rules! impl_renyi_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("Rényi mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        ///
+        /// ## Theory
+        ///
+        #[doc = doc_snippets!(mi_formula "Rényi", r"_\alpha", "")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub alpha: f64,
@@ -340,6 +397,10 @@ impl_renyi_mi!(
 );
 
 /// Rényi conditional mutual information estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "Rényi", r"_\alpha", "")]
 pub struct RenyiConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -460,6 +521,10 @@ impl<
 }
 
 /// Rényi transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "Rényi", r"_\alpha", "")]
 pub struct RenyiTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -644,6 +709,10 @@ impl<
 }
 
 /// Rényi conditional transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "Rényi", r"_\alpha", "")]
 pub struct RenyiConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

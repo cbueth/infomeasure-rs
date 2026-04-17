@@ -38,10 +38,7 @@
 //!
 //! ## Definition
 //!
-//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}}
-//! p(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})
-//! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})} \\right)$$
+//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}} p(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}) \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})} {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})} \\right)$$
 //!
 //! where:
 //! - $p(\\cdot)$ represents the probability distribution,
@@ -75,7 +72,23 @@
 //! This form is used internally for Rényi and Tsallis CTE estimators.
 //!
 //! ## Implemented in This Crate
-//!
+//! ### Continuous CTE: Kraskov-Stögbauer-Grassberger (KSG)
+//! The KSG method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) can be extended to conditional transfer entropy
+//! [Baboukani et al., 2020](../../guide/references/index.html#baboukani2020):
+//! $$TE(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{past}, Z_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}, Z_{past}} + 1) - \psi(n_{X_{past}, Y_{past}, Z_{past}} + 1) \rangle$$
+//! where $n$ refers to neighbor counts in the respective joint subspaces.
+//! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//! let x = array![0.1, 0.2, 0.3];
+//! let y = array![0.15, 0.25, 0.35];
+//! let z = array![0.1, 0.2, 0.3];
+//! let cte = TransferEntropy::new_cte_ksg(&x, &y, &z, 3, 1e-10).global_value();
+//! assert!(cte >= 0.0);
+//! ```
+//! ### Other Estimators
 //! CTE is available through the [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) facade type:
 //!
 //! - [`TransferEntropy::new_cte_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_cte_discrete_mle)

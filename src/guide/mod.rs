@@ -14,6 +14,7 @@
 //!
 //! **In Python**, you might write:
 //! ```python
+//! import infomeasure as im
 //! im.entropy(data, approach="nsb")
 //! ```
 //!
@@ -36,10 +37,10 @@
 //! ## Guide Contents
 //!
 //! ### Getting Started
-//! - [Introduction](introduction) - Overview of information theory
-//! - [Estimator Usage](estimator_usage) - How to use this crate
-//! - [Estimator Selection](estimator_selection) - Choosing the right estimator
-//! - [Macros](macros) - Convenience macros for estimators
+//! - [Introduction](introduction) — Overview of information theory
+//! - [Estimator Usage](estimator_usage) — How to use this crate
+//! - [Estimator Selection](estimator_selection) — Choosing the right estimator
+//! - [Macros](macros) — Convenience macros for estimators
 //!
 //! ### Entropy
 //! - [Entropy Overview](entropy) - All entropy estimators
@@ -64,6 +65,9 @@
 //! ### Configuration
 //! - [Settings](settings) - Configuration options
 //! - [Statistical Tests](statistical_tests) - Hypothesis testing
+//!
+//! ### References
+//! - [References](references) - All academic citations
 //!
 //! ## Quick Links
 //!
@@ -100,6 +104,7 @@ pub mod jsd;
 pub mod kld;
 pub mod macros;
 pub mod mutual_information;
+pub mod references;
 pub mod settings;
 pub mod statistical_tests;
 pub mod transfer_entropy;

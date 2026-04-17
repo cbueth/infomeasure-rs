@@ -2,6 +2,64 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Kraskov-Stögbauer-Grassberger (KSG) Estimators
+//!
+//! The Kraskov-Stögbauer-Grassberger (KSG) method is a non-parametric estimation technique
+//! for mutual information and related measures based on k-nearest neighbor (kNN) distances.
+//!
+//! ## Overview
+//!
+//! KSG avoids explicit density estimation by leveraging properties of kNN distances,
+//! similar to the Kozachenko-Leonenko entropy estimator. It is designed to cancel out
+//! errors in marginal and joint entropy estimates that would otherwise arise from
+//! different dimensionalities.
+//!
+//! This module implements:
+//! - **Mutual Information (MI)**: $I(X; Y)$
+//! - **Conditional Mutual Information (CMI)**: $I(X; Y | Z)$
+//! - **Transfer Entropy (TE)**: $T_{X \to Y}$
+//! - **Conditional Transfer Entropy (CTE)**: $T_{X \to Y | Z}$
+//!
+//! ## Algorithms: Type I and Type II
+//!
+//! The KSG method supports two variants that differ in how they count neighbors in
+//! marginal spaces and the specific formula used:
+//!
+//! ### Type I (Algorithm 1)
+//! Uses strict inequality for neighbor counting in marginal spaces (distance $< \epsilon$).
+//!
+//! For MI, the formula is:
+//! $$I(X; Y) = \psi(k) + \psi(N) - \frac{1}{N} \sum_{i=1}^{N} [\psi(n_x(i) + 1) + \psi(n_y(i) + 1)]$$
+//!
+//! where $n_x(i)$ is the number of points in the $X$-marginal space with distance strictly
+//! less than the distance to the $k$-th neighbor in the joint space.
+//!
+//! ### Type II (Algorithm 2)
+//! Uses non-strict inequality (distance $\le \epsilon$) and a modified formula:
+//! $$I(X; Y) = \psi(k) - 1/k + \psi(N) - \frac{1}{N} \sum_{i=1}^{N} [\psi(n_x(i)) + \psi(n_y(i))]$$
+//!
+//! where $n_x(i)$ now includes points at distance $\le \epsilon$.
+//!
+//! ## Conditional Measures
+//!
+//! ### Conditional Mutual Information (CMI)
+//! For CMI, the KSG estimator uses:
+//! $$I(X; Y | Z) = \psi(k) + \langle \psi(n_z(i) + 1) - \psi(n_{xz}(i) + 1) - \psi(n_{yz}(i) + 1) \rangle$$
+//!
+//! ### Transfer Entropy (TE)
+//! TE is estimated as a conditional mutual information $I(Y_{future}; X_{past} | Y_{past})$:
+//! $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
+//!
+//! ## See Also
+//! - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+//! - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Directed information flow
+//! - [Kozachenko-Leonenko](super::kozachenko_leonenko) — kNN-based entropy
+//!
+//! ## References
+//!
+//! - [Kraskov et al., 2004](../../../../guide/references/index.html#ksg2004)
+//! - [Frenzel & Pompe, 2007](../../../../guide/references/index.html#frenzel2007)
+
 use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use statrs::function::gamma::digamma;
@@ -23,6 +81,16 @@ impl<const K: usize> KsgMetric<f64, K> for SquaredEuclidean {}
 macro_rules! impl_ksg_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("KSG (kNN-based) mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        ///
+        /// ## Theory
+        ///
+        /// For two variables, the KSG Type I formula is:
+        /// $$I(X; Y) = \psi(k) + \psi(N) - \frac{1}{N} \sum_{i=1}^{N} [\psi(n_x(i) + 1) + \psi(n_y(i) + 1)]$$
+        ///
+        /// For $m$ variables, this generalizes to:
+        /// $$I(X_1; \ldots; X_m) = \psi(k) + (m-1)\psi(N) - \left\langle \sum_{j=1}^m \psi(n_j + 1) \right\rangle$$
+        ///
+        /// See the [Mutual Information Guide](crate::guide::mutual_information) for conceptual background.
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub ksg_type: KsgType,
@@ -198,7 +266,17 @@ impl_ksg_mi!(
     (0, 1, 2, 3, 4, 5)
 );
 
-#[doc = "KSG (kNN-based) conditional mutual information estimator"]
+/// KSG (kNN-based) conditional mutual information estimator.
+///
+/// ## Theory
+///
+/// The KSG estimator for CMI uses the following formula:
+/// $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_z + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
+///
+/// where $n_z, n_{xz}, n_{yz}$ are neighbor counts in the respective subspaces defined
+/// by the distance to the $k$-th neighbor in the joint $(X, Y, Z)$ space.
+///
+/// See the [Conditional MI Guide](crate::guide::cond_mi) for conceptual background.
 pub struct KsgConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -467,7 +545,12 @@ impl<
 
 /// KSG-based transfer entropy estimator.
 ///
-/// TE(X -> Y) = I(Y_f; X_p | Y_p)
+/// ## Theory
+///
+/// Transfer entropy is estimated as a conditional mutual information $I(Y_{future}; X_{past} | Y_{past})$:
+/// $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
+///
+/// See the [Transfer Entropy Guide](crate::guide::transfer_entropy) for conceptual background.
 pub struct KsgTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -654,7 +737,12 @@ impl<
 
 /// KSG-based conditional transfer entropy estimator.
 ///
-/// CTE(X -> Y | Z) = I(Y_f; X_p | Y_p, Z_p)
+/// ## Theory
+///
+/// Conditional transfer entropy is estimated as:
+/// $$TE(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{past}, Z_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}, Z_{past}} + 1) - \psi(n_{X_{past}, Y_{past}, Z_{past}} + 1) \rangle$$
+///
+/// See the [Conditional TE Guide](crate::guide::cond_te) for conceptual background.
 pub struct KsgConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

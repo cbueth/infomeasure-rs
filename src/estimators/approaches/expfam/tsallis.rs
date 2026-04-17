@@ -2,6 +2,45 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Tsallis Entropy Estimators (kNN-based)
+//!
+//! This module implements estimators for Tsallis entropy and its derived measures
+//! using k-nearest neighbor distances.
+//!
+//! ## Theory
+//!
+//! Tsallis entropy (q-order entropy) is a non-additive generalization of Shannon entropy:
+//!
+//! $$S_q(X) = \frac{1}{q-1} \left( 1 - \sum_{i=1}^{n} p_i^q \right)$$
+//!
+//! For continuous variables, it is estimated using kNN distances as:
+//!
+//! $$S_q(X) = \frac{1 - I_q}{q - 1}$$
+//!
+//! where $I_q$ is the same exponential-family integral used in Rényi entropy estimation:
+//!
+//! $$I_q = \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,q} V_m \rho_{i,k}^m )^{1-q}$$
+//!
+//! In the limit $q \to 1$, Tsallis entropy reduces to Shannon entropy.
+//!
+//! ## Measures Implemented
+//!
+//! - **Entropy**: $S_q(X)$
+//! - **Mutual Information**: $I_q(X; Y) = S_q(X) + S_q(Y) - S_q(X, Y)$
+//! - **Conditional MI**: $I_q(X; Y | Z) = S_q(X, Z) + S_q(Y, Z) - S_q(X, Y, Z) - S_q(Z)$
+//! - **Transfer Entropy**: $T_q(X \to Y)$ estimated via the CMI entropy-summation formula.
+//!
+//! ## See Also
+//! - [Entropy Guide](crate::guide::entropy) — Conceptual background
+//! - [Rényi Estimators](super::renyi) — Additive generalized entropy
+//! - [KSG Estimators](super::ksg) — kNN-based MI optimized for Shannon entropy
+//!
+//! ## References
+//!
+//! - [Tsallis, 1988](../../../../guide/references/index.html#tsallis1988)
+//! - [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008)
+
+use crate::estimators::doc_macros::doc_snippets;
 use kiddo::SquaredEuclidean;
 use ndarray::{Array1, Array2, Axis, concatenate};
 use std::num::NonZeroUsize;
@@ -16,6 +55,16 @@ use crate::estimators::traits::{
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 
 /// Tsallis entropy estimator (kNN-based, exponential-family formulation)
+///
+/// ## Theory
+///
+/// For continuous variables, the Tsallis $q$-entropy is estimated using kNN distances as:
+///
+/// $$S_q(X) = \frac{1 - I_q}{q - 1}$$
+///
+/// where $I_q$ is the exponential-family integral:
+///
+/// $$I_q = \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,q} V_m \rho_{i,k}^m )^{1-q}$$
 ///
 /// **Important Note**: This estimator requires the logarithm base to be specified during
 /// construction via the `base` field or `with_base()` method. Unlike other entropy
@@ -268,6 +317,10 @@ impl<const K: usize> OptionalLocalValues for TsallisEntropy<K> {
 macro_rules! impl_tsallis_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("Tsallis mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        ///
+        /// ## Theory
+        ///
+        #[doc = doc_snippets!(mi_formula "Tsallis", "_q", "", "S")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub q: f64,
@@ -343,6 +396,10 @@ impl_tsallis_mi!(
 );
 
 /// Tsallis conditional mutual information estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "Tsallis", "_q", "", "S")]
 pub struct TsallisConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -463,6 +520,10 @@ impl<
 }
 
 /// Tsallis transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "Tsallis", "_q", "", "S")]
 pub struct TsallisTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -647,6 +708,10 @@ impl<
 }
 
 /// Tsallis conditional transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "Tsallis", "_q", "", "S")]
 pub struct TsallisConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

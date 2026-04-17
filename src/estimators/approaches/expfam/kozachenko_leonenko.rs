@@ -2,6 +2,48 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! # Kozachenko-Leonenko (KL) Estimators
+//!
+//! This module implements the Kozachenko-Leonenko differential entropy estimator
+//! and its extensions to Mutual Information and Transfer Entropy using
+//! k-nearest neighbor (kNN) distances.
+//!
+//! ## Theory
+//!
+//! The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
+//! of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
+//!
+//! $$H_{KL}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
+//!
+//! where:
+//! - $\psi$ is the digamma function.
+//! - $k$ is the number of nearest neighbors.
+//! - $N$ is the number of data points.
+//! - $m$ is the dimensionality of the data.
+//! - $V_m$ is the volume of the $m$-dimensional unit ball.
+//! - $\rho_{i,k}$ is the distance to the $k$-th nearest neighbor of point $i$.
+//!
+//! The method works by exploiting the relationship between nearest neighbor
+//! distances and local density, making it effective for high-dimensional data
+//! where traditional histogram-based methods fail.
+//!
+//! ## Measures Implemented
+//!
+//! - **Differential Entropy**: $H_{KL}(X)$
+//! - **Mutual Information**: $I_{KL}(X; Y) = H_{KL}(X) + H_{KL}(Y) - H_{KL}(X, Y)$
+//! - **Conditional MI**: $I_{KL}(X; Y | Z) = H_{KL}(X, Z) + H_{KL}(Y, Z) - H_{KL}(X, Y, Z) - H_{KL}(Z)$
+//! - **Transfer Entropy**: $T_{KL}(X \to Y)$ estimated via the CMI entropy-summation formula.
+//!
+//! ## See Also
+//! - [Entropy Guide](crate::guide::entropy) — Conceptual background
+//! - [KSG Estimators](super::ksg) — kNN-based MI optimized to cancel bias
+//!
+//! ## References
+//!
+//! - [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987)
+//! - [Kraskov et al., 2004](../../../../guide/references/index.html#ksg2004)
+
+use crate::estimators::doc_macros::doc_snippets;
 use kiddo::Chebyshev;
 use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
@@ -16,11 +58,22 @@ use crate::estimators::traits::{
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 use ndarray::{Axis, concatenate};
 
-/// Kozachenko–Leonenko (KL) differential entropy estimator (kNN-based, Euclidean metric)
+/// Kozachenko–Leonenko (KL) differential entropy estimator (kNN-based)
 ///
-/// H_hat = psi(N) - psi(k) + ln(V_m) + (m/N) * sum_i ln(rho_k,i)
-/// where V_m is the m-dimensional unit-ball volume (Euclidean) and rho_k,i is the
-/// distance to the k-th nearest neighbor of point i (self excluded).
+/// ## Theory
+///
+/// The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
+/// of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
+///
+/// $$H_{KL}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
+///
+/// where:
+/// - $\psi$ is the digamma function.
+/// - $k$ is the number of nearest neighbors.
+/// - $N$ is the number of data points.
+/// - $m$ is the dimensionality of the data.
+/// - $V_m$ is the volume of the $m$-dimensional unit ball.
+/// - $\rho_{i,k}$ is the distance to the $k$-th nearest neighbor of point $i$.
 ///
 /// **Important Note**: This estimator requires the logarithm base to be specified during
 /// construction via the `base` field or `with_base()` method. Unlike other entropy
@@ -295,6 +348,10 @@ impl<const K: usize> OptionalLocalValues for KozachenkoLeonenkoEntropy<K> {
 macro_rules! impl_kl_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
         #[doc = concat!("Kozachenko-Leonenko mutual information estimator for ", stringify!($num_rvs), " random variables")]
+        ///
+        /// ## Theory
+        ///
+        #[doc = doc_snippets!(mi_formula "KL-based", r"_{KL}", "")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub ksg_type: KsgType,
@@ -396,6 +453,10 @@ impl_kl_mi!(
 );
 
 /// Kozachenko-Leonenko conditional mutual information estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "KL-based", r"_{KL}", "")]
 pub struct KozachenkoLeonenkoConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -531,6 +592,10 @@ impl<
 }
 
 /// Kozachenko-Leonenko transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "KL-based", r"_{KL}", "")]
 pub struct KozachenkoLeonenkoTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -729,6 +794,10 @@ impl<
 }
 
 /// Kozachenko-Leonenko conditional transfer entropy estimator
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "KL-based", r"_{KL}", "")]
 pub struct KozachenkoLeonenkoConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

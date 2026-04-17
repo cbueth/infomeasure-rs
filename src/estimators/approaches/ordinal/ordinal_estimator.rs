@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -21,6 +22,16 @@ use crate::estimators::traits::{
 use ndarray::s;
 
 /// Ordinal (permutation) entropy estimator.
+///
+/// ## Theory
+///
+/// Ordinal entropy (Permutation Entropy) [Bandt & Pompe, 2002](../../../../guide/references/index.html#bandt2002) is calculated by
+/// symbolizing the time series into permutation patterns and computing the Shannon entropy
+/// of their distribution:
+///
+/// $$H_{ord}(X) = -\sum_{p \in \mathcal{S}_d} \hat{P}(p) \log \hat{P}(p)$$
+///
+/// where $\mathcal{S}_d$ is the set of all $d!$ permutations of length $d$ (the `order`).
 ///
 /// This estimator converts a 1D time series into ordinal patterns of order `m` with
 /// step size fixed to 1 (to strictly match Python implementation). It uses the canonical
@@ -207,6 +218,10 @@ impl OptionalLocalValues for OrdinalEntropy {
 }
 
 /// Ordinal mutual information estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(mi_formula "Ordinal", "_{ord}", " on permutation patterns")]
 pub struct OrdinalMutualInformation {
     inner: DiscreteMutualInformation<DiscreteEntropy>,
 }
@@ -240,6 +255,10 @@ impl OptionalLocalValues for OrdinalMutualInformation {
 impl MutualInformationEstimator for OrdinalMutualInformation {}
 
 /// Ordinal conditional mutual information estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cmi_formula "Ordinal", "_{ord}", " on permutation patterns")]
 pub struct OrdinalConditionalMutualInformation {
     inner: DiscreteConditionalMutualInformation<DiscreteEntropy>,
 }
@@ -284,6 +303,10 @@ impl OptionalLocalValues for OrdinalConditionalMutualInformation {
 impl ConditionalMutualInformationEstimator for OrdinalConditionalMutualInformation {}
 
 /// Ordinal transfer entropy estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(te_formula "Ordinal", "_{ord}", " on permutation patterns")]
 pub struct OrdinalTransferEntropy {
     inner: DiscreteTransferEntropy<DiscreteEntropy>,
 }
@@ -330,6 +353,10 @@ impl OptionalLocalValues for OrdinalTransferEntropy {
 impl TransferEntropyEstimator for OrdinalTransferEntropy {}
 
 /// Ordinal conditional transfer entropy estimator.
+///
+/// ## Theory
+///
+#[doc = doc_snippets!(cte_formula "Ordinal", "_{ord}", " on permutation patterns")]
 pub struct OrdinalConditionalTransferEntropy {
     inner: DiscreteConditionalTransferEntropy<DiscreteEntropy>,
 }

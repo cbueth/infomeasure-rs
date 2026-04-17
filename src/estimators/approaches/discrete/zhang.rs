@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -19,6 +20,8 @@ use ndarray::{Array1, Array2};
 ///
 /// Joint entropy is supported by reducing the joint space of multiple variables to a single
 /// discrete representation before estimation.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct ZhangEntropy {
     dataset: DiscreteDataset,
 }

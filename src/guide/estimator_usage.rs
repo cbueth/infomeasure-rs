@@ -22,7 +22,7 @@
 //! ### 1. Facade Types (Recommended for Most Users)
 //!
 //! The simplest way to compute measures is through the facade types:
-//! - [`Entropy`](crate::estimators::entropy::Entropy) - for all entropy estimators
+//! - [`Entropy`](crate::estimators::entropy::Entropy) — for all entropy estimators
 //! - [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) - for MI/CMI
 //! - [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) - for TE/CTE
 //!

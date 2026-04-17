@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -10,14 +11,18 @@ use statrs::function::gamma::digamma;
 
 /// Grassberger (Gr88) entropy estimator for discrete data.
 ///
-/// Per-count correction using digamma functions with an alternating term:
-/// for count $n_i$, local contribution is $\ln N - \psi(n_i) - (-1)^{n_i}/(n_i+1)$.
-/// Supports local values. Suitable for moderate undersampling.
+/// ## Theory
 ///
-/// Cross-entropy is not implemented for Grassberger estimator.
-/// The Grassberger correction is designed for bias correction in entropy
-/// estimation, and cross-entropy mixes probabilities from one distribution
-/// with corrections from another, creating a theoretical inconsistency.
+/// The Grassberger estimator [Grassberger, 1988](../../../../guide/references/index.html#grassberger1988) reduces small-sample bias
+/// by replacing the $\log$ term in the Shannon formula with an expectation based on
+/// the digamma function $\psi$ and an alternating term:
+///
+/// $$\hat{H}_{G} = \frac{1}{N} \sum n_i [\psi(N) - \psi(n_i) - (-1)^{n_i}/(n_i+1)]$$
+///
+/// where $n_i$ are the counts for each bin. This estimator is particularly effective
+/// when some bins have very small counts (including $n_i=1$).
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct GrassbergerEntropy {
     dataset: DiscreteDataset,
 }

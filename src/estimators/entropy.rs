@@ -18,17 +18,26 @@ use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
 use crate::estimators::approaches::kernel;
 use crate::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+#[doc = doc_snippets!(facade_overview "entropy", "Facade for creating various entropy estimators.")]
+pub struct Entropy;
+
 pub use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 use ndarray::{Array1, Array2};
-
-/// Facade for creating various entropy estimators.
+/// ### Shannon Entropy
+/// For a discrete random variable $X$ with probability mass function $p(x)$:
+/// $$H(X) = -\sum_{x \in \mathcal{X}} p(x) \log p(x)$$
 ///
-/// This struct provides a unified interface for all entropy estimation techniques supported
-/// by the library. It includes methods for discrete, kernel-based, ordinal, and
-/// exponential family (k-NN) estimators.
+/// ### Differential Entropy
+/// For a continuous random variable $X$ with probability density function $f(x)$:
+/// $$H(X) = -\int_{\mathcal{X}} f(x) \log f(x) \, dx$$
 ///
-/// Each estimator can be used to compute the global entropy value or local entropy values
-/// (if supported) using the [`GlobalValue`] and [`LocalValues`] traits.
+/// ### Joint Entropy
+/// Measures the uncertainty of multiple variables together:
+/// $$H(X, Y) = -\sum_{x,y} p(x,y) \log p(x,y)$$
+///
+/// ### Conditional Entropy
+/// The uncertainty remaining in $X$ after knowing $Y$:
+/// $$H(X|Y) = H(X,Y) - H(Y)$$
 ///
 /// # Relationship to Other Measures
 ///
@@ -304,8 +313,7 @@ use ndarray::{Array1, Array2};
 /// let h_q_p = ex.cross_entropy(&ey);
 /// assert!(h_q_p >= h_x);
 /// ```
-pub struct Entropy;
-
+/// // Facade struct
 // Non-generic implementation (1D default case)
 impl Entropy {
     /// Creates a new discrete entropy estimator for 1D integer data
