@@ -13,7 +13,7 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, OptionalLocalValues};
 ///
 /// ## Theory
 ///
-/// The Chao-Shen estimator [Chao & Shen, 2003](../../../../guide/references/index.html#chao2003) accounts for unobserved states by
+/// The Chao-Shen estimator [Chao & Shen, 2003](crate::guide::references#chao2003) accounts for unobserved states by
 /// combining the Horvitz-Thompson adjustment with a sample coverage estimate $C$:
 ///
 /// $$\hat{H}_{CS} = - \sum_{i=1}^{K} \frac{C \hat{p}_i^{ML} \log (C \hat{p}_i^{ML})}{1 - (1 - C \hat{p}_i^{ML})^N}$$

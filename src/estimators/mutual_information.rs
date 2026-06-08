@@ -7,8 +7,8 @@
 //! This module provides estimators for computing mutual information $I(X;Y)$ and
 //! conditional mutual information $I(X;Y|Z)$.
 //!
-//! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
-//! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+//! For usage examples and guidance, see the [Estimator Usage Guide](crate::guide::estimator_usage).
+//! For macro convenience functions, see the [Macros Guide](crate::guide::macros).
 //!
 //! ## Const Generics and Dimensions
 //!

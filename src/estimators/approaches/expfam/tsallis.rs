@@ -37,8 +37,8 @@
 //!
 //! ## References
 //!
-//! - [Tsallis, 1988](../../../../guide/references/index.html#tsallis1988)
-//! - [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008)
+//! - [Tsallis, 1988](crate::guide::references#tsallis1988)
+//! - [Leonenko et al., 2008](crate::guide::references#leonenko2008)
 
 use crate::estimators::doc_macros::doc_snippets;
 use kiddo::SquaredEuclidean;

@@ -1,15 +1,10 @@
 #!/bin/bash
-# Transform [name]<ref:key> to [name](path#key) for docs.rs
+# Transform [name]<ref:key> to Rust intra-doc links [name](crate::guide::references#key)
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
+# Transform <ref:key> to intra-doc links to references
 find src -name "*.rs" -exec grep -l '<ref:' {} \; | while read -r file; do
-    depth=$(echo "$file" | tr -cd '/' | wc -c)
-    up=$(printf '../%.0s' $(seq 1 $depth))
-    path="${up}guide/references/index.html"
-    
-    # Escape slashes for perl
-    escaped_path=${path//\//\\\/}
-    /usr/bin/perl -i -pe "s/\[([^\]]+)\]<ref:([a-zA-Z0-9_]+)>/\"[\$1](${escaped_path}#\$2)\"/g" "$file"
-    echo "Transformed: $file"
+    perl -i -pe 's/\[([^\]]+)\]<ref:([a-zA-Z0-9_]+)>/[$1](crate::guide::references#$2)/g' "$file"
+    echo "Transformed <ref:>: $file"
 done

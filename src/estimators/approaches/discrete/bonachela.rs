@@ -13,7 +13,7 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, Optional
 ///
 /// ## Theory
 ///
-/// The Bonachela estimator [Bonachela et al., 2008](../../../../guide/references/index.html#bonachela2008) is designed for very small sample
+/// The Bonachela estimator [Bonachela et al., 2008](crate::guide::references#bonachela2008) is designed for very small sample
 /// sizes. It provides a bias correction based on a harmonic sum:
 ///
 /// $$\hat{H}_{B} = \frac{1}{N+2} \sum_{i=1}^{K} \left( (n_i + 1) \sum_{j=n_i + 2}^{N+2} \frac{1}{j} \right)$$

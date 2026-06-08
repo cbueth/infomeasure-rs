@@ -13,7 +13,7 @@ use statrs::function::gamma::digamma;
 ///
 /// ## Theory
 ///
-/// The Grassberger estimator [Grassberger, 1988](../../../../guide/references/index.html#grassberger1988) reduces small-sample bias
+/// The Grassberger estimator [Grassberger, 1988](crate::guide::references#grassberger1988) reduces small-sample bias
 /// by replacing the $\log$ term in the Shannon formula with an expectation based on
 /// the digamma function $\psi$ and an alternating term:
 ///

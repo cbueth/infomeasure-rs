@@ -14,7 +14,7 @@
 //! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left( \sum_{i=1}^{n} p_i^\alpha \right)$$
 //!
 //! In this module, we use the kNN-based estimation for continuous variables
-//! [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008):
+//! [Leonenko et al., 2008](crate::guide::references#leonenko2008):
 //!
 //! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
 //!
@@ -39,8 +39,8 @@
 //!
 //! ## References
 //!
-//! - [Rényi, 1976](../../../../guide/references/index.html#renyi1976)
-//! - [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008)
+//! - [Rényi, 1976](crate::guide::references#renyi1976)
+//! - [Leonenko et al., 2008](crate::guide::references#leonenko2008)
 
 use crate::estimators::doc_macros::doc_snippets;
 use kiddo::SquaredEuclidean;
@@ -61,7 +61,7 @@ use crate::estimators::utils::te_slicing::{cte_observations_const, te_observatio
 /// ## Theory
 ///
 /// For continuous variables, the Rényi $\alpha$-entropy is estimated using kNN distances as
-/// [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008):
+/// [Leonenko et al., 2008](crate::guide::references#leonenko2008):
 ///
 /// $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
 ///

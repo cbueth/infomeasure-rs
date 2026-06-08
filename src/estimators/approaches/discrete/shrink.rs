@@ -13,7 +13,7 @@ use std::collections::HashMap;
 ///
 /// ## Theory
 ///
-/// The Shrinkage estimator [Hausser & Strimmer, 2009](../../../../guide/references/index.html#hausser2009) regularizes the empirical probability
+/// The Shrinkage estimator [Hausser & Strimmer, 2009](crate::guide::references#hausser2009) regularizes the empirical probability
 /// distribution toward a uniform target using a data-driven shrinkage intensity $\lambda \in \[0,1\]$:
 ///
 /// $$\hat{p}_i^{SHR} = \lambda t_i + (1-\lambda) \hat{p}_i^{ML}$$

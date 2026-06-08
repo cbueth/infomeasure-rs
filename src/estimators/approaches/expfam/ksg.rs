@@ -57,8 +57,8 @@
 //!
 //! ## References
 //!
-//! - [Kraskov et al., 2004](../../../../guide/references/index.html#ksg2004)
-//! - [Frenzel & Pompe, 2007](../../../../guide/references/index.html#frenzel2007)
+//! - [Kraskov et al., 2004](crate::guide::references#ksg2004)
+//! - [Frenzel & Pompe, 2007](crate::guide::references#frenzel2007)
 
 use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};

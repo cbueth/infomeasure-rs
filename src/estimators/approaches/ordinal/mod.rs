@@ -12,16 +12,16 @@
 //!
 //! ## Theory
 //!
-//! Ordinal entropy (also known as Permutation Entropy) [Bandt & Pompe, 2002](../../../../guide/references/index.html#bandt2002)
+//! Ordinal entropy (also known as Permutation Entropy) [Bandt & Pompe, 2002](crate::guide::references#bandt2002)
 //! transforms a continuous time series into a sequence of discrete symbols based
 //! on the relative order of values in sliding windows.
 //!
 //! ### Symbolization
 //!
 //! The permutation pattern is determined by the ordinal comparison of values in the
-//! time series [Laisant, 1888](../../../../guide/references/index.html#laisant1888).
+//! time series [Laisant, 1888](crate::guide::references#laisant1888).
 //! The rank ordering approach was systematized for combinatorial applications
-//! [Lehmer, 1960](../../../../guide/references/index.html#lehmer1960).
+//! [Lehmer, 1960](crate::guide::references#lehmer1960).
 //!
 //! Given a window of length $d$ (the `embedding_dim`), the values are replaced
 //! by their rank order (permutation). For example, with $d=3$:
@@ -58,8 +58,8 @@
 //!
 //! ## References
 //!
-//! - [Bandt & Pompe, 2002](../../../../guide/references/index.html#bandt2002)
-//! - [Staniek & Lehnertz, 2008](../../../../guide/references/index.html#staniek2008)
+//! - [Bandt & Pompe, 2002](crate::guide::references#bandt2002)
+//! - [Staniek & Lehnertz, 2008](crate::guide::references#staniek2008)
 
 pub mod ordinal_estimator;
 pub mod ordinal_utils;

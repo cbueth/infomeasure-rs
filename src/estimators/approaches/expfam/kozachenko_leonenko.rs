@@ -11,7 +11,7 @@
 //! ## Theory
 //!
 //! The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
-//! of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
+//! of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](crate::guide::references#kozachenko1987):
 //!
 //! $$H_{\mathrm{KL}}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
 //!
@@ -40,8 +40,8 @@
 //!
 //! ## References
 //!
-//! - [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987)
-//! - [Kraskov et al., 2004](../../../../guide/references/index.html#ksg2004)
+//! - [Kozachenko & Leonenko, 1987](crate::guide::references#kozachenko1987)
+//! - [Kraskov et al., 2004](crate::guide::references#ksg2004)
 
 use crate::estimators::doc_macros::doc_snippets;
 use kiddo::Chebyshev;
@@ -63,7 +63,7 @@ use ndarray::{Axis, concatenate};
 /// ## Theory
 ///
 /// The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
-/// of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
+/// of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](crate::guide::references#kozachenko1987):
 ///
 /// $$H_{\mathrm{KL}}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
 ///

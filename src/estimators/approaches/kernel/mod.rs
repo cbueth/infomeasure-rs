@@ -53,8 +53,8 @@
 //!
 //! ## References
 //!
-//! - [Silverman, 1986](../../../../guide/references/index.html#silverman1986)
-//! - [García-Portugués, 2025](../../../../guide/references/index.html#garcia_portugues2025)
+//! - [Silverman, 1986](crate::guide::references#silverman1986)
+//! - [García-Portugués, 2025](crate::guide::references#garcia_portugues2025)
 
 mod kernel_estimator; // core kernel entropy implementation
 pub use kernel_estimator::*; // re-export KernelEntropy, KernelData, etc.

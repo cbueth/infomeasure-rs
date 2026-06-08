@@ -45,9 +45,9 @@
 //!
 //! ## References
 //!
-//! - [Grassberger, 1988](../../../../guide/references/index.html#grassberger1988)
-//! - [Hausser & Strimmer, 2009](../../../../guide/references/index.html#hausser2009)
-//! - [Nemenman et al., 2002](../../../../guide/references/index.html#nsb2002)
+//! - [Grassberger, 1988](crate::guide::references#grassberger1988)
+//! - [Hausser & Strimmer, 2009](crate::guide::references#hausser2009)
+//! - [Nemenman et al., 2002](crate::guide::references#nsb2002)
 
 pub mod discrete_utils;
 #[cfg(feature = "gpu")]

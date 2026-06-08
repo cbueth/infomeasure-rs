@@ -25,7 +25,7 @@ use ndarray::s;
 ///
 /// ## Theory
 ///
-/// Ordinal entropy (Permutation Entropy) [Bandt & Pompe, 2002](../../../../guide/references/index.html#bandt2002) is calculated by
+/// Ordinal entropy (Permutation Entropy) [Bandt & Pompe, 2002](crate::guide::references#bandt2002) is calculated by
 /// symbolizing the time series into permutation patterns and computing the Shannon entropy
 /// of their distribution:
 ///

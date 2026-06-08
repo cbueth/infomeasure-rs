@@ -9,7 +9,7 @@
 //!
 //! This module provides non-parametric estimators for information measures based on
 //! k-nearest neighbor (kNN) distances. These estimators are part of the
-//! exponential-family formulation of information measures [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008).
+//! exponential-family formulation of information measures [Leonenko et al., 2008](crate::guide::references#leonenko2008).
 //!
 //! ## Overview
 //!
@@ -42,8 +42,8 @@
 //!
 //! ## References
 //!
-//! - [Leonenko et al., 2008](../../../../guide/references/index.html#leonenko2008)
-//! - [Kraskov et al., 2004](../../../../guide/references/index.html#ksg2004)
+//! - [Leonenko et al., 2008](crate::guide::references#leonenko2008)
+//! - [Kraskov et al., 2004](crate::guide::references#ksg2004)
 
 pub mod kozachenko_leonenko;
 pub mod ksg;

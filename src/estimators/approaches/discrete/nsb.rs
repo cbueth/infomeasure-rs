@@ -13,7 +13,7 @@ use statrs::function::gamma::{digamma, ln_gamma};
 ///
 /// ## Theory
 ///
-/// The Nemenman-Shafee-Bialek (NSB) estimator [Nemenman et al., 2002](../../../../guide/references/index.html#nsb2002) is a Bayesian approach designed
+/// The Nemenman-Shafee-Bialek (NSB) estimator [Nemenman et al., 2002](crate::guide::references#nsb2002) is a Bayesian approach designed
 /// for extremely undersampled data. It addresses the "problem of priors" in entropy estimation
 /// by using a mixture of Dirichlet priors that results in a nearly flat prior over the
 /// entropy itself.
