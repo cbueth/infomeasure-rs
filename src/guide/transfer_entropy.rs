@@ -44,8 +44,8 @@
 //! This helps correct for bias from finite sample sizes.
 //! ## Implemented in This Crate
 //! ### Continuous TE: Kraskov-Stögbauer-Grassberger (KSG)
-//! The KSG method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) can be adapted for transfer entropy estimation
-//! [Kaiser & Schreiber, 2002](../../guide/references/index.html#kaiser2002). It uses the same neighbor-counting logic as KSG MI but
+//! The KSG method [Kraskov et al., 2004](super::references#ksg2004) can be adapted for transfer entropy estimation
+//! [Kaiser & Schreiber, 2002](super::references#kaiser2002). It uses the same neighbor-counting logic as KSG MI but
 //! applied to the specific embedding vectors:
 //! $$TE(X \to Y) = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
 //! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.

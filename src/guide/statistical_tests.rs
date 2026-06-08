@@ -35,5 +35,5 @@
 //! print(result.p_value)  # p-value for significance
 //! ```
 //! ## References
-//! - [Schreiber, 2000](../../guide/references/index.html#schreiber2000)
-//! - [Lizier, 2014](../../guide/references/index.html#lizier2014)
+//! - [Schreiber, 2000](super::references#schreiber2000)
+//! - [Lizier, 2014](super::references#lizier2014)

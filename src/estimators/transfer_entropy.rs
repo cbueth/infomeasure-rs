@@ -58,16 +58,16 @@
 //! ### Helper Macros
 //!
 //! To simplify instantiation and automatically calculate these dimensions, use the following macros:
-//! - `new_kernel_te!` - Creates a `KernelTransferEntropy` estimator
-//! - `new_kernel_cte!` - Creates a `KernelConditionalTransferEntropy` estimator
-//! - `new_ksg_te!` - Creates a `KsgTransferEntropy` estimator
-//! - `new_ksg_cte!` - Creates a `KsgConditionalTransferEntropy` estimator
-//! - `new_renyi_te!` - Creates a `RenyiTransferEntropy` estimator
-//! - `new_renyi_cte!` - Creates a `RenyiConditionalTransferEntropy` estimator
-//! - `new_tsallis_te!` - Creates a `TsallisTransferEntropy` estimator
-//! - `new_tsallis_cte!` - Creates a `TsallisConditionalTransferEntropy` estimator
-//! - `new_ordinal_te!` - Creates an `OrdinalTransferEntropy` estimator
-//! - `new_ordinal_cte!` - Creates an `OrdinalConditionalTransferEntropy` estimator
+//! - `new_kernel_te!` — Creates a `KernelTransferEntropy` estimator
+//! - `new_kernel_cte!` — Creates a `KernelConditionalTransferEntropy` estimator
+//! - `new_ksg_te!` — Creates a `KsgTransferEntropy` estimator
+//! - `new_ksg_cte!` — Creates a `KsgConditionalTransferEntropy` estimator
+//! - `new_renyi_te!` — Creates a `RenyiTransferEntropy` estimator
+//! - `new_renyi_cte!` — Creates a `RenyiConditionalTransferEntropy` estimator
+//! - `new_tsallis_te!` — Creates a `TsallisTransferEntropy` estimator
+//! - `new_tsallis_cte!` — Creates a `TsallisConditionalTransferEntropy` estimator
+//! - `new_ordinal_te!` — Creates an `OrdinalTransferEntropy` estimator
+//! - `new_ordinal_cte!` — Creates an `OrdinalConditionalTransferEntropy` estimator
 //!
 //! These macros handle the dimension calculations automatically based on the history lengths
 //! and input dimensionalities you provide.
@@ -114,15 +114,15 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::{
 /// based on the history lengths and input dimensionalities.
 ///
 /// # Arguments
-/// * `$source`: `&Array2<f64>` - Source time series (samples x D_src)
-/// * `$dest`: `&Array2<f64>` - Destination time series (samples x D_target)
-/// * `$src_hist`: `usize` - Number of past source observations to include.
-/// * `$dest_hist`: `usize` - Number of past destination observations to include.
-/// * `$step`: `usize` - Delay between observations.
-/// * `$d_src`: `usize` - Dimensionality of source variable.
-/// * `$d_target`: `usize` - Dimensionality of destination variable.
-/// * `$kernel`: `String` - Kernel type ("box" or "gaussian").
-/// * `$bw`: `f64` - Bandwidth parameter.
+/// * `$source`: `&Array2<f64>` — Source time series (samples x D_src)
+/// * `$dest`: `&Array2<f64>` — Destination time series (samples x D_target)
+/// * `$src_hist`: `usize` — Number of past source observations to include.
+/// * `$dest_hist`: `usize` — Number of past destination observations to include.
+/// * `$step`: `usize` — Delay between observations.
+/// * `$d_src`: `usize` — Dimensionality of source variable.
+/// * `$d_target`: `usize` — Dimensionality of destination variable.
+/// * `$kernel`: `String` — Kernel type ("box" or "gaussian").
+/// * `$bw`: `f64` — Bandwidth parameter.
 ///
 /// # See Also
 /// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
@@ -447,25 +447,31 @@ macro_rules! new_kl_cte {
 ///
 /// ### Transfer Entropy
 /// TE measures the directed information flow from source $X$ to target $Y$:
-/// $$T_{X \to Y} = I(Y_{future}; X_{past} \mid Y_{past})$$
+///
+/// $$T_{X \to Y} = I(Y_\mathrm{future}; X_\mathrm{past} \mid Y_\mathrm{past})$$
+///
 /// In terms of entropies:
-/// $$T_{X \to Y} = H(X_{past}, Y_{past}) + H(Y_{future}, Y_{past}) - H(X_{past}, Y_{future}, Y_{past}) - H(Y_{past})$$
+///
+/// $$T_{X \to Y} = H(X_\mathrm{past}, Y_\mathrm{past}) + H(Y_\mathrm{future}, Y_\mathrm{past}) - H(X_\mathrm{past}, Y_\mathrm{future}, Y_\mathrm{past}) - H(Y_\mathrm{past})$$
 ///
 /// ### Conditional Transfer Entropy
 /// CTE measures directed information flow while controlling for a third process $Z$:
-/// $$TE(X \to Y \mid Z) = I(Y_{future}; X_{past} \mid Y_{past}, Z_{past})$$
+///
+/// $$TE(X \to Y \mid Z) = I(Y_\mathrm{future}; X_\mathrm{past} \mid Y_\mathrm{past}, Z_\mathrm{past})$$
+///
 /// In terms of entropies:
-/// $$TE(X \to Y \mid Z) = H(X_{past}, Y_{past}, Z_{past}) + H(Y_{future}, Y_{past}, Z_{past}) - H(X_{past}, Y_{future}, Y_{past}, Z_{past}) - H(Y_{past}, Z_{past})$$
+///
+/// $$TE(X \to Y \mid Z) = H(X_\mathrm{past}, Y_\mathrm{past}, Z_\mathrm{past}) + H(Y_\mathrm{future}, Y_\mathrm{past}, Z_\mathrm{past}) - H(X_\mathrm{past}, Y_\mathrm{future}, Y_\mathrm{past}, Z_\mathrm{past}) - H(Y_\mathrm{past}, Z_\mathrm{past})$$
 ///
 /// # Relationship to Other Measures
 ///
 /// Transfer entropy is a directional (asymmetric) measure of information flow between time series:
 ///
-/// - **Mutual Information**: $I(X;Y)$ - non-directional dependence
-/// - **Time-lagged MI**: $I(X_{t-u}; Y_t)$ - directional but without conditioning
-/// - **Conditional MI**: $I(X;Y|Z)$ - MI with conditioning (but not time-lagged)
-/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - MI with time lags + conditioning on target's past
-/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with additional conditioning
+/// - **Mutual Information**: $I(X;Y)$ — non-directional dependence
+/// - **Time-lagged MI**: $I(X_{t-u}; Y_t)$ — directional but without conditioning
+/// - **Conditional MI**: $I(X;Y|Z)$ — MI with conditioning (but not time-lagged)
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ — MI with time lags + conditioning on target's past
+/// - **Conditional TE**: $T_{X \to Y|Z}$ — TE with additional conditioning
 ///
 /// For a detailed conceptual guide, see the [Transfer Entropy Guide](crate::guide::transfer_entropy).
 ///

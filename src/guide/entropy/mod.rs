@@ -4,14 +4,17 @@
 
 //! # Entropy Guide
 //! This module contains detailed guides for entropy estimation.
+//!
 //! ## Overview
 //! Entropy measures the uncertainty or information content of a random variable.
 //! On the flip side, this uncertainty is nothing but the lack of information.
 //! The larger the information required to accurately predict the state of the random variable,
 //! the higher is the uncertainty we initially had about it.
+//!
 //! ### Hartley Entropy (Equiprobable Case)
 //! For an unknown outcome $x$ from a set of $N$ equiprobable elements, the information is:
 //! $$H(x) = \\log_2(N)$$
+//!
 //! ### Shannon Entropy
 //! Claude Shannon developed a mathematical measure to quantify the amount of information
 //! produced by a source variable $X$. For a discrete random variable:
@@ -24,10 +27,12 @@
 //!   - If $b = e$ (natural logarithm), the unit is "nat".
 //!
 //! This crate uses nats (base $e$) by default.
+//!
 //! ### Differential Entropy (Continuous Variable)
 //! For a continuous random variable $X$ with probability density function $p(x)$, the differential entropy is:
 //! $$H(X) = -\\int_{X} p(x) \\log_b p(x) \\, dx$$
 //! The differential entropy is closely related to Shannon entropy.
+//!
 //! ## Local Entropy
 //! The **local information** measure, also referred to as **point-wise** information,
 //! characterizes the information associated with individual value points.
@@ -39,9 +44,11 @@
 //! The global entropy $H(X)$ is the **average** or **expectation value** of the local information:
 //! $$H(X) = \\langle h(x) \\rangle$$
 //! In this crate, you can obtain local entropy values using the [`LocalValues`](crate::estimators::traits::LocalValues) trait.
+//!
 //! ## Generalized Entropies
 //! While Shannon entropy is the most common, there are generalizations useful for
 //! complex systems, particularly where additivity does not hold.
+//!
 //! ### Rényi $\\alpha$-Entropy
 //! Rényi entropy is a generalized family of one-parameter entropy that preserves
 //! additivity for independent systems. For $\\alpha > 0$:
@@ -51,6 +58,7 @@
 //! For $\\alpha = 1$, Rényi entropy reduces to Shannon entropy.
 //! Small values of probabilities are emphasized for $\\alpha < 1$ and larger probabilities for $\\alpha > 1$.
 //! Use [`Entropy::new_renyi_1d`](crate::estimators::entropy::Entropy::new_renyi_1d) to create a Rényi entropy estimator.
+//!
 //! ### Tsallis Entropy
 //! Tsallis entropy (q-order entropy) is another generalization that modifies the additivity law:
 //! $$S_q = \\frac{1}{1 - q} \\left[ \\sum_{k=1}^{n} (p_k)^q - 1 \\right]$$
@@ -58,10 +66,12 @@
 //! This class of entropy is particularly useful for studying long-range correlated systems
 //! and non-equilibrium phenomena.
 //! Use [`Entropy::new_tsallis_1d`](crate::estimators::entropy::Entropy::new_tsallis_1d) to create a Tsallis entropy estimator.
+//!
 //! ## Estimator Types
 //! ### Discrete Estimators
 //! Histogram-based estimation for categorical/integer data.
-//! - [Discrete Estimators](discrete) - All discrete entropy estimators
+//! - [Discrete Estimators](discrete) — All discrete entropy estimators
+//!
 //! ### Continuous Estimators
 //! Non-parametric estimation for real-valued data.
 //! - Use [`Entropy::new_kernel`](crate::estimators::entropy::Entropy::new_kernel) for kernel estimation
@@ -85,16 +95,16 @@
 //! assert!(h_kernel >= 0.0);
 //! ```
 //! ## See Also
-//! - [Discrete Entropy](discrete) - Histogram-based estimators
-//! - [Mutual Information](super::mutual_information) - $I(X;Y) = H(X) + H(Y) - H(X,Y)$
-//! - [Conditional Entropy](super::cond_entropy) - $H(X|Y) = H(X,Y) - H(Y)$
-//! - [KLD](super::kld) - $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
-//! - [JSD](super::jsd) - $JSD = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
-//! - [Estimator Selection](super::estimator_selection) - Choosing estimators
+//! - [Discrete Entropy](discrete) — Histogram-based estimators
+//! - [Mutual Information](super::mutual_information) — $I(X;Y) = H(X) + H(Y) - H(X,Y)$
+//! - [Conditional Entropy](super::cond_entropy) — $H(X|Y) = H(X,Y) - H(Y)$
+//! - [KLD](super::kld) — $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
+//! - [JSD](super::jsd) — $JSD = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$
+//! - [Estimator Selection](super::estimator_selection) — Choosing estimators
 //! ## References
-//! - [Shannon, 1948](../../../guide/references/index.html#shannon1948)
-//! - [Cover & Thomas, 2012](../../../guide/references/index.html#cover2012elements)
-//! - [Rényi, 1976](../../../guide/references/index.html#renyi1976)
-//! - [Tsallis, 1988](../../../guide/references/index.html#tsallis1988)
+//! - [Shannon, 1948](super::references#shannon1948)
+//! - [Cover & Thomas, 2012](super::references#cover2012elements)
+//! - [Rényi, 1976](super::references#renyi1976)
+//! - [Tsallis, 1988](super::references#tsallis1988)
 
 pub mod discrete;

@@ -36,24 +36,24 @@
 //! The `KernelConditionalMutualInformation` and `KsgConditionalMutualInformation` structs use:
 //! - `D1`, `D2`: Dimensions of the input variables X and Y
 //! - `D_COND`: Dimension of the conditioning variable Z
-//! - `D_JOINT`: $D_1 + D_2 + D_{cond}$ - Total dimensionality including condition
-//! - `D1_COND`: $D_1 + D_{cond}$ - Dimension of X joined with condition
-//! - `D2_COND`: $D_2 + D_{cond}$ - Dimension of Y joined with condition
+//! - `D_JOINT`: $D_1 + D_2 + D_{cond}$ — Total dimensionality including condition
+//! - `D1_COND`: $D_1 + D_{cond}$ — Dimension of X joined with condition
+//! - `D2_COND`: $D_2 + D_{cond}$ — Dimension of Y joined with condition
 //!
 //! ### Helper Macros
 //!
 //! To simplify instantiation and automatically calculate these dimensions, use the following macros:
-//! - `new_kernel_mi!` - Creates a `KernelMutualInformation` estimator
-//! - `new_kernel_cmi!` - Creates a `KernelConditionalMutualInformation` estimator
-//! - `new_ksg_mi!` - Creates a `KsgMutualInformation` estimator
-//! - `new_ksg_cmi!` - Creates a `KsgConditionalMutualInformation` estimator
-//! - `new_renyi_mi!` - Creates a `RenyiMutualInformation` estimator
-//! - `new_renyi_cmi!` - Creates a `RenyiConditionalMutualInformation` estimator
-//! - `new_tsallis_mi!` - Creates a `TsallisMutualInformation` estimator
-//! - `new_tsallis_cmi!` - Creates a `TsallisConditionalMutualInformation` estimator
-//! - `new_kl_mi!` - Creates a KL-divergence based MI estimator
-//! - `new_jsd_mi!` - Creates a JSD-based MI estimator
-//! - `new_ordinal_mi!` - Creates an `OrdinalMutualInformation` estimator
+//! - `new_kernel_mi!` — Creates a `KernelMutualInformation` estimator
+//! - `new_kernel_cmi!` — Creates a `KernelConditionalMutualInformation` estimator
+//! - `new_ksg_mi!` — Creates a `KsgMutualInformation` estimator
+//! - `new_ksg_cmi!` — Creates a `KsgConditionalMutualInformation` estimator
+//! - `new_renyi_mi!` — Creates a `RenyiMutualInformation` estimator
+//! - `new_renyi_cmi!` — Creates a `RenyiConditionalMutualInformation` estimator
+//! - `new_tsallis_mi!` — Creates a `TsallisMutualInformation` estimator
+//! - `new_tsallis_cmi!` — Creates a `TsallisConditionalMutualInformation` estimator
+//! - `new_kl_mi!` — Creates a KL-divergence based MI estimator
+//! - `new_jsd_mi!` — Creates a JSD-based MI estimator
+//! - `new_ordinal_mi!` — Creates an `OrdinalMutualInformation` estimator
 //!
 //! These macros handle the dimension calculations automatically based on the input
 //! dimensionalities you provide.

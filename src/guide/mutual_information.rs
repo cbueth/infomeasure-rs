@@ -71,26 +71,26 @@
 //! | Measure | Formula | Relationship to MI |
 //! |---------|---------|-------------------|
 //! | Entropy | $H(X)$ | $I(X;X) = H(X)$ |
-//! | Conditional Entropy | $H(X|Y)$ | $I(X;Y) = H(X) - H(X|Y)$ |
-//! | Conditional MI | $I(X;Y|Z)$ | $I(X;Y) = I(X;Y|Z) + I(X;Y;Z)$ |
-//! | Transfer Entropy | $T_{X \to Y}$ | $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ |
+//! | Conditional Entropy | $H(X\mid Y)$ | $I(X;Y) = H(X) - H(X\mid Y)$ |
+//! | Conditional MI | $I(X;Y\mid Z)$ | $I(X;Y) = I(X;Y\mid Z) + I(X;Y;Z)$ |
+//! | Transfer Entropy | $T_{X \to Y}$ | $T_{X \to Y} = I(X^{(k)}; Y_{t+1} \mid Y^{(l)})$ |
 //! ## Estimators in This Crate
 //! The [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) facade
 //! provides multiple estimator types:
 //! ### Discrete Estimators
-//! - [`new_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_discrete_mle) - Maximum likelihood
-//! - [`new_discrete_miller_madow`](crate::estimators::mutual_information::MutualInformation::new_discrete_miller_madow) - Bias corrected
-//! - [`new_discrete_shrink`](crate::estimators::mutual_information::MutualInformation::new_discrete_shrink) - Shrinkage estimator
-//! - [`new_discrete_grassberger`](crate::estimators::mutual_information::MutualInformation::new_discrete_grassberger) - Digamma-based
-//! - [`new_discrete_chao_shen`](crate::estimators::mutual_information::MutualInformation::new_discrete_chao_shen) - Chao-Shen
-//! - [`new_discrete_nsb`](crate::estimators::mutual_information::MutualInformation::new_discrete_nsb) - NSB
-//! - [`new_discrete_bayes`](crate::estimators::mutual_information::MutualInformation::new_discrete_bayes) - Bayesian
+//! - [`new_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_discrete_mle) — Maximum likelihood
+//! - [`new_discrete_miller_madow`](crate::estimators::mutual_information::MutualInformation::new_discrete_miller_madow) — Bias corrected
+//! - [`new_discrete_shrink`](crate::estimators::mutual_information::MutualInformation::new_discrete_shrink) — Shrinkage estimator
+//! - [`new_discrete_grassberger`](crate::estimators::mutual_information::MutualInformation::new_discrete_grassberger) — Digamma-based
+//! - [`new_discrete_chao_shen`](crate::estimators::mutual_information::MutualInformation::new_discrete_chao_shen) — Chao-Shen
+//! - [`new_discrete_nsb`](crate::estimators::mutual_information::MutualInformation::new_discrete_nsb) — NSB
+//! - [`new_discrete_bayes`](crate::estimators::mutual_information::MutualInformation::new_discrete_bayes) — Bayesian
 //! ### Continuous Estimators
-//! - [`new_kernel`](crate::estimators::mutual_information::MutualInformation::new_kernel) - Kernel density estimation
-//! - [`new_ksg`](crate::estimators::mutual_information::MutualInformation::new_ksg) - Kraskov-Stögbauer-Grassberger
-//! - [`new_renyi`](crate::estimators::mutual_information::MutualInformation::new_renyi) - Rényi entropy-based
+//! - [`new_kernel`](crate::estimators::mutual_information::MutualInformation::new_kernel) — Kernel density estimation
+//! - [`new_ksg`](crate::estimators::mutual_information::MutualInformation::new_ksg) — Kraskov-Stögbauer-Grassberger
+//! - [`new_renyi`](crate::estimators::mutual_information::MutualInformation::new_renyi) — Rényi entropy-based
 //! ### Ordinal Estimators
-//! - [`new_ordinal`](crate::estimators::mutual_information::MutualInformation::new_ordinal) - Permutation patterns
+//! - [`new_ordinal`](crate::estimators::mutual_information::MutualInformation::new_ordinal) — Permutation patterns
 //! ## Examples
 //! ### Discrete MI
 //! ```rust
@@ -107,7 +107,7 @@
 
 //! ### Continuous MI: Kraskov-Stögbauer-Grassberger (KSG)
 
-//! The Kraskov-Stögbauer-Grassberger (KSG) method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) is a popular
+//! The Kraskov-Stögbauer-Grassberger (KSG) method [Kraskov et al., 2004](super::references#ksg2004) is a popular
 //! kNN-based estimator that avoids explicit density estimation. It is designed to
 //! cancel out bias by using a single k-th neighbor distance from the joint space
 //! to define the search range in marginal spaces.
@@ -169,11 +169,11 @@
 //!
 //! See [Estimator Selection](super::estimator_selection) for more guidance.
 //! ## See Also
-//! - [Estimator Usage](super::estimator_usage) - Quick start examples
-//! - [Conditional MI](super::cond_mi) - MI conditioned on a third variable
-//! - [Transfer Entropy](super::transfer_entropy) - Directed information flow
-//! - [Entropy](super::entropy) - Foundation for all information measures
-//! - [KLD](super::kld) - $I(X;Y) = D_{\mathrm{KL}}(p(x,y) || p(x)p(y))$
+//! - [Estimator Usage](super::estimator_usage) — Quick start examples
+//! - [Conditional MI](super::cond_mi) — MI conditioned on a third variable
+//! - [Transfer Entropy](super::transfer_entropy) — Directed information flow
+//! - [Entropy](super::entropy) — Foundation for all information measures
+//! - [KLD](super::kld) — $I(X;Y) = D_{\mathrm{KL}}(p(x,y) || p(x)p(y))$
 //! ## References
-//! - [Cover & Thomas, 2012](../../guide/references/index.html#cover2012elements)
-//! - [Kraskov et al., 2004](../../guide/references/index.html#ksg2004)
+//! - [Cover & Thomas, 2012](super::references#cover2012elements)
+//! - [Kraskov et al., 2004](super::references#ksg2004)

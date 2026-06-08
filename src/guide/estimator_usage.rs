@@ -13,9 +13,9 @@
 //! estimator selection, this Rust crate uses **compile-time type selection**.
 //! This provides:
 //!
-//! - **Type safety**: Invalid estimator combinations are caught at compile time
-//! - **Performance**: Each estimator is a unique type the compiler can optimize
-//! - **Documentation**: Types are self-documenting in your code
+//! - **Type safety**: Invalid estimator combinations are caught at compile time.
+//! - **Performance**: Each estimator is a unique type the compiler can optimise.
+//! - **Documentation**: Types are self-documenting in your code.
 //!
 //! ## Two Ways to Use This Crate
 //!
@@ -23,17 +23,17 @@
 //!
 //! The simplest way to compute measures is through the facade types:
 //! - [`Entropy`](crate::estimators::entropy::Entropy) — for all entropy estimators
-//! - [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) - for MI/CMI
-//! - [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) - for TE/CTE
+//! - [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) — for MI/CMI
+//! - [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) — for TE/CTE
 //!
 //! ### 2. Direct Estimator Types (Advanced)
 //!
 //! For fine-grained control, you can directly instantiate estimator types from
 //! the approaches modules:
-//! - [`discrete`](crate::estimators::approaches::discrete) - histogram-based estimators
-//! - [`kernel`](crate::estimators::approaches::kernel) - kernel density estimation
-//! - [`ordinal`](crate::estimators::approaches::ordinal) - permutation patterns
-//! - [`expfam`](crate::estimators::approaches::expfam) - k-NN based (KL, KSG, Rényi, Tsallis)
+//! - [`discrete`](crate::estimators::approaches::discrete) — histogram-based estimators
+//! - [`kernel`](crate::estimators::approaches::kernel) — kernel density estimation
+//! - [`ordinal`](crate::estimators::approaches::ordinal) — permutation patterns
+//! - [`expfam`](crate::estimators::approaches::expfam) — k-NN based (KL, KSG, Rényi, Tsallis)
 //!
 //! ## Computing Entropy
 //!
@@ -662,8 +662,8 @@
 //!
 //! ## Related Guides
 //!
-//! - **[Mutual Information Guide](super::mutual_information)** - Comprehensive MI documentation
-//! - **[Estimator Selection Guide](super::estimator_selection)** - Choose the right estimator
-//! - **[Entropy Module Docs](../estimators/entropy/index.html)** - Detailed entropy API
-//! - **[Mutual Information Module Docs](../estimators/mutual_information/index.html)** - Detailed MI API
-//! - **[Transfer Entropy Module Docs](../estimators/transfer_entropy/index.html)** - Detailed TE API
+//! - **[Mutual Information Guide](super::mutual_information)** — Comprehensive MI documentation
+//! - **[Estimator Selection Guide](super::estimator_selection)** — Choose the right estimator
+//! - **[Entropy Module Docs](crate::estimators::entropy::Entropy)** — Detailed entropy API
+//! - **[Mutual Information Module Docs](crate::estimators::mutual_information::MutualInformation)** — Detailed MI API
+//! - **[Transfer Entropy Module Docs](crate::estimators::transfer_entropy::TransferEntropy)** — Detailed TE API

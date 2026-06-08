@@ -20,7 +20,7 @@
 //! - **Symmetry**: $JSD(P \parallel Q) = JSD(Q \parallel P)$
 //! - **Boundedness**: $0 \leq JSD \leq \log(n)$ (for $n$ distributions)
 //! - **Metric Property**: The square root $\sqrt{JSD}$ is a true distance metric
-//!   satisfying the triangle inequality [Endres & Schindelin, 2003](../../guide/references/index.html#endres2003).
+//!   satisfying the triangle inequality [Endres & Schindelin, 2003](super::references#endres2003).
 //! ## Implementation Status
 //! JSD is not yet directly implemented in this crate. It is planned for a future release.
 //! ## See Also
@@ -28,4 +28,4 @@
 //! - [KLD Guide](super::kld) — Asymmetric divergence measure
 //! - [Cross-Entropy Guide](super::cross_entropy) — Total encoding cost
 //! ## References
-//! - [Cover & Thomas, 2012](../../guide/references/index.html#cover2012elements)
+//! - [Cover & Thomas, 2012](super::references#cover2012elements)

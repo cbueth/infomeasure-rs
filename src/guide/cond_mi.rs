@@ -34,8 +34,8 @@
 //! This formula is used internally for Rényi and Tsallis CMI estimators.
 //! ## Implemented in This Crate
 //! ### Continuous CMI: Kraskov-Stögbauer-Grassberger (KSG)
-//! The KSG method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) can be extended to conditional mutual information
-//! [Frenzel & Pompe, 2007](../../guide/references/index.html#frenzel2007):
+//! The KSG method [Kraskov et al., 2004](super::references#ksg2004) can be extended to conditional mutual information
+//! [Frenzel & Pompe, 2007](super::references#frenzel2007):
 //! $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_{z} + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
 //! where $n_{z}, n_{xz}, n_{yz}$ are neighbor counts in the respective subspaces defined
 //! by the distance to the $k$-th neighbor in the joint $(X, Y, Z)$ space.

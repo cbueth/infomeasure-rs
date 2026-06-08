@@ -42,5 +42,5 @@
 //!
 //! ## References
 //!
-//! - [Kullback & Leibler, 1951](../../guide/references/index.html#kullback1951)
-//! - [Cover & Thomas, 2012](../../guide/references/index.html#cover2012elements)
+//! - [Kullback & Leibler, 1951](super::references#kullback1951)
+//! - [Cover & Thomas, 2012](super::references#cover2012elements)

@@ -43,37 +43,37 @@
 //! - [Macros](macros) — Convenience macros for estimators
 //!
 //! ### Entropy
-//! - [Entropy Overview](entropy) - All entropy estimators
-//!   - [Discrete](entropy::discrete) - Discrete entropy estimators
+//! - [Entropy Overview](entropy) — All entropy estimators
+//!   - [Discrete](entropy::discrete) — Discrete entropy estimators
 //!
 //! ### Information Measures
-//! - [Conditional Entropy](cond_entropy) - $H(X|Y)$
-//! - [Cross-Entropy](cross_entropy) - $H_Q(P)$
+//! - [Conditional Entropy](cond_entropy) — $H(X|Y)$
+//! - [Cross-Entropy](cross_entropy) — $H_Q(P)$
 //
 //! ### Mutual Information
-//! - [Mutual Information](mutual_information) - $I(X;Y)$
-//! - [Conditional MI](cond_mi) - $I(X;Y|Z)$
+//! - [Mutual Information](mutual_information) — $I(X;Y)$
+//! - [Conditional MI](cond_mi) — $I(X;Y|Z)$
 //!
 //! ### Transfer Entropy
-//! - [Transfer Entropy](transfer_entropy) - $T_{X \\to Y}$
-//! - [Conditional TE](cond_te) - $T_{X \\to Y|Z}$
+//! - [Transfer Entropy](transfer_entropy) — $T_{X \\to Y}$
+//! - [Conditional TE](cond_te) — $T_{X \\to Y|Z}$
 //!
 //! ### Composite Measures (Planned)
-//! - [KLD Guide](kld) - Kullback-Leibler Divergence
-//! - [JSD Guide](jsd) - Jensen-Shannon Divergence
+//! - [KLD Guide](kld) — Kullback-Leibler Divergence
+//! - [JSD Guide](jsd) — Jensen-Shannon Divergence
 //!
 //! ### Configuration
-//! - [Settings](settings) - Configuration options
-//! - [Statistical Tests](statistical_tests) - Hypothesis testing
+//! - [Settings](settings) — Configuration options
+//! - [Statistical Tests](statistical_tests) — Hypothesis testing
 //!
 //! ### References
-//! - [References](references) - All academic citations
+//! - [References](references) — All academic citations
 //!
 //! ## Quick Links
 //!
-//! - **[Crate Root](../index.html)** - Main crate documentation
-//! - **[GitHub Repository](https://codeberg.org/cbueth/infomeasure-rs)** - Source code
-//! - **[Python Package](https://github.com/cbueth/infomeasure)** - For when you need runtime flexibility
+//! - **[Crate Root](crate)** — Main crate documentation
+//! - **[Code Repository](https://codeberg.org/cbueth/infomeasure-rs)** — Source code
+//! - **[Python Package](https://github.com/cbueth/infomeasure)** — For when you need runtime flexibility
 //!
 //! ## Concept Index
 //!
