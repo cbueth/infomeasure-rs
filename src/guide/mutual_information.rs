@@ -114,12 +114,12 @@
 
 //! The estimator supports two variants:
 //! - **Type I**: Uses strict inequality for neighbor counting (distance $< \epsilon$).
-//!   $$I(X; Y) = \psi(k) + \psi(N) - \langle \psi(n_x + 1) + \psi(n_y + 1) \rangle$$
+//!   $$I(X; Y) = \psi(k) + \psi(N) - \langle \psi(n\_x + 1) + \psi(n\_y + 1) \rangle$$
 //! - **Type II**: Uses non-strict inequality (distance $\le \epsilon$).
-//!   $$I(X; Y) = \psi(k) - 1/k + \psi(N) - \langle \psi(n_x) + \psi(n_y) \rangle$$
+//!   $$I(X; Y) = \psi(k) - 1/k + \psi(N) - \langle \psi(n\_x) + \psi(n\_y) \rangle$$
 //!
 //! For more than two variables, the formula extends to:
-//!   $$I(X_1; \ldots; X_m) = \psi(k) + (m-1)\psi(N) - \left\langle \sum_{j=1}^m \psi(n_j + 1) \right\rangle$$
+//!   $$I(X\_1; \ldots; X\_m) = \psi(k) + (m-1)\psi(N) - \left\langle \sum\_{j=1}^m \psi(n_{j} + 1) \right\rangle$$
 //!
 //! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
 
@@ -173,7 +173,7 @@
 //! - [Conditional MI](super::cond_mi) - MI conditioned on a third variable
 //! - [Transfer Entropy](super::transfer_entropy) - Directed information flow
 //! - [Entropy](super::entropy) - Foundation for all information measures
-//! - [KLD](super::kld) - $I(X;Y) = D_{KL}(p(x,y) || p(x)p(y))$
+//! - [KLD](super::kld) - $I(X;Y) = D_{\mathrm{KL}}(p(x,y) || p(x)p(y))$
 //! ## References
 //! - [Cover & Thomas, 2012](../../guide/references/index.html#cover2012elements)
 //! - [Kraskov et al., 2004](../../guide/references/index.html#ksg2004)

@@ -45,7 +45,7 @@ use ndarray::{Array1, Array2};
 ///
 /// - **Mutual Information**: $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 /// - **Conditional Entropy**: $H(X|Y) = H(X,Y) - H(Y)$
-/// - **Kullback-Leibler Divergence**: $D_{KL}(P||Q) = H_Q(P) - H(P)$
+/// - **Kullback-Leibler Divergence**: $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
 /// - **Jensen-Shannon Divergence**: $JSD(P||Q) = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
 ///
 /// See the [Entropy Guide](crate::guide::entropy) for detailed documentation.
@@ -342,7 +342,7 @@ impl Entropy {
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
     /// The Miller-Madow correction adds $(K-1)/(2N)$ to the MLE estimate:
-    /// $\hat{H}_{MM} = \hat{H}_{MLE} + \frac{K-1}{2N}$
+    /// $\hat{H}_{\mathrm{MM}} = \hat{H}_{\mathrm{MLE}} + \frac{K-1}{2N}$
     /// where $K$ is the number of bins with non-zero counts and $N$ is the sample size.
     ///
     /// This is the simplest bias correction and works well when $N \gg K$.
@@ -401,7 +401,7 @@ impl Entropy {
     /// Create a Chao–Shen coverage-adjusted discrete entropy estimator.
     ///
     /// The Chao-Shen estimator accounts for unobserved species through coverage estimation:
-    /// $\hat{H}_{CS} = - \sum_{i=1}^{K} \frac{\hat{p}_i^{CS} \ln \hat{p}_i^{CS}}{1 - (1 - \hat{p}_i^{CS})^N}$
+    /// $\hat{H}_{\mathrm{CS}} = - \sum_{i=1}^{K} \frac{\hat{p}_i^{\mathrm{CS}} \ln \hat{p}_i^{\mathrm{CS}}}{1 - (1 - \hat{p}_i^{\mathrm{CS}})^N}$
     /// where $\hat{p}_i^{CS} = C \hat{p}_i^{MLE}$ and $C$ is the estimated sample coverage.
     ///
     /// Recommended for undersampled regimes with many singletons. Global-only.

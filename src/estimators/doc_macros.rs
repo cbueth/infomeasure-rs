@@ -89,7 +89,7 @@ macro_rules! doc_snippets {
     (te_formula $approach:expr, $subscript:expr, $context:expr, $symbol:expr) => {
         concat!(
             $approach, " transfer entropy is estimated via the CMI entropy-summation formula", $context, ":\n",
-            "$$T", $subscript, "(X \\to Y) = ", $symbol, $subscript, "(X_{past}, Y_{past}) + ", $symbol, $subscript, "(Y_{future}, Y_{past}) - ", $symbol, $subscript, "(X_{past}, Y_{future}, Y_{past}) - ", $symbol, $subscript, "(Y_{past})$$\n\n",
+            "$$T", $subscript, "(X \\to Y) = ", $symbol, $subscript, "(X_{\\mathrm{past}}, Y_{\\mathrm{past}}) + ", $symbol, $subscript, "(Y_{\\mathrm{future}}, Y_{\\mathrm{past}}) - ", $symbol, $subscript, "(X_{\\mathrm{past}}, Y_{\\mathrm{future}}, Y_{\\mathrm{past}}) - ", $symbol, $subscript, "(Y_{\\mathrm{past}})$$\n\n",
             "See the [Transfer Entropy Guide](crate::guide::transfer_entropy) for conceptual background."
         )
     };
@@ -99,7 +99,7 @@ macro_rules! doc_snippets {
     (cte_formula $approach:expr, $subscript:expr, $context:expr, $symbol:expr) => {
         concat!(
             $approach, " conditional transfer entropy is estimated via the CTE entropy-summation formula", $context, ":\n",
-            "$$TE", $subscript, "(X \\to Y \\mid Z) = ", $symbol, $subscript, "(X_{past}, Y_{past}, Z_{past}) + ", $symbol, $subscript, "(Y_{future}, Y_{past}, Z_{past}) - ", $symbol, $subscript, "(X_{past}, Y_{future}, Y_{past}, Z_{past}) - ", $symbol, $subscript, "(Y_{past}, Z_{past})$$\n\n",
+            "$$TE", $subscript, "(X \\to Y \\mid Z) = ", $symbol, $subscript, "(X_{\\mathrm{past}}, Y_{\\mathrm{past}}, Z_{\\mathrm{past}}) + ", $symbol, $subscript, "(Y_{\\mathrm{future}}, Y_{\\mathrm{past}}, Z_{\\mathrm{past}}) - ", $symbol, $subscript, "(X_{\\mathrm{past}}, Y_{\\mathrm{future}}, Y_{\\mathrm{past}}, Z_{\\mathrm{past}}) - ", $symbol, $subscript, "(Y_{\\mathrm{past}}, Z_{\\mathrm{past}})$$\n\n",
             "See the [Conditional TE Guide](crate::guide::cond_te) for conceptual background."
         )
     };

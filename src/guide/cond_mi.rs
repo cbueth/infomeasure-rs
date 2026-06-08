@@ -15,7 +15,7 @@
 //! For more than two variables (without conditioning):
 //! $$I(X_1; X_2; \\ldots; X_n) = \\sum_{x_1,\\dots,x_n} p(x_1,\\dots,x_n) \\log \\frac{p(x_1,\\dots,x_n)}{\\prod_{i=1}^n p(x_i)}$$
 //! With conditioning on Z:
-//! $$I(X_1; X_2; \\ldots; X_n \\mid Z) = -\\sum_{x_1, \\dots, x_n, z} p(z)p(x_1,\\dots,x_n \\mid z) \\log \\frac{p(x_1,\\dots,x_n \\mid z)}{\\prod p(x_i \\mid z)}$$
+//! $$I(X_1; X_2; \\ldots; X_n \\mid Z) = -\\sum_{x_1, \\dots, x_n, z} p(z)p(x_1,\\dots,x_n \\mid z) \\log \\frac{p(x_1,\\dots,x_n \\mid z)}{\\prod p(x\_i \\mid z)}$$
 //! $$= - H(X_1, X_2, \\ldots, X_n, Z) - H(Z) + \\sum_{i=1}^n H(X_i, Z)$$
 //! ## Local Conditional Mutual Information
 //! Similar to local entropy and MI, **local or point-wise conditional MI** can be defined:
@@ -36,8 +36,8 @@
 //! ### Continuous CMI: Kraskov-Stögbauer-Grassberger (KSG)
 //! The KSG method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) can be extended to conditional mutual information
 //! [Frenzel & Pompe, 2007](../../guide/references/index.html#frenzel2007):
-//! $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_z + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
-//! where $n_z, n_{xz}, n_{yz}$ are neighbor counts in the respective subspaces defined
+//! $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_{z} + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
+//! where $n_{z}, n_{xz}, n_{yz}$ are neighbor counts in the respective subspaces defined
 //! by the distance to the $k$-th neighbor in the joint $(X, Y, Z)$ space.
 //! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
 //! ```rust

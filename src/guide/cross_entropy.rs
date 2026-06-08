@@ -20,7 +20,7 @@
 //! ## Relationship to Other Measures
 //!
 //! - **Entropy**: $H(P) = H_P(P)$ (using P to encode itself)
-//! - **KLD**: $D_{KL}(P \parallel Q) = H_Q(P) - H(P)$
+//! - **KLD**: $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$
 //!
 //! Cross-entropy always satisfies $H_Q(P) \ge H(P)$, with equality if and only if $P = Q$.
 //!
@@ -50,5 +50,5 @@
 //! ## See Also
 //!
 //! - [Entropy Guide](super::entropy) — Base entropy
-//! - [KLD Guide](super::kld) - $D_{KL}(P \parallel Q) = H_Q(P) - H(P)$
+//! - [KLD Guide](super::kld) - $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$
 //! - [JSD Guide](super::jsd) - Symmetric divergence measure

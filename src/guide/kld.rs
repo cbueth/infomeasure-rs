@@ -12,26 +12,26 @@
 //!
 //! For discrete random variables $P$ and $Q$:
 //!
-//! $$D_{KL}(P \parallel Q) = \sum_{x \in \mathcal{X}} P(x) \log \frac{P(x)}{Q(x)}$$
+//! $$D_{\mathrm{KL}}(P \parallel Q) = \sum_{x \in \mathcal{X}} P(x) \log \frac{P(x)}{Q(x)}$$
 //!
 //! This can be expressed in terms of cross-entropy $H_Q(P)$ and Shannon entropy $H(P)$:
 //!
-//! $$D_{KL}(P \parallel Q) = H_Q(P) - H(P)$$
+//! $$D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$$
 //!
 //! For continuous variables, it is defined as:
 //!
-//! $$D_{KL}(P \parallel Q) = \int P(x) \log \frac{P(x)}{Q(x)} \, dx$$
+//! $$D_{\mathrm{KL}}(P \parallel Q) = \int P(x) \log \frac{P(x)}{Q(x)} \, dx$$
 //!
 //! ## Interpretation
 //!
 //! KLD represents the "extra effort" or "surprise" when using an encoding based
 //! on $Q$ instead of the true distribution $P$. Unlike distance metrics, KLD is
-//! **asymmetric**: $D_{KL}(P \parallel Q) \neq D_{KL}(Q \parallel P)$.
+//! **asymmetric**: $D_{\mathrm{KL}}(P \parallel Q) \neq D_{\mathrm{KL}}(Q \parallel P)$.
 //!
 //! ## Implementation Status
 //!
 //! KLD is not yet directly implemented in this crate. However, it can be computed
-//! using the relationship $D_{KL}(P \parallel Q) = H_Q(P) - H(P)$ for estimators
+//! using the relationship $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$ for estimators
 //! that support cross-entropy via the [`CrossEntropy`](crate::estimators::traits::CrossEntropy) trait.
 //!
 //! ## See Also

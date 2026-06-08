@@ -13,7 +13,7 @@
 //! The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
 //! of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
 //!
-//! $$H_{KL}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
+//! $$H_{\mathrm{KL}}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
 //!
 //! where:
 //! - $\psi$ is the digamma function.
@@ -29,10 +29,10 @@
 //!
 //! ## Measures Implemented
 //!
-//! - **Differential Entropy**: $H_{KL}(X)$
-//! - **Mutual Information**: $I_{KL}(X; Y) = H_{KL}(X) + H_{KL}(Y) - H_{KL}(X, Y)$
-//! - **Conditional MI**: $I_{KL}(X; Y | Z) = H_{KL}(X, Z) + H_{KL}(Y, Z) - H_{KL}(X, Y, Z) - H_{KL}(Z)$
-//! - **Transfer Entropy**: $T_{KL}(X \to Y)$ estimated via the CMI entropy-summation formula.
+//! - **Differential Entropy**: $H_{\mathrm{KL}}(X)$
+//! - **Mutual Information**: $I_{\mathrm{KL}}(X; Y) = H_{\mathrm{KL}}(X) + H_{\mathrm{KL}}(Y) - H_{\mathrm{KL}}(X, Y)$
+//! - **Conditional MI**: $I_{\mathrm{KL}}(X; Y | Z) = H_{\mathrm{KL}}(X, Z) + H_{\mathrm{KL}}(Y, Z) - H_{\mathrm{KL}}(X, Y, Z) - H_{\mathrm{KL}}(Z)$
+//! - **Transfer Entropy**: $T_{\mathrm{KL}}(X \to Y)$ estimated via the CMI entropy-summation formula.
 //!
 //! ## See Also
 //! - [Entropy Guide](crate::guide::entropy) — Conceptual background
@@ -65,7 +65,7 @@ use ndarray::{Axis, concatenate};
 /// The Kozachenko-Leonenko estimator provides an asymptotically unbiased estimate
 /// of differential entropy for continuous variables [Kozachenko & Leonenko, 1987](../../../../guide/references/index.html#kozachenko1987):
 ///
-/// $$H_{KL}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
+/// $$H_{\mathrm{KL}}(X) = -\psi(k) + \psi(N) + \log(V_m) + \frac{m}{N} \sum_{i=1}^{N} \log(\rho_{i,k})$$
 ///
 /// where:
 /// - $\psi$ is the digamma function.
@@ -351,7 +351,7 @@ macro_rules! impl_kl_mi {
         ///
         /// ## Theory
         ///
-        #[doc = doc_snippets!(mi_formula "KL-based", r"_{KL}", "")]
+        #[doc = doc_snippets!(mi_formula "KL-based", r"_{\mathrm{KL}}", "")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub ksg_type: KsgType,
@@ -456,7 +456,7 @@ impl_kl_mi!(
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cmi_formula "KL-based", r"_{KL}", "")]
+#[doc = doc_snippets!(cmi_formula "KL-based", r"_{\mathrm{KL}}", "")]
 pub struct KozachenkoLeonenkoConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -595,7 +595,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(te_formula "KL-based", r"_{KL}", "")]
+#[doc = doc_snippets!(te_formula "KL-based", r"_{\mathrm{KL}}", "")]
 pub struct KozachenkoLeonenkoTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -797,7 +797,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cte_formula "KL-based", r"_{KL}", "")]
+#[doc = doc_snippets!(cte_formula "KL-based", r"_{\mathrm{KL}}", "")]
 pub struct KozachenkoLeonenkoConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

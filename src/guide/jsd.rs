@@ -9,7 +9,7 @@
 //! ## Theory
 //! The JSD between two distributions $P$ and $Q$ is defined as the average KLD
 //! between each distribution and their mixture $M = \frac{1}{2}(P + Q)$:
-//! $$JSD(P \parallel Q) = \frac{1}{2} D_{KL}(P \parallel M) + \frac{1}{2} D_{KL}(Q \parallel M)$$
+//! $$JSD(P \parallel Q) = \frac{1}{2} D_{\mathrm{KL}}(P \parallel M) + \frac{1}{2} D_{\mathrm{KL}}(Q \parallel M)$$
 //! This can be expressed more simply in terms of Shannon entropy $H$:
 //! $$JSD(P \parallel Q) = H\left(\frac{P + Q}{2}\right) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$$
 //! ### Generalized JSD

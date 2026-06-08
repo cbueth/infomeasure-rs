@@ -38,7 +38,10 @@
 //!
 //! ## Definition
 //!
-//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}} p(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}) \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})} {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})} \\right)$$
+//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)}}
+//! p(y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})
+//! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})}
+//! {p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n^{(m)})} \\right)$$
 //!
 //! where:
 //! - $p(\\cdot)$ represents the probability distribution,
@@ -51,8 +54,8 @@
 //!
 //! Similar to local TE and local CMI measures, we can extract the **local or point-wise conditional TE**:
 //!
-//! $$t_{X \\to Y \\mid Z}(n+1, k, l) = -\\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n)}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n)} \\right)$$
+//! $$t_{X \\to Y \\mid Z}(n+1, k, l) = -\\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n)}
+//! {p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n)} \\right)$$
 //!
 //! The CTE can be written as the average of local CTE:
 //!
@@ -66,8 +69,8 @@
 //! The CTE expression can be written as the combination of entropies and joint entropies:
 //!
 //! $$TE(X \\to Y \\mid Z) =$$
-//! $$H(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)}) - H(\\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})$$
-//! $$- H(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}) + H(\\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})$$
+//! $$H(y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n^{(m)}) - H(\\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n^{(m)})$$
+//! $$- H(y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)}) + H(\\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})$$
 //!
 //! This form is used internally for Rényi and Tsallis CTE estimators.
 //!
@@ -75,7 +78,7 @@
 //! ### Continuous CTE: Kraskov-Stögbauer-Grassberger (KSG)
 //! The KSG method [Kraskov et al., 2004](../../guide/references/index.html#ksg2004) can be extended to conditional transfer entropy
 //! [Baboukani et al., 2020](../../guide/references/index.html#baboukani2020):
-//! $$TE(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{past}, Z_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}, Z_{past}} + 1) - \psi(n_{X_{past}, Y_{past}, Z_{past}} + 1) \rangle$$
+//! $$TE(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{future}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) - \psi(n_{X_{\mathrm{past}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) \rangle$$
 //! where $n$ refers to neighbor counts in the respective joint subspaces.
 //! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
 //! ```rust

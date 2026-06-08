@@ -88,7 +88,7 @@
 //! - [Discrete Entropy](discrete) - Histogram-based estimators
 //! - [Mutual Information](super::mutual_information) - $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 //! - [Conditional Entropy](super::cond_entropy) - $H(X|Y) = H(X,Y) - H(Y)$
-//! - [KLD](super::kld) - $D_{KL}(P||Q) = H_Q(P) - H(P)$
+//! - [KLD](super::kld) - $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
 //! - [JSD](super::jsd) - $JSD = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
 //! - [Estimator Selection](super::estimator_selection) - Choosing estimators
 //! ## References

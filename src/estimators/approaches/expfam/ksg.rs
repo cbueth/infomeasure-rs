@@ -44,11 +44,11 @@
 //!
 //! ### Conditional Mutual Information (CMI)
 //! For CMI, the KSG estimator uses:
-//! $$I(X; Y | Z) = \psi(k) + \langle \psi(n_z(i) + 1) - \psi(n_{xz}(i) + 1) - \psi(n_{yz}(i) + 1) \rangle$$
+//! $$I(X; Y | Z) = \psi(k) + \langle \psi(n_{z}(i) + 1) - \psi(n_{xz}(i) + 1) - \psi(n_{yz}(i) + 1) \rangle$$
 //!
 //! ### Transfer Entropy (TE)
-//! TE is estimated as a conditional mutual information $I(Y_{future}; X_{past} | Y_{past})$:
-//! $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
+//! TE is estimated as a conditional mutual information $I(Y_{\mathrm{future}}; X_{\mathrm{past}} | Y_{\mathrm{past}})$:
+//! $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{future}}, Y_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{past}}, X_{\mathrm{past}}} + 1) \rangle$$
 //!
 //! ## See Also
 //! - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
@@ -88,7 +88,7 @@ macro_rules! impl_ksg_mi {
         /// $$I(X; Y) = \psi(k) + \psi(N) - \frac{1}{N} \sum_{i=1}^{N} [\psi(n_x(i) + 1) + \psi(n_y(i) + 1)]$$
         ///
         /// For $m$ variables, this generalizes to:
-        /// $$I(X_1; \ldots; X_m) = \psi(k) + (m-1)\psi(N) - \left\langle \sum_{j=1}^m \psi(n_j + 1) \right\rangle$$
+        /// $$I(X_1; \ldots; X_m) = \psi(k) + (m-1)\psi(N) - \left\langle \sum_{j=1}^m \psi(n_{j} + 1) \right\rangle$$
         ///
         /// See the [Mutual Information Guide](crate::guide::mutual_information) for conceptual background.
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
@@ -271,7 +271,7 @@ impl_ksg_mi!(
 /// ## Theory
 ///
 /// The KSG estimator for CMI uses the following formula:
-/// $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_z + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
+/// $$I(X; Y \mid Z) = \psi(k) + \langle \psi(n_{z} + 1) - \psi(n_{xz} + 1) - \psi(n_{yz} + 1) \rangle$$
 ///
 /// where $n_z, n_{xz}, n_{yz}$ are neighbor counts in the respective subspaces defined
 /// by the distance to the $k$-th neighbor in the joint $(X, Y, Z)$ space.
