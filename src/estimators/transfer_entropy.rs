@@ -19,16 +19,16 @@
 //!
 //! ### Transfer Entropy (TE)
 //!
-//! $TE(X \to Y) = I(Y_{future}; X_{past} | Y_{past})$
+//! $TE(X \to Y) = I(Y_{\mathrm{future}}; X_{\mathrm{past}} \mid Y_{\mathrm{past}})$
 //!
 //! The `KernelTransferEntropy` and `KsgTransferEntropy` structs use:
 //! - `SRC_HIST`, `DEST_HIST`: History lengths.
 //! - `STEP_SIZE`: Delay between observations.
 //! - `D_SOURCE`, `D_TARGET`: Dimensionality of individual samples in X and Y.
-//! - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
-//! - `D_XP_YP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
-//! - `D_YP`: $DEST\_HIST \times D_{target}$
-//! - `D_YF_YP`: $D_{target} + (DEST\_HIST \times D_{target})$
+//! - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
+//! - `D_XP_YP`: $(\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
+//! - `D_YP`: $\mathrm{DEST\_HIST} \times D_{\mathrm{target}}$
+//! - `D_YF_YP`: $D_{\mathrm{target}} + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
 //!
 //! **Dimension Relations for TE**:
 //! - `D_JOINT` = `D_YF_YP` + `SRC_HIST` * `D_SOURCE`
@@ -38,16 +38,16 @@
 //!
 //! ### Conditional Transfer Entropy (CTE)
 //!
-//! $CTE(X \to Y | Z) = I(Y_{future}; X_{past} | Y_{past}, Z_{past})$
+//! $CTE(X \to Y \mid Z) = I(Y_{\mathrm{future}}; X_{\mathrm{past}} \mid Y_{\mathrm{past}}, Z_{\mathrm{past}})$
 //!
 //! The `KernelConditionalTransferEntropy` and `KsgConditionalTransferEntropy` structs use:
 //! - `SRC_HIST`, `DEST_HIST`, `COND_HIST`: History lengths.
 //! - `STEP_SIZE`: Delay between observations.
 //! - `D_SOURCE`, `D_TARGET`, `D_COND`: Input dimensionality.
-//! - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-//! - `D_XP_YP_ZP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-//! - `D_YP_ZP`: $(DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-//! - `D_YF_YP_ZP`: $D_{target} + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+//! - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_XP_YP_ZP`: $(\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_YP_ZP`: $(\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_YF_YP_ZP`: $D_{\mathrm{target}} + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
 //!
 //! **Dimension Relations for CTE**:
 //! - `D_JOINT` = `D_YF_YP_ZP` + `SRC_HIST` * `D_SOURCE`
@@ -448,20 +448,20 @@ macro_rules! new_kl_cte {
 /// ### Transfer Entropy
 /// TE measures the directed information flow from source $X$ to target $Y$:
 ///
-/// $$T_{X \to Y} = I(Y_\mathrm{future}; X_\mathrm{past} \mid Y_\mathrm{past})$$
+/// $$T_{X \to Y} = I(Y\_{\mathrm{future}}; X\_{\mathrm{past}} \mid Y\_{\mathrm{past}})$$
 ///
 /// In terms of entropies:
 ///
-/// $$T_{X \to Y} = H(X_\mathrm{past}, Y_\mathrm{past}) + H(Y_\mathrm{future}, Y_\mathrm{past}) - H(X_\mathrm{past}, Y_\mathrm{future}, Y_\mathrm{past}) - H(Y_\mathrm{past})$$
+/// $$T_{X \to Y} = H(X\_{\mathrm{past}}, Y\_{\mathrm{past}}) + H(Y\_{\mathrm{future}}, Y\_{\mathrm{past}}) - H(X\_{\mathrm{past}}, Y\_{\mathrm{future}}, Y\_{\mathrm{past}}) - H(Y\_{\mathrm{past}})$$
 ///
 /// ### Conditional Transfer Entropy
 /// CTE measures directed information flow while controlling for a third process $Z$:
 ///
-/// $$TE(X \to Y \mid Z) = I(Y_\mathrm{future}; X_\mathrm{past} \mid Y_\mathrm{past}, Z_\mathrm{past})$$
+/// $$\mathrm{TE}(X \to Y \mid Z) = I(Y\_{\mathrm{future}}; X\_{\mathrm{past}} \mid Y\_{\mathrm{past}}, Z\_{\mathrm{past}})$$
 ///
 /// In terms of entropies:
 ///
-/// $$TE(X \to Y \mid Z) = H(X_\mathrm{past}, Y_\mathrm{past}, Z_\mathrm{past}) + H(Y_\mathrm{future}, Y_\mathrm{past}, Z_\mathrm{past}) - H(X_\mathrm{past}, Y_\mathrm{future}, Y_\mathrm{past}, Z_\mathrm{past}) - H(Y_\mathrm{past}, Z_\mathrm{past})$$
+/// $$\mathrm{TE}(X \to Y \mid Z) = H(X\_{\mathrm{past}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) + H(Y\_{\mathrm{future}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) - H(X\_{\mathrm{past}}, Y\_{\mathrm{future}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) - H(Y\_{\mathrm{past}}, Z\_{\mathrm{past}})$$
 ///
 /// # Relationship to Other Measures
 ///

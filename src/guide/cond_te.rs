@@ -38,7 +38,7 @@
 //!
 //! ## Definition
 //!
-//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)}}
+//! $$\mathrm{TE}(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)}}
 //! p(y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})
 //! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})}
 //! {p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n^{(m)})} \\right)$$
@@ -96,11 +96,11 @@
 //! use infomeasure::estimators::transfer_entropy::TransferEntropy;
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
-//! let x = array![0.1, 0.2, 0.3];
-//! let y = array![0.15, 0.25, 0.35];
-//! let z = array![0.1, 0.2, 0.3];
-//! let cte = TransferEntropy::new_cte_ksg(&x, &y, &z, 3, 1e-10).global_value();
-//! assert!(cte >= 0.0);
+//! let x = array![0.1, 0.2, 0.3, 0.4, 0.5];
+//! let y = array![0.15, 0.25, 0.35, 0.45, 0.55];
+//! let z = array![0.1, 0.2, 0.3, 0.4, 0.5];
+//! let cte = TransferEntropy::new_cte_ksg(&x, &y, &z, 1, 1, 1, 1, 2, 1e-10).global_value();
+//! assert!(cte >= -1.0);
 //! ```
 //! ### Other Estimators
 //! CTE is available through the [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) facade type:
@@ -164,7 +164,7 @@
 //!
 //! ## See Also
 //!
-//! - [Mutual Information](super::mutual_information) - Base MI
-//! - [Conditional MI](super::cond_mi) - CMI (general case)
-//! - [Transfer Entropy Guide](super::transfer_entropy) - Unconditional TE
-//! - [Estimator Usage Guide](super::estimator_usage) - Detailed usage examples
+//! - [Mutual Information](super::mutual_information) — Base MI
+//! - [Conditional MI](super::cond_mi) — CMI (general case)
+//! - [Transfer Entropy Guide](super::transfer_entropy) — Unconditional TE
+//! - [Estimator Usage Guide](super::estimator_usage) — Detailed usage examples

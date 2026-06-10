@@ -21,7 +21,7 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, OptionalLocalValues};
 /// where:
 /// - $C = 1 - f_1/N$ is the Good-Turing estimate of sample coverage.
 /// - $f_1$ is the number of singletons (bins with count 1).
-/// - $\hat{p}_i^{ML}$ is the Maximum Likelihood estimate.
+/// - $\hat{p}_i^{\mathrm{ML}}$ is the Maximum Likelihood estimate.
 /// - $N$ is the total number of samples.
 ///
 /// This estimator is particularly useful for highly diverse populations where many states

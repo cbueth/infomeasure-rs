@@ -31,17 +31,17 @@ pub fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
     data
 }
 
-/// Compute the volume of the unit m-ball in R^m with radius r.
-/// This matches Python's unit_ball_volume(d, r=r, p=p).
-/// For KL entropy, Python uses r=1/2, which gives:
-/// - For p=∞: c_d = 1 (since (2*r)^d = 1 when r=1/2)
-/// - For p=2: c_d = π^(d/2) / (Γ(1+d/2) * 2^d)
+/// Compute the volume of the unit $m$-ball in $R^m$ with radius $r$.
+/// This matches Python's `unit_ball_volume(d, r=r, p=p)`.
+/// For KL entropy, Python uses $r=1/2$, which gives:
+/// - For $p=∞$: $c_d = 1$ (since $(2r)^d = 1$ when $r=1/2$)
+/// - For $p=2$: $c_d = π^{d/2} / (Γ(1+d/2) 2^d)$
 pub fn unit_ball_volume(m: usize, p: f64) -> f64 {
     unit_ball_volume_with_radius(m, p, 1.0)
 }
 
-/// Compute the unit ball volume with a specific radius r.
-/// This matches Python's unit_ball_volume(d, r=r, p=p).
+/// Compute the unit ball volume with a specific radius $r$.
+/// This matches Python's `unit_ball_volume(d, r=r, p=p)`.
 pub fn unit_ball_volume_with_radius(m: usize, p: f64, r: f64) -> f64 {
     if p.is_infinite() {
         return unit_ball_volume_chebyshev_with_radius(m, r);
@@ -61,15 +61,15 @@ pub fn unit_ball_volume_with_radius(m: usize, p: f64, r: f64) -> f64 {
     }
 }
 
-/// Compute the volume of the unit m-ball in R^m under L-infinity norm with radius r.
-/// V_m = (2*r)^m
+/// Compute the volume of the unit $m$-ball in $R^m$ under $L_{∞}$ norm with radius $r$.
+/// $V_m = (2r)^m$
 pub fn unit_ball_volume_chebyshev(m: usize) -> f64 {
     unit_ball_volume_chebyshev_with_radius(m, 1.0)
 }
 
-/// Compute the volume of the unit m-ball in R^m under L-infinity norm with radius r.
-/// V_m = (2*r)^m
-/// For KL entropy (r=1/2), this gives c_d = 1
+/// Compute the volume of the unit $m$-ball in $R^m$ under $L_{∞}$ norm with radius $r$.
+/// $V_m = (2r)^m$
+/// For KL entropy ($r=1/2$), this gives $c_d = 1$
 pub fn unit_ball_volume_chebyshev_with_radius(m: usize, r: f64) -> f64 {
     (2.0 * r).powf(m as f64)
 }

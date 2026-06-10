@@ -2,36 +2,36 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! # Transfer Entropy $T_{X \\to Y}$
+//! # Transfer Entropy $T_{X \to Y}$
 //! Transfer entropy (TE) from the source process $X$ to the target process $Y$ is the amount of
 //! uncertainty reduced in the future values of target $Y$ by knowing the past values of source $X$,
 //! after considering the past values of the target $Y$.
 //! It is the model-free and directional measure between two processes.
 //! ## Definition
 //! Let $X(x_n)$ and $Y(y_n)$ be two time series processes as source and target variables.
-//! Then $T_{X \\to Y}$ from source to target is written as:
-//! $$T_{x \\to y}(k, l) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}}
-//! p(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)})
-//! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)})}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)})} \\right)$$
+//! Then $T_{X \to Y}$ from source to target is written as:
+//! $$T_{x \to y}(k, l) = -\sum_{y_{n+1}, \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)}}
+//! p(y_{n+1}, \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)})
+//! \log \left( \frac{p(y_{n+1} \mid \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)})}
+//! {p(y_{n+1} \mid \mathbf{y}_n^{(l)})} \right)$$
 //! where:
 //! - $y_{n+1}$ is the next state of $Y$ at time $n$,
-//! - $\\mathbf{y}_n^{(l)} = \\{y_n, \\dots, y_{n-l+1}\\}$ is the embedding vector of $Y$ with history length $l$,
-//! - $\\mathbf{x}_n^{(k)} = \\{x_n, \\dots, x_{n-k+1}\\}$ is the embedding vector of $X$ with history length $k$.
+//! - $\mathbf{y}_n^{(l)} = \{y_n, \dots, y_{n-l+1}\}$ is the embedding vector of $Y$ with history length $l$,
+//! - $\mathbf{x}_n^{(k)} = \{x_n, \dots, x_{n-k+1}\}$ is the embedding vector of $X$ with history length $k$.
 //! ## Transfer Entropy with Lag
 //! One can add a source-to-destination time propagation or lag $u$:
-//! $$T_{x \\to y}(k, l, u) = -\\sum_{y_{n+1+u}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}}
-//! p(y_{n+1+u}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)})
-//! \\log \\left( \\frac{p(y_{n+1+u} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)})}
-//! {p(y_{n+1+u} \\mid \\mathbf{y}_n^{(l)})} \\right)$$
+//! $$T_{x \to y}(k, l, u) = -\sum_{y_{n+1+u}, \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)}}
+//! p(y_{n+1+u}, \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)})
+//! \log \left( \frac{p(y_{n+1+u} \mid \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)})}
+//! {p(y_{n+1+u} \mid \mathbf{y}_n^{(l)})} \right)$$
 //! ## Local Transfer Entropy
 //! Similar to local entropy and MI, we can extract the **local or point-wise transfer entropy**.
 //! It is the amount of information transfer attributed to the specific realisation
-//! $(x_{n+1}, \\mathbf{X}_n^{(k)}, \\mathbf{Y}_n^{(l)})$ at time step $n+1$:
-//! $$t_{X \\to Y}(n+1, k, l) = -\\log \\left(\\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)})}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)})} \\right)$$
+//! $(x_{n+1}, \mathbf{X}_n^{(k)}, \mathbf{Y}_n^{(l)})$ at time step $n+1$:
+//! $$t_{X \to Y}(n+1, k, l) = -\log \left(\frac{p(y_{n+1} \mid \mathbf{y}_n^{(l)}, \mathbf{x}_n^{(k)})}
+//! {p(y_{n+1} \mid \mathbf{y}_n^{(l)})} \right)$$
 //! The TE can be written as the global average of the local TE:
-//! $$T_{X \\to Y}(k, l, u) = \\langle t_{X \\to Y}(n + 1, k, l) \\rangle$$
+//! $$T_{X \to Y}(k, l, u) = \langle t_{X \to Y}(n + 1, k, l) \rangle$$
 //! Local TE values can be negative, unlike its global counterpart; this means the source
 //! is misleading about the prediction of target's next step.
 //! In this crate, local TE can be accessed via the [`LocalValues`](crate::estimators::traits::LocalValues) trait
@@ -47,7 +47,7 @@
 //! The KSG method [Kraskov et al., 2004](super::references#ksg2004) can be adapted for transfer entropy estimation
 //! [Kaiser & Schreiber, 2002](super::references#kaiser2002). It uses the same neighbor-counting logic as KSG MI but
 //! applied to the specific embedding vectors:
-//! $$TE(X \to Y) = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
+//! $$\mathrm{TE}(X \to Y) = \psi(k) + \langle \psi(n_{Y_\mathrm{past}} + 1) - \psi(n_{Y_\mathrm{future}, Y_\mathrm{past}} + 1) - \psi(n_{Y_\mathrm{past}, X_\mathrm{past}} + 1) \rangle$$
 //! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
 //! ```rust
 //! use infomeasure::estimators::transfer_entropy::TransferEntropy;
@@ -55,8 +55,8 @@
 //! use ndarray::array;
 //! let x = array![0.1, 0.2, 0.3, 0.4, 0.5];
 //! let y = array![0.15, 0.25, 0.35, 0.45, 0.55];
-//! let te = TransferEntropy::new_ksg(&x, &y, 3, 1e-10).global_value();
-//! assert!(te >= 0.0);
+//! let te = TransferEntropy::new_ksg(&x, &y, 1, 1, 1, 2, 1e-10).global_value();
+//! assert!(te >= -1.0);
 //! ```
 //! ### Other Estimators
 //! TE is available through the [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) facade type:
@@ -139,8 +139,8 @@
 //! assert!(te >= 0.0); // TE is always non-negative
 //! ```
 //! ## See Also
-//! - [Mutual Information](super::mutual_information) - TE is CMI on histories
-//! - [Conditional MI](super::cond_mi) - General CMI
-//! - [Estimator Usage Guide](super::estimator_usage) - Detailed usage examples
-//! - [Conditional TE Guide](super::cond_te) - TE with conditioning
-//! - [Macros Guide](super::macros) - Convenience macros for TE estimators
+//! - [Mutual Information](super::mutual_information) — TE is CMI on histories
+//! - [Conditional MI](super::cond_mi) — General CMI
+//! - [Estimator Usage Guide](super::estimator_usage) — Detailed usage examples
+//! - [Conditional TE Guide](super::cond_te) — TE with conditioning
+//! - [Macros Guide](super::macros) — Convenience macros for TE estimators

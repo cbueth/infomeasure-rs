@@ -36,19 +36,20 @@
 //! ## Example
 //!
 //! ```rust
-//! use infomeasure::estimators::approaches::expfam::RenyiEntropy;
+//! use infomeasure::estimators::approaches::RenyiEntropy;
 //! use infomeasure::estimators::traits::CrossEntropy;
 //! use ndarray::array;
 //!
-//! let p = RenyiEntropy::new_1d(array![0.1, 0.2, 0.3], 3, 1.0, 0.0);
-//! let q = RenyiEntropy::new_1d(array![0.15, 0.25, 0.35], 3, 1.0, 0.0);
+//! let p = RenyiEntropy::<1>::new_1d(array![0.1, 0.2, 0.3, 0.4], 2, 1.0, 0.0);
+//! let q = RenyiEntropy::<1>::new_1d(array![0.15, 0.25, 0.35, 0.45], 2, 1.0, 0.0);
 //!
 //! let ce = p.cross_entropy(&q);
-//! assert!(ce >= 0.0);
+//! // Cross-entropy can be negative for continuous distributions
+//! assert!(ce.is_finite());
 //! ```
 //!
 //! ## See Also
 //!
 //! - [Entropy Guide](super::entropy) — Base entropy
-//! - [KLD Guide](super::kld) - $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$
-//! - [JSD Guide](super::jsd) - Symmetric divergence measure
+//! - [KLD Guide](super::kld) — $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$
+//! - [JSD Guide](super::jsd) — Symmetric divergence measure

@@ -25,18 +25,22 @@ pub use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, Loc
 use ndarray::{Array1, Array2};
 /// ### Shannon Entropy
 /// For a discrete random variable $X$ with probability mass function $p(x)$:
+///
 /// $$H(X) = -\sum_{x \in \mathcal{X}} p(x) \log p(x)$$
 ///
 /// ### Differential Entropy
 /// For a continuous random variable $X$ with probability density function $f(x)$:
+///
 /// $$H(X) = -\int_{\mathcal{X}} f(x) \log f(x) \, dx$$
 ///
 /// ### Joint Entropy
 /// Measures the uncertainty of multiple variables together:
+///
 /// $$H(X, Y) = -\sum_{x,y} p(x,y) \log p(x,y)$$
 ///
 /// ### Conditional Entropy
 /// The uncertainty remaining in $X$ after knowing $Y$:
+///
 /// $$H(X|Y) = H(X,Y) - H(Y)$$
 ///
 /// # Relationship to Other Measures
@@ -46,7 +50,7 @@ use ndarray::{Array1, Array2};
 /// - **Mutual Information**: $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 /// - **Conditional Entropy**: $H(X|Y) = H(X,Y) - H(Y)$
 /// - **Kullback-Leibler Divergence**: $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
-/// - **Jensen-Shannon Divergence**: $JSD(P||Q) = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
+/// - **Jensen-Shannon Divergence**: $\mathrm{JSD}(P||Q) = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$
 ///
 /// See the [Entropy Guide](crate::guide::entropy) for detailed documentation.
 ///
@@ -313,7 +317,7 @@ use ndarray::{Array1, Array2};
 /// let h_q_p = ex.cross_entropy(&ey);
 /// assert!(h_q_p >= h_x);
 /// ```
-/// // Facade struct
+///
 // Non-generic implementation (1D default case)
 impl Entropy {
     /// Creates a new discrete entropy estimator for 1D integer data

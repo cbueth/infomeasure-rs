@@ -23,7 +23,7 @@
 //!
 //! The estimators `KernelMutualInformation2` through `KernelMutualInformation6` support 2 to 6
 //! random variables respectively. They use:
-//! - `D_JOINT`: $\sum_{i=1}^n D_i$ - Total dimensionality of the joint space
+//! - `D_JOINT`: $\sum_{i=1}^n D_i$ — Total dimensionality of the joint space
 //! - `D1`, `D2`, ..., `Dn`: Dimensions of individual random variables
 //!
 //! **Example for 2 variables**: If $X$ has dimension $D_1$ and $Y$ has dimension $D_2$, then
@@ -36,9 +36,9 @@
 //! The `KernelConditionalMutualInformation` and `KsgConditionalMutualInformation` structs use:
 //! - `D1`, `D2`: Dimensions of the input variables X and Y
 //! - `D_COND`: Dimension of the conditioning variable Z
-//! - `D_JOINT`: $D_1 + D_2 + D_{cond}$ — Total dimensionality including condition
-//! - `D1_COND`: $D_1 + D_{cond}$ — Dimension of X joined with condition
-//! - `D2_COND`: $D_2 + D_{cond}$ — Dimension of Y joined with condition
+//! - `D_JOINT`: $D_1 + D_2 + D\_{\mathrm{cond}}$ — Total dimensionality including condition
+//! - `D1_COND`: $D_1 + D\_{\mathrm{cond}}$ — Dimension of X joined with condition
+//! - `D2_COND`: $D_2 + D\_{\mathrm{cond}}$ — Dimension of Y joined with condition
 //!
 //! ### Helper Macros
 //!
@@ -434,9 +434,9 @@ macro_rules! new_kl_cmi {
 /// Mutual information is related to several other information-theoretic measures:
 ///
 /// - **Entropy**: $I(X;X) = H(X)$ (MI with itself is entropy)
-/// - **Conditional MI**: $I(X;Y|Z)$ - MI with a conditioning variable
-/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - directed MI for time series
-/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with conditioning
+/// - **Conditional MI**: $I(X;Y|Z)$ — MI with a conditioning variable
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ — directed MI for time series
+/// - **Conditional TE**: $T_{X \to Y|Z}$ — TE with conditioning
 ///
 /// For a detailed conceptual guide, see the [Mutual Information Guide](crate::guide::mutual_information).
 ///

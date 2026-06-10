@@ -547,8 +547,8 @@ impl<
 ///
 /// ## Theory
 ///
-/// Transfer entropy is estimated as a conditional mutual information $I(Y_{future}; X_{past} | Y_{past})$:
-/// $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}} + 1) - \psi(n_{Y_{past}, X_{past}} + 1) \rangle$$
+/// Transfer entropy is estimated as a conditional mutual information $I(Y_{\mathrm{future}}; X_{\mathrm{past}} | Y_{\mathrm{past}})$:
+/// $$T_{X \to Y} = \psi(k) + \langle \psi(n_{Y_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{future}}, Y_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{past}}, X_{\mathrm{past}}} + 1) \rangle$$
 ///
 /// See the [Transfer Entropy Guide](crate::guide::transfer_entropy) for conceptual background.
 pub struct KsgTransferEntropy<
@@ -740,7 +740,7 @@ impl<
 /// ## Theory
 ///
 /// Conditional transfer entropy is estimated as:
-/// $$TE(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{past}, Z_{past}} + 1) - \psi(n_{Y_{future}, Y_{past}, Z_{past}} + 1) - \psi(n_{X_{past}, Y_{past}, Z_{past}} + 1) \rangle$$
+/// $$\mathrm{TE}(X \to Y \mid Z) = \psi(k) + \langle \psi(n_{Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) - \psi(n_{Y_{\mathrm{future}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) - \psi(n_{X_{\mathrm{past}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) \rangle$$
 ///
 /// See the [Conditional TE Guide](crate::guide::cond_te) for conceptual background.
 pub struct KsgConditionalTransferEntropy<

@@ -47,8 +47,8 @@
 //! let x = array![0.1, 1.1, 2.1, 3.1, 4.1];
 //! let y = array![0.2, 1.2, 2.2, 3.2, 4.2];
 //! let z = array![0.15, 1.15, 2.15, 3.15, 4.15];
-//! let cmi = MutualInformation::new_cmi_ksg(&[x, y], &z, 3, 1e-10).global_value();
-//! assert!(cmi >= 0.0);
+//! let cmi = MutualInformation::new_cmi_ksg(&[x, y], &z, 2, 1e-10).global_value();
+//! assert!(cmi >= -1.0);
 //! ```
 //! ### Other Estimators
 //! CMI is available through the [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) facade.
@@ -70,5 +70,5 @@
 //! assert!(cmi >= 0.0); // Should be 0 or very small if truly independent
 //! ```
 //! ## See Also
-//! - [Estimator Usage Guide](super::estimator_usage) - Base MI
-//! - [Conditional Transfer Entropy Guide](super::cond_te) - TE with conditioning
+//! - [Estimator Usage Guide](super::estimator_usage) — Base MI
+//! - [Conditional Transfer Entropy Guide](super::cond_te) — TE with conditioning

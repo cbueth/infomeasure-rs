@@ -11,12 +11,12 @@
 //!
 //! The Rényi $\alpha$-entropy is a generalized family of one-parameter entropy:
 //!
-//! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left( \sum_{i=1}^{n} p_i^\alpha \right)$$
+//! $$H_{\alpha}(X) = \frac{1}{1-\alpha} \log \left( \sum_{i=1}^{n} p_i^\alpha \right)$$
 //!
 //! In this module, we use the kNN-based estimation for continuous variables
 //! [Leonenko et al., 2008](crate::guide::references#leonenko2008):
 //!
-//! $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
+//! $$H_{\alpha}(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
 //!
 //! where:
 //! - $V_m$ is the volume of the $m$-dimensional unit ball.
@@ -27,10 +27,10 @@
 //!
 //! ## Measures Implemented
 //!
-//! - **Entropy**: $H_\alpha(X)$
-//! - **Mutual Information**: $I_\alpha(X; Y) = H_\alpha(X) + H_\alpha(Y) - H_\alpha(X, Y)$
-//! - **Conditional MI**: $I_\alpha(X; Y | Z) = H_\alpha(X, Z) + H_\alpha(Y, Z) - H_\alpha(X, Y, Z) - H_\alpha(Z)$
-//! - **Transfer Entropy**: $T_\alpha(X \to Y)$ estimated via the CMI entropy-summation formula.
+//! - **Entropy**: $H_{\alpha}(X)$
+//! - **Mutual Information**: $I_{\alpha}(X; Y) = H_{\alpha}(X) + H_{\alpha}(Y) - H_{\alpha}(X, Y)$
+//! - **Conditional MI**: $I_{\alpha}(X; Y | Z) = H_{\alpha}(X, Z) + H_{\alpha}(Y, Z) - H_{\alpha}(X, Y, Z) - H_{\alpha}(Z)$
+//! - **Transfer Entropy**: $T_{\alpha}(X \to Y)$ estimated via the CMI entropy-summation formula.
 //!
 //! ## See Also
 //! - [Entropy Guide](crate::guide::entropy) — Conceptual background
@@ -63,7 +63,7 @@ use crate::estimators::utils::te_slicing::{cte_observations_const, te_observatio
 /// For continuous variables, the Rényi $\alpha$-entropy is estimated using kNN distances as
 /// [Leonenko et al., 2008](crate::guide::references#leonenko2008):
 ///
-/// $$H_\alpha(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
+/// $$H_{\alpha}(X) = \frac{1}{1-\alpha} \log \left[ \frac{1}{N} \sum_{i=1}^N ( (N-1) C_{k,\alpha} V_m \rho_{i,k}^m )^{1-\alpha} \right]$$
 ///
 /// where:
 /// - $V_m$ is the volume of the $m$-dimensional unit ball.
@@ -321,7 +321,7 @@ macro_rules! impl_renyi_mi {
         ///
         /// ## Theory
         ///
-        #[doc = doc_snippets!(mi_formula "Rényi", r"_\alpha", "")]
+        #[doc = doc_snippets!(mi_formula "Rényi", r"_{\alpha}", "")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub alpha: f64,
@@ -400,7 +400,7 @@ impl_renyi_mi!(
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cmi_formula "Rényi", r"_\alpha", "")]
+#[doc = doc_snippets!(cmi_formula "Rényi", r"_{\alpha}", "")]
 pub struct RenyiConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -524,7 +524,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(te_formula "Rényi", r"_\alpha", "")]
+#[doc = doc_snippets!(te_formula "Rényi", r"_{\alpha}", "")]
 pub struct RenyiTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -712,7 +712,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cte_formula "Rényi", r"_\alpha", "")]
+#[doc = doc_snippets!(cte_formula "Rényi", r"_{\alpha}", "")]
 pub struct RenyiConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

@@ -20,7 +20,7 @@ use std::collections::HashMap;
 ///
 /// where:
 /// - $t_i = 1/K$ is the uniform distribution target.
-/// - $\hat{p}_i^{ML}$ is the Maximum Likelihood estimate.
+/// - $\hat{p}_i^{\mathrm{ML}}$ is the Maximum Likelihood estimate.
 /// - $\lambda$ is the shrinkage intensity, calculated to minimize the mean squared error.
 ///
 /// This approach effectively reduces both variance and bias, particularly in undersampled

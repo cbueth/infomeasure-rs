@@ -9,7 +9,7 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, Optional
 use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
 
-/// Grassberger (Gr88) entropy estimator for discrete data.
+/// Grassberger ([1988](crate::guide::references#grassberger1988)) entropy estimator for discrete data.
 ///
 /// ## Theory
 ///

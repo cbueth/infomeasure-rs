@@ -21,12 +21,12 @@ use statrs::function::gamma::{digamma, ln_gamma};
 /// The estimator computes the expectation of entropy by integrating over the concentration
 /// parameter $\beta$:
 ///
-/// $$\hat{H}_{NSB} = \frac{\int \langle H \rangle_\beta \rho(\beta \mid \mathbf{n}) \, d\beta}{\int \rho(\beta \mid \mathbf{n}) \, d\beta}$$
+/// $$\hat{H}_{NSB} = \frac{\int \langle H \rangle_{\beta} \rho(\beta \mid \mathbf{n}) \, d\beta}{\int \rho(\beta \mid \mathbf{n}) \, d\beta}$$
 ///
 /// where:
-/// - $\langle H \rangle_\beta$ is the expected entropy for a given $\beta$.
+/// - $\langle H \rangle_{\beta}$ is the expected entropy for a given $\beta$.
 /// - $\rho(\beta \mid \mathbf{n})$ is the posterior weight of $\beta$ given the counts $\mathbf{n}$.
-/// - $\beta$ is the parameter of the symmetric Dirichlet prior $Dir(\beta)$.
+/// - $\beta$ is the parameter of the symmetric Dirichlet prior $\mathrm{Dir}(\beta)$.
 ///
 /// This implementation uses adaptive Simpson integration to compute these integrals numerically.
 ///

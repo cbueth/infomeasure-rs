@@ -88,7 +88,7 @@ use ndarray_stats::CorrelationExt;
 
 /// Kernel-based transfer entropy estimator.
 ///
-/// $TE(X \to Y) = I(Y_{future}; X_{past} | Y_{past})$
+/// $TE(X \to Y) = I(Y\_{\mathrm{future}}; X\_{\mathrm{past}} | Y\_{\mathrm{past}})$
 ///
 /// # Const Generics
 /// - `SRC_HIST`: Number of past source observations to include.
@@ -96,10 +96,10 @@ use ndarray_stats::CorrelationExt;
 /// - `STEP_SIZE`: Delay between observations.
 /// - `D_SOURCE`: Dimensionality of source variable.
 /// - `D_TARGET`: Dimensionality of destination variable.
-/// - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
-/// - `D_XP_YP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target})$
-/// - `D_YP`: $DEST\_HIST \times D_{target}$
-/// - `D_YF_YP`: $D_{target} + (DEST\_HIST \times D_{target})$
+/// - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{source}}) + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}})$
+/// - `D_XP_YP`: $(\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST}\_\mathrm{HIST} \times D_{\mathrm{target}})$
+/// - `D_YP`: $\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}}$
+/// - `D_YF_YP`: $D_{\mathrm{target}} + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}})$
 ///
 /// Kernel-based transfer entropy estimator.
 ///
@@ -344,16 +344,16 @@ impl<
 
 /// Kernel-based conditional transfer entropy estimator.
 ///
-/// $CTE(X \to Y | Z) = I(Y_{future}; X_{past} | Y_{past}, Z_{past})$
+/// $CTE(X \to Y | Z) = I(Y\_{\\mathrm{future}}; X\_{\\mathrm{past}} | Y\_{\\mathrm{past}}, Z\_{\\mathrm{past}})$
 ///
 /// # Const Generics
 /// - `SRC_HIST`, `DEST_HIST`, `COND_HIST`: History lengths.
 /// - `STEP_SIZE`: Delay between observations.
 /// - `D_SOURCE`, `D_TARGET`, `D_COND`: Input dimensionality.
-/// - `D_JOINT`: $D_{target} + (SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-/// - `D_XP_YP_ZP`: $(SRC\_HIST \times D_{source}) + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-/// - `D_YP_ZP`: $(DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
-/// - `D_YF_YP_ZP`: $D_{target} + (DEST\_HIST \times D_{target}) + (COND\_HIST \times D_{cond})$
+/// - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{source}}) + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}}) + (\mathrm{COND}\_\mathrm{HIST} \times D_{\\mathrm{cond}})$
+/// - `D_XP_YP_ZP`: $(\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{source}}) + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}}) + (\mathrm{COND}\_\mathrm{HIST} \times D_{\\mathrm{cond}})$
+/// - `D_YP_ZP`: $(\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}}) + (\mathrm{COND}\_\mathrm{HIST} \times D_{\\mathrm{cond}})$
+/// - `D_YF_YP_ZP`: $D_{\mathrm{target}} + (\mathrm{SRC}\_\mathrm{HIST} \times D_{\mathrm{target}}) + (\mathrm{COND}\_\mathrm{HIST} \times D_{\\mathrm{cond}})$
 ///
 /// Kernel-based conditional transfer entropy estimator.
 ///
@@ -740,9 +740,9 @@ impl_kernel_mi!(
 ///
 /// # Const Generics
 /// - `D1`, `D2`, `D_COND`: Dimensions of input variables.
-/// - `D_JOINT`: $D_1 + D_2 + D_{cond}$
-/// - `D1_COND`: $D_1 + D_{cond}$
-/// - `D2_COND`: $D_2 + D_{cond}$
+/// - `D_JOINT`: $D_1 + D_2 + D_{\mathrm{cond}}$
+/// - `D1_COND`: $D_1 + D_{\mathrm{cond}}$
+/// - `D2_COND`: $D_2 + D_{\mathrm{cond}}$
 pub struct KernelConditionalMutualInformation<
     const D1: usize,
     const D2: usize,

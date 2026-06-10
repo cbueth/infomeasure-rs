@@ -11,11 +11,11 @@
 //!
 //! Tsallis entropy (q-order entropy) is a non-additive generalization of Shannon entropy:
 //!
-//! $$S_q(X) = \frac{1}{q-1} \left( 1 - \sum_{i=1}^{n} p_i^q \right)$$
+//! $$H_q(X) = \frac{1}{q-1} \left( 1 - \sum_{i=1}^{n} p_i^q \right)$$
 //!
 //! For continuous variables, it is estimated using kNN distances as:
 //!
-//! $$S_q(X) = \frac{1 - I_q}{q - 1}$$
+//! $$H_q(X) = \frac{1 - I_q}{q - 1}$$
 //!
 //! where $I_q$ is the same exponential-family integral used in Rényi entropy estimation:
 //!
@@ -25,9 +25,9 @@
 //!
 //! ## Measures Implemented
 //!
-//! - **Entropy**: $S_q(X)$
-//! - **Mutual Information**: $I_q(X; Y) = S_q(X) + S_q(Y) - S_q(X, Y)$
-//! - **Conditional MI**: $I_q(X; Y | Z) = S_q(X, Z) + S_q(Y, Z) - S_q(X, Y, Z) - S_q(Z)$
+//! - **Entropy**: $H_q(X)$
+//! - **Mutual Information**: $I_q(X; Y) = H_q(X) + H_q(Y) - H_q(X, Y)$
+//! - **Conditional MI**: $I_q(X; Y | Z) = H_q(X, Z) + H_q(Y, Z) - H_q(X, Y, Z) - H_q(Z)$
 //! - **Transfer Entropy**: $T_q(X \to Y)$ estimated via the CMI entropy-summation formula.
 //!
 //! ## See Also
@@ -60,7 +60,7 @@ use crate::estimators::utils::te_slicing::{cte_observations_const, te_observatio
 ///
 /// For continuous variables, the Tsallis $q$-entropy is estimated using kNN distances as:
 ///
-/// $$S_q(X) = \frac{1 - I_q}{q - 1}$$
+/// $$H_q(X) = \frac{1 - I_q}{q - 1}$$
 ///
 /// where $I_q$ is the exponential-family integral:
 ///
@@ -320,7 +320,7 @@ macro_rules! impl_tsallis_mi {
         ///
         /// ## Theory
         ///
-        #[doc = doc_snippets!(mi_formula "Tsallis", "_q", "", "S")]
+        #[doc = doc_snippets!(mi_formula "Tsallis", "_q", "", "H")]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub q: f64,
@@ -399,7 +399,7 @@ impl_tsallis_mi!(
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cmi_formula "Tsallis", "_q", "", "S")]
+#[doc = doc_snippets!(cmi_formula "Tsallis", "_q", "", "H")]
 pub struct TsallisConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -523,7 +523,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(te_formula "Tsallis", "_q", "", "S")]
+#[doc = doc_snippets!(te_formula "Tsallis", "_q", "", "H")]
 pub struct TsallisTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -711,7 +711,7 @@ impl<
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cte_formula "Tsallis", "_q", "", "S")]
+#[doc = doc_snippets!(cte_formula "Tsallis", "_q", "", "H")]
 pub struct TsallisConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

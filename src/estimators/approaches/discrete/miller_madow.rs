@@ -20,7 +20,7 @@ use ndarray::{Array1, Array2};
 /// $$\hat{H}_{MM} = \hat{H}_{MLE} + \frac{K-1}{2N}$$
 ///
 /// where:
-/// - $\hat{H}_{MLE}$ is the Maximum Likelihood estimate.
+/// - $\hat{H}_{\mathrm{MLE}}$ is the Maximum Likelihood estimate.
 /// - $K$ is the number of bins with non-zero counts.
 /// - $N$ is the total number of samples.
 ///

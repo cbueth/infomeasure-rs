@@ -8,10 +8,10 @@ use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, r
 use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use ndarray::{Array1, Array2};
 
-/// Zhang entropy estimator for discrete data (Lozano 2017 fast formulation).
+/// Zhang entropy estimator for discrete data ([Lozano et al., 2017](crate::guide::references#lozano2017), fast formulation).
 ///
 /// Implements an efficient series expansion that corrects the MLE bias by summing
-/// a per-count term t2(n_i) over the support; supports local values which map each
+/// a per-count term $t_2(n_i)$ over the support; supports local values which map each
 /// sample to its symbol's contribution.
 ///
 /// Cross-entropy is not implemented for Zhang estimator due to

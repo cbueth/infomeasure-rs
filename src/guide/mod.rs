@@ -85,8 +85,8 @@
 //! | **Joint Entropy** $H(X,Y)$ | Uncertainty of multiple variables together | [entropy] |
 //! | **Conditional Entropy** $H(X \mid Y)$ | Uncertainty remaining in X after knowing Y | [cond_entropy] |
 //! | **Cross-Entropy** $H_Q(P)$ | Encoding info using wrong distribution Q | [cross_entropy] |
-//! | **KLD** $D_{\mathrm{KL}}(P \mid \mid Q)$ | Information lost using Q to approximate P | [kld] |
-//! | **JSD** $JSD(P \mid \mid Q)$ | Symmetric divergence between P and Q | [jsd] |
+//! | **KLD** $D_{\mathrm{KL}}(P \mid\mid Q)$ | Information lost using Q to approximate P | [kld] |
+//! | **JSD** $JSD(P \mid\mid Q)$ | Symmetric divergence between P and Q | [jsd] |
 //! | **MI** $I(X;Y)$ | Shared information between X and Y | [mutual_information] |
 //! | **CMI** $I(X;Y\mid Z)$ | MI between X and Y given Z | [cond_mi] |
 //! | **TE** $T_{X \to Y}$ | Directed info flow from X to Y (time series) | [transfer_entropy] |
