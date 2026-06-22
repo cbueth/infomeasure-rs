@@ -59,7 +59,7 @@
 //!
 //! ## See Also
 //!
-//! - [Entropy Guide](super::entropy) - Base entropy
+//! - [Entropy Guide](super::entropy) — Base entropy
 //! - [Mutual Information](super::mutual_information) - $I(X;Y) = H(X) - H(X|Y)$
 //! - [Conditional MI](super::cond_mi) - $I(X;Y|Z)$
 //! - [Transfer Entropy](super::transfer_entropy) - $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$

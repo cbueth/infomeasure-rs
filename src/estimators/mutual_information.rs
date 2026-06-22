@@ -7,8 +7,8 @@
 //! This module provides estimators for computing mutual information $I(X;Y)$ and
 //! conditional mutual information $I(X;Y|Z)$.
 //!
-//! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
-//! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+//! For usage examples and guidance, see the [Estimator Usage Guide](crate::guide::estimator_usage).
+//! For macro convenience functions, see the [Macros Guide](crate::guide::macros).
 //!
 //! ## Const Generics and Dimensions
 //!
@@ -23,7 +23,7 @@
 //!
 //! The estimators `KernelMutualInformation2` through `KernelMutualInformation6` support 2 to 6
 //! random variables respectively. They use:
-//! - `D_JOINT`: $\sum_{i=1}^n D_i$ - Total dimensionality of the joint space
+//! - `D_JOINT`: $\sum_{i=1}^n D_i$ — Total dimensionality of the joint space
 //! - `D1`, `D2`, ..., `Dn`: Dimensions of individual random variables
 //!
 //! **Example for 2 variables**: If $X$ has dimension $D_1$ and $Y$ has dimension $D_2$, then
@@ -36,24 +36,23 @@
 //! The `KernelConditionalMutualInformation` and `KsgConditionalMutualInformation` structs use:
 //! - `D1`, `D2`: Dimensions of the input variables X and Y
 //! - `D_COND`: Dimension of the conditioning variable Z
-//! - `D_JOINT`: $D_1 + D_2 + D_{cond}$ - Total dimensionality including condition
-//! - `D1_COND`: $D_1 + D_{cond}$ - Dimension of X joined with condition
-//! - `D2_COND`: $D_2 + D_{cond}$ - Dimension of Y joined with condition
+//! - `D_JOINT`: $D_1 + D_2 + D\_{\mathrm{cond}}$ — Total dimensionality including condition
+//! - `D1_COND`: $D_1 + D\_{\mathrm{cond}}$ — Dimension of X joined with condition
+//! - `D2_COND`: $D_2 + D\_{\mathrm{cond}}$ — Dimension of Y joined with condition
 //!
 //! ### Helper Macros
 //!
 //! To simplify instantiation and automatically calculate these dimensions, use the following macros:
-//! - `new_kernel_mi!` - Creates a `KernelMutualInformation` estimator (supports 2-6 variables)
-//! - `new_kernel_cmi!` - Creates a `KernelConditionalMutualInformation` estimator
-//! - `new_ksg_mi!` - Creates a `KsgMutualInformation` estimator
-//! - `new_ksg_cmi!` - Creates a `KsgConditionalMutualInformation` estimator
-//! - `new_renyi_mi!` - Creates a `RenyiMutualInformation` estimator
-//! - `new_renyi_cmi!` - Creates a `RenyiConditionalMutualInformation` estimator
-//! - `new_tsallis_mi!` - Creates a `TsallisMutualInformation` estimator
-//! - `new_tsallis_cmi!` - Creates a `TsallisConditionalMutualInformation` estimator
-//! - `new_kl_mi!` - Creates a KL-divergence based MI estimator
-//! - `new_jsd_mi!` - Creates a JSD-based MI estimator
-//! - `new_ordinal_mi!` - Creates an `OrdinalMutualInformation` estimator
+//! - `new_kernel_mi!` — Creates a `KernelMutualInformation` estimator
+//! - `new_kernel_cmi!` — Creates a `KernelConditionalMutualInformation` estimator
+//! - `new_ksg_mi!` — Creates a `KsgMutualInformation` estimator
+//! - `new_ksg_cmi!` — Creates a `KsgConditionalMutualInformation` estimator
+//! - `new_renyi_mi!` — Creates a `RenyiMutualInformation` estimator
+//! - `new_renyi_cmi!` — Creates a `RenyiConditionalMutualInformation` estimator
+//! - `new_tsallis_mi!` — Creates a `TsallisMutualInformation` estimator
+//! - `new_tsallis_cmi!` — Creates a `TsallisConditionalMutualInformation` estimator
+//! - `new_kl_mi!` — Creates a KL-divergence based MI estimator
+//! - `new_ordinal_mi!` — Creates an `OrdinalMutualInformation` estimator
 //!
 //! These macros handle the dimension calculations automatically based on the input
 //! dimensionalities you provide.
@@ -107,6 +106,11 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::{
 /// * `$kernel`: `String` - Kernel type ("box" or "gaussian").
 /// * `$bw`: `f64` - Bandwidth parameter.
 /// * `$d1`, `$d2`, ...: `usize` - Dimensionality of each random variable.
+///
+/// # See Also
+/// - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+/// - [Kernel Approach](crate::estimators::approaches::kernel) — Technical details of Kernel estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kernel_mi {
     ($series:expr, $kernel:expr, $bw:expr, $d1:expr, $d2:expr) => {{
@@ -144,6 +148,11 @@ macro_rules! new_kernel_mi {
 /// * `$d1`: `usize` - Dimensionality of the first random variable (X).
 /// * `$d2`: `usize` - Dimensionality of the second random variable (Y).
 /// * `$d_cond`: `usize` - Dimensionality of the conditioning variable (Z).
+///
+/// # See Also
+/// - [Conditional MI Guide](crate::guide::cond_mi) — Conceptual background
+/// - [Kernel Approach](crate::estimators::approaches::kernel) — Technical details of Kernel estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kernel_cmi {
     ($series:expr, $cond:expr, $kernel:expr, $bw:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
@@ -162,6 +171,11 @@ macro_rules! new_kernel_cmi {
 }
 
 /// Macro for creating a new `KsgMutualInformation` estimator.
+///
+/// # See Also
+/// - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+/// - [KSG Approach](crate::estimators::approaches::expfam::ksg) — Technical details of KSG estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_ksg_mi {
     ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr) => {{
@@ -187,6 +201,11 @@ macro_rules! new_ksg_mi {
 }
 
 /// Macro for creating a new `KsgConditionalMutualInformation` estimator.
+///
+/// # See Also
+/// - [Conditional MI Guide](crate::guide::cond_mi) — Conceptual background
+/// - [KSG Approach](crate::estimators::approaches::expfam::ksg) — Technical details of KSG estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_ksg_cmi {
     ($series:expr, $cond:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
@@ -205,6 +224,11 @@ macro_rules! new_ksg_cmi {
 }
 
 /// Macro for creating a new `RenyiMutualInformation` estimator.
+///
+/// # See Also
+/// - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+/// - [Rényi Approach](crate::estimators::approaches::expfam::renyi) — Technical details of Rényi estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_renyi_mi {
     ($series:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr) => {{
@@ -230,6 +254,11 @@ macro_rules! new_renyi_mi {
 }
 
 /// Macro for creating a new `RenyiConditionalMutualInformation` estimator.
+///
+/// # See Also
+/// - [Conditional MI Guide](crate::guide::cond_mi) — Conceptual background
+/// - [Rényi Approach](crate::estimators::approaches::expfam::renyi) — Technical details of Rényi estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_renyi_cmi {
     ($series:expr, $cond:expr, $k:expr, $alpha:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
@@ -248,6 +277,11 @@ macro_rules! new_renyi_cmi {
 }
 
 /// Macro for creating a new `TsallisMutualInformation` estimator.
+///
+/// # See Also
+/// - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+/// - [Tsallis Approach](crate::estimators::approaches::expfam::tsallis) — Technical details of Tsallis estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_tsallis_mi {
     ($series:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr) => {{
@@ -303,6 +337,11 @@ macro_rules! new_tsallis_mi {
 }
 
 /// Macro for creating a new `TsallisConditionalMutualInformation` estimator.
+///
+/// # See Also
+/// - [Conditional MI Guide](crate::guide::cond_mi) — Conceptual background
+/// - [Tsallis Approach](crate::estimators::approaches::expfam::tsallis) — Technical details of Tsallis estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_tsallis_cmi {
     ($series:expr, $cond:expr, $k:expr, $q:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
@@ -321,6 +360,11 @@ macro_rules! new_tsallis_cmi {
 }
 
 /// Macro for creating a new `KozachenkoLeonenkoMutualInformation` estimator.
+///
+/// # See Also
+/// - [Mutual Information Guide](crate::guide::mutual_information) — Conceptual background
+/// - [Kozachenko-Leonenko Approach](crate::estimators::approaches::expfam::kozachenko_leonenko) — Technical details of KL estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kl_mi {
     ($series:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr) => {{
@@ -346,6 +390,11 @@ macro_rules! new_kl_mi {
 }
 
 /// Macro for creating a new `KozachenkoLeonenkoConditionalMutualInformation` estimator.
+///
+/// # See Also
+/// - [Conditional MI Guide](crate::guide::cond_mi) — Conceptual background
+/// - [Kozachenko-Leonenko Approach](crate::estimators::approaches::expfam::kozachenko_leonenko) — Technical details of KL estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kl_cmi {
     ($series:expr, $cond:expr, $k:expr, $noise:expr, $d1:expr, $d2:expr, $d_cond:expr) => {{
@@ -363,27 +412,41 @@ macro_rules! new_kl_cmi {
     }};
 }
 
-pub struct MutualInformation;
-
-/// Facade for creating mutual information (MI) and conditional mutual information (CMI) estimators.
+#[doc = doc_snippets!(facade_overview "MI/CMI", "Facade for creating mutual information (MI) and conditional mutual information (CMI) estimators.")]
 ///
-/// This struct provides a unified interface for all MI/CMI estimation techniques supported
-/// by the library. It includes methods for discrete, kernel-based, ordinal, and
-/// exponential family (k-NN) estimators.
+/// ## Theory
 ///
-/// Each estimator can be used to compute the global MI value or local MI values
-/// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
+/// ### Mutual Information
+/// Mutual Information measures the dependence between random variables:
+/// $$I(X; Y) = \sum_{x,y} p(x,y) \log \frac{p(x,y)}{p(x)p(y)}$$
+/// In terms of entropies:
+/// $$I(X; Y) = H(X) + H(Y) - H(X,Y)$$
+///
+/// ### Conditional Mutual Information
+/// CMI measures the dependence between $X$ and $Y$ while controlling for $Z$:
+/// $$I(X; Y \mid Z) = \sum_{x,y,z} p(x,y,z) \log \frac{p(x,y \mid z)}{p(x \mid z)p(y \mid z)}$$
+/// In terms of entropies:
+/// $$I(X; Y \mid Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)$$
 ///
 /// # Relationship to Other Measures
 ///
 /// Mutual information is related to several other information-theoretic measures:
 ///
 /// - **Entropy**: $I(X;X) = H(X)$ (MI with itself is entropy)
-/// - **Conditional MI**: $I(X;Y|Z)$ - MI with a conditioning variable
-/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - directed MI for time series
-/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with conditioning
+/// - **Conditional MI**: $I(X;Y|Z)$ — MI with a conditioning variable
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ — directed MI for time series
+/// - **Conditional TE**: $T_{X \to Y|Z}$ — TE with conditioning
 ///
 /// For a detailed conceptual guide, see the [Mutual Information Guide](crate::guide::mutual_information).
+///
+/// # Technical Note: Const Generics and Dimensions
+///
+#[doc = doc_snippets!(const_generic_limitation)]
+///
+/// ### Helper Macros
+///
+#[doc = doc_snippets!(macro_simplification_mi)]
+pub struct MutualInformation;
 ///
 /// # Examples
 ///

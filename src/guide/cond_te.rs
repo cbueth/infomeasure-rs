@@ -21,8 +21,8 @@
 //!
 //! ```text
 //!     Z (common driver)
-//!    /   \
-//!   X     Y
+//!    / \
+//!   X   Y
 //! ```
 //!
 //! In this configuration:
@@ -38,10 +38,10 @@
 //!
 //! ## Definition
 //!
-//! $$TE(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}}
-//! p(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})
-//! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})} \\right)$$
+//! $$\mathrm{TE}(X \\to Y \\mid Z) = -\\sum_{y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)}}
+//! p(y_{n+1}, \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})
+//! \\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n^{(m)})}
+//! {p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n^{(m)})} \\right)$$
 //!
 //! where:
 //! - $p(\\cdot)$ represents the probability distribution,
@@ -54,8 +54,8 @@
 //!
 //! Similar to local TE and local CMI measures, we can extract the **local or point-wise conditional TE**:
 //!
-//! $$t_{X \\to Y \\mid Z}(n+1, k, l) = -\\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n)}
-//! {p(y_{n+1} \\mid \\mathbf{y}_n^{(l)}, \\mathbf{z}_n)} \\right)$$
+//! $$t_{X \\to Y \\mid Z}(n+1, k, l) = -\\log \\left( \\frac{p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{x}\_n^{(k)}, \\mathbf{z}\_n)}
+//! {p(y_{n+1} \\mid \\mathbf{y}\_n^{(l)}, \\mathbf{z}\_n)} \\right)$$
 //!
 //! The CTE can be written as the average of local CTE:
 //!
@@ -68,14 +68,41 @@
 //!
 //! The CTE expression can be written as the combination of entropies and joint entropies:
 //!
-//! $$TE(X \\to Y \\mid Z) =$$
-//! $$H(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)}) - H(\\mathbf{y}_n^{(l)}, \\mathbf{z}_n^{(m)})$$
-//! $$- H(y_{n+1}, \\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)}) + H(\\mathbf{y}_n^{(l)}, \\mathbf{x}_n^{(k)}, \\mathbf{z}_n^{(m)})$$
+//! $$
+//! \begin{aligned}
+//! TE(X \to Y \mid Z) =\\,\&H(y\_{n+1}, \mathbf{y}\_n^{(l)}, \mathbf{z}\_n^{(m)}) -
+//! H(\mathbf{y}\_n^{(l)}, \mathbf{z}\_n^{(m)})\\\\
+//! \&- H(y_{n+1}, \mathbf{y}\_n^{(l)}, \mathbf{x}\_n^{(k)}, \mathbf{z}\_n^{(m)}) +
+//! H(\mathbf{y}\_n^{(l)}, \mathbf{x}\_n^{(k)}, \mathbf{z}\_n^{(m)}).
+//! \end{aligned}
+//! $$
 //!
 //! This form is used internally for Rényi and Tsallis CTE estimators.
 //!
 //! ## Implemented in This Crate
+//! ### Continuous CTE: Kraskov-Stögbauer-Grassberger (KSG)
+//! The KSG method [Kraskov et al., 2004](super::references#ksg2004) can be extended to conditional transfer entropy
+//! [Baboukani et al., 2020](super::references#baboukani2020):
 //!
+//! $$
+//! \begin{aligned}
+//! \&TE(X \to Y \mid Z) =\psi(k) + \langle \psi(n_{Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1)- \psi(n_{Y_{\mathrm{future}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) - \psi(n_{X_{\mathrm{past}}, Y_{\mathrm{past}}, Z_{\mathrm{past}}} + 1) \rangle
+//! \end{aligned}
+//! $$
+//!
+//! where $n$ refers to neighbor counts in the respective joint subspaces.
+//! See the [KSG Approach Module](crate::estimators::approaches::expfam::ksg) for technical details.
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::GlobalValue;
+//! use ndarray::array;
+//! let x = array![0.1, 0.2, 0.3, 0.4, 0.5];
+//! let y = array![0.15, 0.25, 0.35, 0.45, 0.55];
+//! let z = array![0.1, 0.2, 0.3, 0.4, 0.5];
+//! let cte = TransferEntropy::new_cte_ksg(&x, &y, &z, 1, 1, 1, 1, 2, 1e-10).global_value();
+//! assert!(cte >= -1.0);
+//! ```
+//! ### Other Estimators
 //! CTE is available through the [`TransferEntropy`](crate::estimators::transfer_entropy::TransferEntropy) facade type:
 //!
 //! - [`TransferEntropy::new_cte_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_cte_discrete_mle)
@@ -137,7 +164,7 @@
 //!
 //! ## See Also
 //!
-//! - [Mutual Information](super::mutual_information) - Base MI
-//! - [Conditional MI](super::cond_mi) - CMI (general case)
-//! - [Transfer Entropy Guide](super::transfer_entropy) - Unconditional TE
-//! - [Estimator Usage Guide](super::estimator_usage) - Detailed usage examples
+//! - [Mutual Information](super::mutual_information) — Base MI
+//! - [Conditional MI](super::cond_mi) — CMI (general case)
+//! - [Transfer Entropy Guide](super::transfer_entropy) — Unconditional TE
+//! - [Estimator Usage Guide](super::estimator_usage) — Detailed usage examples

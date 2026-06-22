@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -25,6 +26,8 @@ use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, Optional
 /// Local values are not supported for the ANSB estimator.
 /// The ANSB estimator is based on global statistics (coincidences) and
 /// local values cannot be meaningfully extracted.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct AnsbEntropy {
     dataset: DiscreteDataset,
     /// Optional override for support size K
