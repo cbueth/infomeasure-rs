@@ -39,7 +39,7 @@ impl DiscreteDataset {
         }
     }
 
-    /// Build a DiscreteDataset from precomputed counts (e.g., GPU histogram) and original data.
+    /// Build a DiscreteDataset from precomputed counts (e.g. GPU histogram) and original data.
     pub fn from_counts_and_data(data: Array1<i32>, counts: HashMap<i32, usize>) -> Self {
         let n = data.len();
         let k = counts.len();
@@ -72,7 +72,7 @@ pub fn count_frequencies(data: &Array1<i32>) -> HashMap<i32, usize> {
     )
 }
 
-/// Count frequencies from a raw slice of i32 values with an optimized dense mode.
+/// Count frequencies from a raw slice of i32 values with an optimised dense mode.
 pub fn count_frequencies_slice(data: &[i32]) -> HashMap<i32, usize> {
     let n = data.len();
     if n == 0 {

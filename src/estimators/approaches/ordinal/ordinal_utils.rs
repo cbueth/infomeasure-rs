@@ -154,7 +154,7 @@ pub fn symbolize_series_compact(
 }
 
 /// Return raw Lehmer codes (u64) for permutation patterns without remapping.
-/// Useful for parity tests against Python utils.symbolize_series(to_int=True).
+/// Useful for parity tests against Python `utils.symbolize_series(to_int=True)`.
 pub fn symbolize_series_u64(
     series: &Array1<f64>,
     order: usize,

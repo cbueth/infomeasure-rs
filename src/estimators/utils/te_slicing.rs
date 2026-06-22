@@ -2,10 +2,34 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Utilities for slicing and embedding time series data for Transfer Entropy (TE) and
+//! Conditional Transfer Entropy (CTE) estimators.
+//!
+//! This module provides functions to transform raw time series into the embedding formats
+//! required by various estimators. It handles:
+//! - Time-delay embeddings with configurable history lengths and step sizes.
+//! - Slicing data into future, history, and (optionally) conditioning components.
+//! - Random permutation of source history for significance testing and local TE/CTE calculations.
+//! - Support for both scalar (`Array1`) and multivariate (`Array2`) time series.
+//!
+//! The core embedding logic follows the "oldest first" column ordering convention, where
+//! column 0 contains the most distant past sample and the last column contains the most
+//! recent past sample.
+
 use ndarray::{Array1, Array2};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+/// Build the embedding arrays used by transfer-entropy estimators (const generic version).
+///
+/// This is the multivariate version of [`te_slices`], using const generics for
+/// efficiency and working with [`Array2`] inputs.
+///
+/// # Returns
+/// `(dest_future, dest_history, src_history)`:
+/// - `dest_future`: shape $N \times D_{\mathrm{target}}$
+/// - `dest_history`: shape $N \times (k \cdot D_{\mathrm{target}})$
+/// - `src_history`: shape $N \times (l \cdot D_{\mathrm{source}})$
 pub fn te_observations_const<
     T: Clone + Default,
     const SRC_HIST: usize,
@@ -79,7 +103,17 @@ pub fn te_observations_const<
     (dest_future, dest_history, src_history)
 }
 
-/// Slices the data for CTE and optionally permutes the source history (const generic version).
+/// Build the embedding arrays used by conditional transfer-entropy estimators (const generic version).
+///
+/// This is the multivariate version of [`cte_slices`], using const generics for
+/// efficiency and working with [`Array2`] inputs.
+///
+/// # Returns
+/// `(dest_future, dest_history, src_history, cond_history)`:
+/// - `dest_future`: shape $N \times D_{\mathrm{target}}$
+/// - `dest_history`: shape $N \times (k \cdot D_{\mathrm{target}})$
+/// - `src_history`: shape $N \times (l \cdot D_{\mathrm{source}})$
+/// - `cond_history`: shape $N \times (m \cdot D_{\mathrm{cond}})$
 pub fn cte_observations_const<
     T: Clone + Default,
     const SRC_HIST: usize,
@@ -166,12 +200,44 @@ pub fn cte_observations_const<
     (dest_future, dest_history, src_history, cond_history)
 }
 
-/// Slice source and destination data into future and history components for TE.
+/// Build the embedding arrays used by transfer-entropy estimators.
 ///
-/// Returns (dest_future, dest_history, src_history).
-/// - dest_future: Y_{t+1} (shape Nx1)
-/// - dest_history: Y_{t}, Y_{t-tau}, ..., Y_{t-(k-1)tau} (shape N x dest_hist_len)
-/// - src_history: X_{t}, X_{t-tau}, ..., X_{t-(l-1)tau} (shape N x src_hist_len)
+/// Given a source process $X$ and destination process $Y$, this returns the
+/// triple $(Y_t,\\ \mathbf{y}_{t-1}^{(k,\tau)},\\ \mathbf{x}_{t-1}^{(l,\tau)})$
+/// for every valid time index $t$, where $\tau$ is the embedding delay
+/// (`step_size`), $k$ = `dest_hist_len`, and $l$ = `src_hist_len`.
+///
+/// Only time indices for which all required past samples exist are kept.
+/// The retained base indices are `t = max_delay, max_delay + τ, max_delay + 2τ, …`
+/// where `max_delay = max(k, l) · τ`, yielding
+/// $N = \lceil (n - \max(k, l)\,\tau) / \tau \rceil$ rows (with $n$ the input length).
+///
+/// Returns `(dest_future, dest_history, src_history)`:
+/// - `dest_future`: $Y_t$, shape $N \times 1$
+/// - `dest_history`: the embedding vector of $Y$ ending one step before $t$,
+///   with $k$ samples spaced by $\tau$:
+///   $$\mathbf{y}_{t-1}^{(k,\tau)} = \bigl(Y_{t-k\tau},\ \ldots,\ Y_{t-2\tau},\ Y_{t-\tau}\bigr)$$
+///   shape $N \times k$. Column ordering is **oldest first**: column 0 holds
+///   $Y_{t-k\tau}$ and column $k-1$ holds the most recent past sample $Y_{t-\tau}$.
+/// - `src_history`: analogously
+///   $\mathbf{x}_{t-1}^{(l,\tau)} = (X_{t-l\tau}, \ldots, X_{t-2\tau}, X_{t-\tau})$,
+///   shape $N \times l$, same column ordering.
+///
+/// Note that the embedding excludes the sample at time $t$ itself; $Y_t$ is
+/// returned separately as `dest_future`. This matches the standard TE
+/// convention where the source and destination histories are strictly past
+/// observations used to predict the next destination value.
+///
+/// For `step_size = 1` and writing $n+1$ for the future index, this is the
+/// usual embedding $\mathbf{y}_n^{(k)} = \{y_n, y_{n-1}, \ldots, y_{n-k+1}\}$
+/// from the [Transfer Entropy Guide](crate::guide::transfer_entropy)
+/// (modulo column order).
+///
+/// # Example
+/// With `dest_hist_len = 3`, `step_size = 2`, one row of `dest_history`
+/// (with `t` the corresponding base index) contains
+/// $(Y_{t-6},\ Y_{t-4},\ Y_{t-2})$ in columns `[0, 1, 2]`, and the matching
+/// `dest_future` entry is $Y_t$.
 pub fn te_slices<T: Clone + Default>(
     source: &Array1<T>,
     destination: &Array1<T>,
@@ -189,7 +255,45 @@ pub fn te_slices<T: Clone + Default>(
     )
 }
 
-/// Slices the data and optionally permutes the source history.
+/// Build the embedding arrays used by transfer-entropy estimators and optionally permute the source.
+///
+/// Given a source process $X$ and destination process $Y$, this returns the
+/// triple $(Y_t,\ \mathbf{y}_{t-1}^{(k,\tau)},\ \mathbf{x}_{t-1}^{(l,\tau)})$
+/// for every valid time index $t$, where $\tau$ is the embedding delay
+/// (`step_size`), $k$ = `dest_hist_len`, and $l$ = `src_hist_len`.
+///
+/// Only time indices for which all required past samples exist are kept.
+/// The retained base indices are `t = max_delay, max_delay + τ, max_delay + 2τ, …`
+/// where `max_delay = max(k, l) · τ`, yielding
+/// $N = \lceil (n - \max(k, l)\,\tau) / \tau \rceil$ rows (with $n$ the input length).
+///
+/// Returns `(dest_future, dest_history, src_history)`:
+/// - `dest_future`: $Y_t$, shape $N \times 1$
+/// - `dest_history`: the embedding vector of $Y$ ending one step before $t$,
+///   with $k$ samples spaced by $\tau$:
+///   $$\mathbf{y}_{t-1}^{(k,\tau)} = \bigl(Y_{t-k\tau},\ \ldots,\ Y_{t-2\tau},\ Y_{t-\tau}\bigr)$$
+///   shape $N \times k$. Column ordering is **oldest first**: column 0 holds
+///   $Y_{t-k\tau}$ and column $k-1$ holds the most recent past sample $Y_{t-\tau}$.
+/// - `src_history`: analogously
+///   $\mathbf{x}_{t-1}^{(l,\tau)} = (X_{t-l\tau}, \ldots, X_{t-2\tau}, X_{t-\tau})$,
+///   shape $N \times l$, same column ordering.
+///   If `permute_src` is true, the rows of `src_history` are randomly shuffled.
+///
+/// Note that the embedding excludes the sample at time $t$ itself; $Y_t$ is
+/// returned separately as `dest_future`. This matches the standard TE
+/// convention where the source and destination histories are strictly past
+/// observations used to predict the next destination value.
+///
+/// For `step_size = 1` and writing $n+1$ for the future index, this is the
+/// usual embedding $\mathbf{y}_n^{(k)} = \{y_n, y_{n-1}, \ldots, y_{n-k+1}\}$
+/// from the [Transfer Entropy Guide](crate::guide::transfer_entropy)
+/// (modulo column order).
+///
+/// # Example
+/// With `dest_hist_len = 3`, `step_size = 2`, one row of `dest_history`
+/// (with `t` the corresponding base index) contains
+/// $(Y_{t-6},\ Y_{t-4},\ Y_{t-2})$ in columns `[0, 1, 2]`, and the matching
+/// `dest_future` entry is $Y_t$.
 pub fn te_observations<T: Clone + Default>(
     source: &Array1<T>,
     destination: &Array1<T>,
@@ -247,7 +351,46 @@ pub fn te_observations<T: Clone + Default>(
     (dest_future, dest_history, src_history)
 }
 
-/// Slice data into future, history and condition components for CTE.
+/// Build the embedding arrays used by conditional transfer-entropy estimators.
+///
+/// Given a source process $X$, destination process $Y$, and conditioning
+/// process $Z$, this returns the tuple
+/// $(Y_t,\ \mathbf{y}_{t-1}^{(k,\tau)},\ \mathbf{x}_{t-1}^{(l,\tau)},\ \mathbf{z}_{t-1}^{(m,\tau)})$
+/// for every valid time index $t$, where $\tau$ is the embedding delay
+/// (`step_size`), $k$ = `dest_hist_len`, $l$ = `src_hist_len`, and
+/// $m$ = `cond_hist_len`.
+///
+/// Only time indices for which all required past samples exist are kept.
+/// The retained base indices are `t = max_delay, max_delay + τ, max_delay + 2τ, …`
+/// where `max_delay = max(k, l, m) · τ`, yielding
+/// $N = \lceil (n - \max(k, l, m)\,\tau) / \tau \rceil$ rows (with $n$ the input length).
+///
+/// Returns `(dest_future, dest_history, src_history, cond_history)`:
+/// - `dest_future`: $Y_t$, shape $N \times 1$.
+/// - `dest_history`: embedding of $Y$ ending one step before $t$:
+///   $$\mathbf{y}_{t-1}^{(k,\tau)} = \bigl(Y_{t-k\tau},\ \ldots,\ Y_{t-2\tau},\ Y_{t-\tau}\bigr)$$
+///   shape $N \times k$. Column ordering is **oldest first** (column 0 is
+///   $Y_{t-k\tau}$, column $k-1$ is the most recent past sample $Y_{t-\tau}$).
+/// - `src_history`: analogously
+///   $\mathbf{x}_{t-1}^{(l,\tau)} = (X_{t-l\tau}, \ldots, X_{t-2\tau}, X_{t-\tau})$,
+///   shape $N \times l$.
+/// - `cond_history`: analogously
+///   $\mathbf{z}_{t-1}^{(m,\tau)} = (Z_{t-m\tau}, \ldots, Z_{t-2\tau}, Z_{t-\tau})$,
+///   shape $N \times m$.
+///
+/// All three input series are assumed to have the same length; out-of-bounds
+/// indices would panic. The number of valid samples $N$ is governed by the
+/// longest of the three embeddings.
+///
+/// For `step_size = 1` this matches the standard contiguous embeddings used
+/// in the [Conditional Transfer Entropy Guide](crate::guide::cond_te),
+/// modulo column order.
+///
+/// # Example
+/// With `dest_hist_len = 3`, `cond_hist_len = 2`, `step_size = 2`, one row of
+/// `dest_history` contains $(Y_{t-6},\ Y_{t-4},\ Y_{t-2})$ and the matching
+/// row of `cond_history` contains $(Z_{t-4},\ Z_{t-2})$, while `dest_future`
+/// holds $Y_t$.
 pub fn cte_slices<T: Clone + Default>(
     source: &Array1<T>,
     destination: &Array1<T>,
@@ -269,7 +412,47 @@ pub fn cte_slices<T: Clone + Default>(
     )
 }
 
-/// Slices the data for CTE and optionally permutes the source history.
+/// Build the embedding arrays used by conditional transfer-entropy estimators and optionally permute the source.
+///
+/// Given a source process $X$, destination process $Y$, and conditioning
+/// process $Z$, this returns the tuple
+/// $(Y_t,\ \mathbf{y}_{t-1}^{(k,\tau)},\ \mathbf{x}_{t-1}^{(l,\tau)},\ \mathbf{z}_{t-1}^{(m,\tau)})$
+/// for every valid time index $t$, where $\tau$ is the embedding delay
+/// (`step_size`), $k$ = `dest_hist_len`, $l$ = `src_hist_len`, and
+/// $m$ = `cond_hist_len`.
+///
+/// Only time indices for which all required past samples exist are kept.
+/// The retained base indices are `t = max_delay, max_delay + τ, max_delay + 2τ, …`
+/// where `max_delay = max(k, l, m) · τ`, yielding
+/// $N = \lceil (n - \max(k, l, m)\,\tau) / \tau \rceil$ rows (with $n$ the input length).
+///
+/// Returns `(dest_future, dest_history, src_history, cond_history)`:
+/// - `dest_future`: $Y_t$, shape $N \times 1$.
+/// - `dest_history`: embedding of $Y$ ending one step before $t$:
+///   $$\mathbf{y}_{t-1}^{(k,\tau)} = \bigl(Y_{t-k\tau},\ \ldots,\ Y_{t-2\tau},\ Y_{t-\tau}\bigr)$$
+///   shape $N \times k$. Column ordering is **oldest first** (column 0 is
+///   $Y_{t-k\tau}$, column $k-1$ is the most recent past sample $Y_{t-\tau}$).
+/// - `src_history`: analogously
+///   $\mathbf{x}_{t-1}^{(l,\tau)} = (X_{t-l\tau}, \ldots, X_{t-2\tau}, X_{t-\tau})$,
+///   shape $N \times l$.
+///   If `permute_src` is true, the rows of `src_history` are randomly shuffled.
+/// - `cond_history`: analogously
+///   $\mathbf{z}_{t-1}^{(m,\tau)} = (Z_{t-m\tau}, \ldots, Z_{t-2\tau}, Z_{t-\tau})$,
+///   shape $N \times m$.
+///
+/// All three input series are assumed to have the same length; out-of-bounds
+/// indices would panic. The number of valid samples $N$ is governed by the
+/// longest of the three embeddings.
+///
+/// For `step_size = 1` this matches the standard contiguous embeddings used
+/// in the [Conditional Transfer Entropy Guide](crate::guide::cond_te),
+/// modulo column order.
+///
+/// # Example
+/// With `dest_hist_len = 3`, `cond_hist_len = 2`, `step_size = 2`, one row of
+/// `dest_history` contains $(Y_{t-6},\ Y_{t-4},\ Y_{t-2})$ and the matching
+/// row of `cond_history` contains $(Z_{t-4},\ Z_{t-2})$, while `dest_future`
+/// holds $Y_t$.
 #[allow(clippy::too_many_arguments)]
 pub fn cte_observations<T: Clone + Default>(
     source: &Array1<T>,

@@ -39,7 +39,7 @@ fn test_kernel_mi_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
     );
     let local_gpu = rust_est.local_values();
 
-    // Since we can't easily force-disable GPU at runtime if feature is on without changing code,
+    // Since we can't easily force-disable GPU at runtime if the feature is on without changing code,
     // but we know KernelEntropy uses specific logic.
     // To truly test parity, we'd need to compare against a known reference or force CPU.
     // However, the existing box_kernel_gpu_test.rs uses box_kernel_local_values() (CPU) vs local_values() (GPU).

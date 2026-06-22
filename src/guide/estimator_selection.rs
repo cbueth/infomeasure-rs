@@ -273,9 +273,9 @@
 //!
 //! ## Related Guides
 //!
-//! - **[Estimator Usage Guide](super::estimator_usage)** - How to use the API
-//! - **[Entropy Guide](super::entropy)** - Entropy overview
-//! - **[Mutual Information Guide](super::mutual_information)** - MI overview
-//! - **[Transfer Entropy Guide](super::transfer_entropy)** - TE overview
-//! - **[Conditional MI Guide](super::cond_mi)** - CMI overview
-//! - **[Conditional TE Guide](super::cond_te)** - CTE overview
+//! - **[Estimator Usage Guide](super::estimator_usage)** — How to use the API
+//! - **[Entropy Guide](super::entropy)** — Entropy overview
+//! - **[Mutual Information Guide](super::mutual_information)** — MI overview
+//! - **[Transfer Entropy Guide](super::transfer_entropy)** — TE overview
+//! - **[Conditional MI Guide](super::cond_mi)** — CMI overview
+//! - **[Conditional TE Guide](super::cond_te)** — CTE overview
