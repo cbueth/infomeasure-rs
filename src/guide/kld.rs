@@ -38,7 +38,7 @@
 //!
 //! - [Entropy Guide](super::entropy) — Base entropy
 //! - [Cross-Entropy Guide](super::cross_entropy) — Total encoding cost
-//! - [JSD Guide](super::jsd) - Symmetric divergence measure
+//! - [JSD Guide](super::jsd) — Symmetric divergence measure
 //!
 //! ## References
 //!

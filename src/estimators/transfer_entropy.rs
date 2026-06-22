@@ -114,8 +114,8 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::{
 /// based on the history lengths and input dimensionalities.
 ///
 /// # Arguments
-/// * `$source`: `&Array2<f64>` — Source time series (samples x D_src)
-/// * `$dest`: `&Array2<f64>` — Destination time series (samples x D_target)
+/// * `$source`: `&Array2<f64>` — Source time series (samples x $D_{\mathrm{src}}$)
+/// * `$dest`: `&Array2<f64>` — Destination time series (samples x $D_{\mathrm{target}}$)
 /// * `$src_hist`: `usize` — Number of past source observations to include.
 /// * `$dest_hist`: `usize` — Number of past destination observations to include.
 /// * `$step`: `usize` — Delay between observations.
@@ -156,9 +156,9 @@ macro_rules! new_kernel_te {
 /// based on the history lengths and input dimensionalities.
 ///
 /// # Arguments
-/// * `$source`: `&Array2<f64>` - Source time series (samples x D_src)
-/// * `$dest`: `&Array2<f64>` - Destination time series (samples x D_target)
-/// * `$cond`: `&Array2<f64>` - Conditioning time series (samples x D_cond)
+/// * `$source`: `&Array2<f64>` - Source time series (samples x $D_{\mathrm{src}}$)
+/// * `$dest`: `&Array2<f64>` - Destination time series (samples x $D_{\mathrm{target}}$)
+/// * `$cond`: `&Array2<f64>` - Conditioning time series (samples x $D_{\mathrm{cond}}$)
 /// * `$src_hist`: `usize` - Number of past source observations to include.
 /// * `$dest_hist`: `usize` - Number of past destination observations to include.
 /// * `$cond_hist`: `usize` - Number of past conditioning observations to include.

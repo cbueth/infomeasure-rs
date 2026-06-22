@@ -9,7 +9,7 @@
 //! extract results and interact with different algorithmic approaches.
 //!
 //! ## Core Results
-//! - [`GlobalValue`]: The primary interface for obtaining a single scalar measure (e.g., total MI).
+//! - [`GlobalValue`]: The primary interface for obtaining a single scalar measure (e.g. total MI).
 //! - [`LocalValues`]: Interface for obtaining pointwise/local values for each sample.
 //! - [`OptionalLocalValues`]: A fallible variant for estimators that may not support local values.
 //!
@@ -49,7 +49,7 @@ use ndarray::Array1;
 /// - [Estimator Usage Guide](crate::guide::estimator_usage) — How to use estimators
 /// - [`LocalValues`] — For pointwise information contributions
 pub trait GlobalValue {
-    /// Compute and return the global value of the measure (e.g., MI in nats).
+    /// Compute and return the global value of the measure (e.g. MI in nats).
     fn global_value(&self) -> f64;
 }
 

@@ -25,18 +25,18 @@
 //!
 //! ## Estimators
 //!
-//! - [**KSG**](crate::estimators::approaches::expfam::ksg): Specifically designed to cancel out bias when computing Mutual Information
+//! - [KSG](crate::estimators::approaches::expfam::ksg): Specifically designed to cancel out bias when computing Mutual Information
 //!   and Transfer Entropy. It uses different neighbour counting rules in marginal spaces.
-//! - [**Kozachenko-Leonenko (KL)**](crate::estimators::approaches::expfam::kozachenko_leonenko): The standard kNN-based differential entropy estimator.
-//! - [**Rényi**](crate::estimators::approaches::expfam::renyi) / [**Tsallis**](crate::estimators::approaches::expfam::tsallis): Generalized entropies that can capture different aspects
-//!   of the distribution (e.g., tail behavior) via the $\alpha$ parameter.
+//! - [Kozachenko-Leonenko (KL)](crate::estimators::approaches::expfam::kozachenko_leonenko): The standard kNN-based differential entropy estimator.
+//! - [Rényi](crate::estimators::approaches::expfam::renyi) / [Tsallis](crate::estimators::approaches::expfam::tsallis): Generalized entropies that can capture different aspects
+//!   of the distribution (e.g. tail behavior) via the $\alpha$ parameter.
 //!
 //! ## See Also
 //! - [Estimator Approaches](super) — Overview of all estimation techniques
 //!
 //! ## Shared Utilities
 //!
-//! This module also contains shared utilities in [`utils`](crate::estimators::approaches::expfam::utils) for handling
+//! This module also contains shared utilities in [`utils`] for handling
 //! kNN radii, volume of the unit ball calculation, and noise addition to avoid
 //! identical values in datasets.
 //!

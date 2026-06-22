@@ -50,7 +50,7 @@ use ndarray::{Array1, Array2};
 /// - **Mutual Information**: $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 /// - **Conditional Entropy**: $H(X|Y) = H(X,Y) - H(Y)$
 /// - **Kullback-Leibler Divergence**: $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
-/// - **Jensen-Shannon Divergence**: $\mathrm{JSD}(P||Q) = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$
+/// - **Jensen-Shannon Divergence**: $\mathrm{JSD}(P||Q) = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$ (Planned)
 ///
 /// See the [Entropy Guide](crate::guide::entropy) for detailed documentation.
 ///

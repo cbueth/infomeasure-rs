@@ -18,20 +18,20 @@ use crate::estimators::traits::{
 pub enum AlphaParam {
     /// Explicit numeric alpha value
     Value(f64),
-    /// Jeffreys prior: alpha = 0.5
+    /// Jeffreys prior: $\alpha = 0.5$
     Jeffrey,
-    /// Laplace/add-one smoothing: alpha = 1.0
+    /// Laplace/add-one smoothing: $\alpha = 1.0$
     Laplace,
-    /// Schürmann–Grassberger prior: alpha = 1/K
+    /// Schürmann–Grassberger prior: $\alpha = 1/K$
     SchGrass,
-    /// Minimax prior: alpha = sqrt(N)/K
+    /// Minimax prior: $\alpha = \sqrt{N}/K$
     MinMax,
 }
 
 /// Bayesian entropy estimator for discrete data with Dirichlet prior (natural log base).
 ///
-/// Computes entropy from the posterior mean probabilities (n_i + α)/(N + Kα).
-/// Choose α via AlphaParam (Jeffrey, Laplace, Schürmann–Grassberger, Minimax, or explicit).
+/// Computes entropy from the posterior mean probabilities $(n_i + α)/(N + Kα)$.
+/// Choose $α$ via `AlphaParam` (Jeffrey, Laplace, Schürmann–Grassberger, Minimax, or explicit).
 /// Optionally, override support size K for unobserved categories. Global-only.
 ///
 /// Cross-entropy is supported between two distributions.
@@ -51,7 +51,7 @@ pub struct BayesEntropy {
 }
 
 impl CrossEntropy for BayesEntropy {
-    /// Cross-entropy H(P, Q) = -Σ_x p_bayes(x) log q_bayes(x) over common support
+    /// Cross-entropy $H(P, Q) = -\sum_x p_{\mathrm{bayes}}(x) \ln q_{\mathrm{bayes}}(x)$ over common support
     fn cross_entropy(&self, other: &BayesEntropy) -> f64 {
         // Build Bayesian distributions (value -> prob)
         let (p_probs, p_uniq) = self.bayes_probs();
@@ -91,7 +91,7 @@ impl BayesEntropy {
             .collect()
     }
 
-    /// Compute Bayesian probabilities (n + alpha) / (N + K * alpha)
+    /// Compute Bayesian probabilities $(n + \alpha) / (N + K * \alpha)$
     pub fn bayes_probs(&self) -> (Vec<f64>, Vec<i32>) {
         let n = self.dataset.n as f64;
         let k_obs = self.dataset.k;
@@ -131,7 +131,7 @@ impl BayesEntropy {
 }
 
 impl GlobalValue for BayesEntropy {
-    /// Global entropy: -Σ p_bayes ln p_bayes
+    /// Global entropy: $-\sum p_{\mathrm{bayes}} \ln p_{\mathrm{bayes}}$
     fn global_value(&self) -> f64 {
         let (probs, _uniq) = self.bayes_probs();
         let mut h = 0.0_f64;

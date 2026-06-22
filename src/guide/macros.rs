@@ -10,7 +10,7 @@
 //! ## Why Use Macros?
 //!
 //! The crate uses const generics to provide compile-time type safety. However,
-//! manually calculating joint dimensions (e.g., `D_JOINT = d1 + d2 + d3`) is tedious.
+//! manually calculating joint dimensions (e.g. `D_JOINT = d1 + d2 + d3`) is tedious.
 //! These macros handle that automatically.
 //!
 //! **Without macro:**

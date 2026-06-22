@@ -29,7 +29,7 @@ use ndarray::s;
 /// symbolizing the time series into permutation patterns and computing the Shannon entropy
 /// of their distribution:
 ///
-/// $$H_{ord}(X) = -\sum_{p \in \mathcal{S}_d} \hat{P}(p) \log \hat{P}(p)$$
+/// $$H_{\\mathrm{ord}}(X) = -\sum_{p \in \mathcal{S}_d} \hat{P}(p) \log \hat{P}(p)$$
 ///
 /// where $\mathcal{S}_d$ is the set of all $d!$ permutations of length $d$ (the `order`).
 ///
@@ -221,7 +221,7 @@ impl OptionalLocalValues for OrdinalEntropy {
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(mi_formula "Ordinal", "_{ord}", " on permutation patterns")]
+#[doc = doc_snippets!(mi_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalMutualInformation {
     inner: DiscreteMutualInformation<DiscreteEntropy>,
 }
@@ -258,7 +258,7 @@ impl MutualInformationEstimator for OrdinalMutualInformation {}
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cmi_formula "Ordinal", "_{ord}", " on permutation patterns")]
+#[doc = doc_snippets!(cmi_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalConditionalMutualInformation {
     inner: DiscreteConditionalMutualInformation<DiscreteEntropy>,
 }
@@ -306,7 +306,7 @@ impl ConditionalMutualInformationEstimator for OrdinalConditionalMutualInformati
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(te_formula "Ordinal", "_{ord}", " on permutation patterns")]
+#[doc = doc_snippets!(te_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalTransferEntropy {
     inner: DiscreteTransferEntropy<DiscreteEntropy>,
 }
@@ -356,7 +356,7 @@ impl TransferEntropyEstimator for OrdinalTransferEntropy {}
 ///
 /// ## Theory
 ///
-#[doc = doc_snippets!(cte_formula "Ordinal", "_{ord}", " on permutation patterns")]
+#[doc = doc_snippets!(cte_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalConditionalTransferEntropy {
     inner: DiscreteConditionalTransferEntropy<DiscreteEntropy>,
 }

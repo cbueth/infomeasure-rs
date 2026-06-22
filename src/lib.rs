@@ -33,7 +33,7 @@
 //! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
 //! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ | |
 //! | Cross-Entropy | ✅[^1] | ✅ | ✅ | ✅ | All approaches |
-//! | KLD | ⚠️ | ⚠️ | ❌ | ⚠️ | Via cross-entropy |
+//! | KLD | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Via cross-entropy |
 //! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
 //! | CMI | ✅ | ✅ | ✅ | ✅ | Conditional MI |
@@ -83,8 +83,8 @@
 //!
 //! # Guides
 //!
-//! - **[Estimator Usage Guide](crate::guide::estimator_usage)** - How to use this crate
-//! - **[Estimator Selection Guide](crate::guide::estimator_selection)** - Choosing the right estimator
+//! - [Estimator Usage Guide](crate::guide::estimator_usage) - How to use this crate
+//! - [Estimator Selection Guide](crate::guide::estimator_selection) - Choosing the right estimator
 //!
 //! For more details on the theory behind these measures, see the Python package documentation.
 

@@ -30,7 +30,7 @@
 //!
 //! ### 3. Kernel Density Estimation (KDE)
 //! Used for continuous data. KDE approximates the probability density function
-//! by placing a "kernel" (e.g., Gaussian) on each data point.
+//! by placing a "kernel" (e.g. Gaussian) on each data point.
 //! - [More details in Kernel Module](kernel)
 //!
 //! ### 4. Ordinal (Permutation)

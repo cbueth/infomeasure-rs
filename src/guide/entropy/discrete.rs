@@ -10,28 +10,28 @@
 //!
 //! ### Maximum Likelihood (MLE)
 //! The standard plug-in estimator:
-//! $$\hat{H}_{MLE} = -\sum \hat{p}_i \log \hat{p}_i$$
+//! $$\hat{H}_{\mathrm{MLE}} = -\sum \hat{p}_i \log \hat{p}_i$$
 //! Fast but negatively biased for small samples.
 //!
 //! ### Miller-Madow
 //! Corrects MLE by adding a term related to the number of bins $K$:
-//! $$\hat{H}_{MM} = \hat{H}_{MLE} + \frac{K-1}{2N}$$
+//! $$\hat{H}_{\mathrm{MM}} = \hat{H}_{\mathrm{MLE}} + \frac{K-1}{2N}$$
 //!
 //! ### Shrinkage (James-Stein)
 //! Regularizes probabilities toward uniform distribution ($1/K$):
-//! $$\hat{p}_i^{SHR} = \lambda (1/K) + (1-\lambda) \hat{p}_i^{ML}$$
+//! $$\hat{p}_i^{\mathrm{SHR}} = \lambda (1/K) + (1-\lambda) \hat{p}_i^{\mathrm{ML}}$$
 //!
 //! ### Grassberger
 //! Uses the property that the expectation of the digamma function $\psi$ is related to entropy:
-//! $$\hat{H}_{G} = \frac{1}{N} \sum n_i [\psi(N) - \psi(n_i)]$$
+//! $$\hat{H}_{\mathrm{G}} = \frac{1}{N} \sum n_i [\psi(N) - \psi(n_i)]$$
 //!
 //! ### Bonachela
 //! Designed for very small samples:
-//! $$\hat{H}_{B} = \frac{1}{N+2} \sum_{i=1}^{K} \left( (n_i + 1) \sum_{j=n_i + 2}^{N+2} \frac{1}{j} \right)$$
+//! $$\hat{H}_{\mathrm{B}} = \frac{1}{N+2} \sum_{i=1}^{K} \left( (n_i + 1) \sum_{j=n_i + 2}^{N+2} \frac{1}{j} \right)$$
 //!
 //! ### Chao-Shen
 //! Accounts for unobserved states using Horvitz-Thompson adjustment and coverage $C$:
-//! $$\hat{H}_{CS} = - \sum \frac{C \hat{p}_i^{ML} \log (C \hat{p}_i^{ML})}{1 - (1 - C \hat{p}_i^{ML})^N}$$
+//! $$\hat{H}_{\mathrm{CS}} = - \sum \frac{C \hat{p}_i^{\mathrm{ML}} \log (C \hat{p}_i^{\mathrm{ML}})}{1 - (1 - C \hat{p}_i^{\mathrm{ML}})^N}$$
 //!
 //! ### NSB (Nemenman-Shafee-Bialek)
 //! Bayesian estimator that averages over Dirichlet priors to provide a flat prior over entropy.
@@ -87,6 +87,6 @@
 //!
 //! ## See Also
 //!
-//! - [Entropy Overview](super) - All entropy estimators
-//! - [Mutual Information](super::super::mutual_information) - Uses entropy
-//! - [Conditional Entropy](super::super::cond_entropy) - Uses joint entropy
+//! - [Entropy Overview](super) — All entropy estimators
+//! - [Mutual Information](super::super::mutual_information) — Uses entropy
+//! - [Conditional Entropy](super::super::cond_entropy) — Uses joint entropy

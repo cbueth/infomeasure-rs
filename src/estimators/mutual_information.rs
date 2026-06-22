@@ -52,7 +52,6 @@
 //! - `new_tsallis_mi!` — Creates a `TsallisMutualInformation` estimator
 //! - `new_tsallis_cmi!` — Creates a `TsallisConditionalMutualInformation` estimator
 //! - `new_kl_mi!` — Creates a KL-divergence based MI estimator
-//! - `new_jsd_mi!` — Creates a JSD-based MI estimator
 //! - `new_ordinal_mi!` — Creates an `OrdinalMutualInformation` estimator
 //!
 //! These macros handle the dimension calculations automatically based on the input

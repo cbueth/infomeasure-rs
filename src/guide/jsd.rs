@@ -22,10 +22,22 @@
 //! - **Metric Property**: The square root $\sqrt{JSD}$ is a true distance metric
 //!   satisfying the triangle inequality [Endres & Schindelin, 2003](super::references#endres2003).
 //! ## Implementation Status
-//! JSD is not yet directly implemented in this crate. It is planned for a future release.
+//!
+//! JSD is not yet directly implemented as a dedicated estimator in this crate, but it is planned for a future release.
+//!
+//! ### Manual Computation
+//!
+//! You can compute JSD today by using the entropy of a mixture distribution. For two datasets $P$ and $Q$ of the same type:
+//!
+//! 1. Calculate individual entropies $H(P)$ and $H(Q)$.
+//! 2. Combine $P$ and $Q$ into a single dataset $M$ (mixture) and calculate $H(M)$.
+//! 3. Apply the formula: $JSD = H(M) - \frac{1}{2}(H(P) + H(Q))$.
+//!
 //! ## See Also
 //! - [Entropy Guide](super::entropy) — Base entropy computation
 //! - [KLD Guide](super::kld) — Asymmetric divergence measure
 //! - [Cross-Entropy Guide](super::cross_entropy) — Total encoding cost
+//!
 //! ## References
 //! - [Cover & Thomas, 2012](super::references#cover2012elements)
+//! - [Endres & Schindelin, 2003](super::references#endres2003)

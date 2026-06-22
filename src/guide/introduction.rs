@@ -37,13 +37,13 @@
 //! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
 //! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ | |
 //! | Cross-Entropy | ✅[^1] | ✅ | ✅ | ✅ | All approaches |
-//! | KLD | ❌ | ❌ | ❌ | ❌ | Planned |
+//! | KLD | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Via cross-entropy |
 //! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
 //! | CMI | ✅ | ✅ | ✅ | ✅ | Conditional MI |
 //! | TE | ✅ | ✅ | ✅ | ✅ | Transfer Entropy |
 //! | CTE | ✅ | ✅ | ✅ | ✅ | Conditional TE |
 //!
-//! ✅ = Implemented | ❌ = Not implemented
+//! ✅ = Implemented | ⚠️ = Available via trait | ❌ = Not implemented
 //!
 //! [^1]: For discrete estimators, cross-entropy is only available for MLE, Miller-Madow, and Bayesian estimators. NSB, Chao-Shen, and Chao-Wang-Jost do not support cross-entropy due to theoretical inconsistencies in applying bias corrections to cross-entropy.

@@ -39,10 +39,10 @@
 //! Each measure can be estimated using different algorithmic approaches depending
 //! on the data type (discrete vs. continuous) and desired properties:
 //!
-//! - **[Discrete](approaches::discrete)**: Histogram-based with bias correction (MLE, NSB, etc.)
-//! - **[Exponential Family](approaches::expfam)**: kNN-based non-parametric (KSG, KL, Rényi, Tsallis)
-//! - **[Kernel](approaches::kernel)**: Kernel Density Estimation (KDE)
-//! - **[Ordinal](approaches::ordinal)**: Permutation pattern analysis
+//! - [Discrete](approaches::discrete): Histogram-based with bias correction (MLE, NSB, etc.)
+//! - [Exponential Family](approaches::expfam): kNN-based non-parametric (KSG, KL, Rényi, Tsallis)
+//! - [Kernel](approaches::kernel): Kernel Density Estimation (KDE)
+//! - [Ordinal](approaches::ordinal): Permutation pattern analysis
 //!
 //! For detailed guidance on choosing the right estimator, see the
 //! [Estimator Selection Guide](crate::guide::estimator_selection).

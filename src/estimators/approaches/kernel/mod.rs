@@ -15,7 +15,7 @@
 //! $$\hat{f}(x) = \frac{1}{N h^d} \sum_{i=1}^{N} K\left(\frac{x - x_i}{h}\right)$$
 //!
 //! where:
-//! - $K(\cdot)$ is the kernel function (e.g., Gaussian or Box).
+//! - $K(\cdot)$ is the kernel function (e.g. Gaussian or Box).
 //! - $h$ is the bandwidth parameter.
 //! - $d$ is the dimensionality of the data.
 //! - $N$ is the number of data points.

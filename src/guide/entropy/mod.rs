@@ -52,8 +52,8 @@
 //! ### Rényi $\\alpha$-Entropy
 //! Rényi entropy is a generalized family of one-parameter entropy that preserves
 //! additivity for independent systems. For $\\alpha > 0$:
-//! $$H_\\alpha[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
-//! $$H_\\alpha[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
+//! $$H_{\alpha}[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
+//! $$H_{\alpha}[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
 //! where $\\mathcal{P} = (p_1, ..., p_n)$ is a probability distribution.
 //! For $\\alpha = 1$, Rényi entropy reduces to Shannon entropy.
 //! Small values of probabilities are emphasized for $\\alpha < 1$ and larger probabilities for $\\alpha > 1$.
@@ -99,7 +99,7 @@
 //! - [Mutual Information](super::mutual_information) — $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 //! - [Conditional Entropy](super::cond_entropy) — $H(X|Y) = H(X,Y) - H(Y)$
 //! - [KLD](super::kld) — $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
-//! - [JSD](super::jsd) — $JSD = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$
+//! - [JSD](super::jsd) — $JSD = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$ (Planned)
 //! - [Estimator Selection](super::estimator_selection) — Choosing estimators
 //! ## References
 //! - [Shannon, 1948](super::references#shannon1948)

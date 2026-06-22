@@ -40,7 +40,6 @@ macro_rules! doc_snippets {
             "- `new_tsallis_mi!` — Creates a `TsallisMutualInformation` estimator\n",
             "- `new_tsallis_cmi!` — Creates a `TsallisConditionalMutualInformation` estimator\n",
             "- `new_kl_mi!` — Creates a KL-divergence based MI estimator\n",
-            "- `new_jsd_mi!` — Creates a JSD-based MI estimator\n",
             "- `new_ordinal_mi!` — Creates an `OrdinalMutualInformation` estimator\n\n",
             "These macros handle the dimension calculations automatically based on the input\n",
             "dimensionalities you provide."

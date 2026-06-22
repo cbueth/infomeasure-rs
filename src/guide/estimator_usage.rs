@@ -559,7 +559,7 @@
 //! use infomeasure::estimators::traits::GlobalValue;
 //! use ndarray::array;
 //!
-//! // Raw categorical data (e.g., survey responses, sensor states)
+//! // Raw categorical data (e.g. survey responses, sensor states)
 //! let category_a = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
 //! let category_b = array![0, 0, 1, 1, 0, 0, 1, 1, 0, 1];
 //!

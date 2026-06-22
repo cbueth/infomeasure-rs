@@ -37,7 +37,7 @@
 //!
 //! - **Mutual Information**: $I(X; Y) = H(X) + H(Y) - H(X, Y)$
 //! - **Conditional MI**: $I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)$
-//! - **Transfer Entropy**: $T(X \to Y) = I(X\_{\mathrm{past}}; Y\_{\mathrm{future}} | Y\_{\mathrm{past}})$
+//! - **Transfer Entropy**: $T(X \to Y) = I(X_{\mathrm{past}}; Y_{\mathrm{future}} | Y_{\mathrm{past}})$
 //!
 //! ## See Also
 //! - [Discrete Entropy Guide](crate::guide::entropy::discrete) — Detailed comparison of estimators

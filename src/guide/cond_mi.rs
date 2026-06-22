@@ -54,9 +54,9 @@
 //! CMI is available through the [`MutualInformation`](crate::estimators::mutual_information::MutualInformation) facade.
 //! It provides methods for all supported estimation approaches (Discrete, Kernel, KSG, etc.).
 //! For a complete list of constructors and convenience macros, see:
-//! - [**Mutual Information Facade**](crate::estimators::mutual_information::MutualInformation) — Unified technical interface
-//! - [**Macros Guide**](crate::guide::macros) — For automatic dimension calculation
-//! - [**Estimator Selection Guide**](crate::guide::estimator_selection) — Choosing the right estimator
+//! - [Mutual Information Facade](crate::estimators::mutual_information::MutualInformation) — Unified technical interface
+//! - [Macros Guide](crate::guide::macros) — For automatic dimension calculation
+//! - [Estimator Selection Guide](crate::guide::estimator_selection) — Choosing the right estimator
 //! ## Example
 //! ```rust
 //! use infomeasure::estimators::mutual_information::MutualInformation;

@@ -9,7 +9,7 @@
 //! ## Philosophy: Rust vs Python
 //!
 //! Unlike the Python `infomeasure` package which uses a flexible string-based approach
-//! selection (e.g., `approach="nsb"`), this Rust crate uses **Rust's type system** to
+//! selection (e.g. `approach="nsb"`), this Rust crate uses **Rust's type system** to
 //! provide compile-time type safety and optimization opportunities.
 //!
 //! **In Python**, you might write:
@@ -60,7 +60,7 @@
 //!
 //! ### Composite Measures (Planned)
 //! - [KLD Guide](kld) — Kullback-Leibler Divergence
-//! - [JSD Guide](jsd) — Jensen-Shannon Divergence
+//! - [JSD Guide](jsd) — Jensen-Shannon Divergence (Planned)
 //!
 //! ### Configuration
 //! - [Settings](settings) — Configuration options
@@ -71,9 +71,9 @@
 //!
 //! ## Quick Links
 //!
-//! - **[Crate Root](crate)** — Main crate documentation
-//! - **[Code Repository](https://codeberg.org/cbueth/infomeasure-rs)** — Source code
-//! - **[Python Package](https://github.com/cbueth/infomeasure)** — For when you need runtime flexibility
+//! - [Crate Root](crate) — Main crate documentation
+//! - [Code Repository](https://codeberg.org/cbueth/infomeasure-rs) — Source code
+//! - [Python Package](https://github.com/cbueth/infomeasure) — For when you need runtime flexibility
 //!
 //! ## Concept Index
 //!
@@ -86,7 +86,7 @@
 //! | **Conditional Entropy** $H(X \mid Y)$ | Uncertainty remaining in X after knowing Y | [cond_entropy] |
 //! | **Cross-Entropy** $H_Q(P)$ | Encoding info using wrong distribution Q | [cross_entropy] |
 //! | **KLD** $D_{\mathrm{KL}}(P \mid\mid Q)$ | Information lost using Q to approximate P | [kld] |
-//! | **JSD** $JSD(P \mid\mid Q)$ | Symmetric divergence between P and Q | [jsd] |
+//! | **JSD** $JSD(P \mid\mid Q)$ | Symmetric divergence between P and Q (Planned) | [jsd] |
 //! | **MI** $I(X;Y)$ | Shared information between X and Y | [mutual_information] |
 //! | **CMI** $I(X;Y\mid Z)$ | MI between X and Y given Z | [cond_mi] |
 //! | **TE** $T_{X \to Y}$ | Directed info flow from X to Y (time series) | [transfer_entropy] |

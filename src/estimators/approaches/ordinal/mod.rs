@@ -48,9 +48,9 @@
 //!
 //! ## Measures Implemented
 //!
-//! - **Ordinal Entropy**: $H_{ord}(X)$
-//! - **Ordinal Mutual Information**: $I_{ord}(X; Y) = H_{ord}(X) + H_{ord}(Y) - H_{ord}(X, Y)$
-//! - **Ordinal Transfer Entropy**: $T_{ord}(X \to Y)$
+//! - **Ordinal Entropy**: $H_{\mathrm{ord}}(X)$
+//! - **Ordinal Mutual Information**: $I_{\mathrm{ord}}(X; Y) = H_{\mathrm{ord}}(X) + H_{\mathrm{ord}}(Y) - H_{\mathrm{ord}}(X, Y)$
+//! - **Ordinal Transfer Entropy**: $T_{\mathrm{ord}}(X \to Y)$
 //!
 //! ## See Also
 //! - [Entropy Guide](crate::guide::entropy) — Conceptual background
