@@ -6,6 +6,23 @@
 
 @cbueth
 
+### ✨ Features
+
+- **New `pub mod guide`**: Complete documentation guide system with 16 submodules covering all measures (estimator selection, usage scenarios, mathematical theory, references) — ~2600 lines of new documentation
+- **New `doc_snippets!` macro** (`doc_macros.rs`): Shared infrastructure for consistent mathematical formula rendering across all estimators
+- **Estimator API documentation overhaul**: Full mathematical theory docs with KaTeX rendering added to:
+  - `entropy.rs` (+278 lines): Relationship to MI, KL-divergence, JSD; complete estimator examples
+  - `mutual_information.rs` (+401 lines): Facade API docs with formulas for all MI variants
+  - `transfer_entropy.rs` (+357 lines): Facade API docs with TE/CTE theory and examples
+- **Module-level theory documentation** for all approach modules:
+  - `expfam/renyi.rs`: Rényi α-entropy theory with kNN estimation formulas
+  - `expfam/tsallis.rs`: Tsallis q-entropy theory with kNN estimation formulas
+  - `kernel/mod.rs`: KDE theory with bandwidth/kernel selection guidance
+  - `ordinal/mod.rs`: Permutation entropy theory with symbolization explanation
+  - `traits.rs`: Full trait hierarchy documentation with mathematical notation
+- **Transfer entropy slicing** (`te_slicing.rs`): Refactored and expanded TE observation slicing utilities (+192 lines)
+- **Cross-reference system**: `references.rs` guide page with citations for all referenced papers
+
 ### 📚 Documentation
 
 - docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
