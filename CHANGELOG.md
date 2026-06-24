@@ -8,7 +8,6 @@
 
 ### 📚 Documentation
 
-- Release 0.3.0-beta.1 [[#14](https://codeberg.org/cbueth/infomeasure-rs/pulls/14)]
 - docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
 - docs: Move macro dimension documentation [[#11](https://codeberg.org/cbueth/infomeasure-rs/pulls/11)]
 - docs: Add guides for facade/ crate usage and estimator selection [[#9](https://codeberg.org/cbueth/infomeasure-rs/pulls/9)]
