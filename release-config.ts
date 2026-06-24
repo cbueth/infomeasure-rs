@@ -55,7 +55,7 @@ export default {
     const today = new Date().toISOString().split('T')[0];
     await exec(`sed -i "s/^version:.*/version: ${nextVersion}/" CITATION.cff`);
     await exec(`sed -i "s/^date-released:.*/date-released: ${today}/" CITATION.cff`);
-    // Remove CI bot from contributor list
-    await exec(`sed -i '/^@oauth$/d' CHANGELOG.md`);
+    // Remove CI bot from contributor list (comma-separated format: "@user1, @user2, @oauth")
+    await exec(`sed -i 's/, @oauth//; s/@oauth, //; /^@oauth$/d' CHANGELOG.md`);
   },
 };
