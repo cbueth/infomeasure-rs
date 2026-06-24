@@ -25,8 +25,7 @@ steps:
 ---
 
 when:
-  - event: pull_request
-    status: closed
+  - event: pull_request_closed
     evaluate: 'CI_COMMIT_PULL_REQUEST_LABELS contains "release"'
 
 steps:
