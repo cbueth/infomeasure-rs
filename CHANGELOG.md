@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0-rc.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-rc.1) - 2026-06-22
+## [0.2.0-rc.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-rc.1) - 2026-06-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 📚 Documentation
 
+- Release 0.3.0-beta.1 [[#14](https://codeberg.org/cbueth/infomeasure-rs/pulls/14)]
 - docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
 - docs: Move macro dimension documentation [[#11](https://codeberg.org/cbueth/infomeasure-rs/pulls/11)]
 - docs: Add guides for facade/ crate usage and estimator selection [[#9](https://codeberg.org/cbueth/infomeasure-rs/pulls/9)]
