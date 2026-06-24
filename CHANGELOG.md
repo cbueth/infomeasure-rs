@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0-rc.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-rc.1) - 2026-06-24
+## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
