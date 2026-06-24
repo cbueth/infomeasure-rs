@@ -1,37 +1,62 @@
 # Changelog
 
-## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
+## [0.2.0-rc.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-rc.1) - 2026-06-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@cbueth
+@Carlson Büth, @cbueth, @oauth
 
 ### ✨ Features
 
-- **New `pub mod guide`**: Complete documentation guide system with 16 submodules covering all measures (estimator selection, usage scenarios, mathematical theory, references) — ~2600 lines of new documentation
-- **New `doc_snippets!` macro** (`doc_macros.rs`): Shared infrastructure for consistent mathematical formula rendering across all estimators
-- **Estimator API documentation overhaul**: Full mathematical theory docs with KaTeX rendering added to:
-  - `entropy.rs` (+278 lines): Relationship to MI, KL-divergence, JSD; complete estimator examples
-  - `mutual_information.rs` (+401 lines): Facade API docs with formulas for all MI variants
-  - `transfer_entropy.rs` (+357 lines): Facade API docs with TE/CTE theory and examples
-- **Module-level theory documentation** for all approach modules:
-  - `expfam/renyi.rs`: Rényi α-entropy theory with kNN estimation formulas
-  - `expfam/tsallis.rs`: Tsallis q-entropy theory with kNN estimation formulas
-  - `kernel/mod.rs`: KDE theory with bandwidth/kernel selection guidance
-  - `ordinal/mod.rs`: Permutation entropy theory with symbolization explanation
-  - `traits.rs`: Full trait hierarchy documentation with mathematical notation
-- **Transfer entropy slicing** (`te_slicing.rs`): Refactored and expanded TE observation slicing utilities (+192 lines)
-- **Cross-reference system**: `references.rs` guide page with citations for all referenced papers
+- feat: Add comprehensive documentation guides with mathematical theory and proofread [[#26](https://codeberg.org/cbueth/infomeasure-rs/pulls/26)]
+- docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
 
 ### 📚 Documentation
 
-- docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
 - docs: Move macro dimension documentation [[#11](https://codeberg.org/cbueth/infomeasure-rs/pulls/11)]
 - docs: Add guides for facade/ crate usage and estimator selection [[#9](https://codeberg.org/cbueth/infomeasure-rs/pulls/9)]
 
 ### 📦️ Dependency
 
 - chore: Update `kiddo` to v5.3.0 [[#13](https://codeberg.org/cbueth/infomeasure-rs/pulls/13)]
+
+### Misc
+
+- fix: exclude CI bot from CHANGELOG contributors ([c3ef32e](https://codeberg.org/cbueth/infomeasure-rs/src/commit/c3ef32e07055428d9423cba2b1b6247c05b76b09))
+- fix: Set `skipCommitsWithoutPullRequest` to false [[#28](https://codeberg.org/cbueth/infomeasure-rs/pulls/28)]
+- fix: set skipCommitsWithoutPullRequest to false ([3b533d8](https://codeberg.org/cbueth/infomeasure-rs/src/commit/3b533d8074ddebcc8cdd24b9728b627c3e80ce77))
+- feat: add comprehensive documentation guides with mathematical theory and proofread ([c06bb90](https://codeberg.org/cbueth/infomeasure-rs/src/commit/c06bb904f148fa39c1402de590b10eefc7226ea0))
+- fix: merge cargo publish into push-to-main pipeline with commit message gate ([b915085](https://codeberg.org/cbueth/infomeasure-rs/src/commit/b915085224ac79a49694c911c91a523d2d676d58))
+- fix: CI publish event [[#21](https://codeberg.org/cbueth/infomeasure-rs/pulls/21)]
+- fix: correct CI event type for publish pipeline and fix version metadata ([4bced9e](https://codeberg.org/cbueth/infomeasure-rs/src/commit/4bced9ea5d67066875a1b02bcd34c1cc20fd59f6))
+- Merge branch 'origin/main' into 'next-release/main' ([62a25c3](https://codeberg.org/cbueth/infomeasure-rs/src/commit/62a25c3fca3bc98662ae090886410357bd11b501))
+- chore: bump to 0.3.0-beta.1 ([4477564](https://codeberg.org/cbueth/infomeasure-rs/src/commit/4477564ff92ab50fd0267b0b110d7d70dcce7773))
+- ci: retry release ([e118aa0](https://codeberg.org/cbueth/infomeasure-rs/src/commit/e118aa07bbb3e9e610446445a3dd537a9df3baa2))
+- ci: retry release ([e1973ec](https://codeberg.org/cbueth/infomeasure-rs/src/commit/e1973eca8cf0a855711fcab467d79a8dc3817f45))
+- Merge pull request 'Release 0.3.0-beta.1' (#14) from next-release/main into main ([bb46c6b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/bb46c6be0cced6a1828b139ad2aaa49e987ad4b5))
+- Merge branch 'origin/main' into 'next-release/main' ([df684b7](https://codeberg.org/cbueth/infomeasure-rs/src/commit/df684b7248921345cc7e055b3a4e8dbc1023853e))
+- docs: Full docs readthrough, improvements and corrections ([fe53b68](https://codeberg.org/cbueth/infomeasure-rs/src/commit/fe53b683fdeb380e66eb0564069628dd6875a766))
+- docs(WIP): math and docs changes for proofread ([99a9a9b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/99a9a9bb843e3dbcb86e76915af9531f351d46dc))
+- docs: improve KaTeX logic to allow _ in math mode ([7cb52e6](https://codeberg.org/cbueth/infomeasure-rs/src/commit/7cb52e68f297ac70200a6f8403613bd5c3d462c2))
+- docs: replace relative links with Rust intra-doc links ([ed2a418](https://codeberg.org/cbueth/infomeasure-rs/src/commit/ed2a4181e4a733a412826da19cc967ee571c5e79))
+- docs(WIP): improve links, formatting, and add consistency across guides ([b484761](https://codeberg.org/cbueth/infomeasure-rs/src/commit/b48476105de11a38548b8fc97c9d974b0e57f71e))
+- docs: update and improve KaTeX integration ([e15968e](https://codeberg.org/cbueth/infomeasure-rs/src/commit/e15968e04eac1603f3c2ab292c675052876f3605))
+- docs: improve and expand documentation for cross-entropy, transfer entropy, JSD, and traits ([362bf89](https://codeberg.org/cbueth/infomeasure-rs/src/commit/362bf89ea49b94ef269a51b95b8c9db0ed0620bf))
+- chore: remove stale file ([ea2d700](https://codeberg.org/cbueth/infomeasure-rs/src/commit/ea2d700417955a1104cd93471dc7e8d29300ce53))
+- chore: update `kiddo` to v5.3.0 ([2ca5426](https://codeberg.org/cbueth/infomeasure-rs/src/commit/2ca5426e320ae8c5a826453777fea78f6d88c9e5))
+- docs: move macro dimension documentation ([25b4552](https://codeberg.org/cbueth/infomeasure-rs/src/commit/25b4552844a236f8b5ad7af8d674a31bcf91f48f))
+- docs: correct feature table ([9a29cd3](https://codeberg.org/cbueth/infomeasure-rs/src/commit/9a29cd33893095778444036bc0e80fb201453565))
+- docs: add icon and change heading levels in main page ([a99200b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/a99200b9adc83b881e4ec340c37dc284094accd8))
+- fix: add missing MI guide page ([ca9ca61](https://codeberg.org/cbueth/infomeasure-rs/src/commit/ca9ca6164f9ac32acc17aee50aa470976778aaa5))
+- docs: add assertions and explanatory comments ([4977bcc](https://codeberg.org/cbueth/infomeasure-rs/src/commit/4977bcc9b5ad45937095a805d819019bfb25680f))
+- docs: add usage scenarios for Mi and TE ([fc15199](https://codeberg.org/cbueth/infomeasure-rs/src/commit/fc15199a1cd639654fe3aa3d29911a7a8c0b7fe1))
+- docs: update feature tables ([ead304b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/ead304bd09ae701154623dafc7f0581d74148ea4))
+- docs: improve guide cross-references and measure relationships ([7deeaad](https://codeberg.org/cbueth/infomeasure-rs/src/commit/7deeaad4650571ad50829e5c93709dbfd6e8bfb7))
+- docs: expand `Conditional TE` and `Transfer Entropy` guides with detailed examples ([61b042b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/61b042bec967a4bee0240b9ef16d25d4b34108de))
+- docs: add Mutual Information guide and module references ([81cc96b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/81cc96bc032ab41c3d40e7a6c69a10236fe34347))
+- docs: extend guides with documentation for `TransferEntropy` and `MutualInformation` ([e3903fc](https://codeberg.org/cbueth/infomeasure-rs/src/commit/e3903fc596becd4535c11f7e4bd1a04461fc359e))
+- docs: guides for entropy and transfer entropy, ... ([01c301f](https://codeberg.org/cbueth/infomeasure-rs/src/commit/01c301f530b8364297994b56e5747c6989bf6986))
+- docs(WIP): add guides for facade/ crate usage and estimator selection ([6f359e8](https://codeberg.org/cbueth/infomeasure-rs/src/commit/6f359e8dfdbdad62ed590187d5c6a1f887df6324))
 
 ## [0.2.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-beta.1) - 2026-03-16
 
