@@ -48,7 +48,7 @@ export default {
     },
   ],
   skipLabels: ['skip-release', 'skip-changelog', 'regression'],
-  skipCommitsWithoutPullRequest: true,
+  skipCommitsWithoutPullRequest: false,
   commentOnReleasedPullRequests: false,
   // Update CITATION.cff during release preparation
   beforePrepare: async ({ exec, nextVersion }) => {
