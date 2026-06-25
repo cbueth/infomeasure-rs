@@ -102,3 +102,7 @@ harness = false
 [[bench]]
 name = "cmi"
 harness = false
+
+[[bench]]
+name = "cte"
+harness = false
