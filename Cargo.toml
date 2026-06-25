@@ -106,3 +106,7 @@ harness = false
 [[bench]]
 name = "cte"
 harness = false
+
+[[bench]]
+name = "scaling_nd"
+harness = false
