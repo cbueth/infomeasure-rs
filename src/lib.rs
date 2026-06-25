@@ -6,6 +6,19 @@
     html_logo_url = "https://raw.githubusercontent.com/cbueth/infomeasure/refs/heads/main/docs/_static/im_icon_transparent-200x200.png"
 )]
 
+//! <div class="warning">
+//!
+//! **v0.3.0-beta — We want your feedback!**
+//!
+//! All core features of the
+//! [infomeasure Python package](https://github.com/cbueth/infomeasure)
+//! have been reimplemented in Rust and are ready for testing.
+//! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
+//!
+//! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
+//!
+//! </div>
+//!
 //! High-performance Rust library for information-theoretic measures including entropy,
 //! mutual information, and transfer entropy with multiple estimation approaches.
 //!
