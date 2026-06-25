@@ -186,10 +186,25 @@ echo ""
 # ---------------------------------------------------------------------------
 echo "=== Step 4: Compare Rust vs Python ==="
 
-# For now, placeholder — compare_benchmarks.py needs criterion JSON paths
-# which are auto-generated. We'll wire this properly once collect_rust_results.py
-# is fully stable.
-echo "  (compare_benchmarks.py integration will be wired after collect step)"
+# Collect Rust results into structured JSON
+RUST_JSON="$RESULTS_DIR/rust_results.json"
+"$VENV_PYTHON" "$SCRIPT_DIR/collect_rust_results.py" --output "$RUST_JSON" 2>/dev/null
+
+# Run comparison for each Python group that has data
+for py_file in "$BENCHMARKS_DATA_DIR"/*.json; do
+    [ -f "$py_file" ] || continue
+    py_group=$(basename "$py_file" .json)
+    output_report="$RESULTS_DIR/comparison_${py_group}.md"
+    echo "  Comparing Rust vs Python ($py_group)..."
+    "$VENV_PYTHON" "$SCRIPT_DIR/compare_benchmarks.py" \
+        --python "$py_file" \
+        --rust "$RUST_JSON" 2>/dev/null \
+        --output "$output_report" || true
+done
+
+# Merge all comparison reports into one
+cat "$RESULTS_DIR"/comparison_*.md 2>/dev/null > "$RESULTS_DIR/comparison_report.md" || true
+echo "  Comparison reports in: $RESULTS_DIR/comparison_*.md"
 echo ""
 
 # ---------------------------------------------------------------------------

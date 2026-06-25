@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
 """
 Benchmark comparison script for comparing Rust vs Python infomeasure performance.
 
@@ -53,18 +56,31 @@ class ComparisonResult:
 
 
 def parse_rust_criterion_json(json_path: str) -> Dict[str, BenchmarkEntry]:
-    """Parse Rust criterion JSON output."""
+    """Parse Rust criterion JSON output (raw or collected format)."""
     with open(json_path, "r") as f:
         data = json.load(f)
 
     benchmarks = {}
+
+    # Try collected format first (from collect_rust_results.py)
+    if "benches" in data:
+        for group_name, benches in data["benches"].items():
+            for bench_key, stats in benches.items():
+                # bench_key = "group/param/size"
+                benchmarks[bench_key] = BenchmarkEntry(
+                    name=bench_key,
+                    mean=stats.get("mean", 0),
+                    stddev=stats.get("stddev", 0),
+                    value=stats.get("value"),
+                    times=[],
+                )
+        return benchmarks
+
+    # Fall back to raw criterion JSON format
     for bench in data.get("benchmarks", []):
         name = bench.get("id", bench.get("name", ""))
         if not name:
             continue
-
-        # Extract parameter info from name
-        # Format: "group/param/size"
 
         stats = bench.get("statistics", bench.get("mean", {}))
         if isinstance(stats, dict):
@@ -74,7 +90,6 @@ def parse_rust_criterion_json(json_path: str) -> Dict[str, BenchmarkEntry]:
             mean = stats
             stddev = 0
 
-        # Get the value (entropy/mi/te estimate)
         value_field = bench.get("value", bench.get("result", {}).get("value"))
 
         benchmarks[name] = BenchmarkEntry(
