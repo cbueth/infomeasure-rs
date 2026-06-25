@@ -18,17 +18,30 @@ use crate::estimators::approaches::expfam::renyi::RenyiEntropy;
 use crate::estimators::approaches::expfam::tsallis::TsallisEntropy;
 use crate::estimators::approaches::kernel;
 use crate::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy;
+#[doc = doc_snippets!(facade_overview "entropy", "Facade for creating various entropy estimators.")]
+pub struct Entropy;
+
 pub use crate::estimators::traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues};
 use ndarray::{Array1, Array2};
-
-/// Facade for creating various entropy estimators.
+/// ### Shannon Entropy
+/// For a discrete random variable $X$ with probability mass function $p(x)$:
 ///
-/// This struct provides a unified interface for all entropy estimation techniques supported
-/// by the library. It includes methods for discrete, kernel-based, ordinal, and
-/// exponential family (k-NN) estimators.
+/// $$H(X) = -\sum_{x \in \mathcal{X}} p(x) \log p(x)$$
 ///
-/// Each estimator can be used to compute the global entropy value or local entropy values
-/// (if supported) using the [`GlobalValue`] and [`LocalValues`] traits.
+/// ### Differential Entropy
+/// For a continuous random variable $X$ with probability density function $f(x)$:
+///
+/// $$H(X) = -\int_{\mathcal{X}} f(x) \log f(x) \, dx$$
+///
+/// ### Joint Entropy
+/// Measures the uncertainty of multiple variables together:
+///
+/// $$H(X, Y) = -\sum_{x,y} p(x,y) \log p(x,y)$$
+///
+/// ### Conditional Entropy
+/// The uncertainty remaining in $X$ after knowing $Y$:
+///
+/// $$H(X|Y) = H(X,Y) - H(Y)$$
 ///
 /// # Relationship to Other Measures
 ///
@@ -36,8 +49,8 @@ use ndarray::{Array1, Array2};
 ///
 /// - **Mutual Information**: $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 /// - **Conditional Entropy**: $H(X|Y) = H(X,Y) - H(Y)$
-/// - **Kullback-Leibler Divergence**: $D_{KL}(P||Q) = H_Q(P) - H(P)$
-/// - **Jensen-Shannon Divergence**: $JSD(P||Q) = H((P+Q)/2) - 1/2H(P) - 1/2H(Q)$
+/// - **Kullback-Leibler Divergence**: $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
+/// - **Jensen-Shannon Divergence**: $\mathrm{JSD}(P||Q) = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$ (Planned)
 ///
 /// See the [Entropy Guide](crate::guide::entropy) for detailed documentation.
 ///
@@ -304,8 +317,7 @@ use ndarray::{Array1, Array2};
 /// let h_q_p = ex.cross_entropy(&ey);
 /// assert!(h_q_p >= h_x);
 /// ```
-pub struct Entropy;
-
+///
 // Non-generic implementation (1D default case)
 impl Entropy {
     /// Creates a new discrete entropy estimator for 1D integer data
@@ -334,7 +346,7 @@ impl Entropy {
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
     /// The Miller-Madow correction adds $(K-1)/(2N)$ to the MLE estimate:
-    /// $\hat{H}_{MM} = \hat{H}_{MLE} + \frac{K-1}{2N}$
+    /// $\hat{H}_{\mathrm{MM}} = \hat{H}_{\mathrm{MLE}} + \frac{K-1}{2N}$
     /// where $K$ is the number of bins with non-zero counts and $N$ is the sample size.
     ///
     /// This is the simplest bias correction and works well when $N \gg K$.
@@ -393,7 +405,7 @@ impl Entropy {
     /// Create a Chao–Shen coverage-adjusted discrete entropy estimator.
     ///
     /// The Chao-Shen estimator accounts for unobserved species through coverage estimation:
-    /// $\hat{H}_{CS} = - \sum_{i=1}^{K} \frac{\hat{p}_i^{CS} \ln \hat{p}_i^{CS}}{1 - (1 - \hat{p}_i^{CS})^N}$
+    /// $\hat{H}_{\mathrm{CS}} = - \sum_{i=1}^{K} \frac{\hat{p}_i^{\mathrm{CS}} \ln \hat{p}_i^{\mathrm{CS}}}{1 - (1 - \hat{p}_i^{\mathrm{CS}})^N}$
     /// where $\hat{p}_i^{CS} = C \hat{p}_i^{MLE}$ and $C$ is the estimated sample coverage.
     ///
     /// Recommended for undersampled regimes with many singletons. Global-only.

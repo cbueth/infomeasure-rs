@@ -1,16 +1,66 @@
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css" integrity="sha384-Pu5+C18nP5dwykLJOhd2U4Xen7rjScHN/qusop27hdd2drI+lL5KvX7YntvT8yew" crossorigin="anonymous">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.js"                  integrity="sha384-2B8pfmZZ6JlVoScJm/5hQfNS2TI/6hPqDZInzzPc8oHpN5SgeNOf4LzREO6p5YtZ" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/contrib/auto-render.min.js"    integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.css" integrity="sha384-vlBdW0r3AcZO/HboRPznQNowvexd3fY8qHOWkBi5q7KGgqJ+F48+DceybYmrVbmB" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.js"                  integrity="sha384-AtrdNsnxl/75rvBneBVH7DtOvCxSVahR2zWqle1coBKd8DEmLoviqNeJSx64gNAs" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/contrib/auto-render.min.js"    integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz" crossorigin="anonymous"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        renderMathInElement(document.body, {
-            delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "\\(", right: "\\)", display: false},
-                {left: "$", right: "$", display: false},
-                {left: "\\[", right: "\\]", display: true}
-            ]
+        // Restore markdown-mangled underscores into <em> within math blocks before KaTeX processes them
+        var mathElements = document.getElementsByClassName("rustdoc")[0] || document.body;
+        var html = mathElements.innerHTML;
+
+        function processMath(str) {
+            // Restore markdown-mangled underscores into <em> within math blocks before KaTeX processes them
+            var restored = str.replace(/<em[^>]*>/g, "_").replace(/<\/em>/g, "_");
+
+            // Logically, we want to escape literal underscores (like SRC_HIST -> SRC\_HIST)
+            // while preserving those that are LaTeX subscript markers (like x_n or y_{n+1}).
+
+            // 1. Protect subscripts we want to KEEP
+            var processed = restored
+                // Protect already escaped underscores (either \_ or \\_)
+                .replace(/(\\+)_/g, "$1KEEPSUB")
+                // Protect _{...} and }_... (the latter is common for vectors ending in } followed by subscript)
+                .replace(/(_\{|}_\{)/g, function(m) { return m.replace("_", "KEEPSUB"); })
+                // Protect single-character subscripts like x_n or \mathbf{x}_n
+                // We match: (Letter/Digit/} or \command{...}) followed by _ followed by (single Alnum)
+                // We ensure it's not followed by another Alnum to avoid mangling words like SRC_HIST
+                .replace(/(([a-zA-Z0-9\}]|\\[a-zA-Z]+{[^{}]*})_)([a-zA-Z0-9])(?![a-zA-Z0-9])/g, function(m, p1, p2, p3) {
+                    return p1.replace("_", "KEEPSUB") + p3;
+                })
+                // Protect subscript at the very start of a block
+                .replace(/^(_)([a-zA-Z0-9])(?![a-zA-Z0-9])/g, "KEEPSUB$2");
+
+            // 2. Escape all remaining raw underscores (descriptive ones) and restore markers
+            return processed.replace(/_/g, "\\_").replace(/KEEPSUB/g, "_");
+        }
+
+        function renderMath() {
+            renderMathInElement(mathElements, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "\\(", right: "\\)", display: false},
+                    {left: "$", right: "$", display: false},
+                    {left: "\\[", right: "\\]", display: true}
+                ]
+            });
+        }
+
+        // 1. Process block math $$ ... $$
+        html = html.replace(/\$\$([\s\S]*?)\$\$/g, function(match, capture) {
+            return "$$" + processMath(capture) + "$$";
         });
+
+        // 2. Process inline math $ ... $
+        html = html.replace(/\$([^\$\s][^\$\n]*?[^\$\s])\$/g, function(match, capture) {
+            return "$" + processMath(capture) + "$";
+        });
+
+        // Handle very short inline math like $x$
+        html = html.replace(/\$([^\$\s\n])\$/g, function(match, capture) {
+            return "$" + processMath(capture) + "$";
+        });
+
+        mathElements.innerHTML = html;
+        renderMath();
     });
 </script>
 <style> /*To have the icon left of the crate name*/

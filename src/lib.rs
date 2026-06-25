@@ -2,6 +2,23 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/cbueth/infomeasure/refs/heads/main/docs/_static/im_icon_transparent-200x200.png"
+)]
+
+//! <div class="warning">
+//!
+//! **v0.3.0-beta — We want your feedback!**
+//!
+//! All core features of the
+//! [infomeasure Python package](https://github.com/cbueth/infomeasure)
+//! have been reimplemented in Rust and are ready for testing.
+//! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
+//!
+//! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
+//!
+//! </div>
+//!
 //! High-performance Rust library for information-theoretic measures including entropy,
 //! mutual information, and transfer entropy with multiple estimation approaches.
 //!
@@ -29,14 +46,14 @@
 //! | Joint Entropy | ✅ | ✅ | ✅ | ✅ | Via multi-variable estimators |
 //! | Conditional Entropy | ✅ | ✅ | ✅ | ✅ | |
 //! | Cross-Entropy | ✅[^1] | ✅ | ✅ | ✅ | All approaches |
-//! | KLD | ❌ | ❌ | ❌ | ❌ | Planned |
+//! | KLD | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Via cross-entropy |
 //! | JSD | ❌ | ❌ | ❌ | ❌ | Planned |
 //! | MI | ✅ | ✅ | ✅ | ✅ | All variants |
 //! | CMI | ✅ | ✅ | ✅ | ✅ | Conditional MI |
 //! | TE | ✅ | ✅ | ✅ | ✅ | Transfer Entropy |
 //! | CTE | ✅ | ✅ | ✅ | ✅ | Conditional TE |
 //!
-//! ✅ = Implemented | ❌ = Not implemented
+//! ✅ = Implemented | ⚠️ = Available via trait | ❌ = Not implemented
 //!
 //! [^1]: For discrete estimators, cross-entropy is only available for MLE, Miller-Madow, and Bayesian estimators. NSB, Chao-Shen, and Chao-Wang-Jost do not support cross-entropy due to theoretical inconsistencies in applying bias corrections to cross-entropy.
 //!
@@ -79,8 +96,8 @@
 //!
 //! # Guides
 //!
-//! - **[Estimator Usage Guide](guide/estimator_usage)** - How to use this crate
-//! - **[Estimator Selection Guide](guide/estimator_selection)** - Choosing the right estimator
+//! - [Estimator Usage Guide](crate::guide::estimator_usage) - How to use this crate
+//! - [Estimator Selection Guide](crate::guide::estimator_selection) - Choosing the right estimator
 //!
 //! For more details on the theory behind these measures, see the Python package documentation.
 //!

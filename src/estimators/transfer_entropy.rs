@@ -7,8 +7,70 @@
 //! This module provides estimators for computing transfer entropy $T_{X \to Y}$ and
 //! conditional transfer entropy $T_{X \to Y|Z}$.
 //!
-//! For usage examples and guidance, see the [Estimator Usage Guide](../guide/estimator_usage/index.html).
-//! For macro convenience functions, see the [Macros Guide](../guide/macros/index.html).
+//! For usage examples and guidance, see the [Estimator Usage Guide](crate::guide::estimator_usage).
+//! For macro convenience functions, see the [Macros Guide](crate::guide::macros).
+//!
+//! ## Const Generics and Dimensions
+//!
+//! Due to Rust's current limitations with constant expressions in generic arguments (without
+//! `generic_const_exprs`), all dimensionalities—including derived ones—must be passed as explicit
+//! const generics. This ensures that the dimensionality of every internal estimator is known
+//! at compile-time, allowing for significant optimizations and type safety.
+//!
+//! ### Transfer Entropy (TE)
+//!
+//! $TE(X \to Y) = I(Y_{\mathrm{future}}; X_{\mathrm{past}} \mid Y_{\mathrm{past}})$
+//!
+//! The `KernelTransferEntropy` and `KsgTransferEntropy` structs use:
+//! - `SRC_HIST`, `DEST_HIST`: History lengths.
+//! - `STEP_SIZE`: Delay between observations.
+//! - `D_SOURCE`, `D_TARGET`: Dimensionality of individual samples in X and Y.
+//! - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
+//! - `D_XP_YP`: $(\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
+//! - `D_YP`: $\mathrm{DEST\_HIST} \times D_{\mathrm{target}}$
+//! - `D_YF_YP`: $D_{\mathrm{target}} + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}})$
+//!
+//! **Dimension Relations for TE**:
+//! - `D_JOINT` = `D_YF_YP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_XP_YP` = `D_YP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_YF_YP` = `D_TARGET` + `D_YP`
+//! - `D_YP` = `DEST_HIST` * `D_TARGET`
+//!
+//! ### Conditional Transfer Entropy (CTE)
+//!
+//! $CTE(X \to Y \mid Z) = I(Y_{\mathrm{future}}; X_{\mathrm{past}} \mid Y_{\mathrm{past}}, Z_{\mathrm{past}})$
+//!
+//! The `KernelConditionalTransferEntropy` and `KsgConditionalTransferEntropy` structs use:
+//! - `SRC_HIST`, `DEST_HIST`, `COND_HIST`: History lengths.
+//! - `STEP_SIZE`: Delay between observations.
+//! - `D_SOURCE`, `D_TARGET`, `D_COND`: Input dimensionality.
+//! - `D_JOINT`: $D_{\mathrm{target}} + (\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_XP_YP_ZP`: $(\mathrm{SRC\_HIST} \times D_{\mathrm{source}}) + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_YP_ZP`: $(\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//! - `D_YF_YP_ZP`: $D_{\mathrm{target}} + (\mathrm{DEST\_HIST} \times D_{\mathrm{target}}) + (\mathrm{COND\_HIST} \times D_{\mathrm{cond}})$
+//!
+//! **Dimension Relations for CTE**:
+//! - `D_JOINT` = `D_YF_YP_ZP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_XP_YP_ZP` = `D_YP_ZP` + `SRC_HIST` * `D_SOURCE`
+//! - `D_YF_YP_ZP` = `D_TARGET` + `D_YP_ZP`
+//! - `D_YP_ZP` = (`DEST_HIST` * `D_TARGET`) + (`COND_HIST` * `D_COND`)
+//!
+//! ### Helper Macros
+//!
+//! To simplify instantiation and automatically calculate these dimensions, use the following macros:
+//! - `new_kernel_te!` — Creates a `KernelTransferEntropy` estimator
+//! - `new_kernel_cte!` — Creates a `KernelConditionalTransferEntropy` estimator
+//! - `new_ksg_te!` — Creates a `KsgTransferEntropy` estimator
+//! - `new_ksg_cte!` — Creates a `KsgConditionalTransferEntropy` estimator
+//! - `new_renyi_te!` — Creates a `RenyiTransferEntropy` estimator
+//! - `new_renyi_cte!` — Creates a `RenyiConditionalTransferEntropy` estimator
+//! - `new_tsallis_te!` — Creates a `TsallisTransferEntropy` estimator
+//! - `new_tsallis_cte!` — Creates a `TsallisConditionalTransferEntropy` estimator
+//! - `new_ordinal_te!` — Creates an `OrdinalTransferEntropy` estimator
+//! - `new_ordinal_cte!` — Creates an `OrdinalConditionalTransferEntropy` estimator
+//!
+//! These macros handle the dimension calculations automatically based on the history lengths
+//! and input dimensionalities you provide.
 
 use crate::estimators::approaches::discrete::{
     DiscreteConditionalTransferEntropy, DiscreteTransferEntropy,
@@ -52,15 +114,20 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::{
 /// based on the history lengths and input dimensionalities.
 ///
 /// # Arguments
-/// * `$source`: `&Array2<f64>` - Source time series (samples x D_src)
-/// * `$dest`: `&Array2<f64>` - Destination time series (samples x D_target)
-/// * `$src_hist`: `usize` - Number of past source observations to include.
-/// * `$dest_hist`: `usize` - Number of past destination observations to include.
-/// * `$step`: `usize` - Delay between observations.
-/// * `$d_src`: `usize` - Dimensionality of source variable.
-/// * `$d_target`: `usize` - Dimensionality of destination variable.
-/// * `$kernel`: `String` - Kernel type ("box" or "gaussian").
-/// * `$bw`: `f64` - Bandwidth parameter.
+/// * `$source`: `&Array2<f64>` — Source time series (samples x $D_{\mathrm{src}}$)
+/// * `$dest`: `&Array2<f64>` — Destination time series (samples x $D_{\mathrm{target}}$)
+/// * `$src_hist`: `usize` — Number of past source observations to include.
+/// * `$dest_hist`: `usize` — Number of past destination observations to include.
+/// * `$step`: `usize` — Delay between observations.
+/// * `$d_src`: `usize` — Dimensionality of source variable.
+/// * `$d_target`: `usize` — Dimensionality of destination variable.
+/// * `$kernel`: `String` — Kernel type ("box" or "gaussian").
+/// * `$bw`: `f64` — Bandwidth parameter.
+///
+/// # See Also
+/// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
+/// - [Kernel Approach](crate::estimators::approaches::kernel) — Technical details of Kernel estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kernel_te {
     ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $kernel:expr, $bw:expr) => {{
@@ -89,9 +156,9 @@ macro_rules! new_kernel_te {
 /// based on the history lengths and input dimensionalities.
 ///
 /// # Arguments
-/// * `$source`: `&Array2<f64>` - Source time series (samples x D_src)
-/// * `$dest`: `&Array2<f64>` - Destination time series (samples x D_target)
-/// * `$cond`: `&Array2<f64>` - Conditioning time series (samples x D_cond)
+/// * `$source`: `&Array2<f64>` - Source time series (samples x $D_{\mathrm{src}}$)
+/// * `$dest`: `&Array2<f64>` - Destination time series (samples x $D_{\mathrm{target}}$)
+/// * `$cond`: `&Array2<f64>` - Conditioning time series (samples x $D_{\mathrm{cond}}$)
 /// * `$src_hist`: `usize` - Number of past source observations to include.
 /// * `$dest_hist`: `usize` - Number of past destination observations to include.
 /// * `$cond_hist`: `usize` - Number of past conditioning observations to include.
@@ -101,6 +168,11 @@ macro_rules! new_kernel_te {
 /// * `$d_cond`: `usize` - Dimensionality of conditioning variable.
 /// * `$kernel`: `String` - Kernel type ("box" or "gaussian").
 /// * `$bw`: `f64` - Bandwidth parameter.
+///
+/// # See Also
+/// - [Conditional TE Guide](crate::guide::cond_te) — Conceptual background
+/// - [Kernel Approach](crate::estimators::approaches::kernel) — Technical details of Kernel estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kernel_cte {
     ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $kernel:expr, $bw:expr) => {{
@@ -130,6 +202,11 @@ macro_rules! new_kernel_cte {
 }
 
 /// Macro for creating a new `KsgTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
+/// - [KSG Approach](crate::estimators::approaches::expfam::ksg) — Technical details of KSG estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_ksg_te {
     ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $noise:expr) => {{
@@ -153,6 +230,11 @@ macro_rules! new_ksg_te {
 }
 
 /// Macro for creating a new `KsgConditionalTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Conditional TE Guide](crate::guide::cond_te) — Conceptual background
+/// - [KSG Approach](crate::estimators::approaches::expfam::ksg) — Technical details of KSG estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_ksg_cte {
     ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $noise:expr) => {{
@@ -180,6 +262,11 @@ macro_rules! new_ksg_cte {
 }
 
 /// Macro for creating a new `RenyiTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
+/// - [Rényi Approach](crate::estimators::approaches::expfam::renyi) — Technical details of Rényi estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_renyi_te {
     ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $alpha:expr, $noise:expr) => {{
@@ -203,6 +290,11 @@ macro_rules! new_renyi_te {
 }
 
 /// Macro for creating a new `RenyiConditionalTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Conditional TE Guide](crate::guide::cond_te) — Conceptual background
+/// - [Rényi Approach](crate::estimators::approaches::expfam::renyi) — Technical details of Rényi estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_renyi_cte {
     ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $alpha:expr, $noise:expr) => {{
@@ -230,6 +322,11 @@ macro_rules! new_renyi_cte {
 }
 
 /// Macro for creating a new `TsallisTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
+/// - [Tsallis Approach](crate::estimators::approaches::expfam::tsallis) — Technical details of Tsallis estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_tsallis_te {
     ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $q:expr, $noise:expr) => {{
@@ -253,6 +350,11 @@ macro_rules! new_tsallis_te {
 }
 
 /// Macro for creating a new `TsallisConditionalTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Conditional TE Guide](crate::guide::cond_te) — Conceptual background
+/// - [Tsallis Approach](crate::estimators::approaches::expfam::tsallis) — Technical details of Tsallis estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_tsallis_cte {
     ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $q:expr, $noise:expr) => {{
@@ -280,6 +382,11 @@ macro_rules! new_tsallis_cte {
 }
 
 /// Macro for creating a new `KozachenkoLeonenkoTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Transfer Entropy Guide](crate::guide::transfer_entropy) — Conceptual background
+/// - [Kozachenko-Leonenko Approach](crate::estimators::approaches::expfam::kozachenko_leonenko) — Technical details of KL estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kl_te {
     ($source:expr, $dest:expr, $src_hist:expr, $dest_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $k:expr, $noise:expr) => {{
@@ -303,6 +410,11 @@ macro_rules! new_kl_te {
 }
 
 /// Macro for creating a new `KozachenkoLeonenkoConditionalTransferEntropy` estimator.
+///
+/// # See Also
+/// - [Conditional TE Guide](crate::guide::cond_te) — Conceptual background
+/// - [Kozachenko-Leonenko Approach](crate::estimators::approaches::expfam::kozachenko_leonenko) — Technical details of KL estimation
+/// - [Macro Usage Guide](crate::guide::macros) — Full macro documentation with examples
 #[macro_export]
 macro_rules! new_kl_cte {
     ($source:expr, $dest:expr, $cond:expr, $src_hist:expr, $dest_hist:expr, $cond_hist:expr, $step:expr, $d_src:expr, $d_target:expr, $d_cond:expr, $k:expr, $noise:expr) => {{
@@ -329,28 +441,48 @@ macro_rules! new_kl_cte {
     }};
 }
 
-pub struct TransferEntropy;
-
-/// Facade for creating transfer entropy (TE) and conditional transfer entropy (CTE) estimators.
+#[doc = doc_snippets!(facade_overview "TE/CTE", "Facade for creating transfer entropy (TE) and conditional transfer entropy (CTE) estimators.")]
 ///
-/// This struct provides a unified interface for all TE/CTE estimation techniques supported
-/// by the library. It includes methods for discrete, kernel-based, ordinal, and
-/// exponential family (k-NN) estimators.
+/// ## Theory
 ///
-/// Each estimator can be used to compute the global TE value or local TE values
-/// (if supported) using the [`GlobalValue`](crate::estimators::traits::GlobalValue) and [`LocalValues`](crate::estimators::traits::LocalValues) traits.
+/// ### Transfer Entropy
+/// TE measures the directed information flow from source $X$ to target $Y$:
+///
+/// $$T_{X \to Y} = I(Y\_{\mathrm{future}}; X\_{\mathrm{past}} \mid Y\_{\mathrm{past}})$$
+///
+/// In terms of entropies:
+///
+/// $$T_{X \to Y} = H(X\_{\mathrm{past}}, Y\_{\mathrm{past}}) + H(Y\_{\mathrm{future}}, Y\_{\mathrm{past}}) - H(X\_{\mathrm{past}}, Y\_{\mathrm{future}}, Y\_{\mathrm{past}}) - H(Y\_{\mathrm{past}})$$
+///
+/// ### Conditional Transfer Entropy
+/// CTE measures directed information flow while controlling for a third process $Z$:
+///
+/// $$\mathrm{TE}(X \to Y \mid Z) = I(Y\_{\mathrm{future}}; X\_{\mathrm{past}} \mid Y\_{\mathrm{past}}, Z\_{\mathrm{past}})$$
+///
+/// In terms of entropies:
+///
+/// $$\mathrm{TE}(X \to Y \mid Z) = H(X\_{\mathrm{past}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) + H(Y\_{\mathrm{future}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) - H(X\_{\mathrm{past}}, Y\_{\mathrm{future}}, Y\_{\mathrm{past}}, Z\_{\mathrm{past}}) - H(Y\_{\mathrm{past}}, Z\_{\mathrm{past}})$$
 ///
 /// # Relationship to Other Measures
 ///
 /// Transfer entropy is a directional (asymmetric) measure of information flow between time series:
 ///
-/// - **Mutual Information**: $I(X;Y)$ - non-directional dependence
-/// - **Time-lagged MI**: $I(X_{t-u}; Y_t)$ - directional but without conditioning
-/// - **Conditional MI**: $I(X;Y|Z)$ - MI with conditioning (but not time-lagged)
-/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ - MI with time lags + conditioning on target's past
-/// - **Conditional TE**: $T_{X \to Y|Z}$ - TE with additional conditioning
+/// - **Mutual Information**: $I(X;Y)$ — non-directional dependence
+/// - **Time-lagged MI**: $I(X_{t-u}; Y_t)$ — directional but without conditioning
+/// - **Conditional MI**: $I(X;Y|Z)$ — MI with conditioning (but not time-lagged)
+/// - **Transfer Entropy**: $T_{X \to Y} = I(X^{(k)}; Y_{t+1} | Y^{(l)})$ — MI with time lags + conditioning on target's past
+/// - **Conditional TE**: $T_{X \to Y|Z}$ — TE with additional conditioning
 ///
 /// For a detailed conceptual guide, see the [Transfer Entropy Guide](crate::guide::transfer_entropy).
+///
+/// # Technical Note: Const Generics and Dimensions
+///
+#[doc = doc_snippets!(const_generic_limitation)]
+///
+/// ### Helper Macros
+///
+#[doc = doc_snippets!(macro_simplification_te)]
+pub struct TransferEntropy;
 ///
 /// # Examples
 ///

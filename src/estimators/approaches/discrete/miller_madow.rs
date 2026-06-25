@@ -1,3 +1,4 @@
+use crate::estimators::doc_macros::doc_snippets;
 // SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -11,14 +12,22 @@ use ndarray::{Array1, Array2};
 
 /// Miller–Madow entropy estimator for discrete data (natural log base).
 ///
-/// Adds the small-sample bias correction (K-1)/(2N) to the MLE (Shannon) estimate.
-/// Local values are the MLE local values uniformly offset by the correction.
-/// Useful when K is moderate relative to N and a simple analytical correction suffices.
+/// ## Theory
 ///
-/// Cross-entropy is supported between two distributions.
+/// The Miller-Madow estimator corrects the Maximum Likelihood
+/// Estimator (MLE) by adding a term related to the number of bins $K$:
 ///
-/// Joint entropy is supported by reducing the joint space of multiple variables to a single
-/// discrete representation before estimation.
+/// $$\hat{H}_{\mathrm{MM}} = \hat{H}_{\mathrm{MLE}} + \frac{K-1}{2N}$$
+///
+/// where:
+/// - $\hat{H}_{\mathrm{MLE}}$ is the Maximum Likelihood estimate.
+/// - $K$ is the number of bins with non-zero counts.
+/// - $N$ is the total number of samples.
+///
+/// This correction is based on a second-order Taylor expansion of the entropy function
+/// and is most effective when $N \gg K$.
+///
+#[doc = doc_snippets!(discrete_guide_ref)]
 pub struct MillerMadowEntropy {
     dataset: DiscreteDataset,
 }
@@ -57,15 +66,15 @@ impl GlobalValue for MillerMadowEntropy {
 impl LocalValues for MillerMadowEntropy {
     fn local_values(&self) -> Array1<f64> {
         let corr = self.correction();
-        // Local MLE values = -ln p(x); add global MM correction uniformly
+        // Local MLE values $= -\ln p(x)$; add global MM correction uniformly
         let p_local = self.dataset.map_probs();
         -p_local.mapv(f64::ln) + corr
     }
 }
 
 impl CrossEntropy for MillerMadowEntropy {
-    /// Cross-entropy H_MM(P, Q) = -Σ_x p(x) ln q(x) + correction
-    /// where correction = (((Kp + Kq)/2) - 1) / (Np + Nq)
+    /// Cross-entropy $H_{\mathrm{MM}}(P, Q) = -\sum_x p(x) \ln q(x) +$ correction
+    /// where correction $= (((K_p + K_q)/2) - 1) / (N_p + N_q)$
     fn cross_entropy(&self, other: &MillerMadowEntropy) -> f64 {
         use std::collections::HashSet;
         // Build sets of supports

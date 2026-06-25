@@ -313,11 +313,11 @@ fn save_data_to_temp_file<T: Serialize>(data: &[T]) -> Result<std::path::PathBuf
 /// # Arguments
 ///
 /// * `data` - The data to calculate entropy for (can be any serializable type)
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -590,11 +590,11 @@ print(json.dumps(est.local_vals().tolist()))
 /// # Arguments
 ///
 /// * `data` - The data to calculate entropy for
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -629,11 +629,11 @@ pub fn calculate_entropy(
 /// # Arguments
 ///
 /// * `data` - The float data to calculate entropy for
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -665,11 +665,11 @@ pub fn calculate_entropy_float(
 /// # Arguments
 ///
 /// * `data` - The data to calculate local entropy values for (can be any serializable type)
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -751,11 +751,11 @@ print(json.dumps(est.local_vals().tolist()))
 /// # Arguments
 ///
 /// * `data` - The data to calculate local entropy values for
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -790,11 +790,11 @@ pub fn calculate_local_entropy(
 /// # Arguments
 ///
 /// * `data` - The float data to calculate local entropy values for
-/// * `approach` - The approach to use for entropy calculation (e.g., "discrete", "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "discrete", "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "discrete" approach: typically empty
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -853,10 +853,10 @@ pub fn convert_array_to_base2(entropy: &Array1<f64>) -> Array1<f64> {
 ///
 /// * `data` - The flat array of float data to calculate entropy for
 /// * `dims` - The number of dimensions in the data
-/// * `approach` - The approach to use for entropy calculation (e.g., "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -910,10 +910,10 @@ pub fn calculate_entropy_float_nd(
 ///
 /// * `data` - The flat array of float data to calculate local entropy values for
 /// * `dims` - The number of dimensions in the data
-/// * `approach` - The approach to use for entropy calculation (e.g., "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///   - For "kernel" approach: typically includes "kernel" and "bandwidth" parameters
-///     e.g., [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
+///     e.g. [("kernel".to_string(), "\"box\"".to_string()), ("bandwidth".to_string(), "0.5".to_string())]
 ///
 /// # Returns
 ///
@@ -963,7 +963,7 @@ pub fn calculate_local_entropy_float_nd(
 /// * `data_p` - The flat array of float data for the first distribution (P)
 /// * `data_q` - The flat array of float data for the second distribution (Q)
 /// * `dims` - The number of dimensions in the data
-/// * `approach` - The approach to use for entropy calculation (e.g., "kernel", "kl")
+/// * `approach` - The approach to use for entropy calculation (e.g. "kernel", "kl")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 ///
 /// # Returns
@@ -1096,7 +1096,7 @@ print(timer.timeit(number={num})/{num})
 /// # Arguments
 ///
 /// * `data` - The data to calculate entropy for
-/// * `approach` - The approach to use for entropy calculation (e.g., "kernel")
+/// * `approach` - The approach to use for entropy calculation (e.g. "kernel")
 /// * `kwargs` - Additional keyword arguments for the specified approach
 /// * `num_runs` - The number of times to run the calculation for more accurate timing
 ///

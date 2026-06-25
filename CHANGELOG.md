@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
+
+### Thanks to all contributors!
+
+@cbueth
+
+### ✨ Features
+
+- **New `pub mod guide`**: Complete documentation guide system with 16 submodules covering all measures (estimator selection, usage scenarios, mathematical theory, references) — ~2600 lines of new documentation
+- **New `doc_snippets!` macro** (`doc_macros.rs`): Shared infrastructure for consistent mathematical formula rendering across all estimators
+- **Estimator API documentation overhaul**: Full mathematical theory docs with KaTeX rendering added to:
+  - `entropy.rs` (+278 lines): Relationship to MI, KL-divergence, JSD; complete estimator examples
+  - `mutual_information.rs` (+401 lines): Facade API docs with formulas for all MI variants
+  - `transfer_entropy.rs` (+357 lines): Facade API docs with TE/CTE theory and examples
+- **Module-level theory documentation** for all approach modules:
+  - `expfam/renyi.rs`: Rényi α-entropy theory with kNN estimation formulas
+  - `expfam/tsallis.rs`: Tsallis q-entropy theory with kNN estimation formulas
+  - `kernel/mod.rs`: KDE theory with bandwidth/kernel selection guidance
+  - `ordinal/mod.rs`: Permutation entropy theory with symbolization explanation
+  - `traits.rs`: Full trait hierarchy documentation with mathematical notation
+- **Transfer entropy slicing** (`te_slicing.rs`): Refactored and expanded TE observation slicing utilities (+192 lines)
+- **Cross-reference system**: `references.rs` guide page with citations for all referenced papers
+
+### 📚 Documentation
+
+- docs: Proofread all doc pages [[#15](https://codeberg.org/cbueth/infomeasure-rs/pulls/15)]
+- docs: Move macro dimension documentation [[#11](https://codeberg.org/cbueth/infomeasure-rs/pulls/11)]
+- docs: Add guides for facade/ crate usage and estimator selection [[#9](https://codeberg.org/cbueth/infomeasure-rs/pulls/9)]
+- docs: improve guide cross-references and measure relationships ([7deeaad](https://codeberg.org/cbueth/infomeasure-rs/src/commit/7deeaad4650571ad50829e5c93709dbfd6e8bfb7))
+- docs: expand `Conditional TE` and `Transfer Entropy` guides with detailed examples ([61b042b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/61b042bec967a4bee0240b9ef16d25d4b34108de))
+- docs: add Mutual Information guide and module references ([81cc96b](https://codeberg.org/cbueth/infomeasure-rs/src/commit/81cc96bc032ab41c3d40e7a6c69a10236fe34347))
+- docs: extend guides with documentation for `TransferEntropy` and `MutualInformation` ([e3903fc](https://codeberg.org/cbueth/infomeasure-rs/src/commit/e3903fc596becd4535c11f7e4bd1a04461fc359e))
+- docs: guides for entropy and transfer entropy, ... ([01c301f](https://codeberg.org/cbueth/infomeasure-rs/src/commit/01c301f530b8364297994b56e5747c6989bf6986))
+- docs(WIP): add guides for facade/ crate usage and estimator selection ([6f359e8](https://codeberg.org/cbueth/infomeasure-rs/src/commit/6f359e8dfdbdad62ed590187d5c6a1f887df6324))
+
 ## [0.2.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.2.0-beta.1) - 2026-03-16
 
 ### ❤️ Thanks to all contributors! ❤️

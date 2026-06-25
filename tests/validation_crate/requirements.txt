@@ -1,2 +1,4 @@
 infomeasure>=0.6.0
 numba
+pytest-benchmark
+numpy

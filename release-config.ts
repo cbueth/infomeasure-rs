@@ -49,7 +49,7 @@ export default {
   ],
   skipLabels: ['skip-release', 'skip-changelog', 'regression'],
   skipCommitsWithoutPullRequest: true,
-  commentOnReleasedPullRequests: false,
+  commentOnReleasedPullRequests: true,
   // Update CITATION.cff during release preparation
   beforePrepare: async ({ exec, nextVersion }) => {
     const today = new Date().toISOString().split('T')[0];
