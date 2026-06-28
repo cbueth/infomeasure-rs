@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infomeasure Benchmark Viewer</title>
+<link rel="icon" href="https://raw.githubusercontent.com/cbueth/infomeasure/main/docs/_static/im_icon_transparent-200x200.png">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 16px; color: #333; }
+.container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.header { padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.header h1 { font-size: 16px; font-weight: 600; }
+.hw-badge { font-size: 11px; color: #666; background: #f0f0f0; padding: 3px 8px; border-radius: 10px; }
+.gpu-btn { padding:3px 10px; font-size:11px; border:1px solid #ddd; border-radius:3px; background:#fff; cursor:pointer; }
+.gpu-btn:hover { background:#f0f0f0; }
+.gpu-btn.active { background:#d4edda; color:#155724; border-color:#82b785; }
+.gpu-btn.active:hover { background:#c3e0c5; }
+.view-tabs { display: flex; border-bottom: 1px solid #ddd; padding: 0 20px; background: #fafafa; }
+.view-tab { padding: 8px 14px; font-size: 12px; border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; cursor: pointer; margin-right: 2px; margin-bottom: -1px; background: transparent; color: #666; font-weight: 500; }
+.view-tab:hover { background: #f0f0f0; }
+.view-tab.active { background: #fff; border-color: #ddd; color: #333; font-weight: 600; }
+.measure-bar { padding: 8px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.measure-bar .ml { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; margin-right: 4px; }
+.mtab { padding: 3px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; }
+.mtab:hover { background: #f0f0f0; }
+.mtab.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.ms { width: 1px; height: 20px; background: #ddd; margin: 0 6px; }
+.ctrl-bar { padding: 6px 20px; border-bottom: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
+.ctrl-bar .cl { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; margin-right: 2px; }
+.chk { display: flex; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
+.chk:hover { background: #f5f5f5; }
+.chk input { accent-color: #0d6efd; margin: 0; }
+select { padding: 3px 6px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; background: #fff; }
+.tbtn { padding: 3px 10px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; }
+.tbtn:hover { background: #f0f0f0; }
+.tbtn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.chart-wrap { padding: 12px 20px; }
+.chart-wrap canvas { width: 100% !important; height: 400px !important; }
+.info-bar { padding: 4px 20px; font-size: 11px; color: #888; border-bottom: 1px solid #eee; display: flex; gap: 12px; }
+.table-wrap { padding: 0 20px 12px; overflow-x: auto; max-height: 250px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #eee; }
+th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
+td.num { text-align: right; font-family: monospace; font-size: 10px; }
+tr:hover { background: #f8f9fa; }
+@media (prefers-color-scheme: dark) {
+  body { background: #1a1a1a; color: #ccc; }
+  .container { background: #2d2d2d; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .header { border-bottom-color: #444; }
+  .header h1 { color: #eee; }
+  .hw-badge { background: #444; color: #aaa; }
+  .gpu-btn { border-color:#555; background:#333; color:#ccc; }
+  .gpu-btn:hover { background:#444; }
+  .gpu-btn.active { background:#1a3a2c; color:#7fc1a0; border-color:#2a5a3c; }
+  .gpu-btn.active:hover { background:#1e4632; }
+  .view-tabs { border-bottom-color: #444; background: #262626; }
+  .view-tab { color: #999; }
+  .view-tab:hover { background: #333; }
+  .view-tab.active { background: #2d2d2d; border-color: #444; color: #eee; }
+  .measure-bar { border-bottom-color: #444; }
+  .measure-bar .ml { color: #777; }
+  .mtab { border-color: #555; background: #333; color: #ccc; }
+  .mtab:hover { background: #444; }
+  .mtab.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+  .ms { background: #444; }
+  .ctrl-bar { border-bottom-color: #444; }
+  .ctrl-bar .cl { color: #777; }
+  .chk:hover { background: #333; }
+  select { border-color: #555; background: #333; color: #ccc; }
+  .info-bar { border-bottom-color: #444; color: #777; }
+  th, td { border-bottom-color: #444; color: #ccc; }
+  th { background: #333; color: #eee; }
+  tr:hover { background: #333; }
+  .chk input { accent-color: #4d9aff; }
+  #chart { filter: brightness(.9) contrast(1.1); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Infomeasure Benchmarks</h1>
+    <span class="hw-badge" id="hwBadge">…</span>
+    <span class="hw-badge" id="rustBadge">Rust ?</span>
+    <span class="hw-badge" id="pyBadge">Python ?</span>
+    <button class="tbtn" id="shareBtn" style="margin-left:auto">Share</button>
+    <span style="font-size:11px;color:#999" id="dataInfo"></span>
+  </div>
+  <div class="view-tabs" id="viewTabs"></div>
+  <div class="measure-bar" id="measureBar"></div>
+  <div class="ctrl-bar" id="ctrlBar"></div>
+  <div class="info-bar">
+    <span id="entryCount"></span>
+    <span id="lineCount"></span>
+    <span id="chartSubtitle" style="font-style:italic"></span>
+  </div>
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  <div class="table-wrap">
+    <table id="dataTable"><thead><tr id="tableHead"></tr></thead><tbody id="tableBody"></tbody></table>
+  </div>
+</div>
+
+<style>
+.tbtn { padding:3px 10px; font-size:11px; border:1px solid #ddd; border-radius:3px; background:#fff; cursor:pointer; }
+.tbtn:hover { background:#f0f0f0; }
+.tbtn.active { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+/* Scale toggle: two-part pill */
+.scbtn { display:inline-flex; border:1px solid #ddd; border-radius:3px; cursor:pointer; overflow:hidden; font-size:11px; line-height:1; }
+.scbtn .sopt { padding:3px 6px; background:#fff; color:#888; }
+.scbtn .sopt.on { background:#0d6efd; color:#fff; font-weight:600; }
+.scbtn .sdiv { padding:3px 0; background:#fff; color:#ccc; font-size:9px; }
+@media (prefers-color-scheme: dark) {
+  .tbtn { background:#333; color:#ccc; border-color:#555; }
+  .tbtn:hover { background:#444; }
+  .tbtn.active { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+  .scbtn { border-color:#555; }
+  .scbtn .sopt { background:#333; color:#888; }
+  .scbtn .sopt.on { background:#0d6efd; color:#fff; }
+  .scbtn .sdiv { background:#333; color:#666; }
+}
+</style>
+<script>
+const APPROACHES = ['discrete','kernel','kl','ordinal','renyi','tsallis'];
+const MEASURE_ORDER = ['entropy','mi','cmi','te','cte'];
+const APP_COLORS = { discrete:'#377eb8', kernel:'#4daf4a', kl:'#984ea3', ordinal:'#a65628', renyi:'#e41a1c', tsallis:'#ff7f00' };
+const LANG_COLORS = {
+  rust:   { discrete:'#377eb8', kernel:'#4daf4a', kl:'#984ea3', ordinal:'#a65628', renyi:'#e41a1c', tsallis:'#ff7f00' },
+  python: { discrete:'#ff7f00', kernel:'#e41a1c', kl:'#f781bf', ordinal:'#d4a017', renyi:'#a65628', tsallis:'#377eb8' },
+};
+const LINE_STYLES = { discrete:[], kernel:[6,3], kl:[2,2], ordinal:[1,3,1,3], renyi:[4,2], tsallis:[2,4] };
+const METHOD_DASH = { mle:[], ansb:[1,1], bayes:[3,1], bonachela:[4,2], chao_shen:[2,2], chao_wang_jost:[1,2], grassberger:[3,2], miller_madow:[4,1], nsb:[1,3], shrink:[2,3], zhang:[3,3] };
+// Discrete tab: same color per method for both Rust and Python; differentiated by line style
+const DISCRETE_COLORS = {
+  mle:'#1f78b4', miller_madow:'#e31a1c', grassberger:'#33a02c', nsb:'#ff7f00',
+  ansb:'#6a3d9a', chao_shen:'#b15928', chao_wang_jost:'#fb9a99',
+  shrink:'#a6cee3', bayes:'#b2df8a', bonachela:'#fdbf6f', zhang:'#cab2d6',
+};
+const APP_LABEL = { discrete:'Discrete', kernel:'Kernel', kl:'KL/KSG/kNN', ordinal:'Ordinal', renyi:'Renyi', tsallis:'Tsallis' };
+
+// Per-approach control config
+const APP_CFG = {
+  overview: { xDflt:'size', fltr:[], hide:['k','bandwidth','order','delay','dims','method','alpha','q'] },
+  discrete: { xDflt:'size', fltr:['method'], hide:['k','bandwidth','order','delay','kernel_type','dims'] },
+  kernel:   { xDflt:'size', fltr:['bandwidth','kernel_type'], hide:['k','order','delay','method','dims'] },
+  kl:       { xDflt:'size', fltr:['k'], hide:['bandwidth','order','delay','kernel_type','method','dims'] },
+  ordinal:  { xDflt:'size', fltr:['order'], hide:['bandwidth','k','delay','kernel_type','method','dims'] },
+  renyi:    { xDflt:'size', fltr:['k','alpha'], hide:['bandwidth','order','delay','dims','kernel_type','method'] },
+  tsallis:  { xDflt:'size', fltr:['k','q'], hide:['bandwidth','order','delay','dims','kernel_type','method'] },
+};
+
+let allData = [], chart = null, currentView = 'overview', gpuMode = true;
+let sortCol = '', sortAsc = true;
+
+function fmt(v) {
+  if (v == null) return '-';
+  if (v >= 1) return v.toFixed(3)+'s';
+  if (v >= 1e-3) return (v*1e3).toFixed(1)+'ms';
+  if (v >= 1e-6) return (v*1e6).toFixed(0)+'\u00b5s';
+  return (v*1e9).toFixed(0)+'ns';
+}
+
+// ---- Data ----
+function loadData(gpu) {
+  const file = gpu ? './benchmark_data_gpu.json' : './benchmark_data.json';
+  return fetch(file).then(r => r.json()).then(json => {
+    allData = json.benchmarks || [];
+    updateBadges(json.meta);
+    document.getElementById('dataInfo').textContent = `${allData.length} benchmarks`;
+  }).catch(e => {
+    document.getElementById('dataInfo').textContent = 'Error: ' + e.message;
+    throw e;
+  });
+}
+
+function updateBadges(meta) {
+  const hw = (meta && meta.hardware) || {};
+  const ver = (meta && meta.versions) || {};
+  document.getElementById('hwBadge').textContent = `${hw.cpu||'?'} \u00b7 ${hw.cores||'?'}c \u00b7 ${hw.memory||'?'}`;
+  const g = document.getElementById('gpuBadge');
+  if (g) { g.className = 'gpu-btn' + (gpuMode ? ' active' : ''); g.textContent = gpuMode ? 'gpu \u2713' : 'gpu'; }
+  const rustVer = ver.infomeasure_rust || '?';
+  const rustcVer = (ver.rustc || '?').replace(/^rustc\s+/i, '');
+  const feat = gpuMode ? ' --features gpu' : '';
+  document.getElementById('rustBadge').textContent = `infomeasure ${rustVer}${feat} @ rustc ${rustcVer}`;
+  const pyVer = ver.infomeasure_python || '?';
+  const pyLangVer = (ver.python || '?').replace(/^Python\s+/i, '');
+  document.getElementById('pyBadge').textContent = `infomeasure ${pyVer} @ Python ${pyLangVer}`;
+}
+
+function toggleGpu() {
+  if (!allData.length) return;
+  const prevHash = getStateHash();
+  gpuMode = !gpuMode;
+  location.hash = prevHash;
+  loadData(gpuMode).then(() => { initUI(); });
+}
+
+// Initialize GPU mode from URL hash
+const initParams = new URLSearchParams(location.hash.slice(1));
+if (initParams.get('g') === '1') gpuMode = true;
+
+loadData(gpuMode).then(() => { initUI(); });
+
+// ---- UI setup (one-shot) ----
+function initUI() {
+  if (typeof ChartZoom !== 'undefined') Chart.register(ChartZoom);
+  // View tabs
+  const views = ['overview', ...APPROACHES.filter(a => allData.some(b => b.approach === a))];
+  const vt = document.getElementById('viewTabs');
+  vt.innerHTML = views.map(v => `<button class="view-tab${v==='overview'?' active':''}" data-view="${v}">${v==='overview'?'Overview':APP_LABEL[v]||v}</button>`).join('');
+  vt.onclick = e => {
+    const b = e.target.closest('.view-tab');
+    if (!b || b.classList.contains('active')) return;
+    vt.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    b.classList.add('active');
+    currentView = b.dataset.view;
+    rebuildUI();
+    renderChart();
+    history.replaceState(null, '', '#' + getStateHash());
+  };
+
+  // Measure bar: delegate click/change
+  const mb = document.getElementById('measureBar');
+  mb.onclick = e => {
+    const b = e.target.closest('.mtab, .gpu-btn');
+    if (!b) return;
+    if (b.classList.contains('gpu-btn')) { toggleGpu(); return; }
+    mb.querySelectorAll('.mtab').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    renderChart();
+    history.replaceState(null, '', '#' + getStateHash());
+  };
+  mb.onchange = e => {
+    if (e.target.matches('.chk input, select')) { renderChart(); history.replaceState(null, '', '#' + getStateHash()); }
+  };
+
+  // Ctrl bar: delegate events
+  document.getElementById('ctrlBar').onclick = e => {
+    const b = e.target.closest('.scbtn, .tbtn');
+    if (!b) return;
+    if (b.id === 'resetZoomBtn') {
+      if (chart && typeof chart.resetZoom === 'function') chart.resetZoom();
+      return;
+    }
+    // Scale toggle: switch active class between sopt children
+    if (b.classList.contains('scbtn')) {
+      b.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on'));
+      renderChart();
+      history.replaceState(null, '', '#' + getStateHash());
+    }
+  };
+  document.getElementById('ctrlBar').onchange = e => {
+    if (e.target.matches('select, .chk input')) { renderChart(); history.replaceState(null, '', '#' + getStateHash()); }
+  };
+
+  // Share button
+  document.getElementById('shareBtn').onclick = () => {
+    const state = getStateHash();
+    const url = location.origin + location.pathname + '#' + state;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('shareBtn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Share'; }, 1500);
+    }).catch(() => {
+      history.replaceState(null, '', '#' + state);
+      const btn = document.getElementById('shareBtn');
+      btn.textContent = 'In URL!';
+      setTimeout(() => { btn.textContent = 'Share'; }, 1500);
+    });
+  };
+
+  // Restore state from URL hash
+  const hash = location.hash.slice(1);
+  if (hash) restoreStateHash(hash);
+
+  rebuildUI();
+
+  // Apply restored state from URL hash
+  if (_pendingRestore) {
+    const r = _pendingRestore;
+    if (r.measure) {
+      const mt = document.querySelector(`#measureBar .mtab[data-measure="${r.measure}"]`);
+      if (mt) { document.querySelectorAll('#measureBar .mtab').forEach(x => x.classList.remove('active')); mt.classList.add('active'); }
+    }
+    if (r.xAxis) { const xs = document.getElementById('xSel'); if (xs) xs.value = r.xAxis; }
+    if (r.hasLy && !r.logY) { document.getElementById('scaleYBtn')?.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on')); }
+    if (r.hasLx && !r.logX) { document.getElementById('scaleXBtn')?.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on')); }
+    for (const lang of r.langs) { const cb = document.querySelector(`[data-lang="${lang}"]`); if (cb) cb.checked = true; }
+    const unchecked = ['rust','python'].filter(l => !r.langs.includes(l));
+    for (const lang of unchecked) { const cb = document.querySelector(`[data-lang="${lang}"]`); if (cb) cb.checked = false; }
+    for (const app of r.apps) { const cb = document.querySelector(`[data-approach="${app}"]`); if (cb) cb.checked = true; }
+    for (const [k, v] of Object.entries(r.fltrs)) { const sel = document.querySelector(`.fltr[data-key="${k}"]`); if (sel) sel.value = v; }
+    _pendingRestore = null;
+  }
+
+  renderChart();
+}
+
+function rebuildUI() {
+  const view = currentView;
+  const cfg = APP_CFG[view] || APP_CFG.overview;
+  const apps = view === 'overview' ? APPROACHES.filter(a => allData.some(b => b.approach === a)) : [view];
+  const measures = [...new Set(allData.filter(b => apps.includes(b.approach)).map(b => b.measure))]
+    .sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
+  const prevMeasure = document.querySelector('#measureBar .mtab.active')?.dataset?.measure;
+  const dfltMeas = (prevMeasure && measures.includes(prevMeasure) ? prevMeasure : null)
+    || measures.find(m => allData.some(b => b.measure===m && apps.includes(b.approach) && b.language==='rust'))
+    || measures[0] || 'entropy';
+  const rustChk = document.getElementById('langRust')?.checked;
+  const pythonChk = document.getElementById('langPython')?.checked;
+  const appChkState = {};
+  document.querySelectorAll('[data-approach]').forEach(cb => { appChkState[cb.dataset.approach] = cb.checked; });
+  // When entering a per-approach tab, force that approach to be checked
+  if (view !== 'overview') appChkState[view] = true;
+
+  // Measure bar
+  const mb = document.getElementById('measureBar');
+  mb.innerHTML = `<span class="ml">Measure</span>` +
+    measures.map(m => `<button class="mtab${m===dfltMeas?' active':''}" data-measure="${m}">${m.toUpperCase()}</button>`).join('') +
+    `<span class="ms"></span>` +
+    APPROACHES.map(a => (apps.includes(a) ? `<label class="chk" style="color:${view==='overview'?(APP_COLORS[a]||'#666'):(LANG_COLORS.rust[a]||'#666')}"><input type="checkbox" data-approach="${a}" ${appChkState[a]!==undefined?(appChkState[a]?'checked':''):'checked'} ${view!=='overview'?'disabled':''}> ${APP_LABEL[a]||a}</label>` : '')).join('') +
+    `<span class="ms"></span>` +
+    `<label class="chk"><input type="checkbox" id="langRust" data-lang="rust"${rustChk!==undefined?(rustChk?' checked':''):' checked'}> Rust</label>` +
+    `<label class="chk"><input type="checkbox" id="langPython" data-lang="python"${pythonChk!==undefined?(pythonChk?' checked':''):' checked'}> Python</label>` +
+    `<span class="ms"></span>` +
+    `<span class="ml">Features</span>` +
+    `<button class="gpu-btn" id="gpuBadge" title="Toggle Rust --features gpu">gpu</button>`;
+  // Sync GPU button to current gpuMode
+  const gb = document.getElementById('gpuBadge');
+  if (gb) { gb.className = 'gpu-btn' + (gpuMode ? ' active' : ''); gb.textContent = gpuMode ? 'gpu \u2713' : 'gpu'; }
+
+  // Control bar
+  const cb = document.getElementById('ctrlBar');
+  const xOpts = ['size','bandwidth','k','order','delay','dims','alpha','q'].filter(k => !cfg.hide.includes(k) && allData.some(b => apps.includes(b.approach) && b.params[k] != null));
+  let html = `<span class="cl">X</span><select id="xSel">` + xOpts.map(k => `<option value="${k}"${k===cfg.xDflt?' selected':''}>${k}</option>`).join('') + `</select>`;
+  html += `<span class="cl" style="margin-left:6px">Y</span><button class="scbtn" id="scaleYBtn"><span class="sopt on">Log</span><span class="sdiv">|</span><span class="sopt">Lin</span></button>`;
+  html += `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="scaleXBtn"><span class="sopt on">Log</span><span class="sdiv">|</span><span class="sopt">Lin</span></button>`;
+  html += `<button class="tbtn" id="resetZoomBtn" style="margin-left:4px">Reset Zoom</button>`;
+
+  for (const key of cfg.fltr) {
+    let vals = [...new Set(allData.filter(b => apps.includes(b.approach)).map(b => b.params[key]).filter(v => v != null))];
+    // Normalize kernel_type: strip bandwidth suffixes (e.g. "box_bw0_1" → "box")
+    if (key === 'kernel_type') {
+      vals = [...new Set(vals.map(v => String(v).split('_bw')[0].split('/')[0]))].filter(v => v === 'box' || v === 'gaussian');
+    }
+    vals.sort((a,b) => a-b);
+    if (vals.length) {
+      html += `<span class="cl" style="margin-left:6px">${key}</span>`;
+      html += `<select class="fltr" data-key="${key}"><option value="">all</option>${vals.map(v => `<option value="${v}">${v}</option>`).join('')}</select>`;
+    }
+  }
+  cb.innerHTML = html;
+}
+
+// ---- State save/restore (URL hash) ----
+function getStateHash() {
+  const measure = (document.querySelector('#measureBar .mtab.active') || {}).dataset?.measure || '';
+  const langs = [...document.querySelectorAll('[data-lang]:checked')].map(cb => cb.dataset.lang);
+  const apps = [...document.querySelectorAll('[data-approach]:checked')].map(cb => cb.dataset.approach);
+  const xAxis = (document.getElementById('xSel') || {}).value || '';
+  const logY = document.getElementById('scaleYBtn')?.querySelector('.sopt.on')?.textContent === 'Log' ? '1' : '0';
+  const logX = document.getElementById('scaleXBtn')?.querySelector('.sopt.on')?.textContent === 'Log' ? '1' : '0';
+  const fltrs = {};
+  document.querySelectorAll('.fltr').forEach(s => { if (s.value) fltrs[s.dataset.key] = s.value; });
+  const params = new URLSearchParams();
+  params.set('v', currentView);
+  if (measure) params.set('m', measure);
+  if (xAxis) params.set('x', xAxis);
+  params.set('ly', logY);
+  params.set('lx', logX);
+  if (langs.length) params.set('lg', langs.join(','));
+  if (apps.length) params.set('ap', apps.join(','));
+  if (Object.keys(fltrs).length) params.set('f', JSON.stringify(fltrs));
+  if (gpuMode) params.set('g', '1');
+  return params.toString();
+}
+
+function restoreStateHash(hash) {
+  const params = new URLSearchParams(hash);
+  if (params.get('v')) currentView = params.get('v');
+  // Measure, langs, apps, filters are restored after rebuildUI via _pendingRestore
+  _pendingRestore = {
+    measure: params.get('m'),
+    xAxis: params.get('x'),
+    logY: params.get('ly') === '1',
+    logX: params.get('lx') === '1',
+    hasLy: params.has('ly'),
+    hasLx: params.has('lx'),
+    langs: params.get('lg')?.split(',').filter(Boolean) || [],
+    apps: params.get('ap')?.split(',').filter(Boolean) || [],
+    fltrs: (() => { try { return JSON.parse(params.get('f') || '{}'); } catch { return {}; } })(),
+  };
+}
+
+let _pendingRestore = null;
+
+// ---- Chart ----
+function renderChart() {
+  const view = currentView, cfg = APP_CFG[view] || APP_CFG.overview;
+  const apps = view === 'overview' ? APPROACHES.filter(a => allData.some(b => b.approach === a)) : [view];
+
+  const measure = (document.querySelector('#measureBar .mtab.active') || {}).dataset?.measure || 'entropy';
+  const langs = [...document.querySelectorAll('[data-lang]:checked')].map(cb => cb.dataset.lang);
+  const selApps = [...document.querySelectorAll('[data-approach]:checked')].map(cb => cb.dataset.approach).filter(a => apps.includes(a));
+  const xAxis = (document.getElementById('xSel') || {}).value || 'size';
+  const logY = document.getElementById('scaleYBtn')?.querySelector('.sopt.on')?.textContent === 'Log';
+  const logX = document.getElementById('scaleXBtn')?.querySelector('.sopt.on')?.textContent === 'Log';
+
+  // Param filters
+  const fltrs = {};
+  document.querySelectorAll('.fltr').forEach(s => { if (s.value) fltrs[s.dataset.key] = s.value; });
+
+  let entries = allData.filter(b => b.measure === measure && selApps.includes(b.approach) && langs.includes(b.language));
+  for (const [k, v] of Object.entries(fltrs)) entries = entries.filter(b => String(b.params[k]) === v);
+
+  // Overview: one line per approach, sensible defaults
+  if (view === 'overview') {
+    const defs = {
+      kernel:   { key:'bandwidth', val:'0.5' },
+      kl:       { key:'k', val:'3' },
+      ordinal:  { key:'order', val:'3', extra:{key:'delay', val:'0'} },
+      renyi:    { key:'k', val:'3', extra:{key:'alpha', val:'0.5'} },
+      tsallis:  { key:'k', val:'3', extra:{key:'q', val:'0.5'} },
+    };
+    entries = entries.filter(e => {
+      if (e.approach === 'discrete' && e.params.method && e.params.method !== 'mle') return false;
+      if (e.approach === 'kl' && e.group.includes('ksg')) {
+        const hasKl = entries.some(x => x !== e && x.language === e.language && x.approach === 'kl' && x.measure === e.measure && x.params.k === e.params.k && x.group.includes('kl'));
+        if (hasKl) return false;
+      }
+      const d = defs[e.approach];
+      if (!d) return true;
+      if (e.params[d.key] != null && String(e.params[d.key]) !== d.val) return false;
+      if (d.extra && e.params[d.extra.key] != null && String(e.params[d.extra.key]) !== d.extra.val) return false;
+      return true;
+    });
+  }
+
+  // Group
+  const groups = {};
+  for (const e of entries) {
+    const parts = [];
+    for (const key of Object.keys(e.params)) {
+      if (key === xAxis || cfg.hide.includes(key) || e.params[key] == null) continue;
+      parts.push(`${key}=${e.params[key]}`);
+    }
+    const langLabel = e.language.charAt(0).toUpperCase() + e.language.slice(1);
+    let appLabel = APP_LABEL[e.approach] || e.approach;
+    if (e.approach === 'kl' && e.group) {
+      appLabel = e.group.includes('ksg') ? 'KSG' : 'KL';
+    }
+    const show = [];
+    if (e.params.method && e.approach !== 'kl') show.push(e.params.method);
+    if (e.params.kernel_type) show.push(e.params.kernel_type);
+    for (const p of parts) {
+      const k = p.split('=')[0];
+      if (k === 'kernel_type' || k === 'method') continue;
+      show.push(p);
+    }
+    const suff = show.length ? ` (${show.join(', ')})` : '';
+    const label = `${langLabel} ${appLabel}${suff}`;
+    if (!groups[label]) groups[label] = { lang: e.language, app: e.approach, label, pts: [] };
+    const xv = e.params[xAxis];
+    if (xv != null) groups[label].pts.push({ x: Number(xv), y: e.statistics.mean, yerr: e.statistics.stddev, ciLo: e.statistics.ci_lower, ciHi: e.statistics.ci_upper, e });
+  }
+
+  const glist = Object.values(groups).filter(g => g.pts.length >= 2);
+  glist.forEach(g => g.pts.sort((a,b) => a.x - b.x));
+
+  document.getElementById('entryCount').textContent = `${glist.reduce((s,g) => s+g.pts.length,0)} points`;
+  document.getElementById('lineCount').textContent = `${glist.length} lines`;
+
+  // Chart subtitle: describe active filters
+  const subParts = [measure.toUpperCase()];
+  if (view !== 'overview') subParts.push(APP_LABEL[view] || view);
+  const activeFltrs = Object.entries(fltrs).map(([k,v]) => `${k}=${v}`);
+  if (activeFltrs.length) subParts.push(activeFltrs.join(' · '));
+  if (xAxis !== 'size') subParts.push(`x=${xAxis}`);
+  const langsLabel = langs.length === 2 ? 'Rust+Python' : langs.length === 1 ? langs[0] : 'none';
+  subParts.push(langsLabel);
+  document.getElementById('chartSubtitle').textContent = subParts.join(' · ');
+
+  // Datasets
+  const ds = [];
+  for (let gi = 0; gi < glist.length; gi++) {
+    const g = glist[gi];
+    const method = g.pts[0]?.e?.params?.method || '';
+    let col, dash;
+    if (view === 'overview') {
+      // Overview: same color per approach for both languages; line style differentiates language
+      col = APP_COLORS[g.app] || '#999';
+      // Kernel: shade by kernel_type (gaussian=base green, box=lighter)
+      if (g.app === 'kernel') {
+        const kt = g.pts[0]?.e?.params?.kernel_type;
+        if (kt === 'box') col = '#8fbc8f';
+      }
+      dash = g.lang === 'python' ? [4, 3] : [];
+    } else if (g.app === 'discrete' && method && DISCRETE_COLORS[method]) {
+      // Discrete tab: distinct color per method; Rust/ Python by line style
+      col = DISCRETE_COLORS[method];
+      const md = METHOD_DASH[method] || [];
+      dash = g.lang === 'python' ? (md.length ? md.concat([2, 2]) : [4, 3]) : md;
+    } else {
+      // Per-approach tabs: different color per language
+      col = LANG_COLORS[g.lang]?.[g.app] || '#999';
+      dash = LINE_STYLES[g.app] || [];
+    }
+    const mainData = g.pts.map(p => ({x:p.x, y:p.y, _std: p.yerr}));
+
+    ds.push({
+      label: g.label,
+      data: mainData,
+      borderColor: col,
+      backgroundColor: col + '33',
+      borderDash: dash,
+      tension: 0.15,
+      fill: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      borderWidth: 2,
+      showLine: true,
+    });
+  }
+
+  // No data
+  if (!glist.length) {
+    if (chart) chart.destroy();
+    const ctx = document.getElementById('chart').getContext('2d');
+    chart = new Chart(ctx, { type:'scatter', data:{datasets:[]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{enabled:false}}, scales:{x:{grid:{display:false},ticks:{display:false}}, y:{grid:{display:false},ticks:{display:false}}}, layout:{padding:{top:40}}}, plugins:[{id:'nd', afterDraw(c){const {ctx,chartArea}=c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='14px sans-serif'; ctx.fillStyle='#999'; ctx.fillText('No data for current filters', chartArea.left+chartArea.width/2, chartArea.top+chartArea.height/2); ctx.restore();}}] });
+    fillTable([]);
+    return;
+  }
+
+  if (chart) chart.destroy();
+  const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridCol = dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+  const tickCol = dm ? '#aaa' : '#666';
+  const chartOpts = {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'nearest', intersect:false},
+    scales:{
+      x:{ type:logX?'logarithmic':'linear', title:{display:true, text:xAxis, font:{weight:'bold'}, color:tickCol}, grid:{color:gridCol}, ticks:{color:tickCol} },
+      y:{ type:logY?'logarithmic':'linear', title:{display:true, text:'Time (s)', font:{weight:'bold'}, color:tickCol}, grid:{color:gridCol}, ticks:{callback:v=>fmt(v), color:tickCol} },
+    },
+    color: dm ? '#ccc' : '#333',
+    plugins:{
+      legend:{ position:'bottom', labels:{ filter:i => ds[i.datasetIndex] && ds[i.datasetIndex].pointRadius > 0, font:{size:10}, boxWidth:14, padding:6 } },
+      tooltip:{ callbacks:{ label:ctx => { const s = ctx.raw._std ? ' \u00b1 ' + fmt(ctx.raw._std) : ''; return ctx.dataset.label + ': ' + fmt(ctx.raw.y) + s; } } },
+      zoom:{ zoom:{ wheel:{enabled:false}, drag:{enabled:true, backgroundColor:'rgba(13,110,253,0.1)', borderColor:'#0d6efd', borderWidth:1}, pinch:{enabled:true}, mode:'xy' }, pan:{ enabled:true, mode:'xy' } },
+    },
+  };
+  chart = new Chart(document.getElementById('chart').getContext('2d'), {
+    type:'line', data:{datasets:ds},
+    options: chartOpts,
+  });
+
+  fillTable(glist);
+}
+
+function fillTable(groups) {
+  const xLabel = (document.getElementById('xSel')||{}).value || 'size';
+  const head = document.getElementById('tableHead'), body = document.getElementById('tableBody');
+  const rows = [];
+  for (const g of groups) for (const p of g.pts) rows.push({ lang: g.lang, app: g.app, id: p.e.id, x: p.x, mean: p.y, std: p.yerr });
+  const cols = ['Language','Approach','Benchmark',xLabel,'Mean','Std Dev'];
+  const keys = ['lang','app','id','x','mean','std'];
+  head.innerHTML = cols.map((c, i) => `<th data-key="${keys[i]}" style="cursor:pointer;user-select:none">${c}${sortCol===keys[i]?(sortAsc?' &#9650;':' &#9660;'):''}</th>`).join('');
+  const sCol = sortCol, sAsc = sortAsc;
+  rows.sort((a, b) => {
+    let va = a[sCol] || '', vb = b[sCol] || '';
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return sAsc ? -1 : 1;
+    if (va > vb) return sAsc ? 1 : -1;
+    return 0;
+  });
+  body.innerHTML = rows.map(r => `<tr><td>${r.lang}</td><td>${r.app}</td><td>${r.id}</td><td class="num">${r.x}</td><td class="num">${fmt(r.mean)}</td><td class="num">${fmt(r.std)}</td></tr>`).join('');
+  head.onclick = e => {
+    const th = e.target.closest('th');
+    if (!th || !th.dataset.key) return;
+    const key = th.dataset.key;
+    if (sortCol === key) sortAsc = !sortAsc;
+    else { sortCol = key; sortAsc = true; }
+    fillTable(groups);
+  };
+}
+</script>
+</body>
+</html>
