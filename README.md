@@ -9,12 +9,14 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 [![crates.io](https://img.shields.io/crates/v/infomeasure.svg)](https://crates.io/crates/infomeasure)
 [![rustc](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSES/MIT.txt)
+[![Benchmarks](https://img.shields.io/badge/benchmarks-visit-8A2BE2)](https://cbueth.codeberg.page/infomeasure-rs/)
 
 > **v0.3.0-beta.1 — We want your feedback!**
 > All core features of the [infomeasure Python package](https://github.com/cbueth/infomeasure)
 > have been reimplemented in Rust and are ready for testing.
 > Try it out with our [Rust Guide](https://docs.rs/infomeasure/latest/infomeasure/guide/index.html)
 > and [report issues or suggestions](https://codeberg.org/cbueth/infomeasure-rs/issues).
+> Find the [benchmark and interactive Rust vs Python performance comparison here](https://cbueth.codeberg.page/infomeasure-rs/).
 
 # infomeasure-rs
 
