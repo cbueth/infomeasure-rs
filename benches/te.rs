@@ -12,6 +12,11 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::{
+    bench_alphas, bench_bandwidths, bench_k_values, bench_orders, bench_q_values, bench_sizes,
+    bench_sizes_extended,
+};
+
 fn generate_lagged_series(
     size: usize,
     coupling: f64,
@@ -39,11 +44,11 @@ fn bench_discrete_te(c: &mut Criterion) {
     let mut group = c.benchmark_group("te_discrete");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let num_states = 5;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let source: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let mut target: Vec<i32> = Vec::with_capacity(size);
@@ -73,24 +78,37 @@ fn bench_kernel_te(c: &mut Criterion) {
     let mut group = c.benchmark_group("te_kernel");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 5000];
-    let bandwidths = [0.1, 0.5, 1.0];
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
+    let kernel_types = ["box", "gaussian"];
     let lag = 1;
     let seed = 42u64;
 
-    for bw in bandwidths {
-        for size in sizes {
-            let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
-            let source_arr = Array1::from(source);
-            let target_arr = Array1::from(target);
+    for &kernel_type in &kernel_types {
+        for &bw in &bandwidths {
+            for &size in &sizes {
+                let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
+                let source_arr = Array1::from(source);
+                let target_arr = Array1::from(target);
 
-            let id = BenchmarkId::new(format!("bw_{}", bw.to_string().replace('.', "_")), size);
-            group.bench_with_input(id, &(bw, size), |b, _| {
-                b.iter(|| {
-                    let te = TransferEntropy::new_kernel(&source_arr, &target_arr, 1, 1, 1, bw);
-                    black_box(te.global_value())
+                let kt = kernel_type.to_string();
+                let bw_str = bw.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw_{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bw), |b, (kt, bw)| {
+                    b.iter(|| {
+                        let te = TransferEntropy::new_kernel_with_type(
+                            &source_arr,
+                            &target_arr,
+                            1,
+                            1,
+                            1,
+                            kt.clone(),
+                            *bw,
+                        );
+                        black_box(te.global_value())
+                    });
                 });
-            });
+            }
         }
     }
 
@@ -101,14 +119,14 @@ fn bench_ksg_te(c: &mut Criterion) {
     let mut group = c.benchmark_group("te_ksg");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 5000];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
     let lag = 1;
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for size in sizes {
+    for &k in &ks {
+        for &size in &sizes {
             let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
             let source_arr = Array1::from(source);
             let target_arr = Array1::from(target);
@@ -127,17 +145,95 @@ fn bench_ksg_te(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_te_renyi(c: &mut Criterion) {
+    let mut group = c.benchmark_group("te_renyi");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
+    let alphas = bench_alphas();
+    let seed = 42u64;
+    let noise_level = 1e-10;
+
+    for &k in &ks {
+        for &alpha in &alphas {
+            for &size in &sizes {
+                let (source, target) = generate_lagged_series(size, 0.5, 1, seed);
+                let source_arr = Array1::from(source);
+                let target_arr = Array1::from(target);
+
+                let id = BenchmarkId::new(
+                    format!("k{}_alpha{}", k, alpha.to_string().replace('.', "_")),
+                    size,
+                );
+                group.bench_with_input(id, &(k, alpha, size), |b, _| {
+                    b.iter(|| {
+                        let te = TransferEntropy::new_renyi(
+                            &source_arr,
+                            &target_arr,
+                            k,
+                            alpha,
+                            noise_level,
+                        );
+                        black_box(te.global_value())
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
+fn bench_te_tsallis(c: &mut Criterion) {
+    let mut group = c.benchmark_group("te_tsallis");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
+    let qs = bench_q_values();
+    let seed = 42u64;
+    let noise_level = 1e-10;
+
+    for &k in &ks {
+        for &q in &qs {
+            for &size in &sizes {
+                let (source, target) = generate_lagged_series(size, 0.5, 1, seed);
+                let source_arr = Array1::from(source);
+                let target_arr = Array1::from(target);
+
+                let id =
+                    BenchmarkId::new(format!("k{}_q{}", k, q.to_string().replace('.', "_")), size);
+                group.bench_with_input(id, &(k, q, size), |b, _| {
+                    b.iter(|| {
+                        let te = TransferEntropy::new_tsallis(
+                            &source_arr,
+                            &target_arr,
+                            k,
+                            q,
+                            noise_level,
+                        );
+                        black_box(te.global_value())
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
 fn bench_ordinal_te(c: &mut Criterion) {
     let mut group = c.benchmark_group("te_ordinal");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
-    let orders = [2, 3, 4];
+    let sizes = bench_sizes_extended();
+    let orders = bench_orders();
     let lag = 1;
     let seed = 42u64;
 
-    for order in orders {
-        for size in sizes {
+    for &order in &orders {
+        for &size in &sizes {
             let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
             let source_arr = Array1::from(source);
             let target_arr = Array1::from(target);
@@ -173,6 +269,8 @@ criterion_group!(
     bench_discrete_te,
     bench_kernel_te,
     bench_ksg_te,
+    bench_te_renyi,
+    bench_te_tsallis,
     bench_ordinal_te
 );
 criterion_main!(benches);

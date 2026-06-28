@@ -13,6 +13,9 @@ scripts/benchmarks_data/
 **.png
 **.csv
 
+# Benchmark pages and results
+docs/*
+
 # Python Source
 infomeasure-python/
 

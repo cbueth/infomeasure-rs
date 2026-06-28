@@ -110,3 +110,15 @@ harness = false
 [[bench]]
 name = "scaling_nd"
 harness = false
+
+[[bench]]
+name = "cmi_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "te_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "cte_discrete_bias_corrected"
+harness = false

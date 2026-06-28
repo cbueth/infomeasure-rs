@@ -11,8 +11,8 @@ mod utils;
 
 use utils::bench_sizes_extended;
 
-fn bench_mi_discrete_miller_madow(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_miller_madow");
+fn bench_cmi_discrete_miller_madow(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_miller_madow");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -23,15 +23,19 @@ fn bench_mi_discrete_miller_madow(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("miller_madow", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi =
-                    MutualInformation::new_discrete_miller_madow(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_miller_madow(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -39,8 +43,8 @@ fn bench_mi_discrete_miller_madow(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_shrink(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_shrink");
+fn bench_cmi_discrete_shrink(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_shrink");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -51,14 +55,19 @@ fn bench_mi_discrete_shrink(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("shrink", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_shrink(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_shrink(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -66,8 +75,8 @@ fn bench_mi_discrete_shrink(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_chao_shen(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_chao_shen");
+fn bench_cmi_discrete_chao_shen(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_chao_shen");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -78,14 +87,19 @@ fn bench_mi_discrete_chao_shen(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("chao_shen", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_chao_shen(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_chao_shen(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -93,8 +107,8 @@ fn bench_mi_discrete_chao_shen(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_nsb(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_nsb");
+fn bench_cmi_discrete_nsb(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_nsb");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -105,14 +119,19 @@ fn bench_mi_discrete_nsb(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("nsb", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_nsb(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_nsb(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -120,8 +139,8 @@ fn bench_mi_discrete_nsb(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_ansb(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_ansb");
+fn bench_cmi_discrete_ansb(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_ansb");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -132,14 +151,19 @@ fn bench_mi_discrete_ansb(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("ansb", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_ansb(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_ansb(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -147,8 +171,8 @@ fn bench_mi_discrete_ansb(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_bonachela(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_bonachela");
+fn bench_cmi_discrete_bonachela(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_bonachela");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -159,14 +183,19 @@ fn bench_mi_discrete_bonachela(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("bonachela", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_bonachela(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_bonachela(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -174,8 +203,8 @@ fn bench_mi_discrete_bonachela(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_grassberger(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_grassberger");
+fn bench_cmi_discrete_grassberger(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_grassberger");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -186,15 +215,19 @@ fn bench_mi_discrete_grassberger(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("grassberger", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi =
-                    MutualInformation::new_discrete_grassberger(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_grassberger(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -202,8 +235,8 @@ fn bench_mi_discrete_grassberger(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_zhang(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_zhang");
+fn bench_cmi_discrete_zhang(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_zhang");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -214,14 +247,19 @@ fn bench_mi_discrete_zhang(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("zhang", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_zhang(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_zhang(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -229,8 +267,8 @@ fn bench_mi_discrete_zhang(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_bayes(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_bayes");
+fn bench_cmi_discrete_bayes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_bayes");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -241,14 +279,19 @@ fn bench_mi_discrete_bayes(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("bayes", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi = MutualInformation::new_discrete_bayes(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_bayes(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -256,8 +299,8 @@ fn bench_mi_discrete_bayes(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mi_discrete_chao_wang_jost(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mi_discrete_chao_wang_jost");
+fn bench_cmi_discrete_chao_wang_jost(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmi_discrete_chao_wang_jost");
     group.measurement_time(Duration::from_secs(5));
 
     let sizes = bench_sizes_extended();
@@ -268,15 +311,19 @@ fn bench_mi_discrete_chao_wang_jost(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+        let z: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let x_arr = Array1::from(x);
         let y_arr = Array1::from(y);
+        let z_arr = Array1::from(z);
 
         let id = BenchmarkId::new("chao_wang_jost", size);
         group.bench_with_input(id, &size, |b, _| {
             b.iter(|| {
-                let mi =
-                    MutualInformation::new_discrete_chao_wang_jost(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+                let cmi = MutualInformation::new_cmi_discrete_chao_wang_jost(
+                    &[x_arr.clone(), y_arr.clone()],
+                    &z_arr,
+                );
+                black_box(cmi.global_value())
             });
         });
     }
@@ -291,15 +338,15 @@ fn black_box<T>(t: T) -> T {
 
 criterion_group!(
     benches,
-    bench_mi_discrete_miller_madow,
-    bench_mi_discrete_shrink,
-    bench_mi_discrete_chao_shen,
-    bench_mi_discrete_nsb,
-    bench_mi_discrete_ansb,
-    bench_mi_discrete_bonachela,
-    bench_mi_discrete_grassberger,
-    bench_mi_discrete_zhang,
-    bench_mi_discrete_bayes,
-    bench_mi_discrete_chao_wang_jost
+    bench_cmi_discrete_miller_madow,
+    bench_cmi_discrete_shrink,
+    bench_cmi_discrete_chao_shen,
+    bench_cmi_discrete_nsb,
+    bench_cmi_discrete_ansb,
+    bench_cmi_discrete_bonachela,
+    bench_cmi_discrete_grassberger,
+    bench_cmi_discrete_zhang,
+    bench_cmi_discrete_bayes,
+    bench_cmi_discrete_chao_wang_jost
 );
 criterion_main!(benches);

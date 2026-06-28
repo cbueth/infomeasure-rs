@@ -20,16 +20,19 @@ use std::time::Duration;
 mod utils;
 
 #[cfg(feature = "gpu")]
+use utils::{bench_bandwidths, bench_sizes};
+
+#[cfg(feature = "gpu")]
 fn bench_kernel_entropy_gpu(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_kernel_gpu");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 5000];
-    let bandwidths = [0.1, 0.5, 1.0];
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
     let seed = 42u64;
 
-    for bw in bandwidths {
-        for size in sizes {
+    for &bw in &bandwidths {
+        for &size in &sizes {
             let mut rng = StdRng::seed_from_u64(seed);
             let normal = Normal::new(0.0, 1.0).unwrap();
             let data: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
@@ -54,12 +57,12 @@ fn bench_kernel_mi_gpu(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_kernel_gpu");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 5000];
-    let bandwidths = [0.1, 0.5, 1.0];
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
     let seed = 42u64;
 
-    for bw in bandwidths {
-        for size in sizes {
+    for &bw in &bandwidths {
+        for &size in &sizes {
             let (x, y) = generate_correlated(size, 0.5, seed);
             let x_arr = Array1::from(x);
             let y_arr = Array1::from(y);

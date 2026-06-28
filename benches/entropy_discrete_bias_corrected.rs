@@ -9,15 +9,17 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::bench_sizes_extended;
+
 fn bench_discrete_miller_madow(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_miller_madow");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -38,11 +40,11 @@ fn bench_discrete_shrink(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_shrink");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -63,11 +65,11 @@ fn bench_discrete_chao_shen(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_chao_shen");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -88,11 +90,11 @@ fn bench_discrete_nsb(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_nsb");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -113,11 +115,11 @@ fn bench_discrete_grassberger(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_grassberger");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -138,11 +140,11 @@ fn bench_discrete_zhang(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_zhang");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -163,11 +165,11 @@ fn bench_discrete_bayes(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_bayes");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -188,11 +190,11 @@ fn bench_discrete_bonachela(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_bonachela");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -213,11 +215,11 @@ fn bench_discrete_ansb(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_ansb");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);
@@ -238,11 +240,11 @@ fn bench_discrete_chao_wang_jost(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_chao_wang_jost");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 10000, 100000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let arr = Array1::from(data);

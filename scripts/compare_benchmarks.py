@@ -5,47 +5,188 @@
 """
 Benchmark comparison script for comparing Rust vs Python infomeasure performance.
 
-This script:
-1. Runs Python benchmarks with matching parameters
-2. Parses Rust criterion JSON output
-3. Produces comparison reports with speedup calculations
+Maps Python benchmark names (e.g. "kernel/mi/100/bw0.5/d1/hist2") to Rust
+criterion keys (e.g. "mi_kernel/bw_0_5/100") using a known mapping table.
 
 Usage:
-    # Run Python benchmarks
-    python scripts/python_benchmark.py --output internal/python_bench.json --sizes 100,1000,10000
+    # Compare Python results from a run dir against Rust results
+    python scripts/compare_benchmarks.py \
+        --python runs/run_xxx/python_kernel.json \
+        --rust runs/run_xxx/rust_results.json \
+        --output comparison_kernel.md
 
-    # Run Rust benchmarks (in another terminal)
-    cargo bench --bench entropy_discrete -- --output-format=json > rust_bench.json
-
-    # Compare
-    python scripts/compare_benchmarks.py --python internal/python_bench.json --rust-json target/criterion/... --output internal/comparison.json
+    # Just show unmatched Python entries (debugging)
+    python scripts/compare_benchmarks.py \
+        --python runs/run_xxx/python_discrete.json \
+        --rust runs/run_xxx/rust_results.json \
+        --show-unmatched
 """
 
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
+
+
+# =============================================================================
+# Python → Rust naming mapping
+# =============================================================================
+
+# Maps (python_group, python_measure) → rust_criterion_group_name.
+# None means no Rust benchmark equivalent exists yet.
+PYTHON_TO_RUST_GROUP: Dict[Tuple[str, str], Optional[str]] = {
+    ("discrete", "entropy"): "entropy_discrete_small",
+    ("discrete", "mi"): "mi_discrete",
+    ("discrete", "cmi"): "cmi_discrete",
+    ("discrete", "te"): "te_discrete",
+    ("discrete", "cte"): "cte_discrete",
+    ("kernel", "entropy"): None,  # no kernel entropy Rust bench yet
+    ("kernel", "mi"): "mi_kernel",
+    ("kernel", "cmi"): "cmi_kernel",
+    ("kernel", "te"): "te_kernel",
+    ("kernel", "cte"): "cte_kernel",
+    ("kl", "entropy"): "entropy_kl",
+    ("kl", "mi"): "mi_ksg",  # Python uses approach="ksg" for MI
+    ("kl", "cmi"): "cmi_ksg",  # Python uses approach="ksg" for CMI
+    ("kl", "te"): "te_ksg",  # Python uses approach="ksg" for TE
+    ("kl", "cte"): "cte_ksg",  # Python uses approach="ksg" for CTE
+    ("ordinal", "entropy"): "entropy_ordinal",
+    ("ordinal", "mi"): "mi_ordinal",
+    ("ordinal", "cmi"): "cmi_ordinal",
+    ("ordinal", "te"): "te_ordinal",
+    ("ordinal", "cte"): "cte_ordinal",
+    ("renyi", "entropy"): "entropy_renyi",
+    ("renyi", "mi"): "mi_renyi",
+    ("renyi", "cmi"): "cmi_renyi",
+    ("renyi", "te"): "te_renyi",
+    ("renyi", "cte"): "cte_renyi",
+    ("tsallis", "entropy"): "entropy_tsallis",
+    ("tsallis", "mi"): "mi_tsallis",
+    ("tsallis", "cmi"): "cmi_tsallis",
+    ("tsallis", "te"): "te_tsallis",
+    ("tsallis", "cte"): "cte_tsallis",
+}
+
+
+def _normalize_float(val: str) -> str:
+    """Normalize Python float string to Rust f64::to_string() convention.
+
+    Python str(1.0) = '1.0', but Rust 1.0f64.to_string() = '1'.
+    Python str(0.5) = '0.5', Rust 0.5f64.to_string() = '0.5'.
+    After normalization: strip trailing zeros + dot, then replace remaining '.' with '_'.
+    """
+    v = val.rstrip("0").rstrip(".")
+    if "." in v:
+        v = v.replace(".", "_")
+    return v
+
+
+def py_param_to_rust(
+    py_group: str, py_measure: str, extra: Dict[str, str]
+) -> Optional[str]:
+    """Convert Python benchmark extra params to Rust criterion key param."""
+    if py_group == "discrete":
+        return "mle" if py_measure != "entropy" else "discrete"
+    if py_group == "kernel":
+        # Rust kernel benches use box kernel by default. Gaussian has no Rust match.
+        if extra.get("kernel_type") == "gaussian":
+            return None
+        bw = extra.get("bw", "")
+        bw_rust = bw.replace(".", "_")
+        if bw_rust.endswith("_0") and bw_rust != "_0":
+            bw_rust = bw_rust[:-2]
+        return f"bw_{bw_rust}"
+    if py_group == "kl":
+        k = extra.get("k", "")
+        return f"k{k}" if k else None
+    if py_group == "ordinal":
+        order = extra.get("order", "")
+        return f"order_{order}" if order else None
+    if py_group == "renyi":
+        k = extra.get("k", "")
+        alpha = extra.get("alpha", "")
+        if k and alpha:
+            alpha_rust = _normalize_float(alpha)
+            return f"k{k}_alpha{alpha_rust}"
+        return None
+    if py_group == "tsallis":
+        k = extra.get("k", "")
+        q = extra.get("q", "")
+        if k and q:
+            q_rust = _normalize_float(q)
+            return f"k{k}_q{q_rust}"
+        return None
+    return None
+
+
+def parse_py_name(name: str) -> Optional[dict]:
+    """Parse a Python benchmark name into components.
+
+    Python format:  {group}/{measure}/{size}/{param1}/{param2}/...
+    Known params:   bwX, kX, orderX, delayX, dX, histX
+    """
+    parts = name.split("/")
+    if len(parts) < 3:
+        return None
+    group, measure, size = parts[0], parts[1], parts[2]
+    extra = {}
+    for p in parts[3:]:
+        if p.startswith("bw"):
+            extra["bw"] = p[2:]
+        elif p.startswith("k") and not p.startswith("ksg"):
+            extra["k"] = p[1:]
+        elif p.startswith("order"):
+            extra["order"] = p[5:]
+        elif p.startswith("delay"):
+            extra["delay"] = p[5:]
+        elif p.startswith("d"):
+            extra["dims"] = p[1:]
+        elif p.startswith("hist"):
+            extra["hist_len"] = p[4:]
+        elif p.startswith("alpha"):
+            extra["alpha"] = p[5:]
+        elif p.startswith("q"):
+            extra["q"] = p[1:]
+        elif p in ("gaussian", "box"):
+            extra["kernel_type"] = p
+    return {"group": group, "measure": measure, "size": size, "extra": extra}
+
+
+def py_name_to_rust_key(name: str) -> Optional[str]:
+    """Translate a Python benchmark name into a Rust criterion key."""
+    parsed = parse_py_name(name)
+    if parsed is None:
+        return None
+
+    rust_group = PYTHON_TO_RUST_GROUP.get((parsed["group"], parsed["measure"]))
+    if rust_group is None:
+        return None
+
+    rust_param = py_param_to_rust(parsed["group"], parsed["measure"], parsed["extra"])
+    if rust_param is None:
+        return None
+
+    return f"{rust_group}/{rust_param}/{parsed['size']}"
+
+
+# =============================================================================
+# Data structures
+# =============================================================================
 
 
 @dataclass
 class BenchmarkEntry:
-    """Single benchmark entry."""
-
     name: str
     mean: float
     stddev: float
     value: Optional[float] = None
-    times: List[float] = None
 
 
 @dataclass
 class ComparisonResult:
-    """Comparison between Python and Rust."""
-
     name: str
     python_mean: float
     rust_mean: float
@@ -55,57 +196,32 @@ class ComparisonResult:
     value_diff: Optional[float] = None
 
 
+# =============================================================================
+# Parsers
+# =============================================================================
+
+
 def parse_rust_criterion_json(json_path: str) -> Dict[str, BenchmarkEntry]:
-    """Parse Rust criterion JSON output (raw or collected format)."""
-    with open(json_path, "r") as f:
+    """Parse Rust criterion JSON output (collected format)."""
+    with open(json_path) as f:
         data = json.load(f)
 
     benchmarks = {}
-
-    # Try collected format first (from collect_rust_results.py)
     if "benches" in data:
         for group_name, benches in data["benches"].items():
             for bench_key, stats in benches.items():
-                # bench_key = "group/param/size"
                 benchmarks[bench_key] = BenchmarkEntry(
                     name=bench_key,
                     mean=stats.get("mean", 0),
                     stddev=stats.get("stddev", 0),
                     value=stats.get("value"),
-                    times=[],
                 )
-        return benchmarks
-
-    # Fall back to raw criterion JSON format
-    for bench in data.get("benchmarks", []):
-        name = bench.get("id", bench.get("name", ""))
-        if not name:
-            continue
-
-        stats = bench.get("statistics", bench.get("mean", {}))
-        if isinstance(stats, dict):
-            mean = stats.get("mean", 0)
-            stddev = stats.get("stddev", 0)
-        else:
-            mean = stats
-            stddev = 0
-
-        value_field = bench.get("value", bench.get("result", {}).get("value"))
-
-        benchmarks[name] = BenchmarkEntry(
-            name=name,
-            mean=mean,
-            stddev=stddev,
-            value=value_field,
-            times=bench.get("times", []),
-        )
-
     return benchmarks
 
 
 def parse_python_benchmark_json(json_path: str) -> Dict[str, BenchmarkEntry]:
     """Parse Python benchmark JSON output."""
-    with open(json_path, "r") as f:
+    with open(json_path) as f:
         data = json.load(f)
 
     benchmarks = {}
@@ -113,51 +229,42 @@ def parse_python_benchmark_json(json_path: str) -> Dict[str, BenchmarkEntry]:
         name = bench.get("name", "")
         if not name:
             continue
-
         stats = bench.get("statistics", {})
-        mean = stats.get("mean", 0)
-        stddev = stats.get("stddev", 0)
-
         benchmarks[name] = BenchmarkEntry(
             name=name,
-            mean=mean,
-            stddev=stddev,
+            mean=stats.get("mean", 0),
+            stddev=stats.get("stddev", 0),
             value=bench.get("value"),
-            times=bench.get("times", []),
         )
-
     return benchmarks
 
 
-def normalize_name(name: str) -> str:
-    """Normalize benchmark name for comparison."""
-    # Remove prefixes and normalize
-    name = name.replace("entropy_discrete/entropy_discrete/", "entropy_discrete/")
-    name = name.replace("mi_discrete/mi_discrete/", "mi_discrete/")
-    name = name.replace("te_discrete/te_discrete/", "te_discrete/")
-    return name
+# =============================================================================
+# Comparison
+# =============================================================================
 
 
 def compare_benchmarks(
     python_benchmarks: Dict[str, BenchmarkEntry],
     rust_benchmarks: Dict[str, BenchmarkEntry],
+    show_unmatched: bool = False,
 ) -> List[ComparisonResult]:
-    """Compare Python and Rust benchmarks."""
+    """Compare Python and Rust benchmarks using the name mapping."""
     results = []
-
-    # Create normalized lookup for Rust
-    rust_normalized = {normalize_name(k): v for k, v in rust_benchmarks.items()}
+    unmatched = []
 
     for py_name, py_entry in python_benchmarks.items():
-        py_normalized = normalize_name(py_name)
+        rust_key = py_name_to_rust_key(py_name)
+        if rust_key is None:
+            unmatched.append((py_name, "no Rust group mapping"))
+            continue
 
-        rust_entry = rust_normalized.get(py_normalized)
+        rust_entry = rust_benchmarks.get(rust_key)
         if rust_entry is None:
-            # Try to find a close match
+            unmatched.append((py_name, f"no Rust data for key {rust_key}"))
             continue
 
         speedup = py_entry.mean / rust_entry.mean if rust_entry.mean > 0 else 0
-
         value_diff = None
         if py_entry.value is not None and rust_entry.value is not None:
             value_diff = abs(py_entry.value - rust_entry.value)
@@ -174,43 +281,41 @@ def compare_benchmarks(
             )
         )
 
+    if show_unmatched:
+        for name, reason in unmatched:
+            print(f"  UNMATCHED: {name}  ({reason})")
+
     return results
 
 
-def generate_report(comparisons: List[ComparisonResult], output_path: str):
-    """Generate comparison report."""
+# =============================================================================
+# Report generation
+# =============================================================================
+
+
+def generate_report(comparisons: List[ComparisonResult], output_path: str) -> str:
+    """Generate markdown comparison report."""
     lines = [
         "# Rust vs Python Benchmark Comparison",
         "",
-        "| Benchmark | Python (s) | Rust (s) | Speedup | Value Diff |",
-        "|-----------|-------------|-----------|---------|------------|",
+        "| Benchmark | Python (s) | Rust (s) | Speedup |",
+        "|-----------|-------------|-----------|---------|",
     ]
 
     for c in comparisons:
-        value_diff_str = f"{c.value_diff:.4f}" if c.value_diff is not None else "N/A"
         lines.append(
-            f"| {c.name} | {c.python_mean:.6f} | {c.rust_mean:.6f} | {c.speedup:.2f}x | {value_diff_str} |"
-        )
-
-    # Add summary
-    speedups = [c.speedup for c in comparisons if c.speedup > 0]
-    if speedups:
-        avg_speedup = sum(speedups) / len(speedups)
-        lines.extend(
-            [
-                "",
-                f"**Average Speedup: {avg_speedup:.2f}x**",
-                "",
-                f"**Total Benchmarks: {len(comparisons)}**",
-            ]
+            f"| {c.name} | {c.python_mean:.6f} | {c.rust_mean:.6f} | {c.speedup:.2f}x |"
         )
 
     report = "\n".join(lines)
-
     with open(output_path, "w") as f:
         f.write(report)
-
     return report
+
+
+# =============================================================================
+# Main
+# =============================================================================
 
 
 def main():
@@ -220,74 +325,44 @@ def main():
     parser.add_argument(
         "--python", "-p", required=True, help="Python benchmark JSON file"
     )
-    parser.add_argument("--rust", "-r", help="Rust benchmark JSON file (or directory)")
+    parser.add_argument("--rust", "-r", required=True, help="Rust benchmark JSON file")
     parser.add_argument(
-        "--output", "-o", default="comparison_report.md", help="Output report file"
+        "--output",
+        "-o",
+        default="comparison_report.md",
+        help="Output report file",
     )
-    parser.add_argument("--json", "-j", help="Output JSON comparison file")
     parser.add_argument(
-        "--format",
-        choices=["markdown", "json"],
-        default="markdown",
-        help="Output format",
+        "--show-unmatched",
+        action="store_true",
+        help="Print Python entries that could not be matched to Rust",
     )
-
     args = parser.parse_args()
 
-    # Load Python benchmarks
+    # Load
     print(f"Loading Python benchmarks from: {args.python}")
     python_benchmarks = parse_python_benchmark_json(args.python)
     print(f"Found {len(python_benchmarks)} Python benchmarks")
 
-    rust_benchmarks = {}
-    if args.rust:
-        # Handle directory or file
-        rust_path = Path(args.rust)
-        if rust_path.is_dir():
-            # Look for criterion JSON files
-            json_files = list(rust_path.glob("**/*.json"))
-            print(f"Found {len(json_files)} JSON files in {rust_path}")
-        else:
-            print(f"Loading Rust benchmarks from: {args.rust}")
-            rust_benchmarks = parse_rust_criterion_json(args.rust)
-            print(f"Found {len(rust_benchmarks)} Rust benchmarks")
+    print(f"Loading Rust benchmarks from: {args.rust}")
+    rust_benchmarks = parse_rust_criterion_json(args.rust)
+    print(f"Found {len(rust_benchmarks)} Rust benchmarks")
 
-    # Compare if Rust data available
-    if rust_benchmarks:
-        comparisons = compare_benchmarks(python_benchmarks, rust_benchmarks)
-        print(f"Matched {len(comparisons)} benchmarks")
+    # Compare
+    comparisons = compare_benchmarks(
+        python_benchmarks,
+        rust_benchmarks,
+        show_unmatched=args.show_unmatched,
+    )
+    print(f"Matched {len(comparisons)} benchmarks")
 
-        if args.json:
-            # Save JSON comparison
-            json_output = {
-                "comparisons": [
-                    {
-                        "name": c.name,
-                        "python_mean": c.python_mean,
-                        "rust_mean": c.rust_mean,
-                        "speedup": c.speedup,
-                        "python_value": c.python_value,
-                        "rust_value": c.rust_value,
-                        "value_diff": c.value_diff,
-                    }
-                    for c in comparisons
-                ]
-            }
-            with open(args.json, "w") as f:
-                json.dump(json_output, f, indent=2)
-            print(f"JSON comparison saved to: {args.json}")
-
-        # Generate report
-        if args.format == "markdown" or args.output.endswith(".md"):
-            report = generate_report(comparisons, args.output)
-            print(f"\nReport saved to: {args.output}")
-            print("\n" + report)
+    # Generate report
+    if comparisons:
+        report = generate_report(comparisons, args.output)
+        print(f"\nReport saved to: {args.output}")
+        print("\n" + report)
     else:
-        # Just show Python results
-        print("\nPython Benchmark Results:")
-        print("-" * 60)
-        for name, entry in sorted(python_benchmarks.items()):
-            print(f"{name}: {entry.mean:.6f}s (value={entry.value})")
+        print("\nNo benchmarks matched. Use --show-unmatched to debug.")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::{bench_bandwidths, bench_k_values, bench_orders, bench_sizes, bench_sizes_extended};
+
 fn generate_correlated(size: usize, correlation: f64, seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut x = Vec::with_capacity(size);
@@ -34,11 +36,11 @@ fn bench_discrete_mi(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
     group.sample_size(10);
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let num_states = 10;
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
         let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
@@ -61,23 +63,32 @@ fn bench_kernel_mi(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_kernel");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 5000];
-    let bandwidths = [0.1, 0.5, 1.0];
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
+    let kernel_types = ["box", "gaussian"];
     let seed = 42u64;
 
-    for bw in bandwidths {
-        for size in sizes {
-            let (x, y) = generate_correlated(size, 0.5, seed);
-            let x_arr = Array1::from(x);
-            let y_arr = Array1::from(y);
+    for &kernel_type in &kernel_types {
+        for &bw in &bandwidths {
+            for &size in &sizes {
+                let (x, y) = generate_correlated(size, 0.5, seed);
+                let x_arr = Array1::from(x);
+                let y_arr = Array1::from(y);
 
-            let id = BenchmarkId::new(format!("bw_{}", bw.to_string().replace('.', "_")), size);
-            group.bench_with_input(id, &(bw, size), |b, _| {
-                b.iter(|| {
-                    let mi = MutualInformation::new_kernel(&[x_arr.clone(), y_arr.clone()], bw);
-                    black_box(mi.global_value())
+                let kt = kernel_type.to_string();
+                let bw_str = bw.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw_{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bw), |b, (kt, bw)| {
+                    b.iter(|| {
+                        let mi = MutualInformation::new_kernel_with_type(
+                            &[x_arr.clone(), y_arr.clone()],
+                            kt.clone(),
+                            *bw,
+                        );
+                        black_box(mi.global_value())
+                    });
                 });
-            });
+            }
         }
     }
 
@@ -88,13 +99,13 @@ fn bench_ksg_mi(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_ksg");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 5000];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for size in sizes {
+    for &k in &ks {
+        for &size in &sizes {
             let (x, y) = generate_correlated(size, 0.5, seed);
             let x_arr = Array1::from(x);
             let y_arr = Array1::from(y);
@@ -117,12 +128,12 @@ fn bench_ordinal_mi(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_ordinal");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
-    let orders = [2, 3, 4];
+    let sizes = bench_sizes_extended();
+    let orders = bench_orders();
     let seed = 42u64;
 
-    for order in orders {
-        for size in sizes {
+    for &order in &orders {
+        for &size in &sizes {
             let (x, y) = generate_correlated(size, 0.5, seed);
             let x_arr = Array1::from(x);
             let y_arr = Array1::from(y);

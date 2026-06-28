@@ -10,14 +10,16 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::bench_sizes_extended;
+
 fn bench_entropy_small(c: &mut criterion::Criterion) {
     let mut group = c.benchmark_group("entropy_discrete_small");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
+    let sizes = bench_sizes_extended();
     let seed = 42u64;
 
-    for size in sizes {
+    for &size in &sizes {
         let mut rng = StdRng::seed_from_u64(seed);
         let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..10)).collect();
 

@@ -11,19 +11,21 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::{bench_alphas, bench_bandwidths, bench_k_values, bench_q_values, bench_sizes};
+
 fn bench_renyi_entropy(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_renyi");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
-    let alphas: [f64; 3] = [0.5, 1.0, 2.0];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let alphas = bench_alphas();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for alpha in alphas {
-            for size in sizes {
+    for &k in &ks {
+        for &alpha in &alphas {
+            for &size in &sizes {
                 let mut rng = StdRng::seed_from_u64(seed);
                 let normal = Normal::new(0.0, 1.0).unwrap();
                 let data: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
@@ -50,15 +52,15 @@ fn bench_tsallis_entropy(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_tsallis");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
-    let qs: [f64; 3] = [0.5, 1.5, 2.0];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let qs = bench_q_values();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for q in qs {
-            for size in sizes {
+    for &k in &ks {
+        for &q in &qs {
+            for &size in &sizes {
                 let mut rng = StdRng::seed_from_u64(seed);
                 let normal = Normal::new(0.0, 1.0).unwrap();
                 let data: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
@@ -83,13 +85,13 @@ fn bench_kl_entropy(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_kl");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000, 10000];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for size in sizes {
+    for &k in &ks {
+        for &size in &sizes {
             let mut rng = StdRng::seed_from_u64(seed);
             let normal = Normal::new(0.0, 1.0).unwrap();
             let data: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
@@ -112,14 +114,14 @@ fn bench_kl_nd_entropy(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_kl_nd");
     group.measurement_time(Duration::from_secs(3));
 
-    let sizes = [100, 1000];
+    let sizes = bench_sizes();
     let dims = [2, 4, 8];
     let k = 3;
     let seed = 42u64;
     let noise_level = 1e-10;
 
     for dim in dims {
-        for size in sizes {
+        for &size in sizes.iter().take(2) {
             let mut rng = StdRng::seed_from_u64(seed);
             let normal = Normal::new(0.0, 1.0).unwrap();
             let data: Vec<f64> = (0..size * dim).map(|_| normal.sample(&mut rng)).collect();
@@ -138,6 +140,38 @@ fn bench_kl_nd_entropy(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_kernel_entropy(c: &mut Criterion) {
+    let mut group = c.benchmark_group("entropy_kernel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let kernel_types = ["box", "gaussian"];
+    let bandwidths = bench_bandwidths();
+    let seed = 42u64;
+
+    for &kernel_type in &kernel_types {
+        for &bandwidth in &bandwidths {
+            for &size in &sizes {
+                let mut rng = StdRng::seed_from_u64(seed);
+                let normal = Normal::new(0.0, 1.0).unwrap();
+                let arr: Array1<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
+
+                let kt = kernel_type.to_string();
+                let bw_str = bandwidth.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bandwidth), |b, (kt, bw)| {
+                    b.iter(|| {
+                        let entropy = Entropy::new_kernel_with_type(arr.clone(), kt.clone(), *bw);
+                        black_box(entropy.global_value())
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
 fn black_box<T>(t: T) -> T {
     use std::hint::black_box;
     black_box(t)
@@ -148,6 +182,7 @@ criterion_group!(
     bench_renyi_entropy,
     bench_tsallis_entropy,
     bench_kl_entropy,
-    bench_kl_nd_entropy
+    bench_kl_nd_entropy,
+    bench_kernel_entropy
 );
 criterion_main!(benches);

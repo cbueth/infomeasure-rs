@@ -3,174 +3,222 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 """
-Aggregate Rust + Python benchmark results into summary CSVs.
+Aggregate Rust + Python benchmark results from multiple run directories.
+
+Scans <runs-dir>/run_*/ for rust_results.json and python_*.json files,
+merges them into a summary CSV with a `features` column distinguishing
+different configurations (CPU, GPU, etc.). Deduplicates by
+(source, group, benchmark, features), keeping the latest run.
 
 Usage:
-    # Collect Rust results first, then aggregate
-    python scripts/collect_rust_results.py --output internal/rust_results.json
+    # Aggregate all runs in default directory
     python scripts/aggregate_results.py
 
-    # Full workflow with custom parameters
+    # Custom paths
     python scripts/aggregate_results.py \
-        --rust internal/rust_results.json \
-        --python-dir scripts/benchmarks_data \
-        --results-dir internal/benchmark_results \
-        --timestamp "2025-01-01"
+        --runs-dir internal/benchmark_results/runs \
+        --output internal/benchmark_results/summary.csv
 """
 
 import argparse
+import csv
 import json
 import os
 import sys
-import csv
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-def load_json(path: str) -> Dict[str, Any]:
-    with open(path) as f:
-        return json.load(f)
+def load_json(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"  Warning: skipping {path}: {e}", file=sys.stderr)
+        return None
 
 
-def write_csv(rows: list[Dict[str, Any]], path: str):
+def extract_rust_rows(data: Dict, run_id: str) -> list[Dict]:
+    """Extract rows from a collected Rust results JSON."""
+    rows = []
+    features = data.get("metadata", {}).get("features", [])
+    features_str = ",".join(sorted(features)) if features else ""
+    timestamp = data.get("metadata", {}).get("collection_timestamp", "")
+
+    for group_name, benches in data.get("benches", {}).items():
+        for bench_key, stats in benches.items():
+            rows.append(
+                {
+                    "source": "rust",
+                    "group": group_name,
+                    "benchmark": bench_key,
+                    "features": features_str,
+                    "mean_s": stats.get("mean", 0),
+                    "stddev_s": stats.get("stddev", 0),
+                    "min_s": stats.get("min", 0),
+                    "max_s": stats.get("max", 0),
+                    "median_s": stats.get("median", 0),
+                    "ci_lower_s": stats.get("ci_lower"),
+                    "ci_upper_s": stats.get("ci_upper"),
+                    "samples": stats.get("count", 0),
+                    "run_id": run_id,
+                    "timestamp": timestamp,
+                }
+            )
+    return rows
+
+
+def extract_python_rows(data: Dict, run_id: str) -> list[Dict]:
+    """Extract rows from a Python benchmark results JSON."""
+    rows = []
+    features = data.get("metadata", {}).get("extra_params", {}).get("features", "")
+    features_str = (
+        features
+        if isinstance(features, str)
+        else ",".join(sorted(features))
+        if features
+        else ""
+    )
+    timestamp = data.get("metadata", {}).get("timestamp", "")
+
+    for bench in data.get("benchmarks", []):
+        stats = bench.get("statistics", {})
+        rows.append(
+            {
+                "source": "python",
+                "group": bench.get("group", ""),
+                "measure": bench.get("measure", ""),
+                "benchmark": bench.get("name", ""),
+                "features": features_str,
+                "mean_s": stats.get("mean", 0),
+                "stddev_s": stats.get("stddev", 0),
+                "min_s": stats.get("min", 0),
+                "max_s": stats.get("max", 0),
+                "median_s": stats.get("median", 0),
+                "value": bench.get("value"),
+                "params": json.dumps(bench.get("params", {})),
+                "run_id": run_id,
+                "timestamp": timestamp,
+            }
+        )
+    return rows
+
+
+def scan_run_directory(runs_dir: Path) -> list[Dict]:
+    """Scan all run subdirectories and extract benchmark data."""
+    all_rows = []
+
+    if not runs_dir.exists():
+        print(f"  Run directory not found: {runs_dir}")
+        return all_rows
+
+    run_dirs = sorted(
+        [d for d in runs_dir.iterdir() if d.is_dir() and d.name.startswith("run_")]
+    )
+    if not run_dirs:
+        print(f"  No run directories found in {runs_dir}")
+        return all_rows
+
+    print(f"  Found {len(run_dirs)} run(s)")
+
+    for run_dir in run_dirs:
+        run_id = run_dir.name
+
+        # Rust results
+        rust_file = run_dir / "rust_results.json"
+        if rust_file.exists():
+            data = load_json(rust_file)
+            if data:
+                rows = extract_rust_rows(data, run_id)
+                all_rows.extend(rows)
+                print(f"    {run_id}: {len(rows)} Rust entries")
+
+        # Python results
+        for py_file in sorted(run_dir.glob("python_*.json")):
+            data = load_json(py_file)
+            if data:
+                rows = extract_python_rows(data, run_id)
+                all_rows.extend(rows)
+                print(f"    {run_id}: {len(rows)} Python entries ({py_file.name})")
+
+    return all_rows
+
+
+def deduplicate_rows(rows: list[Dict]) -> list[Dict]:
+    """Deduplicate by (source, group, benchmark, features), keeping last occurrence.
+
+    Input rows should be ordered by run timestamp ascending.
+    The last row for each unique key wins.
+    """
+    seen = {}
+    for row in rows:
+        key = (
+            row.get("source", ""),
+            row.get("group", ""),
+            row.get("benchmark", ""),
+            row.get("features", ""),
+        )
+        seen[key] = row  # last one wins
+    return list(seen.values())
+
+
+def write_csv(rows: list[Dict], path: str):
     if not rows:
-        print(f"  Warning: no data for {path}, skipping")
+        print(f"  No data to write for {path}")
         return
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    # Use union of all keys across all rows (handles mixed fields)
     fieldnames = sorted(set().union(*(r.keys() for r in rows)))
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
-    print(f"  Wrote {len(rows)} rows to {path}")
-
-
-def aggregate_summary(
-    rust_path: Optional[str],
-    python_dir: str,
-    results_dir: str,
-    timestamp: str,
-):
-    """Generate summary CSV with all benchmark data."""
-    summary_rows = []
-
-    # Load Rust data if available
-    rust_data = {}
-    if rust_path and Path(rust_path).exists():
-        rust_data = load_json(rust_path)
-        for group_name, benches in rust_data.get("benches", {}).items():
-            for bench_key, stats in benches.items():
-                summary_rows.append(
-                    {
-                        "source": "rust",
-                        "group": group_name,
-                        "benchmark": bench_key,
-                        "mean_s": stats.get("mean", 0),
-                        "stddev_s": stats.get("stddev", 0),
-                        "min_s": stats.get("min", 0),
-                        "max_s": stats.get("max", 0),
-                        "median_s": stats.get("median", 0),
-                        "samples": stats.get("count", 0),
-                        "timestamp": timestamp,
-                    }
-                )
-
-    # Load Python data if available
-    python_dir_path = Path(python_dir)
-    if python_dir_path.exists():
-        for json_file in sorted(python_dir_path.glob("*.json")):
-            group_name = json_file.stem
-            py_data = load_json(str(json_file))
-            for bench in py_data.get("benchmarks", []):
-                stats = bench.get("statistics", {})
-                summary_rows.append(
-                    {
-                        "source": "python",
-                        "group": bench.get("group", group_name),
-                        "benchmark": bench.get("name", ""),
-                        "mean_s": stats.get("mean", 0),
-                        "stddev_s": stats.get("stddev", 0),
-                        "min_s": stats.get("min", 0),
-                        "max_s": stats.get("max", 0),
-                        "median_s": stats.get("median", 0),
-                        "value": bench.get("value"),
-                        "timestamp": timestamp,
-                    }
-                )
-
-    write_csv(summary_rows, os.path.join(results_dir, "summary.csv"))
-
-
-def aggregate_python_parity(
-    python_dir: str,
-    results_dir: str,
-    timestamp: str,
-):
-    """Generate Python-parity CSV (Rust-only until comparison data is available)."""
-    # Phase 2: merge with Rust comparison data from compare_benchmarks.py
-    # For now, just note that data exists
-    python_dir_path = Path(python_dir)
-    total = 0
-    measures = set()
-    groups = set()
-    if python_dir_path.exists():
-        for json_file in sorted(python_dir_path.glob("*.json")):
-            py_data = load_json(str(json_file))
-            total += len(py_data.get("benchmarks", []))
-            for b in py_data.get("benchmarks", []):
-                measures.add(b.get("measure"))
-                groups.add(b.get("group"))
-
-    # Write a metadata file about what's available
-    info = {
-        "timestamp": timestamp,
-        "python_benchmark_total": total,
-        "groups": sorted(groups),
-        "measures": sorted(measures),
-    }
-    info_path = os.path.join(results_dir, "python_data_available.json")
-    os.makedirs(os.path.dirname(info_path) or ".", exist_ok=True)
-    with open(info_path, "w") as f:
-        json.dump(info, f, indent=2)
-    print(f"  Python benchmark info written to {info_path}")
+    print(f"\n  Wrote {len(rows)} aggregated rows to {path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Aggregate benchmark results")
-    parser.add_argument(
-        "--rust",
-        default="internal/rust_results.json",
-        help="Path to Rust results JSON (from collect_rust_results.py)",
+    parser = argparse.ArgumentParser(
+        description="Aggregate Rust + Python benchmark results from run directories"
     )
     parser.add_argument(
-        "--python-dir",
-        default="scripts/benchmarks_data",
-        help="Directory containing Python benchmark JSON files",
+        "--runs-dir",
+        default="internal/benchmark_results/runs",
+        help="Directory containing run_* subdirectories",
     )
     parser.add_argument(
-        "--results-dir",
-        default="internal/benchmark_results",
-        help="Directory to write aggregated results",
-    )
-    parser.add_argument(
-        "--timestamp",
-        default="",
-        help="Timestamp for this run (default: auto)",
-    )
-    parser.add_argument(
-        "--sizes",
-        default="",
-        help="Sizes used (for metadata)",
+        "--output",
+        default="internal/benchmark_results/summary.csv",
+        help="Output CSV file path",
     )
     args = parser.parse_args()
 
-    timestamp = args.timestamp or "unknown"
+    runs_dir = Path(args.runs_dir)
 
     print("Aggregating benchmark results...")
-    aggregate_summary(args.rust, args.python_dir, args.results_dir, timestamp)
-    aggregate_python_parity(args.python_dir, args.results_dir, timestamp)
-    print("Done.")
+    all_rows = scan_run_directory(runs_dir)
+
+    if not all_rows:
+        print("No data found. Run some benchmarks first:")
+        print(f"  bash scripts/run_full_benchmark_suite.sh --quick")
+        sys.exit(0)
+
+    # Sort by timestamp then deduplicate (keep latest)
+    all_rows.sort(key=lambda r: r.get("timestamp", ""))
+    deduped = deduplicate_rows(all_rows)
+    duplicates = len(all_rows) - len(deduped)
+    if duplicates > 0:
+        print(f"\n  Removed {duplicates} duplicate(s) (keeping latest per config)")
+
+    write_csv(deduped, args.output)
+
+    # Print summary by features
+    from collections import Counter
+
+    features_counts = Counter(r.get("features", "") for r in deduped)
+    print("\n  Entries by feature set:")
+    for feat, count in sorted(features_counts.items()):
+        label = feat if feat else "(baseline / CPU)"
+        print(f"    [{label}] {count} entries")
 
 
 if __name__ == "__main__":

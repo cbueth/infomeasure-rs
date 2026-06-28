@@ -12,6 +12,8 @@ use std::time::Duration;
 
 mod utils;
 
+use utils::{bench_alphas, bench_k_values, bench_q_values, bench_sizes};
+
 fn generate_correlated(size: usize, correlation: f64, seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut x = Vec::with_capacity(size);
@@ -33,15 +35,15 @@ fn bench_mi_renyi(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_renyi");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 5000];
-    let alphas: [f64; 3] = [0.5, 1.0, 2.0];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let alphas = bench_alphas();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for alpha in alphas {
-            for size in sizes {
+    for &k in &ks {
+        for &alpha in &alphas {
+            for &size in &sizes {
                 let (x, y) = generate_correlated(size, 0.5, seed);
                 let x_arr = Array1::from(x);
                 let y_arr = Array1::from(y);
@@ -72,15 +74,15 @@ fn bench_mi_tsallis(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_tsallis");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 5000];
-    let qs: [f64; 3] = [0.5, 1.5, 2.0];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let qs = bench_q_values();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for q in qs {
-            for size in sizes {
+    for &k in &ks {
+        for &q in &qs {
+            for &size in &sizes {
                 let (x, y) = generate_correlated(size, 0.5, seed);
                 let x_arr = Array1::from(x);
                 let y_arr = Array1::from(y);
@@ -109,13 +111,13 @@ fn bench_mi_kl(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_kl");
     group.measurement_time(Duration::from_secs(5));
 
-    let sizes = [100, 1000, 5000];
-    let ks = [1, 3, 5];
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
     let seed = 42u64;
     let noise_level = 1e-10;
 
-    for k in ks {
-        for size in sizes {
+    for &k in &ks {
+        for &size in &sizes {
             let (x, y) = generate_correlated(size, 0.5, seed);
             let x_arr = Array1::from(x);
             let y_arr = Array1::from(y);
