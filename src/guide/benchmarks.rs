@@ -4,91 +4,45 @@
 
 //! # Performance Benchmarks
 //!
-//! This guide covers performance benchmarks for the various estimators in `infomeasure-rs`.
+//! Interactive benchmark charts comparing Rust vs Python across all estimators and
+//! approaches are available at:
 //!
-//! ## Overview
+//! **<https://cbueth.codeberg.page/infomeasure-rs/>**
 //!
-//! Benchmarks are measured on various platforms. The benchmarks measure execution time
-//! as a function of input data size. Each estimator has different scaling characteristics.
-//!
-//! ## Estimator Comparison
-//!
-//! ### Discrete Estimators
-//!
-//! Fastest for categorical data with few states.
-//!
-//! | Data Size | Typical Time |
-//! |-----------|--------------|
-//! | 100 | ~0.02ms |
-//! | 1,000 | ~0.02ms |
-//! | 10,000 | ~0.2ms |
-//! | 100,000 | ~2ms |
-//!
-//! ### Kernel Estimators
-//!
-//! Non-parametric density estimation. Slower but works with continuous data.
-//!
-//! | Data Size | Typical Time (bandwidth=0.5) |
-//! |-----------|----------------------------|
-//! | 100 | ~0.1ms |
-//! | 1,000 | ~2ms |
-//! | 10,000 | ~20ms |
-//! | 100,000 | ~200ms |
-//!
-//! ### KL (Kozachenko-Leonenko)
-//!
-//! k-nearest neighbor based entropy estimator.
-//!
-//! | Data Size | Typical Time (k=3) |
-//! |-----------|---------------------|
-//! | 100 | ~0.05ms |
-//! | 1,000 | ~0.3ms |
-//! | 10,000 | ~3ms |
-//! | 100,000 | ~30ms |
-//!
-//! ### Ordinal Estimators
-//!
-//! Permutation/ordinal pattern based entropy.
-//!
-//! | Data Size | Typical Time (order=3) |
-//! |-----------|------------------------|
-//! | 100 | ~0.02ms |
-//! | 1,000 | ~0.1ms |
-//! | 10,000 | ~1ms |
-//! | 100,000 | ~10ms |
-//!
-//! ## Interactive Viewer
-//!
-//! For more detailed benchmarking data, including:
-//! - Multiple parameter combinations (k, bandwidth, order, history length)
-//! - Scaling plots
-//! - Error bars
-//! - Comparison across different measures
-//!
-//! See the **[Interactive Benchmark Viewer](TBD)** (separate repository).
+//! The viewer includes scaling plots, per-approach parameter filters, log/linear
+//! axes, hardware context, GPU toggle, version badges, and a sortable data table
+//! with standard deviation per benchmark.
 //!
 //! ## Running Your Own Benchmarks
 //!
-//! To run benchmarks on your own machine:
+//! Use the provided suite to reproduce or extend results on your hardware:
 //!
 //! ```bash
-//! # Install Python dependencies
-//! cd tests/validation_crate
-//! .venv/bin/pip install -r requirements.txt
+//! # Quick smoke test (faster but also takes time)
+//! bash scripts/run_full_benchmark_suite.sh --quick
 //!
-//! # Run benchmarks
-//! python ../../scripts/python_benchmark.py \
-//!     --group discrete \
-//!     --measures entropy,mi,te \
-//!     --sizes 100,1000,10000,100000 \
-//!     --iterations 10 \
-//!     --output results.json
+//! # Full production run
+//! bash scripts/run_full_benchmark_suite.sh
+//!
+//! # GPU-enabled run
+//! INCLUDE_GPU=true bash scripts/run_full_benchmark_suite.sh
+//!
+//! # Regenerate viewer data from an existing run
+//! bash scripts/run_full_benchmark_suite.sh --compare-only
 //! ```
 //!
-//! ## Rust Benchmarks
+//! If Rust has cashed benchmark results, it will not rerun them. To force re-running,
+//! delete the `target/criterion` directory.
 //!
-//! For Rust-specific benchmarks (comparing to Python implementation):
+//! > **Benchmark your own data.** Runtime depends on input characteristics: the `gpu`
+//! > feature flag may speed up kernel estimators on large samples but add overhead for
+//! > small ones; methods, bandwidth, and k-neighbors also affect throughput. Always
+//! > profile on representative data with `--features gpu` both on and off.
+//!
+//! Running individual Rust benchmarks with [Criterion](https://github.com/bheisler/criterion.rs):
 //!
 //! ```bash
-//! cargo bench
+//! cargo bench --bench mi              # single binary
+//! cargo bench                         # all benchmarks
+//! cargo bench --features gpu          # GPU-accelerated variants
 //! ```

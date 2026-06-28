@@ -34,6 +34,10 @@
 //! - Provides better IDE support and documentation
 //! - Makes the API more explicit and self-documenting
 //!
+//! > **Performance benchmarks.** If you're coming from the Python package, see
+//! > <https://cbueth.codeberg.page/infomeasure-rs/> for interactive charts comparing
+//! > Rust vs Python runtimes across all estimators, data sizes, and feature flags.
+//!
 //! ## Guide Contents
 //!
 //! ### Getting Started

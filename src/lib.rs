@@ -16,6 +16,7 @@
 //! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
 //!
 //! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
+//! And check out the [benchmark page](https://cbueth.codeberg.page/infomeasure-rs/).
 //!
 //! </div>
 //!
@@ -103,9 +104,9 @@
 //!
 //! # Performance
 //!
-//! Performance benchmarks are available in the `docs/benchmarks.md` file.
-//! Run `cargo doc` and look for the benchmarks.md file in the target documentation,
-//! or view it online at: <https://github.com/cbueth/infomeasure-rs/tree/main/docs/benchmarks.md>
+//! Performance benchmarks are documented in the [guide::benchmarks] section.
+//! Interactive charts comparing Rust vs Python are available at
+//! <https://cbueth.codeberg.page/infomeasure-rs/>.
 
 pub mod estimators;
 pub mod guide;
