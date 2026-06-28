@@ -62,3 +62,63 @@ harness = false
 [[bench]]
 name = "count_frequencies_benchmark"
 harness = false
+
+[[bench]]
+name = "entropy_discrete"
+harness = false
+
+[[bench]]
+name = "entropy_ordinal"
+harness = false
+
+[[bench]]
+name = "entropy_expfam"
+harness = false
+
+[[bench]]
+name = "mi"
+harness = false
+
+[[bench]]
+name = "te"
+harness = false
+
+[[bench]]
+name = "entropy_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "mi_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "mi_expfam"
+harness = false
+
+[[bench]]
+name = "kernel_gpu"
+harness = false
+
+[[bench]]
+name = "cmi"
+harness = false
+
+[[bench]]
+name = "cte"
+harness = false
+
+[[bench]]
+name = "scaling_nd"
+harness = false
+
+[[bench]]
+name = "cmi_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "te_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "cte_discrete_bias_corrected"
+harness = false
