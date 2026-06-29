@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-06-29
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### 📚 Documentation
+
+- fix: validate CITATION.cff against CFF 1.2.0 schema for Zenodo [[#34](https://codeberg.org/cbueth/infomeasure-rs/pulls/34)]
+- feat: Add benchmarks and runtime visualisation [[#10](https://codeberg.org/cbueth/infomeasure-rs/pulls/10)]
+
+### Misc
+
+- fix: Restore `skipCommitsWithoutPullRequest` and enable `commentOnReleasedPullRequests` [[#32](https://codeberg.org/cbueth/infomeasure-rs/pulls/32)]
+
 ## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
 
 ### Thanks to all contributors!
