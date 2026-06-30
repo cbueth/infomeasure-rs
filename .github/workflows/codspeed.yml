@@ -48,8 +48,7 @@ jobs:
 
       - name: Build the benchmark target(s)
         run: |
-          # Build CPU-phase benchmarks (no GPU feature)
-          cargo codspeed build -m simulation \
+          cargo codspeed build -m simulation --features gpu \
             --bench entropy_discrete \
             --bench entropy_ordinal \
             --bench entropy_expfam \
@@ -57,10 +56,7 @@ jobs:
             --bench mi_expfam \
             --bench te \
             --bench cmi \
-            --bench cte
-
-          # Build GPU-phase benchmark separately (features baked into binary)
-          cargo codspeed build -m simulation --features gpu \
+            --bench cte \
             --bench kernel_gpu_codspeed
 
       - name: Run the benchmarks
@@ -75,16 +71,4 @@ jobs:
           BENCH_Q_VALUES: "1.2"
         with:
           mode: simulation
-          run: |
-            cargo codspeed run \
-              --bench entropy_discrete \
-              --bench entropy_ordinal \
-              --bench entropy_expfam \
-              --bench mi \
-              --bench mi_expfam \
-              --bench te \
-              --bench cmi \
-              --bench cte
-
-            cargo codspeed run \
-              --bench kernel_gpu_codspeed
+          run: cargo codspeed run
