@@ -48,8 +48,8 @@ jobs:
 
       - name: Build the benchmark target(s)
         run: |
-          # Build core benchmarks without GPU feature to track CPU performance
-          cargo codspeed build \
+          # Build CPU-phase benchmarks (no GPU feature)
+          cargo codspeed build -m simulation \
             --bench entropy_discrete \
             --bench entropy_ordinal \
             --bench entropy_expfam \
@@ -59,8 +59,8 @@ jobs:
             --bench cmi \
             --bench cte
 
-          # Build GPU-specific benchmarks separately
-          cargo codspeed build --features gpu \
+          # Build GPU-phase benchmark separately (features baked into binary)
+          cargo codspeed build -m simulation --features gpu \
             --bench kernel_gpu_codspeed
 
       - name: Run the benchmarks
@@ -86,5 +86,5 @@ jobs:
               --bench cmi \
               --bench cte
 
-            cargo codspeed run --features gpu \
+            cargo codspeed run \
               --bench kernel_gpu_codspeed
