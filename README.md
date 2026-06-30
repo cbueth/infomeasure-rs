@@ -5,11 +5,11 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
 [![status-badge](https://ci.codeberg.org/api/badges/16039/status.svg)](https://ci.codeberg.org/repos/16039)
-[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/cbueth/infomeasure-rs?utm_source=badge)
 [![docs.rs](https://docs.rs/infomeasure/badge.svg)](https://docs.rs/infomeasure)
 [![crates.io](https://img.shields.io/crates/v/infomeasure.svg)](https://crates.io/crates/infomeasure)
 [![rustc](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSES/MIT.txt)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/cbueth/infomeasure-rs?utm_source=badge)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-visit-8A2BE2)](https://cbueth.codeberg.page/infomeasure-rs/)
 
 > **v0.3.0-beta.1 — We want your feedback!**

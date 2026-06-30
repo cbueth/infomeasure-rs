@@ -52,14 +52,6 @@ name = "discrete_entropy_benchmark"
 harness = false
 
 [[bench]]
-name = "unified_discrete_entropy_benchmark"
-harness = false
-
-[[bench]]
-name = "unified_kernel_entropy_benchmark"
-harness = false
-
-[[bench]]
 name = "count_frequencies_benchmark"
 harness = false
 
@@ -121,4 +113,8 @@ harness = false
 
 [[bench]]
 name = "cte_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "kernel_gpu_codspeed"
 harness = false

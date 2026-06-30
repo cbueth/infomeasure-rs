@@ -47,10 +47,44 @@ jobs:
           bins: cargo-codspeed
 
       - name: Build the benchmark target(s)
-        run: cargo codspeed build --bench discrete_entropy_benchmark --bench count_frequencies_benchmark
+        run: |
+          # Build core benchmarks without GPU feature to track CPU performance
+          cargo codspeed build \
+            --bench entropy_discrete \
+            --bench entropy_ordinal \
+            --bench entropy_expfam \
+            --bench mi \
+            --bench mi_expfam \
+            --bench te \
+            --bench cmi \
+            --bench cte
+
+          # Build GPU-specific benchmarks separately
+          cargo codspeed build --features gpu \
+            --bench kernel_gpu_codspeed
 
       - name: Run the benchmarks
         uses: CodSpeedHQ/action@v4
+        env:
+          BENCH_SIZES: "5000"
+          BENCH_SIZES_EXTENDED: "5000"
+          BENCH_K_VALUES: "3"
+          BENCH_BANDWIDTHS: "0.9"
+          BENCH_ORDERS: "3"
+          BENCH_ALPHAS: "1.2"
+          BENCH_Q_VALUES: "1.2"
         with:
           mode: simulation
-          run: cargo codspeed run --bench discrete_entropy_benchmark --bench count_frequencies_benchmark
+          run: |
+            cargo codspeed run \
+              --bench entropy_discrete \
+              --bench entropy_ordinal \
+              --bench entropy_expfam \
+              --bench mi \
+              --bench mi_expfam \
+              --bench te \
+              --bench cmi \
+              --bench cte
+
+            cargo codspeed run --features gpu \
+              --bench kernel_gpu_codspeed
