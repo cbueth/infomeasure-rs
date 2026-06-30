@@ -34,6 +34,10 @@
 //! - Provides better IDE support and documentation
 //! - Makes the API more explicit and self-documenting
 //!
+//! > **Performance benchmarks.** If you're coming from the Python package, see
+//! > <https://cbueth.codeberg.page/infomeasure-rs/> for interactive charts comparing
+//! > Rust vs Python runtimes across all estimators, data sizes, and feature flags.
+//!
 //! ## Guide Contents
 //!
 //! ### Getting Started
@@ -65,6 +69,7 @@
 //! ### Configuration
 //! - [Settings](settings) — Configuration options
 //! - [Statistical Tests](statistical_tests) — Hypothesis testing
+//! - [Benchmarks](benchmarks) — Performance benchmarks
 //!
 //! ### References
 //! - [References](references) — All academic citations
@@ -92,6 +97,7 @@
 //! | **TE** $T_{X \to Y}$ | Directed info flow from X to Y (time series) | [transfer_entropy] |
 //! | **CTE** $T_{X \to Y\mid Z}$ | TE from X to Y conditioned on Z | [cond_te] |
 
+pub mod benchmarks;
 pub mod cond_entropy;
 pub mod cond_mi;
 pub mod cond_te;

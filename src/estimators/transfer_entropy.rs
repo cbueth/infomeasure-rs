@@ -215,7 +215,7 @@ macro_rules! new_ksg_te {
         const D_YP: usize = $dest_hist * $d_target;
         const D_YF_YP: usize = $d_target + ($dest_hist * $d_target);
 
-        $crate::estimators::approaches::expfam::ksg_te::KsgTransferEntropy::<
+        $crate::estimators::approaches::expfam::ksg::KsgTransferEntropy::<
             $src_hist,
             $dest_hist,
             $step,
@@ -245,7 +245,7 @@ macro_rules! new_ksg_cte {
         const D_YP_ZP: usize = ($dest_hist * $d_target) + ($cond_hist * $d_cond);
         const D_YF_YP_ZP: usize = $d_target + ($dest_hist * $d_target) + ($cond_hist * $d_cond);
 
-        $crate::estimators::approaches::expfam::ksg_te::KsgConditionalTransferEntropy::<
+        $crate::estimators::approaches::expfam::ksg::KsgConditionalTransferEntropy::<
             $src_hist,
             $dest_hist,
             $cond_hist,
