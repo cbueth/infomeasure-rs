@@ -248,11 +248,17 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
 
             let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
             let neighbors = if self.use_chebyshev {
-                self.nd.tree.nearest_n::<Chebyshev>(p, max_qty)
+                self.nd
+                    .tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .execute()
             } else {
                 self.nd
                     .tree
-                    .nearest_n::<kiddo::SquaredEuclidean>(p, max_qty)
+                    .query(p)
+                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
+                    .execute()
             };
 
             let dist = neighbors[self.k].distance;
@@ -312,11 +318,17 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
 
             let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
             let neighbors = if self.use_chebyshev {
-                self.nd.tree.nearest_n::<Chebyshev>(p, max_qty)
+                self.nd
+                    .tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .execute()
             } else {
                 self.nd
                     .tree
-                    .nearest_n::<kiddo::SquaredEuclidean>(p, max_qty)
+                    .query(p)
+                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
+                    .execute()
             };
 
             let dist = neighbors[self.k].distance;

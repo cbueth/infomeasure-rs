@@ -246,10 +246,11 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
             let mut neigh = self
                 .nd
                 .tree
-                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(self.k + 1).unwrap());
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(self.k + 1).unwrap())
+                .execute();
             let kth = neigh.remove(self.k); // position k after including self
-            let (dist2, _idx): (f64, u64) = kth.into();
-            rho_k.push(dist2.sqrt());
+            rho_k.push(kth.distance.sqrt());
         }
         // Effective sample count when self is excluded in neighbor queries
         let n_eff = (self.nd.n as f64) - 1.0;

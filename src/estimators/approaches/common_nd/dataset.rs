@@ -2,9 +2,18 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::{Chebyshev, ImmutableKdTree, Manhattan, SquaredEuclidean};
+use kiddo::{Chebyshev, Donnelly, KdTree as KiddoKdTree, Manhattan, SquaredEuclidean, VecOfArrays};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
+
+/// Custom KD-tree type using Donnelly stem strategy with VecOfArrays storage.
+///
+/// - `Donnelly<8>`: cache-optimised stem traversal with block height 8
+///   (fastest in benchmarks comparing to `Donnelly<7>` and `DonnellyUnrolled<7>`)
+/// - `VecOfArrays`: leaf storage that supports empty trees (unlike VecOfArenas)
+/// - `u32` item type: auto-generated index, sufficient for up to ~4B points
+pub(crate) type KdTree<const K: usize> =
+    KiddoKdTree<f64, u32, Donnelly<8>, VecOfArrays<f64, u32, K, 32>, K, 32>;
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 ///
@@ -22,7 +31,7 @@ use std::num::NonZeroUsize;
 pub struct NdDataset<const K: usize> {
     pub points: Vec<[f64; K]>,
     pub n: usize,
-    pub tree: ImmutableKdTree<f64, K>,
+    pub tree: KdTree<K>,
 }
 
 impl<const K: usize> NdDataset<K> {
@@ -35,7 +44,7 @@ impl<const K: usize> NdDataset<K> {
     /// * `points` - Vector of fixed-size data points
     pub fn from_points(points: Vec<[f64; K]>) -> Self {
         let n = points.len();
-        let tree = ImmutableKdTree::new_from_slice(&points);
+        let tree = KdTree::<K>::new_from_slice(&points).unwrap();
         Self { points, n, tree }
     }
 
@@ -124,10 +133,11 @@ impl<const K: usize> NdDataset<K> {
         for p in self.points.iter() {
             let mut neigh = self
                 .tree
-                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .execute();
             let kth = neigh.remove(k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            radii.push(dist2.sqrt());
+            radii.push(kth.distance.sqrt());
         }
         radii
     }
@@ -144,11 +154,11 @@ impl<const K: usize> NdDataset<K> {
         for p in self.points.iter() {
             let mut neigh = self
                 .tree
-                .nearest_n::<Manhattan>(p, NonZeroUsize::new(k + 1).unwrap());
+                .query(p)
+                .nearest_n::<Manhattan<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .execute();
             let kth = neigh.remove(k);
-            let (dist, _idx): (f64, u64) = kth.into();
-            // Manhattan metric returns actual L1 distance (not squared)
-            radii.push(dist);
+            radii.push(kth.distance);
         }
         radii
     }
@@ -205,10 +215,11 @@ impl<const K: usize> NdDataset<K> {
         for p in self.points.iter() {
             let mut neigh = self
                 .tree
-                .nearest_n::<Chebyshev>(p, NonZeroUsize::new(k + 1).unwrap());
+                .query(p)
+                .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .execute();
             let kth = neigh.remove(k);
-            let (dist, _idx): (f64, u64) = kth.into();
-            radii.push(dist);
+            radii.push(kth.distance);
         }
         radii
     }
