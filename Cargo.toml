@@ -42,21 +42,13 @@ rand = "0.8"      # For random number generation in tests
 rand_distr = "0.4" # For generating different probability distributions in tests
 approx = "0.5"    # For approximate floating-point comparisons in tests
 ndarray = "0.17"  # For numerical computations in tests
-criterion = "0.5"  # For benchmarking
+criterion = { version = "5.0.1", package = "codspeed-criterion-compat" }  # CodSpeed-instrumented drop-in for Criterion benchmarking
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "katex-header.html" ]  # Using katex@0.16.27
 
 [[bench]]
 name = "discrete_entropy_benchmark"
-harness = false
-
-[[bench]]
-name = "unified_discrete_entropy_benchmark"
-harness = false
-
-[[bench]]
-name = "unified_kernel_entropy_benchmark"
 harness = false
 
 [[bench]]
@@ -121,4 +113,8 @@ harness = false
 
 [[bench]]
 name = "cte_discrete_bias_corrected"
+harness = false
+
+[[bench]]
+name = "kernel_gpu_codspeed"
 harness = false

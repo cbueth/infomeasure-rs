@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: CodSpeed
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # `workflow_dispatch` allows CodSpeed to trigger backtest
+  # performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # for OpenID Connect authentication with CodSpeed
+
+jobs:
+  benchmarks:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenblas-dev \
+            libblas-dev \
+            liblapack-dev \
+            gfortran \
+            libclang-dev \
+            llvm-dev \
+            libudev-dev \
+            pkg-config \
+            libssl-dev \
+            libfontconfig1-dev
+
+      - name: Setup rust toolchain, cache and cargo-codspeed binary
+        uses: moonrepo/setup-rust@v0
+        with:
+          channel: stable
+          cache-target: release
+          bins: cargo-codspeed
+
+      - name: Build the benchmark target(s)
+        run: |
+          cargo codspeed build -m simulation --features gpu \
+            --bench entropy_discrete \
+            --bench entropy_ordinal \
+            --bench entropy_expfam \
+            --bench mi \
+            --bench mi_expfam \
+            --bench te \
+            --bench cmi \
+            --bench cte \
+            --bench kernel_gpu_codspeed
+
+      - name: Run the benchmarks
+        uses: CodSpeedHQ/action@v4
+        env:
+          BENCH_SIZES: "5000"
+          BENCH_SIZES_EXTENDED: "5000"
+          BENCH_K_VALUES: "3"
+          BENCH_BANDWIDTHS: "0.9"
+          BENCH_ORDERS: "3"
+          BENCH_ALPHAS: "1.2"
+          BENCH_Q_VALUES: "1.2"
+        with:
+          mode: simulation
+          run: cargo codspeed run
