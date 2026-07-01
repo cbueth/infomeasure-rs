@@ -121,7 +121,7 @@ fn bench_kl_nd_entropy(c: &mut Criterion) {
     let noise_level = 1e-10;
 
     for dim in dims {
-        for &size in sizes.iter().take(2) {
+        for &size in &sizes {
             let mut rng = StdRng::seed_from_u64(seed);
             let normal = Normal::new(0.0, 1.0).unwrap();
             let data: Vec<f64> = (0..size * dim).map(|_| normal.sample(&mut rng)).collect();
@@ -130,8 +130,13 @@ fn bench_kl_nd_entropy(c: &mut Criterion) {
             let id = BenchmarkId::new(format!("{}d", dim), size);
             group.bench_with_input(id, &(dim, size), |b, _| {
                 b.iter(|| {
-                    let entropy = Entropy::kl_nd::<2>(arr.clone(), k, noise_level);
-                    black_box(entropy.global_value())
+                    let entropy = match dim {
+                        2 => Entropy::kl_nd::<2>(arr.clone(), k, noise_level).global_value(),
+                        4 => Entropy::kl_nd::<4>(arr.clone(), k, noise_level).global_value(),
+                        8 => Entropy::kl_nd::<8>(arr.clone(), k, noise_level).global_value(),
+                        _ => panic!("Unsupported dimension: {dim}"),
+                    };
+                    black_box(entropy)
                 });
             });
         }
