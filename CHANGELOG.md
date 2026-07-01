@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-06-29
+## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-07-01
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -13,6 +13,7 @@
 
 ### Misc
 
+- perf: Add Codspeed benchmarks [[#36](https://codeberg.org/cbueth/infomeasure-rs/pulls/36)]
 - fix: Restore `skipCommitsWithoutPullRequest` and enable `commentOnReleasedPullRequests` [[#32](https://codeberg.org/cbueth/infomeasure-rs/pulls/32)]
 
 ## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
