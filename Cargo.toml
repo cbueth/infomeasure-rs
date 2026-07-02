@@ -17,7 +17,7 @@ categories = ["mathematics", "science"]
 
 [dependencies]
 ndarray = ">=0.17" # For numerical computations
-kiddo = ">=5.3.0"
+kiddo = "6.0.0-alpha.1"
 plotters = ">=0.3.7"
 wgpu = ">=28"
 pollster = ">=0.3"  # For blocking on async operations

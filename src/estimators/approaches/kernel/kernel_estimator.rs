@@ -72,6 +72,7 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
+use crate::estimators::approaches::common_nd::KdTree;
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
@@ -81,7 +82,7 @@ use crate::estimators::traits::{
     CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
-use kiddo::{ImmutableKdTree, SquaredEuclidean};
+use kiddo::SquaredEuclidean;
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
@@ -982,7 +983,7 @@ pub struct KernelEntropy<const K: usize> {
     /// Bandwidth parameter controlling the smoothness of the density estimate
     pub bandwidth: f64,
     /// KD-tree for efficient nearest-neighbor queries
-    pub tree: ImmutableKdTree<f64, K>,
+    pub tree: KdTree<K>,
     /// Standard deviations of the data in each dimension (used for Gaussian kernel scaling)
     pub std_devs: [f64; K],
     /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2)
@@ -1031,7 +1032,10 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
 
                 let neighbors = other
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius_q);
+                    .query(query_point)
+                    .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
+                    .unsorted()
+                    .execute();
                 for neighbor in neighbors {
                     let neighbor_point = &other.points[neighbor.item as usize];
                     let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
@@ -1048,7 +1052,10 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
 
                 let candidates = other
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                    .query(query_point)
+                    .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                    .unsorted()
+                    .execute();
 
                 let mut count = 0usize;
                 for candidate in candidates {
@@ -1194,7 +1201,7 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let n_samples = points.len();
-        let tree = ImmutableKdTree::new_from_slice(&points);
+        let tree = KdTree::<K>::new_from_slice(&points).unwrap();
 
         // Calculate standard deviations and covariance for kernels
         let mut std_devs = [0.0; K];
@@ -1391,7 +1398,10 @@ impl<const K: usize> KernelEntropy<K> {
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                .unsorted()
+                .execute();
 
             let mut count = 0usize;
             for candidate in candidates {
@@ -1430,7 +1440,10 @@ impl<const K: usize> KernelEntropy<K> {
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius);
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                .unsorted()
+                .execute();
 
             let mut sum_k = 0.0;
             for candidate in candidates {
@@ -1499,7 +1512,7 @@ impl<const K: usize> KernelEntropy<K> {
             let r = self.bandwidth / 2.0;
             let r_eps = r + 1e-15;
             // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-            // within_unsorted uses squared distance for SquaredEuclidean.
+            // within().unsorted() uses squared distance for SquaredEuclidean.
             let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
             for i in 0..batch_size {
@@ -1508,7 +1521,10 @@ impl<const K: usize> KernelEntropy<K> {
 
                 let candidates = self
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                    .query(query_point)
+                    .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                    .unsorted()
+                    .execute();
 
                 let mut count = 0usize;
                 for candidate in candidates {
@@ -1531,7 +1547,10 @@ impl<const K: usize> KernelEntropy<K> {
 
             let candidates = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                .unsorted()
+                .execute();
 
             let mut count = 0usize;
             for candidate in candidates {
