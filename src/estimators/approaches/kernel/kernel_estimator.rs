@@ -82,7 +82,7 @@ use crate::estimators::traits::{
     CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
-use kiddo::SquaredEuclidean;
+use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
@@ -1047,23 +1047,15 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                 // Box kernel density at query_point
                 let r = bw / 2.0;
                 let r_eps = r + 1e-15;
-                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
                 let candidates = other
                     .tree
                     .query(query_point)
-                    .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                    .within::<Chebyshev<f64>>(r_eps)
                     .unsorted()
                     .execute();
 
-                let mut count = 0usize;
-                for candidate in candidates {
-                    let p = &other.points[candidate.item as usize];
-                    if other.is_in_box(query_point, p, r_eps) {
-                        count += 1;
-                    }
-                }
+                let count = candidates.len();
                 let vol = bw.powi(K as i32);
                 (count as f64) / (n_q * vol)
             };
@@ -1311,17 +1303,6 @@ impl<const K: usize> KernelEntropy<K> {
         self.force_cpu = force_cpu;
     }
 
-    /// Helper to check if a point is within the hypercube (L-infinity distance)
-    #[inline(always)]
-    pub(crate) fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
-        for dim in 0..K {
-            if (query_point[dim] - p[dim]).abs() > r_eps {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Calculates the squared Mahalanobis distance between two points
     ///
     /// If full covariance is available (for Gaussian kernel), it computes:
@@ -1393,23 +1374,16 @@ impl<const K: usize> KernelEntropy<K> {
 
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
-        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
                 .query(query_point)
-                .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                .within::<Chebyshev<f64>>(r_eps)
                 .unsorted()
                 .execute();
 
-            let mut count = 0usize;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                if self.is_in_box(query_point, p, r_eps) {
-                    count += 1;
-                }
-            }
+            let count = candidates.len();
             densities[i] = count as f64 / n_volume;
         }
         densities
@@ -1511,28 +1485,18 @@ impl<const K: usize> KernelEntropy<K> {
 
             let r = self.bandwidth / 2.0;
             let r_eps = r + 1e-15;
-            // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-            // within().unsorted() uses squared distance for SquaredEuclidean.
-            let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
             for i in 0..batch_size {
                 let idx = start_idx + i;
                 let query_point = &self.points[idx];
 
-                let candidates = self
+                let count = self
                     .tree
                     .query(query_point)
-                    .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                    .within::<Chebyshev<f64>>(r_eps)
                     .unsorted()
-                    .execute();
-
-                let mut count = 0usize;
-                for candidate in candidates {
-                    let p = &self.points[candidate.item as usize];
-                    if self.is_in_box(query_point, p, r_eps) {
-                        count += 1;
-                    }
-                }
+                    .execute()
+                    .len();
                 local_values[idx] = count as f64;
             }
         }
@@ -1540,25 +1504,17 @@ impl<const K: usize> KernelEntropy<K> {
         // Process remaining points
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
-        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
         for i in (num_batches * batch_size)..self.n_samples {
             let query_point = &self.points[i];
 
-            let candidates = self
+            let count = self
                 .tree
                 .query(query_point)
-                .within::<SquaredEuclidean<f64>>(circumscribed_radius_sq)
+                .within::<Chebyshev<f64>>(r_eps)
                 .unsorted()
-                .execute();
-
-            let mut count = 0usize;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                if self.is_in_box(query_point, p, r_eps) {
-                    count += 1;
-                }
-            }
+                .execute()
+                .len();
             local_values[i] = count as f64;
         }
 
@@ -1700,83 +1656,5 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
         // which handles CPU/GPU dispatching and kernel type selection.
         let densities = self.kde_probability_density();
         densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::estimators::entropy::Entropy;
-    use ndarray::Array2;
-
-    #[test]
-    fn test_is_in_box_1d_inside() {
-        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
-        let q = [0.0];
-        let p = [0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_1d_outside() {
-        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
-        let q = [0.0];
-        let p = [0.3];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_inside() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.1, 0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_outside_x() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.21, 0.1];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_outside_y() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.1, 0.21];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_4d_inside() {
-        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
-        let q = [0.0, 0.0, 0.0, 0.0];
-        let p = [0.1, 0.1, 0.1, 0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_4d_outside() {
-        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
-        let q = [0.0, 0.0, 0.0, 0.0];
-        let p = [0.1, 0.3, 0.1, 0.1];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_8d_inside() {
-        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
-        let q = [0.0; 8];
-        let p = [0.1; 8];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_8d_outside() {
-        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
-        let q = [0.0; 8];
-        let p = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.21];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
     }
 }
