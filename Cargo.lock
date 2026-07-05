@@ -1250,7 +1250,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 [[package]]
 name = "kiddo"
 version = "6.0.0-alpha.1"
-source = "git+https://github.com/sdd/kiddo.git?branch=master#044435f21fea84aedbd296911cb45e4a49afadce"
+source = "git+https://github.com/cbueth/kiddo.git?branch=perf%2Fsmall-k-binary-heap-collection#864a2ea1102beb933338514bde5b8d2c6529a824"
 dependencies = [
  "aligned-vec",
  "array-init",

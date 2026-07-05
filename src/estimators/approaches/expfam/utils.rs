@@ -123,24 +123,16 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         let target_points = to_points::<K>(target_data);
         let mut radii = Vec::with_capacity(m);
         for p in target_points.iter() {
-            let kth = if use_chebyshev {
-                let mut neigh = tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k).unwrap())
-                    .execute();
-                neigh.remove(k - 1)
+            let dist = if use_chebyshev {
+                let neigh =
+                    tree.nearest_n_direct::<Chebyshev<f64>>(p, NonZeroUsize::new(k).unwrap());
+                neigh[k - 1].distance
             } else {
-                let mut neigh = tree
-                    .query(p)
-                    .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k).unwrap())
-                    .execute();
-                neigh.remove(k - 1)
+                let neigh = tree
+                    .nearest_n_direct::<SquaredEuclidean<f64>>(p, NonZeroUsize::new(k).unwrap());
+                neigh[k - 1].distance.sqrt()
             };
-            if use_chebyshev {
-                radii.push(kth.distance);
-            } else {
-                radii.push(kth.distance.sqrt());
-            }
+            radii.push(dist);
         }
         radii
     } else {
@@ -149,25 +141,18 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
             "k must be <= N-1 when querying within the same dataset"
         );
         let mut radii = Vec::with_capacity(n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut stack = Default::default();
         for p in points.iter() {
-            let kth = if use_chebyshev {
-                let mut neigh = tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                    .execute();
-                neigh.remove(k)
+            let dist = if use_chebyshev {
+                let neigh = tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                neigh[k].distance
             } else {
-                let mut neigh = tree
-                    .query(p)
-                    .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                    .execute();
-                neigh.remove(k)
+                let neigh =
+                    tree.nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                neigh[k].distance.sqrt()
             };
-            if use_chebyshev {
-                radii.push(kth.distance);
-            } else {
-                radii.push(kth.distance.sqrt());
-            }
+            radii.push(dist);
         }
         radii
     }

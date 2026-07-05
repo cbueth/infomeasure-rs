@@ -139,21 +139,22 @@ macro_rules! impl_ksg_mi {
 
                 let mut epsilons = Vec::with_capacity(n_samples);
                 let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-                for i in 0..n_samples {
-                    let p = &joint_points[i];
-                    let dist = if self.use_chebyshev {
-                        let neighbors = joint_tree.query(p).nearest_n::<Chebyshev<f64>>(max_qty).execute();
-                        neighbors[self.k].distance
-                    } else {
-                        let neighbors = joint_tree.query(p).nearest_n::<SquaredEuclidean<f64>>(max_qty).execute();
-                        neighbors[self.k].distance
-                    };
-                    let eps = if self.use_chebyshev {
-                        dist
-                    } else {
-                        dist.sqrt()
-                    };
-                    epsilons.push(eps);
+                if self.use_chebyshev {
+                    let mut stack = Default::default();
+                    for i in 0..n_samples {
+                        let p = &joint_points[i];
+                        let neighbors = joint_tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                        let dist = neighbors[self.k].distance;
+                        epsilons.push(dist);
+                    }
+                } else {
+                    let mut stack = Default::default();
+                    for i in 0..n_samples {
+                        let p = &joint_points[i];
+                        let neighbors = joint_tree.nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                        let dist = neighbors[self.k].distance;
+                        epsilons.push(dist.sqrt());
+                    }
                 }
 
                 // 2. Count neighbours in marginal spaces within epsilon
@@ -345,26 +346,20 @@ impl<
 
         let mut epsilons = Vec::with_capacity(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-        for p in joint_points.iter().take(n_samples) {
-            let dist = if self.use_chebyshev {
+        if self.use_chebyshev {
+            let mut stack = Default::default();
+            for p in joint_points.iter().take(n_samples) {
+                let neighbors =
+                    joint_tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                epsilons.push(neighbors[self.k].distance);
+            }
+        } else {
+            let mut stack = Default::default();
+            for p in joint_points.iter().take(n_samples) {
                 let neighbors = joint_tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .execute();
-                neighbors[self.k].distance
-            } else {
-                let neighbors = joint_tree
-                    .query(p)
-                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                    .execute();
-                neighbors[self.k].distance
-            };
-            let eps = if self.use_chebyshev {
-                dist
-            } else {
-                dist.sqrt()
-            };
-            epsilons.push(eps);
+                    .nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                epsilons.push(neighbors[self.k].distance.sqrt());
+            }
         }
 
         // Marginal/Conditional spaces: (X, Z), (Y, Z), (Z)

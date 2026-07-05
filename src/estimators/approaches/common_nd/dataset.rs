@@ -130,14 +130,13 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut stack = Default::default();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .query(p)
-                .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                .execute();
-            let kth = neigh.remove(k);
-            radii.push(kth.distance.sqrt());
+                .nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+            radii.push(neigh[k].distance.sqrt());
         }
         radii
     }
@@ -151,14 +150,13 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut stack = Default::default();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .query(p)
-                .nearest_n::<Manhattan<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                .execute();
-            let kth = neigh.remove(k);
-            radii.push(kth.distance);
+                .nearest_n_with_stack::<Manhattan<f64>>(p, max_qty, &mut stack);
+            radii.push(neigh[k].distance);
         }
         radii
     }
@@ -212,14 +210,13 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut stack = Default::default();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .query(p)
-                .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                .execute();
-            let kth = neigh.remove(k);
-            radii.push(kth.distance);
+                .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+            radii.push(neigh[k].distance);
         }
         radii
     }

@@ -242,15 +242,13 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
 
         // Compute kNN radii via KD-tree (exclude self by requesting k+1 and skipping first)
         let mut rho_k: Vec<f64> = Vec::with_capacity(self.nd.n);
+        let max_qty = NonZeroUsize::new(self.k + 1).unwrap();
         for p in self.nd.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .nd
                 .tree
-                .query(p)
-                .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(self.k + 1).unwrap())
-                .execute();
-            let kth = neigh.remove(self.k); // position k after including self
-            rho_k.push(kth.distance.sqrt());
+                .nearest_n_direct::<SquaredEuclidean<f64>>(p, max_qty);
+            rho_k.push(neigh[self.k].distance.sqrt());
         }
         // Effective sample count when self is excluded in neighbor queries
         let n_eff = (self.nd.n as f64) - 1.0;

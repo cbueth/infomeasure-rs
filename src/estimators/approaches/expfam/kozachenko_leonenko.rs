@@ -241,36 +241,36 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
             unit_ball_volume_with_radius(K, 2.0, 0.5)
         };
 
+        let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
         let mut sum_ln_eps = 0.0f64;
         let mut cnt = 0usize;
-        for i in 0..n_samples {
-            let p = &self.nd.points[i];
-
-            let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-            let neighbors = if self.use_chebyshev {
-                self.nd
+        if self.use_chebyshev {
+            let mut stack = Default::default();
+            for i in 0..n_samples {
+                let p = &self.nd.points[i];
+                let neighbors = self
+                    .nd
                     .tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .execute()
-            } else {
-                self.nd
+                    .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                let dist = neighbors[self.k].distance;
+                if dist > 0.0 {
+                    sum_ln_eps += (2.0 * dist).ln();
+                    cnt += 1;
+                }
+            }
+        } else {
+            let mut stack = Default::default();
+            for i in 0..n_samples {
+                let p = &self.nd.points[i];
+                let neighbors = self
+                    .nd
                     .tree
-                    .query(p)
-                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .execute()
-            };
-
-            let dist = neighbors[self.k].distance;
-            let r = if self.use_chebyshev {
-                dist
-            } else {
-                dist.sqrt()
-            };
-
-            if r > 0.0 {
-                sum_ln_eps += (2.0 * r).ln();
-                cnt += 1;
+                    .nearest_n_with_stack::<kiddo::SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                let r = neighbors[self.k].distance.sqrt();
+                if r > 0.0 {
+                    sum_ln_eps += (2.0 * r).ln();
+                    cnt += 1;
+                }
             }
         }
         if cnt == 0 {
@@ -313,35 +313,36 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
         let a_const = (statrs::function::gamma::digamma(n_f) - psi_k) / ln_base + log_b(c_d);
 
         let mut out = Array1::<f64>::zeros(n_samples);
-        for i in 0..n_samples {
-            let p = &self.nd.points[i];
-
-            let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-            let neighbors = if self.use_chebyshev {
-                self.nd
+        let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
+        if self.use_chebyshev {
+            let mut stack = Default::default();
+            for i in 0..n_samples {
+                let p = &self.nd.points[i];
+                let neighbors = self
+                    .nd
                     .tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .execute()
-            } else {
-                self.nd
+                    .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                let r = neighbors[self.k].distance;
+                if r > 0.0 {
+                    out[i] = a_const + (K as f64) * log_b(2.0 * r);
+                } else {
+                    out[i] = a_const;
+                }
+            }
+        } else {
+            let mut stack = Default::default();
+            for i in 0..n_samples {
+                let p = &self.nd.points[i];
+                let neighbors = self
+                    .nd
                     .tree
-                    .query(p)
-                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .execute()
-            };
-
-            let dist = neighbors[self.k].distance;
-            let r = if self.use_chebyshev {
-                dist
-            } else {
-                dist.sqrt()
-            };
-
-            if r > 0.0 {
-                out[i] = a_const + (K as f64) * log_b(2.0 * r);
-            } else {
-                out[i] = a_const;
+                    .nearest_n_with_stack::<kiddo::SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                let r = neighbors[self.k].distance.sqrt();
+                if r > 0.0 {
+                    out[i] = a_const + (K as f64) * log_b(2.0 * r);
+                } else {
+                    out[i] = a_const;
+                }
             }
         }
         out
