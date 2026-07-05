@@ -142,10 +142,12 @@ macro_rules! impl_ksg_mi {
                 for i in 0..n_samples {
                     let p = &joint_points[i];
                     let dist = if self.use_chebyshev {
-                        let neighbors = joint_tree.query(p).nearest_n::<Chebyshev<f64>>(max_qty).execute();
+                        let mut neighbors = joint_tree.query(p).nearest_n::<Chebyshev<f64>>(max_qty).unsorted().execute();
+                        neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                         neighbors[self.k].distance
                     } else {
-                        let neighbors = joint_tree.query(p).nearest_n::<SquaredEuclidean<f64>>(max_qty).execute();
+                        let mut neighbors = joint_tree.query(p).nearest_n::<SquaredEuclidean<f64>>(max_qty).unsorted().execute();
+                        neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                         neighbors[self.k].distance
                     };
                     let eps = if self.use_chebyshev {
@@ -347,16 +349,20 @@ impl<
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
         for p in joint_points.iter().take(n_samples) {
             let dist = if self.use_chebyshev {
-                let neighbors = joint_tree
+                let mut neighbors = joint_tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .unsorted()
                     .execute();
+                neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neighbors[self.k].distance
             } else {
-                let neighbors = joint_tree
+                let mut neighbors = joint_tree
                     .query(p)
                     .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .unsorted()
                     .execute();
+                neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neighbors[self.k].distance
             };
             let eps = if self.use_chebyshev {

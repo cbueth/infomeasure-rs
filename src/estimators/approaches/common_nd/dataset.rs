@@ -136,7 +136,9 @@ impl<const K: usize> NdDataset<K> {
                 .tree
                 .query(p)
                 .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .unsorted()
                 .execute();
+            neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
             let kth = neigh.remove(k);
             radii.push(kth.distance.sqrt());
         }
@@ -157,7 +159,9 @@ impl<const K: usize> NdDataset<K> {
                 .tree
                 .query(p)
                 .nearest_n::<Manhattan<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .unsorted()
                 .execute();
+            neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
             let kth = neigh.remove(k);
             radii.push(kth.distance);
         }
@@ -218,7 +222,9 @@ impl<const K: usize> NdDataset<K> {
                 .tree
                 .query(p)
                 .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k + 1).unwrap())
+                .unsorted()
                 .execute();
+            neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
             let kth = neigh.remove(k);
             radii.push(kth.distance);
         }
