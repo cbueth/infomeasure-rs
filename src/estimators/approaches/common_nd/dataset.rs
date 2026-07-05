@@ -2,19 +2,18 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::{Chebyshev, Donnelly, KdTree as KiddoKdTree, Manhattan, SquaredEuclidean, VecOfArrays};
+use kiddo::{Chebyshev, Donnelly, KdTree as KiddoKdTree, Manhattan, SquaredEuclidean, VecOfArenas};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
 
-/// Custom KD-tree type using Donnelly stem strategy with VecOfArrays storage.
+/// Custom KD-tree type using Donnelly stem strategy with VecOfArenas storage.
 ///
 /// - `Donnelly<3>`: cache-optimised stem traversal with block height 3,
 ///   matching CPU cache line width for `f64` on 64-byte lines (per kiddo maintainer).
-/// - `VecOfArrays`: leaf storage for generic queries
-///   Note: VecOfArenas causes SIGILL under CodSpeed's Valgrind simulation.
+/// - `VecOfArenas`: byte-arena packed leaves, optimal for immutable read-only queries
 /// - `u32` item type: auto-generated index, sufficient for up to ~4B points
 pub(crate) type KdTree<const K: usize> =
-    KiddoKdTree<f64, u32, Donnelly<3>, VecOfArrays<f64, u32, K, 32>, K, 32>;
+    KiddoKdTree<f64, u32, Donnelly<3>, VecOfArenas<f64, u32, K, 32>, K, 32>;
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 ///
