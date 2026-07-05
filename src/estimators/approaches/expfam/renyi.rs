@@ -248,9 +248,7 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
                 .tree
                 .query(p)
                 .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(self.k + 1).unwrap())
-                .unsorted()
                 .execute();
-            neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
             let kth = neigh.remove(self.k); // position k after including self
             rho_k.push(kth.distance.sqrt());
         }

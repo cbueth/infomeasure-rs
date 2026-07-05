@@ -127,17 +127,13 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
                 let mut neigh = tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k).unwrap())
-                    .unsorted()
                     .execute();
-                neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neigh.remove(k - 1)
             } else {
                 let mut neigh = tree
                     .query(p)
                     .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k).unwrap())
-                    .unsorted()
                     .execute();
-                neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neigh.remove(k - 1)
             };
             if use_chebyshev {
@@ -158,17 +154,13 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
                 let mut neigh = tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                    .unsorted()
                     .execute();
-                neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neigh.remove(k)
             } else {
                 let mut neigh = tree
                     .query(p)
                     .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k + 1).unwrap())
-                    .unsorted()
                     .execute();
-                neigh.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
                 neigh.remove(k)
             };
             if use_chebyshev {

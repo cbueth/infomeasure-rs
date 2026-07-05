@@ -247,22 +247,19 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
             let p = &self.nd.points[i];
 
             let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-            let mut neighbors = if self.use_chebyshev {
+            let neighbors = if self.use_chebyshev {
                 self.nd
                     .tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .unsorted()
                     .execute()
             } else {
                 self.nd
                     .tree
                     .query(p)
                     .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .unsorted()
                     .execute()
             };
-            neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
 
             let dist = neighbors[self.k].distance;
             let r = if self.use_chebyshev {
@@ -320,22 +317,19 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
             let p = &self.nd.points[i];
 
             let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-            let mut neighbors = if self.use_chebyshev {
+            let neighbors = if self.use_chebyshev {
                 self.nd
                     .tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .unsorted()
                     .execute()
             } else {
                 self.nd
                     .tree
                     .query(p)
                     .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .unsorted()
                     .execute()
             };
-            neighbors.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
 
             let dist = neighbors[self.k].distance;
             let r = if self.use_chebyshev {
