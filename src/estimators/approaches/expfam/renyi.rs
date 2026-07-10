@@ -247,7 +247,10 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
             let neigh = self
                 .nd
                 .tree
-                .nearest_n_direct::<SquaredEuclidean<f64>>(p, max_qty);
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                .with_stack_scratch()
+                .execute();
             rho_k.push(neigh[self.k].distance.sqrt());
         }
         // Effective sample count when self is excluded in neighbor queries

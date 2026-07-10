@@ -140,18 +140,26 @@ macro_rules! impl_ksg_mi {
                 let mut epsilons = Vec::with_capacity(n_samples);
                 let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
                 if self.use_chebyshev {
-                    let mut stack = Default::default();
+                    let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
                     for i in 0..n_samples {
                         let p = &joint_points[i];
-                        let neighbors = joint_tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                        let neighbors = joint_tree
+                            .query(p)
+                            .nearest_n::<Chebyshev<f64>>(max_qty)
+                            .with_scratch(&mut scratch)
+                            .execute();
                         let dist = neighbors[self.k].distance;
                         epsilons.push(dist);
                     }
                 } else {
-                    let mut stack = Default::default();
+                    let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
                     for i in 0..n_samples {
                         let p = &joint_points[i];
-                        let neighbors = joint_tree.nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                        let neighbors = joint_tree
+                            .query(p)
+                            .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                            .with_scratch(&mut scratch)
+                            .execute();
                         let dist = neighbors[self.k].distance;
                         epsilons.push(dist.sqrt());
                     }
@@ -347,17 +355,23 @@ impl<
         let mut epsilons = Vec::with_capacity(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
         if self.use_chebyshev {
-            let mut stack = Default::default();
+            let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
             for p in joint_points.iter().take(n_samples) {
-                let neighbors =
-                    joint_tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                let neighbors = joint_tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 epsilons.push(neighbors[self.k].distance);
             }
         } else {
-            let mut stack = Default::default();
+            let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
             for p in joint_points.iter().take(n_samples) {
                 let neighbors = joint_tree
-                    .nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 epsilons.push(neighbors[self.k].distance.sqrt());
             }
         }

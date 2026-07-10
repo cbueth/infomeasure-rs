@@ -131,11 +131,14 @@ impl<const K: usize> NdDataset<K> {
 
         let mut radii = Vec::with_capacity(self.n);
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
-        let mut stack = Default::default();
+        let mut scratch = self.tree.create_scratch::<SquaredEuclidean<f64>>();
         for p in self.points.iter() {
             let neigh = self
                 .tree
-                .nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
             radii.push(neigh[k].distance.sqrt());
         }
         radii
@@ -151,11 +154,14 @@ impl<const K: usize> NdDataset<K> {
 
         let mut radii = Vec::with_capacity(self.n);
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
-        let mut stack = Default::default();
+        let mut scratch = self.tree.create_scratch::<Manhattan<f64>>();
         for p in self.points.iter() {
             let neigh = self
                 .tree
-                .nearest_n_with_stack::<Manhattan<f64>>(p, max_qty, &mut stack);
+                .query(p)
+                .nearest_n::<Manhattan<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
             radii.push(neigh[k].distance);
         }
         radii
@@ -211,11 +217,14 @@ impl<const K: usize> NdDataset<K> {
 
         let mut radii = Vec::with_capacity(self.n);
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
-        let mut stack = Default::default();
+        let mut scratch = self.tree.create_scratch::<Chebyshev<f64>>();
         for p in self.points.iter() {
             let neigh = self
                 .tree
-                .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                .query(p)
+                .nearest_n::<Chebyshev<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
             radii.push(neigh[k].distance);
         }
         radii

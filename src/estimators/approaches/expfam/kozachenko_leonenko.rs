@@ -245,13 +245,16 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
         let mut sum_ln_eps = 0.0f64;
         let mut cnt = 0usize;
         if self.use_chebyshev {
-            let mut stack = Default::default();
+            let mut scratch = self.nd.tree.create_scratch::<Chebyshev<f64>>();
             for i in 0..n_samples {
                 let p = &self.nd.points[i];
                 let neighbors = self
                     .nd
                     .tree
-                    .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 let dist = neighbors[self.k].distance;
                 if dist > 0.0 {
                     sum_ln_eps += (2.0 * dist).ln();
@@ -259,13 +262,19 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
                 }
             }
         } else {
-            let mut stack = Default::default();
+            let mut scratch = self
+                .nd
+                .tree
+                .create_scratch::<kiddo::SquaredEuclidean<f64>>();
             for i in 0..n_samples {
                 let p = &self.nd.points[i];
                 let neighbors = self
                     .nd
                     .tree
-                    .nearest_n_with_stack::<kiddo::SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                    .query(p)
+                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 let r = neighbors[self.k].distance.sqrt();
                 if r > 0.0 {
                     sum_ln_eps += (2.0 * r).ln();
@@ -315,13 +324,16 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
         let mut out = Array1::<f64>::zeros(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
         if self.use_chebyshev {
-            let mut stack = Default::default();
+            let mut scratch = self.nd.tree.create_scratch::<Chebyshev<f64>>();
             for i in 0..n_samples {
                 let p = &self.nd.points[i];
                 let neighbors = self
                     .nd
                     .tree
-                    .nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 let r = neighbors[self.k].distance;
                 if r > 0.0 {
                     out[i] = a_const + (K as f64) * log_b(2.0 * r);
@@ -330,13 +342,19 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
                 }
             }
         } else {
-            let mut stack = Default::default();
+            let mut scratch = self
+                .nd
+                .tree
+                .create_scratch::<kiddo::SquaredEuclidean<f64>>();
             for i in 0..n_samples {
                 let p = &self.nd.points[i];
                 let neighbors = self
                     .nd
                     .tree
-                    .nearest_n_with_stack::<kiddo::SquaredEuclidean<f64>>(p, max_qty, &mut stack);
+                    .query(p)
+                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
                 let r = neighbors[self.k].distance.sqrt();
                 if r > 0.0 {
                     out[i] = a_const + (K as f64) * log_b(2.0 * r);

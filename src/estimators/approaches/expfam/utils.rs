@@ -124,12 +124,18 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         let mut radii = Vec::with_capacity(m);
         for p in target_points.iter() {
             let dist = if use_chebyshev {
-                let neigh =
-                    tree.nearest_n_direct::<Chebyshev<f64>>(p, NonZeroUsize::new(k).unwrap());
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k).unwrap())
+                    .with_stack_scratch()
+                    .execute();
                 neigh[k - 1].distance
             } else {
                 let neigh = tree
-                    .nearest_n_direct::<SquaredEuclidean<f64>>(p, NonZeroUsize::new(k).unwrap());
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k).unwrap())
+                    .with_stack_scratch()
+                    .execute();
                 neigh[k - 1].distance.sqrt()
             };
             radii.push(dist);
@@ -142,17 +148,26 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         );
         let mut radii = Vec::with_capacity(n);
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
-        let mut stack = Default::default();
-        for p in points.iter() {
-            let dist = if use_chebyshev {
-                let neigh = tree.nearest_n_with_stack::<Chebyshev<f64>>(p, max_qty, &mut stack);
-                neigh[k].distance
-            } else {
-                let neigh =
-                    tree.nearest_n_with_stack::<SquaredEuclidean<f64>>(p, max_qty, &mut stack);
-                neigh[k].distance.sqrt()
-            };
-            radii.push(dist);
+        if use_chebyshev {
+            let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
+            for p in points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k].distance);
+            }
+        } else {
+            let mut scratch = tree.create_scratch::<SquaredEuclidean<f64>>();
+            for p in points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k].distance.sqrt());
+            }
         }
         radii
     }
