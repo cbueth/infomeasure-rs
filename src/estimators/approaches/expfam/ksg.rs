@@ -66,7 +66,7 @@ use statrs::function::gamma::digamma;
 
 pub use super::utils::KsgType;
 use super::utils::add_noise;
-use crate::estimators::approaches::common_nd::KdTree;
+use crate::estimators::approaches::common_nd::KdTreeExpfam;
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use crate::estimators::traits::{
     ConditionalTransferEntropyEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
@@ -135,7 +135,7 @@ macro_rules! impl_ksg_mi {
 
                 // 1. Find k-th neighbor distance in joint space
                 let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_data);
-                let joint_tree = KdTree::<D_JOINT>::new_from_slice(&joint_points).unwrap();
+                let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
                 let mut epsilons = Vec::with_capacity(n_samples);
                 let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
@@ -170,7 +170,7 @@ macro_rules! impl_ksg_mi {
                 $(
                     let m_data = self.data[$d_idx].view();
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
-                    let m_tree = KdTree::<$d_param>::new_from_slice(&m_points).unwrap();
+                    let m_tree = KdTreeExpfam::<$d_param>::new_from_slice(&m_points).unwrap();
 
                     let mut counts = Vec::with_capacity(n_samples);
                     for i in 0..n_samples {
@@ -350,7 +350,7 @@ impl<
         .unwrap();
 
         let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_all);
-        let joint_tree = KdTree::<D_JOINT>::new_from_slice(&joint_points).unwrap();
+        let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
         let mut epsilons = Vec::with_capacity(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
@@ -385,9 +385,9 @@ impl<
         let yz_points = NdDataset::<D2_COND>::points_as_vec(yz);
         let z_points = NdDataset::<D_COND>::points_as_vec(z.to_owned());
 
-        let xz_tree = KdTree::<D1_COND>::new_from_slice(&xz_points).unwrap();
-        let yz_tree = KdTree::<D2_COND>::new_from_slice(&yz_points).unwrap();
-        let z_tree = KdTree::<D_COND>::new_from_slice(&z_points).unwrap();
+        let xz_tree = KdTreeExpfam::<D1_COND>::new_from_slice(&xz_points).unwrap();
+        let yz_tree = KdTreeExpfam::<D2_COND>::new_from_slice(&yz_points).unwrap();
+        let z_tree = KdTreeExpfam::<D_COND>::new_from_slice(&z_points).unwrap();
 
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();

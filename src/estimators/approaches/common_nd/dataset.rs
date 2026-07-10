@@ -6,14 +6,22 @@ use kiddo::{Chebyshev, Donnelly, KdTree as KiddoKdTree, Manhattan, SquaredEuclid
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
 
-/// Custom KD-tree type using Donnelly stem strategy with VecOfArenas storage.
+/// KD-tree type for expfam estimators (nearest_n-heavy, k=3-10, tight queries).
 ///
 /// - `Donnelly<3>`: cache-optimised stem traversal with block height 3,
 ///   matching CPU cache line width for `f64` on 64-byte lines (per kiddo maintainer).
 /// - `VecOfArenas`: byte-arena packed leaves, optimal for immutable read-only queries
 /// - `u32` item type: auto-generated index, sufficient for up to ~4B points
-pub(crate) type KdTree<const K: usize> =
+pub(crate) type KdTreeExpfam<const K: usize> =
     KiddoKdTree<f64, u32, Donnelly<3>, VecOfArenas<f64, u32, K, 32>, K, 32>;
+
+/// KD-tree type for kernel estimators (wide-radius `within` queries).
+///
+/// - `Donnelly<8>`: fewer tree levels, important for Gaussian/box kernels
+///   that visit many leaves per query
+/// - `VecOfArenas`: byte-arena packed leaves, optimal for immutable read-only queries
+pub(crate) type KdTreeKernel<const K: usize> =
+    KiddoKdTree<f64, u32, Donnelly<8>, VecOfArenas<f64, u32, K, 32>, K, 32>;
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 ///
@@ -31,7 +39,7 @@ pub(crate) type KdTree<const K: usize> =
 pub struct NdDataset<const K: usize> {
     pub points: Vec<[f64; K]>,
     pub n: usize,
-    pub tree: KdTree<K>,
+    pub tree: KdTreeExpfam<K>,
 }
 
 impl<const K: usize> NdDataset<K> {
@@ -44,7 +52,7 @@ impl<const K: usize> NdDataset<K> {
     /// * `points` - Vector of fixed-size data points
     pub fn from_points(points: Vec<[f64; K]>) -> Self {
         let n = points.len();
-        let tree = KdTree::<K>::new_from_slice(&points).unwrap();
+        let tree = KdTreeExpfam::<K>::new_from_slice(&points).unwrap();
         Self { points, n, tree }
     }
 

@@ -72,7 +72,7 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
-use crate::estimators::approaches::common_nd::KdTree;
+use crate::estimators::approaches::common_nd::KdTreeKernel;
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
@@ -983,7 +983,7 @@ pub struct KernelEntropy<const K: usize> {
     /// Bandwidth parameter controlling the smoothness of the density estimate
     pub bandwidth: f64,
     /// KD-tree for efficient nearest-neighbor queries
-    pub tree: KdTree<K>,
+    pub tree: KdTreeKernel<K>,
     /// Standard deviations of the data in each dimension (used for Gaussian kernel scaling)
     pub std_devs: [f64; K],
     /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2)
@@ -1193,7 +1193,7 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let n_samples = points.len();
-        let tree = KdTree::<K>::new_from_slice(&points).unwrap();
+        let tree = KdTreeKernel::<K>::new_from_slice(&points).unwrap();
 
         // Calculate standard deviations and covariance for kernels
         let mut std_devs = [0.0; K];

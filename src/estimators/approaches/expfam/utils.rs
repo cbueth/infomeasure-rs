@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::estimators::approaches::common_nd::KdTree;
+use crate::estimators::approaches::common_nd::KdTreeExpfam;
 use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array2, ArrayView2};
 use rand::prelude::*;
@@ -115,7 +115,7 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
     }
 
     let points = to_points::<K>(data);
-    let tree: KdTree<K> = KdTree::<K>::new_from_slice(&points).unwrap();
+    let tree: KdTreeExpfam<K> = KdTreeExpfam::<K>::new_from_slice(&points).unwrap();
 
     if let Some(target_data) = at {
         assert!(target_data.ncols() == K, "target_data.ncols() must equal K");
