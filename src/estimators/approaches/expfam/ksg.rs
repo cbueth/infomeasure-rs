@@ -171,6 +171,7 @@ macro_rules! impl_ksg_mi {
                     let m_data = self.data[$d_idx].view();
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
                     let m_tree = KdTreeExpfam::<$d_param>::new_from_slice(&m_points).unwrap();
+                    let mut within_scratch = Default::default();
 
                     let mut counts = Vec::with_capacity(n_samples);
                     for i in 0..n_samples {
@@ -183,9 +184,9 @@ macro_rules! impl_ksg_mi {
                             if eps > 0.0 {
                                 // Use strict inequality via within_exclusive
                                 let strict_count = if self.use_chebyshev {
-                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).exclusive_boundaries().execute().len()
+                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
                                 } else {
-                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).exclusive_boundaries().execute().len()
+                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
                                 };
                                 // Subtract 1 to exclude the point itself (same as Python)
                                 strict_count - 1
@@ -194,9 +195,9 @@ macro_rules! impl_ksg_mi {
                             }
                         } else {
                             if self.use_chebyshev {
-                                m_tree.query(p).within::<Chebyshev<f64>>(eps).execute().len()
+                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).with_scratch(&mut within_scratch).execute().len()
                             } else {
-                                m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).execute().len()
+                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).with_scratch(&mut within_scratch).execute().len()
                             }
                         };
 
@@ -389,6 +390,10 @@ impl<
         let yz_tree = KdTreeExpfam::<D2_COND>::new_from_slice(&yz_points).unwrap();
         let z_tree = KdTreeExpfam::<D_COND>::new_from_slice(&z_points).unwrap();
 
+        let mut xz_scratch = Default::default();
+        let mut yz_scratch = Default::default();
+        let mut z_scratch = Default::default();
+
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
 
@@ -408,6 +413,7 @@ impl<
                             .query(p_xz)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .with_scratch(&mut xz_scratch)
                             .execute()
                             .len()
                             - 1
@@ -416,6 +422,7 @@ impl<
                             .query(p_xz)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .with_scratch(&mut xz_scratch)
                             .execute()
                             .len()
                             - 1
@@ -426,6 +433,7 @@ impl<
                             .query(p_yz)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .with_scratch(&mut yz_scratch)
                             .execute()
                             .len()
                             - 1
@@ -434,6 +442,7 @@ impl<
                             .query(p_yz)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .with_scratch(&mut yz_scratch)
                             .execute()
                             .len()
                             - 1
@@ -444,6 +453,7 @@ impl<
                             .query(p_z)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .with_scratch(&mut z_scratch)
                             .execute()
                             .len()
                             - 1
@@ -452,6 +462,7 @@ impl<
                             .query(p_z)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .with_scratch(&mut z_scratch)
                             .execute()
                             .len()
                             - 1
@@ -472,12 +483,14 @@ impl<
                     xz_tree
                         .query(p_xz)
                         .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut xz_scratch)
                         .execute()
                         .len()
                 } else {
                     xz_tree
                         .query(p_xz)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut xz_scratch)
                         .execute()
                         .len()
                 };
@@ -486,12 +499,14 @@ impl<
                     yz_tree
                         .query(p_yz)
                         .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut yz_scratch)
                         .execute()
                         .len()
                 } else {
                     yz_tree
                         .query(p_yz)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut yz_scratch)
                         .execute()
                         .len()
                 };
@@ -500,12 +515,14 @@ impl<
                     z_tree
                         .query(p_z)
                         .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut z_scratch)
                         .execute()
                         .len()
                 } else {
                     z_tree
                         .query(p_z)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut z_scratch)
                         .execute()
                         .len()
                 };
