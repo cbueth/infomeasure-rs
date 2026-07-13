@@ -243,6 +243,7 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
 
         let q = self.q;
         let ln_base = self.base.ln();
+        let mut scratch = self.nd.tree.create_scratch::<SquaredEuclidean<f64>>();
 
         // Shannon limit for q -> 1
         if (q - 1.0).abs() < 1e-12 {
@@ -257,7 +258,7 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
                     .tree
                     .query(p)
                     .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                    .with_stack_scratch()
+                    .with_scratch(&mut scratch)
                     .execute();
                 let r = neigh[self.k].distance.sqrt();
                 if r > 0.0 {
@@ -288,7 +289,7 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
                 .tree
                 .query(p)
                 .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                .with_stack_scratch()
+                .with_scratch(&mut scratch)
                 .execute();
             let r = neigh[self.k].distance.sqrt();
             if r > 0.0 {
