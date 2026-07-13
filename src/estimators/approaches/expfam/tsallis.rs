@@ -237,45 +237,39 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
 
         let v_m = unit_ball_volume(K, 2.0);
 
-        // Compute kNN radii via KD-tree (exclude self by requesting k+1 and skipping self)
-        let mut rho_k: Vec<f64> = Vec::with_capacity(self.nd.n);
         let max_qty = NonZeroUsize::new(self.k + 1).unwrap();
-        for p in self.nd.points.iter() {
-            let neigh = self
-                .nd
-                .tree
-                .query(p)
-                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                .with_stack_scratch()
-                .execute();
-            rho_k.push(neigh[self.k].distance.sqrt());
-        }
         // Effective sample count when self is excluded in neighbor queries
         let n_eff = (self.nd.n as f64) - 1.0;
 
         let q = self.q;
         let ln_base = self.base.ln();
-        let log_b = |x: f64| -> f64 { x.ln() / ln_base };
 
         // Shannon limit for q -> 1
         if (q - 1.0).abs() < 1e-12 {
-            let c = n_eff * (-digamma(self.k as f64)).exp() * v_m;
-            let mut acc = 0.0f64;
+            let ln_c = (n_eff * (-digamma(self.k as f64)).exp() * v_m).ln();
+            let mut sum_ln_r = 0.0_f64;
             let mut cnt = 0usize;
-            for &r in &rho_k {
-                if r <= 0.0 {
-                    continue;
-                }
-                let zeta = c * r.powi(K as i32);
-                if zeta > 0.0 {
-                    acc += log_b(zeta);
+            // Compute kNN radii via KD-tree
+            // (exclude self by requesting k+1 andskipping self)
+            for p in self.nd.points.iter() {
+                let neigh = self
+                    .nd
+                    .tree
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .with_stack_scratch()
+                    .execute();
+                let r = neigh[self.k].distance.sqrt();
+                if r > 0.0 {
+                    sum_ln_r += r.ln();
                     cnt += 1;
                 }
             }
             if cnt == 0 {
                 return 0.0;
             }
-            return acc / (rho_k.len() as f64);
+            let n = self.nd.n as f64;
+            return (K as f64 * sum_ln_r + n * ln_c) / (ln_base * n);
         }
 
         // For q == k+1, follow Renyi handling and return 0.0 to avoid pathological C_k
@@ -287,13 +281,21 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
         use statrs::function::gamma::gamma;
         let c_k = (gamma(self.k as f64) / gamma(self.k as f64 + 1.0 - q)).powf(1.0 / (1.0 - q));
         let prefactor = (n_eff * c_k * v_m).powf(1.0 - q);
-        let mut sum_term = 0.0f64;
-        for &r in &rho_k {
+        let mut sum_term = 0.0_f64;
+        for p in self.nd.points.iter() {
+            let neigh = self
+                .nd
+                .tree
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                .with_stack_scratch()
+                .execute();
+            let r = neigh[self.k].distance.sqrt();
             if r > 0.0 {
                 sum_term += r.powi(K as i32).powf(1.0 - q);
             }
         }
-        let i_q = prefactor * sum_term / (rho_k.len() as f64);
+        let i_q = prefactor * sum_term / (self.nd.n as f64);
         if i_q <= 0.0 {
             return 0.0;
         }
