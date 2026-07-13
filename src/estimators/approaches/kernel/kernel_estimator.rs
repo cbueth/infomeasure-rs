@@ -1026,6 +1026,7 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
         };
 
         let mut scratch = Default::default();
+        let box_vol_inv = 1.0 / (n_q * bw.powi(K as i32));
         for query_point in &self.points {
             let density = if other.kernel_type == "gaussian" {
                 // Gaussian kernel density at query_point using other's covariance
@@ -1059,8 +1060,7 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                     .execute();
 
                 let count = candidates.len();
-                let vol = bw.powi(K as i32);
-                (count as f64) / (n_q * vol)
+                (count as f64) * box_vol_inv
             };
 
             if density > 0.0 {
