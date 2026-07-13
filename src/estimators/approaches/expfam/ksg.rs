@@ -208,6 +208,10 @@ macro_rules! impl_ksg_mi {
 
                 let mut local_mi = Array1::zeros(n_samples);
                 let ln_base = self.base.ln();
+                let digamma_k = digamma(self.k as f64);
+                let inv_ln_base = 1.0 / ln_base;
+                let inv_k = 1.0 / (self.k as f64);
+                let term_n = ($num_rvs as f64 - 1.0) * digamma(n_samples as f64);
 
                 for i in 0..n_samples {
                     if self.ksg_type == KsgType::Type1 {
@@ -217,7 +221,7 @@ macro_rules! impl_ksg_mi {
                             sum_psi_ni_plus_1 += digamma(ni + 1.0);
                         }
                         // Type I: I = psi(k) - <sum psi(ni+1)> + (m-1)psi(N)
-                        local_mi[i] = (digamma(self.k as f64) - sum_psi_ni_plus_1 + ($num_rvs as f64 - 1.0) * digamma(n_samples as f64)) / ln_base;
+                        local_mi[i] = (digamma_k - sum_psi_ni_plus_1 + term_n) * inv_ln_base;
                     } else {
                         // Type II: I = psi(k) - 1/k - <sum psi(ni)> + (m-1)psi(N)
                         let mut sum_psi_ni = 0.0;
@@ -225,7 +229,7 @@ macro_rules! impl_ksg_mi {
                             let ni = marginal_counts[m_idx][i];
                             sum_psi_ni += digamma(ni);
                         }
-                        local_mi[i] = (digamma(self.k as f64) - 1.0 / (self.k as f64) - sum_psi_ni + ($num_rvs as f64 - 1.0) * digamma(n_samples as f64)) / ln_base;
+                        local_mi[i] = (digamma_k - inv_k - sum_psi_ni + term_n) * inv_ln_base;
                     }
                 }
                 local_mi
@@ -396,6 +400,9 @@ impl<
 
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
+        let digamma_k = digamma(self.k as f64);
+        let inv_ln_base = 1.0 / ln_base;
+        let inv_k = 1.0 / (self.k as f64);
 
         for i in 0..n_samples {
             let eps = epsilons[i];
@@ -534,17 +541,16 @@ impl<
 
             if self.ksg_type == KsgType::Type1 {
                 // local_cmi = digamma(k) + [digamma(cz + 1) - sum(digamma(c + 1) for c in counts)]
-                local_cmi[i] = (digamma(self.k as f64) + digamma(cz as f64 + 1.0)
+                local_cmi[i] = (digamma_k + digamma(cz as f64 + 1.0)
                     - digamma(cxz as f64 + 1.0)
                     - digamma(cyz as f64 + 1.0))
-                    / ln_base;
+                    * inv_ln_base;
             } else {
                 // local_cmi = digamma(k) - 1.0/k + [digamma(cz) - sum(digamma(c) for c in counts)]
-                local_cmi[i] = (digamma(self.k as f64) - 1.0 / (self.k as f64)
-                    + digamma(cz as f64)
+                local_cmi[i] = (digamma_k - inv_k + digamma(cz as f64)
                     - digamma(cxz as f64)
                     - digamma(cyz as f64))
-                    / ln_base;
+                    * inv_ln_base;
             }
         }
         local_cmi
