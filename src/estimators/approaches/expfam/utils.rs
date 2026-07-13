@@ -122,23 +122,26 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         let m = target_data.nrows();
         let target_points = to_points::<K>(target_data);
         let mut radii = Vec::with_capacity(m);
-        for p in target_points.iter() {
-            let dist = if use_chebyshev {
+        if use_chebyshev {
+            let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
+            for p in target_points.iter() {
                 let neigh = tree
                     .query(p)
                     .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k).unwrap())
-                    .with_stack_scratch()
+                    .with_scratch(&mut scratch)
                     .execute();
-                neigh[k - 1].distance
-            } else {
+                radii.push(neigh[k - 1].distance);
+            }
+        } else {
+            let mut scratch = tree.create_scratch::<SquaredEuclidean<f64>>();
+            for p in target_points.iter() {
                 let neigh = tree
                     .query(p)
                     .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k).unwrap())
-                    .with_stack_scratch()
+                    .with_scratch(&mut scratch)
                     .execute();
-                neigh[k - 1].distance.sqrt()
-            };
-            radii.push(dist);
+                radii.push(neigh[k - 1].distance.sqrt());
+            }
         }
         radii
     } else {
