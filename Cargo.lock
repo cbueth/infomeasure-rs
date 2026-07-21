@@ -1249,8 +1249,8 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kiddo"
-version = "6.0.0-alpha.1"
-source = "git+https://github.com/cbueth/kiddo.git?branch=feat%2Fthreshold-vec-collection#294216aba86e65e17b4daf7ac7f4d910cf909ece"
+version = "6.0.0-alpha.2"
+source = "git+https://github.com/sdd-org/kiddo.git?branch=master#592531b2c4d88921fa10c72eb3d359a496257522"
 dependencies = [
  "aligned-vec",
  "array-init",

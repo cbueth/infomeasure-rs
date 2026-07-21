@@ -17,7 +17,7 @@ categories = ["mathematics", "science"]
 
 [dependencies]
 ndarray = ">=0.17" # For numerical computations
-kiddo = { git = "https://github.com/cbueth/kiddo.git", branch = "feat/threshold-vec-collection" }
+kiddo = { git = "https://github.com/sdd-org/kiddo.git", branch = "master" }
 plotters = ">=0.3.7"
 wgpu = ">=28"
 pollster = ">=0.3"  # For blocking on async operations
