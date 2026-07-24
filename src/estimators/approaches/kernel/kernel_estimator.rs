@@ -1027,7 +1027,8 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
 
         let mut scratch = Default::default();
         let box_vol_inv = 1.0 / (n_q * bw.powi(K as i32));
-        for query_point in &self.points {
+        let mut capacity = 64;
+        for (i, query_point) in self.points.iter().enumerate() {
             let density = if other.kernel_type == "gaussian" {
                 // Gaussian kernel density at query_point using other's covariance
                 let mut local_density = 0.0;
@@ -1037,12 +1038,20 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                     .query(query_point)
                     .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
                     .unsorted()
+                    .with_result_capacity(capacity)
                     .with_scratch(&mut scratch)
                     .execute();
+                let neighbors_len = neighbors.len();
                 for neighbor in neighbors {
                     let neighbor_point = &other.points[neighbor.item as usize];
                     let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
                     local_density += (-0.5 * dist_sq).exp();
+                }
+                if i == 0 {
+                    capacity = (neighbors_len as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
+                    }
                 }
 
                 local_density / normalization_q
@@ -1056,10 +1065,17 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                     .query(query_point)
                     .within::<Chebyshev<f64>>(r_eps)
                     .unsorted()
+                    .with_result_capacity(capacity)
                     .with_scratch(&mut scratch)
                     .execute();
 
                 let count = candidates.len();
+                if i == 0 {
+                    capacity = (count as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
+                    }
+                }
                 (count as f64) * box_vol_inv
             };
 
@@ -1378,6 +1394,7 @@ impl<const K: usize> KernelEntropy<K> {
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
         let mut scratch = Default::default();
+        let mut capacity = 64;
 
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
@@ -1385,11 +1402,18 @@ impl<const K: usize> KernelEntropy<K> {
                 .query(query_point)
                 .within::<Chebyshev<f64>>(r_eps)
                 .unsorted()
+                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
                 .execute();
 
             let count = candidates.len();
             densities[i] = count as f64 / n_volume;
+            if i == 0 {
+                capacity = (count as f64 * 1.2) as usize;
+                if capacity == 0 {
+                    capacity = 1;
+                }
+            }
         }
         densities
     }
@@ -1417,15 +1441,18 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let mut scratch = Default::default();
+        let mut capacity = 64;
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
                 .query(query_point)
                 .within::<SquaredEuclidean<f64>>(adaptive_radius)
                 .unsorted()
+                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
                 .execute();
 
+            let candidates_len = candidates.len();
             let mut sum_k = 0.0;
             for candidate in candidates {
                 let p = &self.points[candidate.item as usize];
@@ -1440,6 +1467,12 @@ impl<const K: usize> KernelEntropy<K> {
                 }
             }
             densities[i] = sum_k / normalization;
+            if i == 0 {
+                capacity = (candidates_len as f64 * 1.2) as usize;
+                if capacity == 0 {
+                    capacity = 1;
+                }
+            }
         }
         densities
     }
@@ -1486,6 +1519,7 @@ impl<const K: usize> KernelEntropy<K> {
         let batch_size = 4;
         let num_batches = self.n_samples / batch_size;
         let mut scratch = Default::default();
+        let mut capacity = 64;
 
         // Process complete batches
         for batch in 0..num_batches {
@@ -1503,10 +1537,17 @@ impl<const K: usize> KernelEntropy<K> {
                     .query(query_point)
                     .within::<Chebyshev<f64>>(r_eps)
                     .unsorted()
+                    .with_result_capacity(capacity)
                     .with_scratch(&mut scratch)
                     .execute()
                     .len();
                 local_values[idx] = count as f64;
+                if idx == 0 {
+                    capacity = (count as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
+                    }
+                }
             }
         }
 
@@ -1522,6 +1563,7 @@ impl<const K: usize> KernelEntropy<K> {
                 .query(query_point)
                 .within::<Chebyshev<f64>>(r_eps)
                 .unsorted()
+                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
                 .execute()
                 .len();

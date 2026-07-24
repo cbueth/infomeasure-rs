@@ -1249,8 +1249,8 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kiddo"
-version = "6.0.0-alpha.2"
-source = "git+https://github.com/sdd-org/kiddo.git?branch=master#592531b2c4d88921fa10c72eb3d359a496257522"
+version = "6.0.0-alpha.3"
+source = "git+https://github.com/sdd-org/kiddo.git?branch=master#c7e35ef70f19bf9ad9caf9c9c95ab91b86454297"
 dependencies = [
  "aligned-vec",
  "array-init",
