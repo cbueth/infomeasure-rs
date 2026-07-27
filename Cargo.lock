@@ -1249,8 +1249,9 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kiddo"
-version = "6.0.0-alpha.3"
-source = "git+https://github.com/sdd-org/kiddo.git?branch=master#c7e35ef70f19bf9ad9caf9c9c95ab91b86454297"
+version = "6.0.0-alpha.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b58624783eb229b36d83280f9549705189c7177b66302790c3644e8904ec900"
 dependencies = [
  "aligned-vec",
  "array-init",
@@ -1260,6 +1261,7 @@ dependencies = [
  "generator",
  "nonmax",
  "num-traits",
+ "rayon",
  "sorted-vec",
  "test-log",
  "tracing",
