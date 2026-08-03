@@ -1,10 +1,14 @@
 # Changelog
 
-## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-07-13
+## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-08-03
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @cbueth
+
+### 📈 Enhancement
+
+- enh: Adjust GPU fallback thresholds per device benchmarks [[#37](https://codeberg.org/cbueth/infomeasure-rs/pulls/37)]
 
 ### 📚 Documentation
 
