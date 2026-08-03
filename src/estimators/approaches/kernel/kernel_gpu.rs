@@ -101,7 +101,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Performance Characteristics
     ///
     /// The GPU implementation provides dramatic speedups compared to the CPU implementation:
-    /// - For 1000 data points: ~4-17x faster, with higher speedups for higher dimensions
+    /// - For 1600 data points: significant speedups begin to materialise
     /// - For 5000 data points: ~89-131x faster, with significant gains even for low dimensions
     /// - For 10000 data points: ~87-337x faster, with the most dramatic improvements for lower dimensions
     ///
@@ -117,7 +117,9 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Fallback Behavior
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
-    /// - If the dataset has fewer than 500 points (GPU overhead outweighs benefits)
+    /// - If the dataset has fewer than 1600 points (GPU overhead outweighs benefits).
+    ///   Note: This threshold is architecture-dependent; the optimal crossover point
+    ///   may vary across GPU hardware generations and driver versions.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn gaussian_kernel_local_values_gpu(&self) -> Array1<f64> {
@@ -130,8 +132,8 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Check if we have enough points to make GPU acceleration worthwhile
-        // Based on benchmark analysis, GPU is beneficial for Gaussian kernel when dataset size >= 500
-        if self.points.len() < 500 {
+        // Based on benchmark analysis, GPU is beneficial for Gaussian kernel when dataset size >= 1600
+        if self.points.len() < 1600 {
             return self.gaussian_kernel_local_values();
         }
 
@@ -162,7 +164,7 @@ impl<const K: usize> KernelEntropy<K> {
     ///
     /// The Box kernel GPU implementation shows a different performance profile compared to the Gaussian kernel:
     /// - For small datasets (100-1000 points), the CPU implementation is faster due to GPU setup overhead
-    /// - For medium datasets (5000 points), the GPU implementation shows significant speedups (1.7-12.6x)
+    /// - For medium datasets (3200-5000 points), the GPU implementation shows moderate speedups
     /// - For large datasets (10000+ points), the GPU implementation provides dramatic speedups (9.5-37.1x)
     /// - For high dimensions with large datasets, the GPU implementation completes calculations that
     ///   would timeout on the CPU
@@ -170,7 +172,9 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Fallback Behavior
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
-    /// - If the dataset has fewer than 5000 points (GPU overhead outweighs benefits)
+    /// - If the dataset has fewer than 5000 points (GPU overhead outweighs benefits).
+    ///   Note: This threshold is architecture-dependent; the optimal crossover point
+    ///   may vary across GPU hardware generations and driver versions.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn box_kernel_local_values_gpu(&self) -> Array1<f64> {
