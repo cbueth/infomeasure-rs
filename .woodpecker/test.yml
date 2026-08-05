@@ -6,6 +6,9 @@ workspace:
   base: /build
   path: .
 
+labels:
+  provider: self-hosted
+
 when:
   - event: [push, pull_request]
     branch: [main, develop]
@@ -26,10 +29,16 @@ steps:
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
+      - if [ ! -e /target/infomeasure-rs-${RUST}/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-${RUST} /target/infomeasure-rs-cargo-${RUST} &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-${RUST}/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-${RUST}/ &&
+          touch /target/infomeasure-rs-${RUST}/.seeded;
+        fi
       - if [ -n "${FEATURES}" ]; then
           cargo build -j 4 --workspace --features ${FEATURES};
         else
@@ -41,8 +50,8 @@ steps:
     environment:
       FEATURES: ${FEATURES}
       RUST: ${RUST}
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
       - if [ -n "${FEATURES}" ]; then
@@ -54,8 +63,8 @@ steps:
   - name: doctest
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
       - cargo test --doc
