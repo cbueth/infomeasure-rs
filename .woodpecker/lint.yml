@@ -6,6 +6,9 @@ workspace:
   base: /build
   path: .
 
+labels:
+  provider: self-hosted
+
 when:
   - event: [push, pull_request]
     branch: [main, develop]
