@@ -2,12 +2,13 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-# Build pre-cached Docker images with Rust dependencies
+# Build the CI toolchain image: Rust + system libs + Python env (no cargo cache)
+# Decoupled from Cargo.lock - compiled artifacts live on the runner's volume.
 
 when:
   - branch: main
     event: [manual, cron]
-    path: [Cargo.toml, Cargo.lock]
+    path: [.docker/Dockerfile, tests/validation_crate/requirements.txt]
 
 matrix:
   RUST: [stable, beta]
