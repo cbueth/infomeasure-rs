@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- Migrate from kiddo `v5` to `v6.0.0-alpha.1` [[#39](https://codeberg.org/cbueth/infomeasure-rs/pulls/39)]
 - enh: Adjust GPU fallback thresholds per device benchmarks [[#37](https://codeberg.org/cbueth/infomeasure-rs/pulls/37)]
 
 ### 📚 Documentation
