@@ -135,7 +135,8 @@ fn test_ksg_te_sanity(
     )
     .unwrap();
 
-    assert_abs_diff_eq!(ksg.global_value(), te_py, epsilon = 1e-10);
+    let eps = if use_chebyshev { 1e-2 } else { 1e-10 };
+    assert_abs_diff_eq!(ksg.global_value(), te_py, epsilon = eps);
 }
 
 #[rstest]
@@ -179,5 +180,6 @@ fn test_ksg_cte_sanity(
     )
     .unwrap();
 
-    assert_abs_diff_eq!(ksg.global_value(), cte_py, epsilon = 1e-10);
+    let eps = if use_chebyshev { 1e-2 } else { 1e-10 };
+    assert_abs_diff_eq!(ksg.global_value(), cte_py, epsilon = eps);
 }

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::traits::DistanceMetric;
-use kiddo::{Chebyshev, ImmutableKdTree, SquaredEuclidean};
+use crate::estimators::approaches::common_nd::KdTreeExpfam;
+use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array2, ArrayView2};
 use rand::prelude::*;
 use rand_distr::Normal;
@@ -101,10 +101,11 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
 ///
 /// If `at` is None, it computes distances within the same dataset `data` (excluding self).
 /// If `at` is Some(target), it computes distances from points in `target` to their k-th neighbors in `data`.
-pub(crate) fn knn_radii_at_with_metric<const K: usize, M: DistanceMetric<f64, K> + 'static>(
+pub(crate) fn knn_radii_at_with_metric<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    use_chebyshev: bool,
 ) -> Vec<f64> {
     assert!(k >= 1, "k must be >= 1");
     assert!(data.ncols() == K, "data.ncols() must equal K");
@@ -114,26 +115,32 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize, M: DistanceMetric<f64, K>
     }
 
     let points = to_points::<K>(data);
-    let tree: ImmutableKdTree<f64, K> = ImmutableKdTree::new_from_slice(&points);
+    let tree: KdTreeExpfam<K> = KdTreeExpfam::<K>::new_from_slice(&points).unwrap();
 
     if let Some(target_data) = at {
         assert!(target_data.ncols() == K, "target_data.ncols() must equal K");
         let m = target_data.nrows();
         let target_points = to_points::<K>(target_data);
         let mut radii = Vec::with_capacity(m);
-        for p in target_points.iter() {
-            let mut neigh = tree.nearest_n::<M>(p, NonZeroUsize::new(k).unwrap());
-            let kth = neigh.remove(k - 1);
-            let (dist, _idx): (f64, u64) = kth.into();
-            // If M is SquaredEuclidean, we must sqrt it.
-            // kiddo's into() for SquaredEuclidean returns the squared distance.
-            // For Manhattan and Chebyshev it returns the actual distance.
-            // We use a trick here: since we don't know M's behavior easily,
-            // we'll handle SquaredEuclidean explicitly.
-            if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
-                radii.push(dist.sqrt());
-            } else {
-                radii.push(dist);
+        if use_chebyshev {
+            let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
+            for p in target_points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(NonZeroUsize::new(k).unwrap())
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k - 1].distance);
+            }
+        } else {
+            let mut scratch = tree.create_scratch::<SquaredEuclidean<f64>>();
+            for p in target_points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(NonZeroUsize::new(k).unwrap())
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k - 1].distance.sqrt());
             }
         }
         radii
@@ -143,14 +150,26 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize, M: DistanceMetric<f64, K>
             "k must be <= N-1 when querying within the same dataset"
         );
         let mut radii = Vec::with_capacity(n);
-        for p in points.iter() {
-            let mut neigh = tree.nearest_n::<M>(p, NonZeroUsize::new(k + 1).unwrap());
-            let kth = neigh.remove(k);
-            let (dist, _idx): (f64, u64) = kth.into();
-            if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
-                radii.push(dist.sqrt());
-            } else {
-                radii.push(dist);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        if use_chebyshev {
+            let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
+            for p in points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k].distance);
+            }
+        } else {
+            let mut scratch = tree.create_scratch::<SquaredEuclidean<f64>>();
+            for p in points.iter() {
+                let neigh = tree
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                radii.push(neigh[k].distance.sqrt());
             }
         }
         radii
@@ -163,7 +182,7 @@ pub(crate) fn knn_radii_at<const K: usize>(
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
 ) -> Vec<f64> {
-    knn_radii_at_with_metric::<K, SquaredEuclidean>(data, k, at)
+    knn_radii_at_with_metric::<K>(data, k, at, false)
 }
 
 /// Compute kNN radii using Chebyshev metric.
@@ -172,7 +191,7 @@ pub(crate) fn knn_radii_at_chebyshev<const K: usize>(
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
 ) -> Vec<f64> {
-    knn_radii_at_with_metric::<K, Chebyshev>(data, k, at)
+    knn_radii_at_with_metric::<K>(data, k, at, true)
 }
 
 /// Compute kNN radii (Euclidean distances to the k-th nearest neighbor), excluding self.
