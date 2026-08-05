@@ -20,24 +20,30 @@ steps:
   - name: fmt
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
     commands:
       - cargo fmt --all -- --check
 
   - name: clippy
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
     commands:
+      - if [ ! -e /target/infomeasure-rs-${RUST}/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-${RUST} /target/infomeasure-rs-cargo-${RUST} &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-${RUST}/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-${RUST}/ &&
+          touch /target/infomeasure-rs-${RUST}/.seeded;
+        fi
       - cargo clippy --all-targets --all-features -- -D warnings -W clippy::cargo
 
   - name: doc
     image: codeberg.org/cbueth/infomeasure-rs:${RUST}
     environment:
       RUSTDOCFLAGS: "-D warnings --html-in-header katex-header.html"
-      CARGO_HOME: /usr/local/cargo
-      CARGO_TARGET_DIR: /usr/local/cargo/target
+      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
+      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
     commands:
       - cargo doc --no-deps --all-features
