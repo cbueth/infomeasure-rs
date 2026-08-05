@@ -72,6 +72,7 @@
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
 
+use crate::estimators::approaches::common_nd::KdTreeKernel;
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
@@ -81,7 +82,7 @@ use crate::estimators::traits::{
     CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
-use kiddo::{ImmutableKdTree, SquaredEuclidean};
+use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, Inverse, UPLO};
 use ndarray_stats::CorrelationExt;
@@ -982,7 +983,7 @@ pub struct KernelEntropy<const K: usize> {
     /// Bandwidth parameter controlling the smoothness of the density estimate
     pub bandwidth: f64,
     /// KD-tree for efficient nearest-neighbor queries
-    pub tree: ImmutableKdTree<f64, K>,
+    pub tree: KdTreeKernel<K>,
     /// Standard deviations of the data in each dimension (used for Gaussian kernel scaling)
     pub std_devs: [f64; K],
     /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2)
@@ -1024,18 +1025,33 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             (0.0, 0.0)
         };
 
-        for query_point in &self.points {
+        let mut scratch = Default::default();
+        let box_vol_inv = 1.0 / (n_q * bw.powi(K as i32));
+        let mut capacity = 64;
+        for (i, query_point) in self.points.iter().enumerate() {
             let density = if other.kernel_type == "gaussian" {
                 // Gaussian kernel density at query_point using other's covariance
                 let mut local_density = 0.0;
 
                 let neighbors = other
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius_q);
+                    .query(query_point)
+                    .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
+                    .unsorted()
+                    .with_result_capacity(capacity)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                let neighbors_len = neighbors.len();
                 for neighbor in neighbors {
                     let neighbor_point = &other.points[neighbor.item as usize];
                     let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
                     local_density += (-0.5 * dist_sq).exp();
+                }
+                if i == 0 {
+                    capacity = (neighbors_len as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
+                    }
                 }
 
                 local_density / normalization_q
@@ -1043,22 +1059,24 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                 // Box kernel density at query_point
                 let r = bw / 2.0;
                 let r_eps = r + 1e-15;
-                // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-                let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
                 let candidates = other
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                    .query(query_point)
+                    .within::<Chebyshev<f64>>(r_eps)
+                    .unsorted()
+                    .with_result_capacity(capacity)
+                    .with_scratch(&mut scratch)
+                    .execute();
 
-                let mut count = 0usize;
-                for candidate in candidates {
-                    let p = &other.points[candidate.item as usize];
-                    if other.is_in_box(query_point, p, r_eps) {
-                        count += 1;
+                let count = candidates.len();
+                if i == 0 {
+                    capacity = (count as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
                     }
                 }
-                let vol = bw.powi(K as i32);
-                (count as f64) / (n_q * vol)
+                (count as f64) * box_vol_inv
             };
 
             if density > 0.0 {
@@ -1194,7 +1212,7 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let n_samples = points.len();
-        let tree = ImmutableKdTree::new_from_slice(&points);
+        let tree = KdTreeKernel::<K>::new_from_slice(&points).unwrap();
 
         // Calculate standard deviations and covariance for kernels
         let mut std_devs = [0.0; K];
@@ -1304,17 +1322,6 @@ impl<const K: usize> KernelEntropy<K> {
         self.force_cpu = force_cpu;
     }
 
-    /// Helper to check if a point is within the hypercube (L-infinity distance)
-    #[inline(always)]
-    pub(crate) fn is_in_box(&self, query_point: &[f64; K], p: &[f64; K], r_eps: f64) -> bool {
-        for dim in 0..K {
-            if (query_point[dim] - p[dim]).abs() > r_eps {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Calculates the squared Mahalanobis distance between two points
     ///
     /// If full covariance is available (for Gaussian kernel), it computes:
@@ -1390,21 +1397,27 @@ impl<const K: usize> KernelEntropy<K> {
 
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
-        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
+        let mut scratch = Default::default();
+        let mut capacity = 64;
 
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
+                .query(query_point)
+                .within::<Chebyshev<f64>>(r_eps)
+                .unsorted()
+                .with_result_capacity(capacity)
+                .with_scratch(&mut scratch)
+                .execute();
 
-            let mut count = 0usize;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                if self.is_in_box(query_point, p, r_eps) {
-                    count += 1;
+            let count = candidates.len();
+            densities[i] = count as f64 / n_volume;
+            if i == 0 {
+                capacity = (count as f64 * 1.2) as usize;
+                if capacity == 0 {
+                    capacity = 1;
                 }
             }
-            densities[i] = count as f64 / n_volume;
         }
         densities
     }
@@ -1431,11 +1444,19 @@ impl<const K: usize> KernelEntropy<K> {
             64.0 * self.max_eigenvalue
         };
 
+        let mut scratch = Default::default();
+        let mut capacity = 64;
         for (i, query_point) in self.points.iter().enumerate() {
             let candidates = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, adaptive_radius);
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                .unsorted()
+                .with_result_capacity(capacity)
+                .with_scratch(&mut scratch)
+                .execute();
 
+            let candidates_len = candidates.len();
             let mut sum_k = 0.0;
             for candidate in candidates {
                 let p = &self.points[candidate.item as usize];
@@ -1450,6 +1471,12 @@ impl<const K: usize> KernelEntropy<K> {
                 }
             }
             densities[i] = sum_k / normalization;
+            if i == 0 {
+                capacity = (candidates_len as f64 * 1.2) as usize;
+                if capacity == 0 {
+                    capacity = 1;
+                }
+            }
         }
         densities
     }
@@ -1495,6 +1522,8 @@ impl<const K: usize> KernelEntropy<K> {
         // Process points in batches of 4 (for f64x4) or 8 (for f64x8)
         let batch_size = 4;
         let num_batches = self.n_samples / batch_size;
+        let mut scratch = Default::default();
+        let mut capacity = 64;
 
         // Process complete batches
         for batch in 0..num_batches {
@@ -1502,48 +1531,46 @@ impl<const K: usize> KernelEntropy<K> {
 
             let r = self.bandwidth / 2.0;
             let r_eps = r + 1e-15;
-            // For a hypercube of side 2r, the circumscribed sphere has radius r*sqrt(K).
-            // within_unsorted uses squared distance for SquaredEuclidean.
-            let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
             for i in 0..batch_size {
                 let idx = start_idx + i;
                 let query_point = &self.points[idx];
 
-                let candidates = self
+                let count = self
                     .tree
-                    .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
-
-                let mut count = 0usize;
-                for candidate in candidates {
-                    let p = &self.points[candidate.item as usize];
-                    if self.is_in_box(query_point, p, r_eps) {
-                        count += 1;
+                    .query(query_point)
+                    .within::<Chebyshev<f64>>(r_eps)
+                    .unsorted()
+                    .with_result_capacity(capacity)
+                    .with_scratch(&mut scratch)
+                    .execute()
+                    .len();
+                local_values[idx] = count as f64;
+                if idx == 0 {
+                    capacity = (count as f64 * 1.2) as usize;
+                    if capacity == 0 {
+                        capacity = 1;
                     }
                 }
-                local_values[idx] = count as f64;
             }
         }
 
         // Process remaining points
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
-        let circumscribed_radius_sq = (K as f64) * r_eps * r_eps;
 
         for i in (num_batches * batch_size)..self.n_samples {
             let query_point = &self.points[i];
 
-            let candidates = self
+            let count = self
                 .tree
-                .within_unsorted::<SquaredEuclidean>(query_point, circumscribed_radius_sq);
-
-            let mut count = 0usize;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                if self.is_in_box(query_point, p, r_eps) {
-                    count += 1;
-                }
-            }
+                .query(query_point)
+                .within::<Chebyshev<f64>>(r_eps)
+                .unsorted()
+                .with_result_capacity(capacity)
+                .with_scratch(&mut scratch)
+                .execute()
+                .len();
             local_values[i] = count as f64;
         }
 
@@ -1685,83 +1712,5 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
         // which handles CPU/GPU dispatching and kernel type selection.
         let densities = self.kde_probability_density();
         densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::estimators::entropy::Entropy;
-    use ndarray::Array2;
-
-    #[test]
-    fn test_is_in_box_1d_inside() {
-        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
-        let q = [0.0];
-        let p = [0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_1d_outside() {
-        let kernel = Entropy::nd_kernel::<1>(Array2::zeros((1, 1)), 1.0);
-        let q = [0.0];
-        let p = [0.3];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_inside() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.1, 0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_outside_x() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.21, 0.1];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_2d_outside_y() {
-        let kernel = Entropy::nd_kernel::<2>(Array2::zeros((1, 2)), 1.0);
-        let q = [0.0, 0.0];
-        let p = [0.1, 0.21];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_4d_inside() {
-        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
-        let q = [0.0, 0.0, 0.0, 0.0];
-        let p = [0.1, 0.1, 0.1, 0.1];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_4d_outside() {
-        let kernel = Entropy::nd_kernel::<4>(Array2::zeros((1, 4)), 1.0);
-        let q = [0.0, 0.0, 0.0, 0.0];
-        let p = [0.1, 0.3, 0.1, 0.1];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_8d_inside() {
-        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
-        let q = [0.0; 8];
-        let p = [0.1; 8];
-        assert!(kernel.is_in_box(&q, &p, 0.2));
-    }
-
-    #[test]
-    fn test_is_in_box_8d_outside() {
-        let kernel = Entropy::nd_kernel::<8>(Array2::zeros((1, 8)), 1.0);
-        let q = [0.0; 8];
-        let p = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.21];
-        assert!(!kernel.is_in_box(&q, &p, 0.2));
     }
 }

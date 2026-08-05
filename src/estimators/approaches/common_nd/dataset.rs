@@ -2,9 +2,26 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use kiddo::{Chebyshev, ImmutableKdTree, Manhattan, SquaredEuclidean};
+use kiddo::{Chebyshev, Donnelly, KdTree as KiddoKdTree, Manhattan, SquaredEuclidean, VecOfArenas};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::num::NonZeroUsize;
+
+/// KD-tree type for expfam estimators (nearest_n-heavy, k=3-10, tight queries).
+///
+/// - `Donnelly<3>`: cache-optimised stem traversal with block height 3,
+///   matching CPU cache line width for `f64` on 64-byte lines (per kiddo maintainer).
+/// - `VecOfArenas`: byte-arena packed leaves, optimal for immutable read-only queries
+/// - `u32` item type: auto-generated index, sufficient for up to ~4B points
+pub(crate) type KdTreeExpfam<const K: usize> =
+    KiddoKdTree<f64, u32, Donnelly<3>, VecOfArenas<f64, u32, K, 32>, K, 32>;
+
+/// KD-tree type for kernel estimators (wide-radius `within` queries).
+///
+/// - `Donnelly<8>`: fewer tree levels, important for Gaussian/box kernels
+///   that visit many leaves per query
+/// - `VecOfArenas`: byte-arena packed leaves, optimal for immutable read-only queries
+pub(crate) type KdTreeKernel<const K: usize> =
+    KiddoKdTree<f64, u32, Donnelly<8>, VecOfArenas<f64, u32, K, 32>, K, 32>;
 
 /// Shared N-D dataset container with KD-tree for fast neighbor queries.
 ///
@@ -22,7 +39,7 @@ use std::num::NonZeroUsize;
 pub struct NdDataset<const K: usize> {
     pub points: Vec<[f64; K]>,
     pub n: usize,
-    pub tree: ImmutableKdTree<f64, K>,
+    pub tree: KdTreeExpfam<K>,
 }
 
 impl<const K: usize> NdDataset<K> {
@@ -35,7 +52,7 @@ impl<const K: usize> NdDataset<K> {
     /// * `points` - Vector of fixed-size data points
     pub fn from_points(points: Vec<[f64; K]>) -> Self {
         let n = points.len();
-        let tree = ImmutableKdTree::new_from_slice(&points);
+        let tree = KdTreeExpfam::<K>::new_from_slice(&points).unwrap();
         Self { points, n, tree }
     }
 
@@ -121,13 +138,16 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut scratch = self.tree.create_scratch::<SquaredEuclidean<f64>>();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .nearest_n::<SquaredEuclidean>(p, NonZeroUsize::new(k + 1).unwrap());
-            let kth = neigh.remove(k);
-            let (dist2, _idx): (f64, u64) = kth.into();
-            radii.push(dist2.sqrt());
+                .query(p)
+                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
+            radii.push(neigh[k].distance.sqrt());
         }
         radii
     }
@@ -141,14 +161,16 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut scratch = self.tree.create_scratch::<Manhattan<f64>>();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .nearest_n::<Manhattan>(p, NonZeroUsize::new(k + 1).unwrap());
-            let kth = neigh.remove(k);
-            let (dist, _idx): (f64, u64) = kth.into();
-            // Manhattan metric returns actual L1 distance (not squared)
-            radii.push(dist);
+                .query(p)
+                .nearest_n::<Manhattan<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
+            radii.push(neigh[k].distance);
         }
         radii
     }
@@ -202,13 +224,16 @@ impl<const K: usize> NdDataset<K> {
         assert!(k < self.n, "k must be <= N-1 for self-queries");
 
         let mut radii = Vec::with_capacity(self.n);
+        let max_qty = NonZeroUsize::new(k + 1).unwrap();
+        let mut scratch = self.tree.create_scratch::<Chebyshev<f64>>();
         for p in self.points.iter() {
-            let mut neigh = self
+            let neigh = self
                 .tree
-                .nearest_n::<Chebyshev>(p, NonZeroUsize::new(k + 1).unwrap());
-            let kth = neigh.remove(k);
-            let (dist, _idx): (f64, u64) = kth.into();
-            radii.push(dist);
+                .query(p)
+                .nearest_n::<Chebyshev<f64>>(max_qty)
+                .with_scratch(&mut scratch)
+                .execute();
+            radii.push(neigh[k].distance);
         }
         radii
     }

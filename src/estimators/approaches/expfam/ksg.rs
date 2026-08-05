@@ -66,17 +66,13 @@ use statrs::function::gamma::digamma;
 
 pub use super::utils::KsgType;
 use super::utils::add_noise;
+use crate::estimators::approaches::common_nd::KdTreeExpfam;
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use crate::estimators::traits::{
     ConditionalTransferEntropyEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues, TransferEntropyEstimator,
 };
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
-
-/// A helper trait to allow using the same metric across different dimensions in KD-trees.
-pub trait KsgMetric<F64, const K: usize>: kiddo::traits::DistanceMetric<F64, K> {}
-impl<const K: usize> KsgMetric<f64, K> for Chebyshev {}
-impl<const K: usize> KsgMetric<f64, K> for SquaredEuclidean {}
 
 macro_rules! impl_ksg_mi {
     ($name:ident, $num_rvs:expr, ($($d_param:ident),*), ($($d_idx:expr),*)) => {
@@ -129,9 +125,7 @@ macro_rules! impl_ksg_mi {
                 self
             }
 
-            fn compute_local_mi_with_metric<M>(&self) -> Array1<f64>
-            where
-                M: KsgMetric<f64, D_JOINT> + $(KsgMetric<f64, $d_param> +)* 'static
+            fn compute_local_mi(&self) -> Array1<f64>
             {
                 let n_samples = self.data[0].nrows();
                 let joint_data = concatenate(
@@ -141,20 +135,34 @@ macro_rules! impl_ksg_mi {
 
                 // 1. Find k-th neighbor distance in joint space
                 let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_data);
-                let joint_tree = kiddo::ImmutableKdTree::new_from_slice(&joint_points);
+                let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
                 let mut epsilons = Vec::with_capacity(n_samples);
                 let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-                for i in 0..n_samples {
-                    let p = &joint_points[i];
-                    let neighbors = joint_tree.nearest_n::<M>(p, max_qty);
-                    let dist = neighbors[self.k].distance;
-                    let eps = if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
-                        dist.sqrt()
-                    } else {
-                        dist
-                    };
-                    epsilons.push(eps);
+                if self.use_chebyshev {
+                    let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
+                    for i in 0..n_samples {
+                        let p = &joint_points[i];
+                        let neighbors = joint_tree
+                            .query(p)
+                            .nearest_n::<Chebyshev<f64>>(max_qty)
+                            .with_scratch(&mut scratch)
+                            .execute();
+                        let dist = neighbors[self.k].distance;
+                        epsilons.push(dist);
+                    }
+                } else {
+                    let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
+                    for i in 0..n_samples {
+                        let p = &joint_points[i];
+                        let neighbors = joint_tree
+                            .query(p)
+                            .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                            .with_scratch(&mut scratch)
+                            .execute();
+                        let dist = neighbors[self.k].distance;
+                        epsilons.push(dist.sqrt());
+                    }
                 }
 
                 // 2. Count neighbours in marginal spaces within epsilon
@@ -162,7 +170,8 @@ macro_rules! impl_ksg_mi {
                 $(
                     let m_data = self.data[$d_idx].view();
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
-                    let m_tree = kiddo::ImmutableKdTree::new_from_slice(&m_points);
+                    let m_tree = KdTreeExpfam::<$d_param>::new_from_slice(&m_points).unwrap();
+                    let mut within_scratch = Default::default();
 
                     let mut counts = Vec::with_capacity(n_samples);
                     for i in 0..n_samples {
@@ -175,9 +184,9 @@ macro_rules! impl_ksg_mi {
                             if eps > 0.0 {
                                 // Use strict inequality via within_exclusive
                                 let strict_count = if self.use_chebyshev {
-                                    m_tree.within_exclusive::<Chebyshev>(p, eps, false).len()
+                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
                                 } else {
-                                    m_tree.within_exclusive::<SquaredEuclidean>(p, eps.powi(2), false).len()
+                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
                                 };
                                 // Subtract 1 to exclude the point itself (same as Python)
                                 strict_count - 1
@@ -186,9 +195,9 @@ macro_rules! impl_ksg_mi {
                             }
                         } else {
                             if self.use_chebyshev {
-                                m_tree.within::<Chebyshev>(p, eps).len()
+                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).with_scratch(&mut within_scratch).execute().len()
                             } else {
-                                m_tree.within::<SquaredEuclidean>(p, eps.powi(2)).len()
+                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).with_scratch(&mut within_scratch).execute().len()
                             }
                         };
 
@@ -199,6 +208,10 @@ macro_rules! impl_ksg_mi {
 
                 let mut local_mi = Array1::zeros(n_samples);
                 let ln_base = self.base.ln();
+                let digamma_k = digamma(self.k as f64);
+                let inv_ln_base = 1.0 / ln_base;
+                let inv_k = 1.0 / (self.k as f64);
+                let term_n = ($num_rvs as f64 - 1.0) * digamma(n_samples as f64);
 
                 for i in 0..n_samples {
                     if self.ksg_type == KsgType::Type1 {
@@ -208,7 +221,7 @@ macro_rules! impl_ksg_mi {
                             sum_psi_ni_plus_1 += digamma(ni + 1.0);
                         }
                         // Type I: I = psi(k) - <sum psi(ni+1)> + (m-1)psi(N)
-                        local_mi[i] = (digamma(self.k as f64) - sum_psi_ni_plus_1 + ($num_rvs as f64 - 1.0) * digamma(n_samples as f64)) / ln_base;
+                        local_mi[i] = (digamma_k - sum_psi_ni_plus_1 + term_n) * inv_ln_base;
                     } else {
                         // Type II: I = psi(k) - 1/k - <sum psi(ni)> + (m-1)psi(N)
                         let mut sum_psi_ni = 0.0;
@@ -216,7 +229,7 @@ macro_rules! impl_ksg_mi {
                             let ni = marginal_counts[m_idx][i];
                             sum_psi_ni += digamma(ni);
                         }
-                        local_mi[i] = (digamma(self.k as f64) - 1.0 / (self.k as f64) - sum_psi_ni + ($num_rvs as f64 - 1.0) * digamma(n_samples as f64)) / ln_base;
+                        local_mi[i] = (digamma_k - inv_k - sum_psi_ni + term_n) * inv_ln_base;
                     }
                 }
                 local_mi
@@ -238,13 +251,9 @@ macro_rules! impl_ksg_mi {
 
         impl<const D_JOINT: usize, $(const $d_param: usize),*> MutualInformationEstimator for $name<D_JOINT, $($d_param),*> {}
 
-        impl<const D_JOINT: usize, $(const $d_param: usize),*> LocalValues for $name<D_JOINT, $($d_param),*> {
+         impl<const D_JOINT: usize, $(const $d_param: usize),*> LocalValues for $name<D_JOINT, $($d_param),*> {
             fn local_values(&self) -> Array1<f64> {
-                if self.use_chebyshev {
-                    self.compute_local_mi_with_metric::<Chebyshev>()
-                } else {
-                    self.compute_local_mi_with_metric::<SquaredEuclidean>()
-                }
+                self.compute_local_mi()
             }
         }
     };
@@ -336,14 +345,7 @@ impl<
         self
     }
 
-    fn compute_local_cmi_with_metric<M>(&self) -> Array1<f64>
-    where
-        M: KsgMetric<f64, D_JOINT>
-            + KsgMetric<f64, D1_COND>
-            + KsgMetric<f64, D2_COND>
-            + KsgMetric<f64, D_COND>
-            + 'static,
-    {
+    fn compute_local_cmi(&self) -> Array1<f64> {
         let n_samples = self.data[0].nrows();
         // Joint: (X, Y, Z)
         let joint_all = concatenate(
@@ -353,19 +355,30 @@ impl<
         .unwrap();
 
         let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_all);
-        let joint_tree = kiddo::ImmutableKdTree::new_from_slice(&joint_points);
+        let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
         let mut epsilons = Vec::with_capacity(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-        for p in joint_points.iter().take(n_samples) {
-            let neighbors = joint_tree.nearest_n::<M>(p, max_qty);
-            let dist = neighbors[self.k].distance;
-            let eps = if std::any::TypeId::of::<M>() == std::any::TypeId::of::<SquaredEuclidean>() {
-                dist.sqrt()
-            } else {
-                dist
-            };
-            epsilons.push(eps);
+        if self.use_chebyshev {
+            let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
+            for p in joint_points.iter().take(n_samples) {
+                let neighbors = joint_tree
+                    .query(p)
+                    .nearest_n::<Chebyshev<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                epsilons.push(neighbors[self.k].distance);
+            }
+        } else {
+            let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
+            for p in joint_points.iter().take(n_samples) {
+                let neighbors = joint_tree
+                    .query(p)
+                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                    .with_scratch(&mut scratch)
+                    .execute();
+                epsilons.push(neighbors[self.k].distance.sqrt());
+            }
         }
 
         // Marginal/Conditional spaces: (X, Z), (Y, Z), (Z)
@@ -377,12 +390,19 @@ impl<
         let yz_points = NdDataset::<D2_COND>::points_as_vec(yz);
         let z_points = NdDataset::<D_COND>::points_as_vec(z.to_owned());
 
-        let xz_tree = kiddo::ImmutableKdTree::new_from_slice(&xz_points);
-        let yz_tree = kiddo::ImmutableKdTree::new_from_slice(&yz_points);
-        let z_tree = kiddo::ImmutableKdTree::new_from_slice(&z_points);
+        let xz_tree = KdTreeExpfam::<D1_COND>::new_from_slice(&xz_points).unwrap();
+        let yz_tree = KdTreeExpfam::<D2_COND>::new_from_slice(&yz_points).unwrap();
+        let z_tree = KdTreeExpfam::<D_COND>::new_from_slice(&z_points).unwrap();
+
+        let mut xz_scratch = Default::default();
+        let mut yz_scratch = Default::default();
+        let mut z_scratch = Default::default();
 
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
+        let digamma_k = digamma(self.k as f64);
+        let inv_ln_base = 1.0 / ln_base;
+        let inv_k = 1.0 / (self.k as f64);
 
         for i in 0..n_samples {
             let eps = epsilons[i];
@@ -397,33 +417,60 @@ impl<
                     // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                     let c_xz = if self.use_chebyshev {
                         xz_tree
-                            .within_exclusive::<Chebyshev>(p_xz, eps, false)
+                            .query(p_xz)
+                            .within::<Chebyshev<f64>>(eps)
+                            .exclusive_boundaries()
+                            .with_scratch(&mut xz_scratch)
+                            .execute()
                             .len()
                             - 1
                     } else {
                         xz_tree
-                            .within_exclusive::<SquaredEuclidean>(p_xz, eps.powi(2), false)
+                            .query(p_xz)
+                            .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                            .exclusive_boundaries()
+                            .with_scratch(&mut xz_scratch)
+                            .execute()
                             .len()
                             - 1
                     };
 
                     let c_yz = if self.use_chebyshev {
                         yz_tree
-                            .within_exclusive::<Chebyshev>(p_yz, eps, false)
+                            .query(p_yz)
+                            .within::<Chebyshev<f64>>(eps)
+                            .exclusive_boundaries()
+                            .with_scratch(&mut yz_scratch)
+                            .execute()
                             .len()
                             - 1
                     } else {
                         yz_tree
-                            .within_exclusive::<SquaredEuclidean>(p_yz, eps.powi(2), false)
+                            .query(p_yz)
+                            .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                            .exclusive_boundaries()
+                            .with_scratch(&mut yz_scratch)
+                            .execute()
                             .len()
                             - 1
                     };
 
                     let c_z = if self.use_chebyshev {
-                        z_tree.within_exclusive::<Chebyshev>(p_z, eps, false).len() - 1
+                        z_tree
+                            .query(p_z)
+                            .within::<Chebyshev<f64>>(eps)
+                            .exclusive_boundaries()
+                            .with_scratch(&mut z_scratch)
+                            .execute()
+                            .len()
+                            - 1
                     } else {
                         z_tree
-                            .within_exclusive::<SquaredEuclidean>(p_z, eps.powi(2), false)
+                            .query(p_z)
+                            .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                            .exclusive_boundaries()
+                            .with_scratch(&mut z_scratch)
+                            .execute()
                             .len()
                             - 1
                     };
@@ -440,21 +487,51 @@ impl<
                 // Algorithm 2 uses inclusive inequality (distance <= eps).
                 // Python: query_ball_point(..., r=eps, p=inf, ...)
                 let c_xz = if self.use_chebyshev {
-                    xz_tree.within::<Chebyshev>(p_xz, eps).len()
+                    xz_tree
+                        .query(p_xz)
+                        .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut xz_scratch)
+                        .execute()
+                        .len()
                 } else {
-                    xz_tree.within::<SquaredEuclidean>(p_xz, eps.powi(2)).len()
+                    xz_tree
+                        .query(p_xz)
+                        .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut xz_scratch)
+                        .execute()
+                        .len()
                 };
 
                 let c_yz = if self.use_chebyshev {
-                    yz_tree.within::<Chebyshev>(p_yz, eps).len()
+                    yz_tree
+                        .query(p_yz)
+                        .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut yz_scratch)
+                        .execute()
+                        .len()
                 } else {
-                    yz_tree.within::<SquaredEuclidean>(p_yz, eps.powi(2)).len()
+                    yz_tree
+                        .query(p_yz)
+                        .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut yz_scratch)
+                        .execute()
+                        .len()
                 };
 
                 let c_z = if self.use_chebyshev {
-                    z_tree.within::<Chebyshev>(p_z, eps).len()
+                    z_tree
+                        .query(p_z)
+                        .within::<Chebyshev<f64>>(eps)
+                        .with_scratch(&mut z_scratch)
+                        .execute()
+                        .len()
                 } else {
-                    z_tree.within::<SquaredEuclidean>(p_z, eps.powi(2)).len()
+                    z_tree
+                        .query(p_z)
+                        .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .with_scratch(&mut z_scratch)
+                        .execute()
+                        .len()
                 };
 
                 (c_xz as i32, c_yz as i32, c_z as i32)
@@ -464,17 +541,16 @@ impl<
 
             if self.ksg_type == KsgType::Type1 {
                 // local_cmi = digamma(k) + [digamma(cz + 1) - sum(digamma(c + 1) for c in counts)]
-                local_cmi[i] = (digamma(self.k as f64) + digamma(cz as f64 + 1.0)
+                local_cmi[i] = (digamma_k + digamma(cz as f64 + 1.0)
                     - digamma(cxz as f64 + 1.0)
                     - digamma(cyz as f64 + 1.0))
-                    / ln_base;
+                    * inv_ln_base;
             } else {
                 // local_cmi = digamma(k) - 1.0/k + [digamma(cz) - sum(digamma(c) for c in counts)]
-                local_cmi[i] = (digamma(self.k as f64) - 1.0 / (self.k as f64)
-                    + digamma(cz as f64)
+                local_cmi[i] = (digamma_k - inv_k + digamma(cz as f64)
                     - digamma(cxz as f64)
                     - digamma(cyz as f64))
-                    / ln_base;
+                    * inv_ln_base;
             }
         }
         local_cmi
@@ -535,11 +611,7 @@ impl<
 > LocalValues for KsgConditionalMutualInformation<D1, D2, D_COND, D_JOINT, D1_COND, D2_COND>
 {
     fn local_values(&self) -> Array1<f64> {
-        if self.use_chebyshev {
-            self.compute_local_cmi_with_metric::<Chebyshev>()
-        } else {
-            self.compute_local_cmi_with_metric::<SquaredEuclidean>()
-        }
+        self.compute_local_cmi()
     }
 }
 
