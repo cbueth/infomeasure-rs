@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-08-04
+## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-08-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -17,6 +17,7 @@
 
 ### Misc
 
+- ci: Run lint/test on self-hosted agent with persistent cargo cache and slim image [[#40](https://codeberg.org/cbueth/infomeasure-rs/pulls/40)]
 - perf: Add Codspeed benchmarks [[#36](https://codeberg.org/cbueth/infomeasure-rs/pulls/36)]
 - fix: Restore `skipCommitsWithoutPullRequest` and enable `commentOnReleasedPullRequests` [[#32](https://codeberg.org/cbueth/infomeasure-rs/pulls/32)]
 
