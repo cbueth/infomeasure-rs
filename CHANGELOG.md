@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-rc.0) - 2026-08-06
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### 📈 Enhancement
+
+- Migrate from kiddo `v5` to `v6.0.0-alpha.1` [[#39](https://codeberg.org/cbueth/infomeasure-rs/pulls/39)]
+- enh: Adjust GPU fallback thresholds per device benchmarks [[#37](https://codeberg.org/cbueth/infomeasure-rs/pulls/37)]
+
+### 📚 Documentation
+
+- fix: validate CITATION.cff against CFF 1.2.0 schema for Zenodo [[#34](https://codeberg.org/cbueth/infomeasure-rs/pulls/34)]
+- feat: Add benchmarks and runtime visualisation [[#10](https://codeberg.org/cbueth/infomeasure-rs/pulls/10)]
+
+### Misc
+
+- ci: Run lint/test on self-hosted agent with persistent cargo cache and slim image [[#40](https://codeberg.org/cbueth/infomeasure-rs/pulls/40)]
+- perf: Add Codspeed benchmarks [[#36](https://codeberg.org/cbueth/infomeasure-rs/pulls/36)]
+- fix: Restore `skipCommitsWithoutPullRequest` and enable `commentOnReleasedPullRequests` [[#32](https://codeberg.org/cbueth/infomeasure-rs/pulls/32)]
+
 ## [0.3.0-beta.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0-beta.1) - 2026-06-24
 
 ### Thanks to all contributors!
