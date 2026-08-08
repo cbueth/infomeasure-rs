@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.1-rc.0) - 2026-08-08
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### Misc
+
+- docs(release): clarify release trigger in release workflow comment [[#42](https://codeberg.org/cbueth/infomeasure-rs/pulls/42)]
+
 ## [0.3.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0) - 2026-08-08
 
 ### ❤️ Thanks to all contributors! ❤️
