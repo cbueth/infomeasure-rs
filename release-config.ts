@@ -50,10 +50,11 @@ export default {
   skipLabels: ['skip-release', 'skip-changelog', 'regression'],
   skipCommitsWithoutPullRequest: true,
   commentOnReleasedPullRequests: true,
-  // Update CITATION.cff during release preparation
+  // Update version files during release preparation so the release PR carries the bump
   beforePrepare: async ({ exec, nextVersion }) => {
     const today = new Date().toISOString().split('T')[0];
     await exec(`sed -i "s/^version:.*/version: ${nextVersion}/" CITATION.cff`);
     await exec(`sed -i "s/^date-released:.*/date-released: ${today}/" CITATION.cff`);
+    await exec(`sed -i "1,/^version = .*/s/^version = .*/version = \\"${nextVersion}\\"/" Cargo.toml`);
   },
 };

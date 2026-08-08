@@ -8,11 +8,11 @@
 
 //! <div class="warning">
 //!
-//! **v0.3.0-beta — We want your feedback!**
+//! **v0.3.0 — Now available!**
 //!
 //! All core features of the
 //! [infomeasure Python package](https://github.com/cbueth/infomeasure)
-//! have been reimplemented in Rust and are ready for testing.
+//! have been reimplemented in Rust.
 //! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
 //!
 //! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
