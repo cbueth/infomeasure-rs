@@ -6,7 +6,7 @@
 #
 # Flow:
 # 1. Push to main → Creates Release PR (preparation)
-# 2. Release PR merged (with "release" label) → plugin creates tag/release on Codeberg
+# 2. Release PR merged → plugin creates tag/release on Codeberg (detected via the "Release …" merge-commit message, no label needed)
 # 3. cargo publish runs on the merge commit (detected via commit message pattern)
 
 when:
