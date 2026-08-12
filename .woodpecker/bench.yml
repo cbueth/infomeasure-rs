@@ -17,6 +17,7 @@ when:
       - Cargo.lock
       - src/**
       - benches/**
+      - .woodpecker/**
   - event: manual
 
 steps:
