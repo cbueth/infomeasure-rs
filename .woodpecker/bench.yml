@@ -62,7 +62,6 @@ steps:
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
             --adapter rust_criterion \
-            --average median \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_SOURCE_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
@@ -75,7 +74,6 @@ steps:
         else
           bencher run \
             --adapter rust_criterion \
-            --average median \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
