@@ -42,7 +42,8 @@ steps:
           cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-bench/ &&
           touch /target/infomeasure-rs-bench/.seeded;
         fi
-      - curl -LsSf https://github.com/bencherdev/bencher/releases/latest/download/bencher-x86_64-unknown-linux-gnu -o /usr/local/bin/bencher && chmod +x /usr/local/bin/bencher
+      - curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh
+      - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - |
         BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
