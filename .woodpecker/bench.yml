@@ -58,10 +58,11 @@ steps:
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - |
         BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
-        CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20"
+        CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
             --adapter rust_criterion \
+            --average median \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_SOURCE_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
@@ -74,13 +75,15 @@ steps:
         else
           bencher run \
             --adapter rust_criterion \
+            --average median \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
             --testbed self-hosted \
             --threshold-measure latency \
             --threshold-test t_test \
-            --threshold-max-sample-size 64 \
+            --threshold-min-sample-size 10 \
+            --threshold-max-sample-size 128 \
             --threshold-upper-boundary 0.99 \
             --thresholds-reset \
             --error-on-alert \
