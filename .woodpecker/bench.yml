@@ -21,20 +21,11 @@ when:
   - event: manual
 
 steps:
-  - name: bench
+  - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
     environment:
-      BENCHER_API_KEY:
-        from_secret: BENCHER_API_KEY
       CARGO_HOME: /target/infomeasure-rs-cargo-bench
       CARGO_TARGET_DIR: /target/infomeasure-rs-bench
-      BENCH_SIZES: "5000"
-      BENCH_SIZES_EXTENDED: "5000"
-      BENCH_K_VALUES: "3"
-      BENCH_BANDWIDTHS: "0.9"
-      BENCH_ORDERS: "3"
-      BENCH_ALPHAS: "1.2"
-      BENCH_Q_VALUES: "1.2"
     commands:
       - if [ ! -e /target/infomeasure-rs-bench/.seeded ] && [ -d /usr/local/cargo/target ]; then
           mkdir -p /target/infomeasure-rs-bench /target/infomeasure-rs-cargo-bench &&
@@ -42,10 +33,32 @@ steps:
           cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-bench/ &&
           touch /target/infomeasure-rs-bench/.seeded;
         fi
-      - curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh
+      - |
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
+        cargo bench --no-run $BENCH_ARGS
+
+  - name: bench
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    environment:
+      BENCHER_API_KEY:
+        from_secret: BENCHER_API_KEY
+      CARGO_HOME: /target/infomeasure-rs-cargo-bench
+      CARGO_TARGET_DIR: /target/infomeasure-rs-bench
+      BENCH_SIZES: "1000"
+      BENCH_SIZES_EXTENDED: "5000"
+      BENCH_K_VALUES: "3"
+      BENCH_BANDWIDTHS: "0.9"
+      BENCH_ORDERS: "3"
+      BENCH_ALPHAS: "1.2"
+      BENCH_Q_VALUES: "1.2"
+    commands:
+      - if [ ! -x "$CARGO_HOME/bin/bencher" ]; then
+          curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh;
+        fi
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - |
         BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
+        CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
             --adapter rust_criterion \
@@ -57,7 +70,7 @@ steps:
             --start-point-reset \
             --testbed self-hosted \
             --error-on-alert \
-            cargo bench $BENCH_ARGS
+            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
         else
           bencher run \
             --adapter rust_criterion \
@@ -71,5 +84,5 @@ steps:
             --threshold-upper-boundary 0.99 \
             --thresholds-reset \
             --error-on-alert \
-            cargo bench $BENCH_ARGS
+            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
         fi
