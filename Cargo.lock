@@ -1111,6 +1111,7 @@ dependencies = [
  "rand",
  "rand_distr",
  "rstest",
+ "rustc-hash",
  "serde_json",
  "statrs",
  "validation",

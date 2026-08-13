@@ -49,6 +49,23 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
     acc as u64
 }
 
+/// Internal version of lehmer_code that avoids recomputing factorials.
+fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
+    let n = perm.len();
+    let mut acc: u128 = 0;
+    for i in 0..n {
+        let mut c = 0u128;
+        for j in (i + 1)..n {
+            if perm[i] > perm[j] {
+                c += 1;
+            }
+        }
+        let weight = fact[n - 1 - i];
+        acc += c * weight;
+    }
+    acc as u64
+}
+
 /// Convert a time series into integer ordinal pattern codes using permutation patterns.
 ///
 /// - order (m) ≥ 1
@@ -69,18 +86,28 @@ pub fn symbolize_series(series: &Array1<f64>, order: usize, delay: usize, stable
     let n_windows = n - span;
     let mut out: Vec<i32> = Vec::with_capacity(n_windows);
 
+    // Precompute factorials once for the whole series (per-window allocation avoided)
+    let mut fact: Vec<u128> = vec![1u128; order];
+    for i in 1..order {
+        fact[i] = fact[i - 1] * (i as u128);
+    }
+
+    let series_slice = series.as_slice().unwrap();
+
     // Build each window, compute permutation (argsort), map to Lehmer code, store as i32
     for t in 0..n_windows {
         // Extract window values at positions t + j*delay
         let mut w: Vec<f64> = Vec::with_capacity(order);
-        for j in 0..order { w.push(series[t + j * delay]); }
+        for j in 0..order {
+            w.push(series_slice[t + j * delay]);
+        }
         // Permutation via (stable) argsort
         let perm = if stable { stable_argsort(&w) } else {
             // Not-stable variant: same comparator, but instability not strictly guaranteed in Rust
             // However, using stable sort here too is acceptable; parity issues arise only on ties.
             stable_argsort(&w)
         };
-        let code_u64 = lehmer_code(&perm);
+        let code_u64 = lehmer_code_with_fact(&perm, &fact);
         if code_u64 > i32::MAX as u64 {
             panic!("Pattern code exceeds i32 range. Reduce order or generalize key type.");
         }

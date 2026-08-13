@@ -226,7 +226,10 @@ impl<const K: usize> KernelEntropy<K> {
         // det(Σ_scaled) = det(L * L^T) = det(L)^2
         // Since L is lower triangular, det(L) is the product of its diagonal elements.
         let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
-            let diag_prod: f64 = l.diag().iter().product();
+            let mut diag_prod = 1.0;
+            for i in 0..K {
+                diag_prod *= l[i * (K + 1)];
+            }
             diag_prod * diag_prod
         } else {
             // Fallback to diagonal covariance if cholesky_factor is None

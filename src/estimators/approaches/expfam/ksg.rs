@@ -172,6 +172,7 @@ macro_rules! impl_ksg_mi {
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
                     let m_tree = KdTreeExpfam::<$d_param>::new_from_slice(&m_points).unwrap();
                     let mut within_scratch = Default::default();
+                    let mut capacity = 64usize;
 
                     let mut counts = Vec::with_capacity(n_samples);
                     for i in 0..n_samples {
@@ -182,23 +183,38 @@ macro_rules! impl_ksg_mi {
                             // Type 1 uses strict inequality: dist < eps
                             // Python uses: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                             if eps > 0.0 {
-                                // Use strict inequality via within_exclusive
-                                let strict_count = if self.use_chebyshev {
-                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
+                                // Use strict inequality via within_exclusive; only the
+                                // count is used, so skip sorting and grow the result
+                                // buffer adaptively after the first query
+                                let raw_count = if self.use_chebyshev {
+                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).exclusive_boundaries().unsorted().with_result_capacity(capacity).with_scratch(&mut within_scratch).execute().len()
                                 } else {
-                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).exclusive_boundaries().with_scratch(&mut within_scratch).execute().len()
+                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).exclusive_boundaries().unsorted().with_result_capacity(capacity).with_scratch(&mut within_scratch).execute().len()
                                 };
+                                if i == 0 {
+                                    capacity = (raw_count as f64 * 1.2) as usize;
+                                    if capacity == 0 {
+                                        capacity = 1;
+                                    }
+                                }
                                 // Subtract 1 to exclude the point itself (same as Python)
-                                strict_count - 1
+                                raw_count - 1
                             } else {
                                 0
                             }
                         } else {
-                            if self.use_chebyshev {
-                                    m_tree.query(p).within::<Chebyshev<f64>>(eps).with_scratch(&mut within_scratch).execute().len()
+                            let raw_count = if self.use_chebyshev {
+                                m_tree.query(p).within::<Chebyshev<f64>>(eps).unsorted().with_result_capacity(capacity).with_scratch(&mut within_scratch).execute().len()
                             } else {
-                                    m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).with_scratch(&mut within_scratch).execute().len()
+                                m_tree.query(p).within::<SquaredEuclidean<f64>>(eps.powi(2)).unsorted().with_result_capacity(capacity).with_scratch(&mut within_scratch).execute().len()
+                            };
+                            if i == 0 {
+                                capacity = (raw_count as f64 * 1.2) as usize;
+                                if capacity == 0 {
+                                    capacity = 1;
+                                }
                             }
+                            raw_count
                         };
 
                         counts.push(count as f64);
@@ -397,6 +413,9 @@ impl<
         let mut xz_scratch = Default::default();
         let mut yz_scratch = Default::default();
         let mut z_scratch = Default::default();
+        let mut xz_capacity = 64usize;
+        let mut yz_capacity = 64usize;
+        let mut z_capacity = 64usize;
 
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
@@ -415,67 +434,90 @@ impl<
 
                     // Algorithm 1 uses strict inequality (dist < eps)
                     // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
-                    let c_xz = if self.use_chebyshev {
+                    // Only counts are used, so skip sorting and grow the result
+                    // buffers adaptively after the first query
+                    let raw_xz = if self.use_chebyshev {
                         xz_tree
                             .query(p_xz)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(xz_capacity)
                             .with_scratch(&mut xz_scratch)
                             .execute()
                             .len()
-                            - 1
                     } else {
                         xz_tree
                             .query(p_xz)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(xz_capacity)
                             .with_scratch(&mut xz_scratch)
                             .execute()
                             .len()
-                            - 1
                     };
 
-                    let c_yz = if self.use_chebyshev {
+                    let raw_yz = if self.use_chebyshev {
                         yz_tree
                             .query(p_yz)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(yz_capacity)
                             .with_scratch(&mut yz_scratch)
                             .execute()
                             .len()
-                            - 1
                     } else {
                         yz_tree
                             .query(p_yz)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(yz_capacity)
                             .with_scratch(&mut yz_scratch)
                             .execute()
                             .len()
-                            - 1
                     };
 
-                    let c_z = if self.use_chebyshev {
+                    let raw_z = if self.use_chebyshev {
                         z_tree
                             .query(p_z)
                             .within::<Chebyshev<f64>>(eps)
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(z_capacity)
                             .with_scratch(&mut z_scratch)
                             .execute()
                             .len()
-                            - 1
                     } else {
                         z_tree
                             .query(p_z)
                             .within::<SquaredEuclidean<f64>>(eps.powi(2))
                             .exclusive_boundaries()
+                            .unsorted()
+                            .with_result_capacity(z_capacity)
                             .with_scratch(&mut z_scratch)
                             .execute()
                             .len()
-                            - 1
                     };
 
-                    (c_xz as i32, c_yz as i32, c_z as i32)
+                    if i == 0 {
+                        xz_capacity = (raw_xz as f64 * 1.2) as usize;
+                        yz_capacity = (raw_yz as f64 * 1.2) as usize;
+                        z_capacity = (raw_z as f64 * 1.2) as usize;
+                        if xz_capacity == 0 {
+                            xz_capacity = 1;
+                        }
+                        if yz_capacity == 0 {
+                            yz_capacity = 1;
+                        }
+                        if z_capacity == 0 {
+                            z_capacity = 1;
+                        }
+                    }
+
+                    (raw_xz as i32 - 1, raw_yz as i32 - 1, raw_z as i32 - 1)
                 } else {
                     (0, 0, 0)
                 }
@@ -486,10 +528,12 @@ impl<
 
                 // Algorithm 2 uses inclusive inequality (distance <= eps).
                 // Python: query_ball_point(..., r=eps, p=inf, ...)
-                let c_xz = if self.use_chebyshev {
+                let raw_xz = if self.use_chebyshev {
                     xz_tree
                         .query(p_xz)
                         .within::<Chebyshev<f64>>(eps)
+                        .unsorted()
+                        .with_result_capacity(xz_capacity)
                         .with_scratch(&mut xz_scratch)
                         .execute()
                         .len()
@@ -497,15 +541,19 @@ impl<
                     xz_tree
                         .query(p_xz)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .unsorted()
+                        .with_result_capacity(xz_capacity)
                         .with_scratch(&mut xz_scratch)
                         .execute()
                         .len()
                 };
 
-                let c_yz = if self.use_chebyshev {
+                let raw_yz = if self.use_chebyshev {
                     yz_tree
                         .query(p_yz)
                         .within::<Chebyshev<f64>>(eps)
+                        .unsorted()
+                        .with_result_capacity(yz_capacity)
                         .with_scratch(&mut yz_scratch)
                         .execute()
                         .len()
@@ -513,15 +561,19 @@ impl<
                     yz_tree
                         .query(p_yz)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .unsorted()
+                        .with_result_capacity(yz_capacity)
                         .with_scratch(&mut yz_scratch)
                         .execute()
                         .len()
                 };
 
-                let c_z = if self.use_chebyshev {
+                let raw_z = if self.use_chebyshev {
                     z_tree
                         .query(p_z)
                         .within::<Chebyshev<f64>>(eps)
+                        .unsorted()
+                        .with_result_capacity(z_capacity)
                         .with_scratch(&mut z_scratch)
                         .execute()
                         .len()
@@ -529,12 +581,29 @@ impl<
                     z_tree
                         .query(p_z)
                         .within::<SquaredEuclidean<f64>>(eps.powi(2))
+                        .unsorted()
+                        .with_result_capacity(z_capacity)
                         .with_scratch(&mut z_scratch)
                         .execute()
                         .len()
                 };
 
-                (c_xz as i32, c_yz as i32, c_z as i32)
+                if i == 0 {
+                    xz_capacity = (raw_xz as f64 * 1.2) as usize;
+                    yz_capacity = (raw_yz as f64 * 1.2) as usize;
+                    z_capacity = (raw_z as f64 * 1.2) as usize;
+                    if xz_capacity == 0 {
+                        xz_capacity = 1;
+                    }
+                    if yz_capacity == 0 {
+                        yz_capacity = 1;
+                    }
+                    if z_capacity == 0 {
+                        z_capacity = 1;
+                    }
+                }
+
+                (raw_xz as i32, raw_yz as i32, raw_z as i32)
             };
 
             let (cxz, cyz, cz) = (count_xz, count_yz, count_z);

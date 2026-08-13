@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use ndarray::Array1;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 /// Argsort for f64 values.
 ///
@@ -93,8 +93,7 @@ pub fn lehmer_code(perm: &[usize]) -> u64 {
 }
 
 /// Internal version of lehmer_code that avoids recomputing factorials.
-#[allow(dead_code)]
-fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
+pub(crate) fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
     let n = perm.len();
     let mut acc: u128 = 0;
     for i in 0..n {
@@ -113,7 +112,8 @@ fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
 pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
-    let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
+    let mut map: FxHashMap<u64, i32> =
+        FxHashMap::with_capacity_and_hasher(codes.len(), Default::default());
     let mut next_id: i32 = 0;
     let mut out = Vec::with_capacity(codes.len());
     for &c in codes.iter() {
@@ -184,17 +184,25 @@ pub fn symbolize_series_u64(
     let n_windows = n - span;
     let mut out: Vec<u64> = Vec::with_capacity(n_windows);
 
+    // Precompute factorials once for the whole series (per-window allocation avoided)
+    let mut fact: Vec<u128> = vec![1u128; order];
+    for i in 1..order {
+        fact[i] = fact[i - 1] * (i as u128);
+    }
+
+    let series_slice = series.as_slice().unwrap();
+
     // Reuse buffers to avoid repeated allocations
     let mut w: Vec<f64> = vec![0.0; order];
     let mut idx: Vec<usize> = (0..order).collect();
 
     for t in 0..n_windows {
         for j in 0..order {
-            w[j] = series[t + j * step_size];
+            w[j] = series_slice[t + j * step_size];
         }
 
         argsort(&w, &mut idx, stable);
-        let code_u64 = lehmer_code(&idx);
+        let code_u64 = lehmer_code_with_fact(&idx, &fact);
         out.push(code_u64);
     }
     Array1::from(out)

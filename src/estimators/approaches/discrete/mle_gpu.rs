@@ -8,7 +8,7 @@
 use futures_intrusive::channel::shared::oneshot_channel;
 use ndarray::Array2;
 use pollster::block_on;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use wgpu::util::DeviceExt;
 
 /// Try to compute per-row dense histograms using the GPU.
@@ -18,7 +18,7 @@ use wgpu::util::DeviceExt;
 /// - The global value range (max - min) across the entire matrix is small (<= MAX_BINS)
 ///
 /// If any condition fails or a GPU error occurs, returns None and callers should fall back to CPU.
-pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, usize>>> {
+pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<FxHashMap<i32, usize>>> {
     const MAX_BINS: i32 = 4096; // keep in sync with CPU dense threshold
 
     let (rows, cols) = data.dim();
@@ -231,10 +231,10 @@ pub fn gpu_histogram_rows_dense(data: &Array2<i32>) -> Option<Vec<HashMap<i32, u
     drop(view);
     staging_buffer.unmap();
 
-    // Convert to Vec<HashMap<i32, usize>> per row
-    let mut result: Vec<HashMap<i32, usize>> = Vec::with_capacity(rows);
+    // Convert to Vec<FxHashMap<i32, usize>> per row
+    let mut result: Vec<FxHashMap<i32, usize>> = Vec::with_capacity(rows);
     for r in 0..rows {
-        let mut map = HashMap::new();
+        let mut map = FxHashMap::default();
         let base = r * bins as usize;
         for b in 0..(bins as usize) {
             let c = counts_u32[base + b] as usize;
