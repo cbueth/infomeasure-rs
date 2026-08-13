@@ -87,3 +87,14 @@ steps:
             --error-on-alert \
             cargo bench $BENCH_ARGS -- $CRIT_FLAGS
         fi
+
+  - name: comment
+    image: python:3-alpine
+    environment:
+      CODEGBERG_PR_COMMENT_TOKEN:
+        from_secret: CODEGBERG_PR_COMMENT_TOKEN
+    commands:
+      - python3 .woodpecker/bencher_comment.py
+    when:
+      - event: pull_request
+        status: [success, failure]
