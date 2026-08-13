@@ -1,8 +1,9 @@
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 use ndarray::Array1;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use std::hint::black_box;
 
 /// Generate random data with specified size and number of possible states
 fn generate_random_data(size: usize, num_states: i32, seed: u64) -> Vec<i32> {

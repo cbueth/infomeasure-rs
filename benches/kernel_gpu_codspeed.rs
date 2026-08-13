@@ -13,7 +13,7 @@
 #![allow(unused_imports)]
 
 #[cfg(feature = "gpu")]
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 #[cfg(feature = "gpu")]
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 #[cfg(feature = "gpu")]
@@ -30,6 +30,8 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 #[cfg(feature = "gpu")]
 use rand_distr::{Distribution, Normal};
+#[cfg(feature = "gpu")]
+use std::hint::black_box;
 
 #[cfg(feature = "gpu")]
 const N: usize = 3000;
