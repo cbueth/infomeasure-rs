@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(kernel): mean-centered whitening transform for the Gaussian density [[#51](https://codeberg.org/cbueth/infomeasure-rs/pulls/51)]
 - perf(kernel): store Cholesky factor flat for cache-friendly Mahalanobis [[#49](https://codeberg.org/cbueth/infomeasure-rs/pulls/49)]
 - perf(discrete): use FxHashMap and packed u128 joint keys [[#48](https://codeberg.org/cbueth/infomeasure-rs/pulls/48)]
 - perf(ordinal): hoist factorial table + slice indexing in symbolization [[#47](https://codeberg.org/cbueth/infomeasure-rs/pulls/47)]
