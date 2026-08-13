@@ -11,3 +11,9 @@ path = ["src/**/*.wgsl", "*.md"]
 precedence = "override"
 SPDX-FileCopyrightText = "2025-2026 Carlson Büth <code@cbueth.de>"
 SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+[[annotations]]
+path = ["Cargo.lock"]
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Carlson Büth <code@cbueth.de>"
+SPDX-License-Identifier = "MIT OR Apache-2.0"

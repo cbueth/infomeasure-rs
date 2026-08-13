@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+workspace:
+  base: /build
+  path: .
+
+labels:
+  provider: self-hosted
+
+when:
+  - event: [push, pull_request]
+    branch: [main, develop]
+    path:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - benches/**
+      - .woodpecker/**
+  - event: manual
+
+steps:
+  - name: build
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    environment:
+      CARGO_HOME: /target/infomeasure-rs-cargo-bench
+      CARGO_TARGET_DIR: /target/infomeasure-rs-bench
+    commands:
+      - if [ ! -e /target/infomeasure-rs-bench/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-bench /target/infomeasure-rs-cargo-bench &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-bench/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-bench/ &&
+          touch /target/infomeasure-rs-bench/.seeded;
+        fi
+      - |
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
+        cargo bench --no-run $BENCH_ARGS
+
+  - name: bench
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    environment:
+      BENCHER_API_KEY:
+        from_secret: BENCHER_API_KEY
+      CARGO_HOME: /target/infomeasure-rs-cargo-bench
+      CARGO_TARGET_DIR: /target/infomeasure-rs-bench
+      BENCH_SIZES: "1000"
+      BENCH_SIZES_EXTENDED: "5000"
+      BENCH_K_VALUES: "3"
+      BENCH_BANDWIDTHS: "0.9"
+      BENCH_ORDERS: "3"
+      BENCH_ALPHAS: "1.2"
+      BENCH_Q_VALUES: "1.2"
+    commands:
+      - if [ ! -x "$CARGO_HOME/bin/bencher" ]; then
+          curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh;
+        fi
+      - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
+      - |
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
+        CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
+        if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
+          bencher run \
+            --adapter rust_criterion \
+            --project infomeasure-rs \
+            --branch "$CI_COMMIT_SOURCE_BRANCH" \
+            --hash "$CI_COMMIT_SHA" \
+            --start-point "$CI_COMMIT_TARGET_BRANCH" \
+            --start-point-clone-thresholds \
+            --start-point-reset \
+            --testbed self-hosted \
+            --error-on-alert \
+            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
+        else
+          bencher run \
+            --adapter rust_criterion \
+            --project infomeasure-rs \
+            --branch "$CI_COMMIT_BRANCH" \
+            --hash "$CI_COMMIT_SHA" \
+            --testbed self-hosted \
+            --threshold-measure latency \
+            --threshold-test t_test \
+            --threshold-min-sample-size 10 \
+            --threshold-max-sample-size 128 \
+            --threshold-upper-boundary 0.99 \
+            --thresholds-reset \
+            --error-on-alert \
+            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
+        fi
