@@ -12,7 +12,7 @@ use crate::estimators::approaches::discrete::{
     DiscreteMutualInformation, DiscreteTransferEntropy,
 };
 use crate::estimators::approaches::ordinal::ordinal_utils::{
-    lehmer_code, symbolize_series_compact,
+    lehmer_code_with_fact, symbolize_series_compact,
 };
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
@@ -123,6 +123,8 @@ impl OrdinalEntropy {
                 Array1::zeros(0)
             } else {
                 let mut out: Vec<i32> = Vec::with_capacity(n - 2);
+                // order == 3, so the factorial table is fixed: [1!, 2!] weights per window
+                let fact: [u128; 3] = [1u128, 1, 2];
                 for t in 0..(n - 2) {
                     let x0 = data[t];
                     let x1 = data[t + 1];
@@ -150,7 +152,7 @@ impl OrdinalEntropy {
                             idx
                         }
                     };
-                    let code = lehmer_code(&perm) as i32;
+                    let code = lehmer_code_with_fact(&perm, &fact) as i32;
                     out.push(code);
                 }
                 Array1::from(out)
