@@ -6,6 +6,10 @@
 
 @cbueth
 
+### 📦️ Dependency
+
+- chore(deps): bump kiddo from 6.0.0 to 6.0.1 [[#45](https://codeberg.org/cbueth/infomeasure-rs/pulls/45)]
+
 ### Misc
 
 - ci: migrate from CodSpeed to Bencher Cloud Free [[#44](https://codeberg.org/cbueth/infomeasure-rs/pulls/44)]
