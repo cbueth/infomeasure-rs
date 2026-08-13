@@ -19,6 +19,7 @@
 
 ### Misc
 
+- ci(bench): add Bencher report PR comment [[#50](https://codeberg.org/cbueth/infomeasure-rs/pulls/50)]
 - ci: migrate from CodSpeed to Bencher Cloud Free [[#44](https://codeberg.org/cbueth/infomeasure-rs/pulls/44)]
 - docs(release): clarify release trigger in release workflow comment [[#42](https://codeberg.org/cbueth/infomeasure-rs/pulls/42)]
 
