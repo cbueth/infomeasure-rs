@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use ndarray::Array1;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 /// Argsort for f64 values.
 ///
@@ -112,7 +112,8 @@ pub(crate) fn lehmer_code_with_fact(perm: &[usize], fact: &[u128]) -> u64 {
 /// Remap u64 codes to compact i32 IDs for use with discrete estimators.
 /// Each unique u64 code gets assigned a unique i32 ID based on first occurrence order.
 pub fn remap_u64_to_i32(codes: &Array1<u64>) -> Array1<i32> {
-    let mut map: HashMap<u64, i32> = HashMap::with_capacity(codes.len());
+    let mut map: FxHashMap<u64, i32> =
+        FxHashMap::with_capacity_and_hasher(codes.len(), Default::default());
     let mut next_id: i32 = 0;
     let mut out = Vec::with_capacity(codes.len());
     for &c in codes.iter() {
