@@ -58,6 +58,21 @@
 //! handling, proper dimension-dependent normalization, and bandwidth scaling to match
 //! the behavior of scipy.stats.gaussian_kde.
 //!
+//! ## Exponential evaluation
+//!
+//! The Gaussian kernel density sums `exp(-0.5·d_M²)`. By default the platform
+//! `exp` is used — on modern x86-64 and Apple Silicon the optimised `libm`/glibc
+//! `exp` is faster than a scalar inlined polynomial approximation. For targets
+//! with a slow or minimal `libm` `exp` (embedded, soft-float, no-FMA CPUs), the
+//! following self-contained technique can be reproduced in a few lines: reduce
+//! `x` to `2^(x·log2e) = 2^n · 2^f` with `n = round(x·log2e)`, `f ∈ [-0.5, 0.5)`,
+//! evaluate `2^f` with a degree-12 Taylor polynomial about 0 (coefficients
+//! `(ln 2)^k / k!`), and scale by `2^n` via exponent-bit manipulation (an exact
+//! power of two). This yields ~1e-14 relative error, far inside the 1e-12
+//! Gaussian-kernel parity tolerance. (A former `fast_exp` feature flag was
+//! removed in 0.4.0 — it was not faster than the platform `exp` on optimised
+//! targets and its crude approximation failed the parity suite.)
+//!
 //! ## GPU Acceleration
 //!
 //! When compiled with the `gpu` feature flag, this implementation can use GPU
@@ -1080,27 +1095,18 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                             local_density += (-0.5 * dist_sq).exp();
                         });
                 } else {
-                    let neighbors = other
+                    other
                         .tree
                         .query(query_point)
                         .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
                         .unsorted()
-                        .with_result_capacity(capacity)
                         .with_scratch(&mut scratch)
-                        .execute();
-                    let neighbors_len = neighbors.len();
-                    for neighbor in neighbors {
-                        let neighbor_point = &other.points[neighbor.item as usize];
-                        let dist_sq =
-                            other.calculate_mahalanobis_distance(query_point, neighbor_point);
-                        local_density += (-0.5 * dist_sq).exp();
-                    }
-                    if i == 0 {
-                        capacity = (neighbors_len as f64 * 1.2) as usize;
-                        if capacity == 0 {
-                            capacity = 1;
-                        }
-                    }
+                        .visit(|item| {
+                            let neighbor_point = &other.points[item.item as usize];
+                            let dist_sq =
+                                other.calculate_mahalanobis_distance(query_point, neighbor_point);
+                            local_density += (-0.5 * dist_sq).exp();
+                        });
                 }
 
                 local_density / normalization_q
@@ -1557,14 +1563,7 @@ impl<const K: usize> KernelEntropy<K> {
                         let d = query_point[dim] - p[dim];
                         dist_sq += d * d;
                     }
-                    #[cfg(feature = "fast_exp")]
-                    {
-                        sum_k += self.fast_exp(-0.5 * dist_sq);
-                    }
-                    #[cfg(not(feature = "fast_exp"))]
-                    {
-                        sum_k += (-0.5 * dist_sq).exp();
-                    }
+                    sum_k += (-0.5 * dist_sq).exp();
                 });
             densities[i] = sum_k / normalization;
         }
@@ -1598,38 +1597,19 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let mut scratch = Default::default();
-        let mut capacity = 64;
         for (i, query_point) in self.points.iter().enumerate() {
-            let candidates = self
-                .tree
+            let mut sum_k = 0.0;
+            self.tree
                 .query(query_point)
                 .within::<SquaredEuclidean<f64>>(adaptive_radius)
                 .unsorted()
-                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
-                .execute();
-
-            let candidates_len = candidates.len();
-            let mut sum_k = 0.0;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
-                #[cfg(feature = "fast_exp")]
-                {
-                    sum_k += self.fast_exp(-0.5 * dist_sq);
-                }
-                #[cfg(not(feature = "fast_exp"))]
-                {
+                .visit(|item| {
+                    let p = &self.points[item.item as usize];
+                    let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
                     sum_k += (-0.5 * dist_sq).exp();
-                }
-            }
+                });
             densities[i] = sum_k / normalization;
-            if i == 0 {
-                capacity = (candidates_len as f64 * 1.2) as usize;
-                if capacity == 0 {
-                    capacity = 1;
-                }
-            }
         }
         densities
     }
@@ -1730,88 +1710,6 @@ impl<const K: usize> KernelEntropy<K> {
         local_values.mapv_inplace(|x| if x > 0.0 { -(x / n_volume).ln() } else { 0.0 });
 
         local_values
-    }
-
-    /// Computes local entropy values using a Gaussian kernel
-    ///
-    /// The Gaussian kernel uses a normal distribution centered at each query point
-    /// to weight the contribution of neighboring points to the density estimate.
-    /// This provides a smoother density estimate compared to the box kernel.
-    ///
-    /// # Implementation Details
-    ///
-    /// 1. For each data point, find all neighbors within a reasonable distance
-    /// 2. Calculate the Gaussian kernel contribution from each neighbor
-    /// 3. Normalize by the product of (bandwidth * std_dev) in each dimension and the number of samples
-    /// 4. Apply logarithm and dimension-dependent normalization to get entropy values
-    ///
-    /// # Adaptive Radius for Neighbor Search
-    ///
-    /// The Gaussian kernel uses an adaptive radius to limit the search for neighbors:
-    ///
-    /// - For large datasets (>5000 points): 3σ radius (9 * max_scaled_bandwidth²)
-    /// - For smaller datasets: 4σ radius (16 * max_scaled_bandwidth²)
-    ///
-    /// When compiled with the `gpu` feature flag, the GPU implementation uses
-    /// a larger adaptive radius, especially for small bandwidths (< 0.5):
-    ///
-    /// - For large datasets (>5000 points) with small bandwidths: 4σ radius
-    /// - For smaller datasets with small bandwidths: 5σ radius
-    /// - For large datasets with normal bandwidths: 3σ radius
-    /// - For smaller datasets with normal bandwidths: 4σ radius
-    ///
-    /// Points beyond this distance have a negligible contribution to the density estimate.
-    ///
-    /// # Bandwidth Scaling and Covariance
-    ///
-    /// Unlike the box kernel, the Gaussian kernel uses the full covariance matrix
-    /// of the data, scaled by the squared bandwidth. This makes the estimator adaptive to
-    /// both the scale and the correlation of the data in each dimension, matching the
-    /// behavior of scipy.stats.gaussian_kde exactly.
-    ///
-    /// The scaling is applied in three places:
-    /// 1. When calculating the search radius for finding neighbors (using the largest eigenvalue)
-    /// 2. When calculating the Mahalanobis distance for the Gaussian kernel
-    /// 3. When calculating the normalization factor (using the determinant of the covariance matrix)
-    ///
-    /// # Normalization
-    ///
-    /// The Gaussian kernel entropy includes a proper normalization factor based on the
-    /// determinant of the scaled covariance matrix: (2π)^(d/2) * sqrt(det(Σ_scaled)).
-    /// This ensures that the entropy estimate is consistent with the theoretical
-    /// definition of differential entropy for a multivariate Gaussian distribution.
-    /// Fast approximation of the exponential function
-    #[cfg(feature = "fast_exp")]
-    fn fast_exp(&self, x: f64) -> f64 {
-        // Handle extreme values to prevent overflow/underflow
-        if x < -700.0 {
-            return 0.0;
-        }
-        if x > 700.0 {
-            return f64::INFINITY;
-        }
-
-        // For very small negative values, use a Taylor series approximation
-        if x > -0.5 {
-            // Use a 5th-order Taylor series approximation for small negative values
-            // exp(x) ≈ 1 + x + x²/2 + x³/6 + x⁴/24 + x⁵/120
-            return 1.0
-                + x * (1.0 + x * (0.5 + x * (1.0 / 6.0 + x * (1.0 / 24.0 + x * (1.0 / 120.0)))));
-        }
-
-        // For medium negative values, use a rational approximation
-        if x > -2.5 {
-            // This is a minimax approximation that provides a good balance between accuracy and performance
-            // exp(x) ≈ 1 / (1 - x + x²/2 - x³/6) for x < 0
-            return 1.0 / (1.0 - x + x * x / 2.0 - x * x * x / 6.0);
-        }
-
-        // For large negative values, use a higher-order rational approximation
-        // This provides better accuracy for inputs far from 0
-        // exp(x) ≈ 1 / (1 - x + x²/2 - x³/6 + x⁴/24 - x⁵/120 + x⁶/720)
-        1.0 / (1.0 - x + x * x / 2.0 - x * x * x / 6.0 + x * x * x * x / 24.0
-            - x * x * x * x * x / 120.0
-            + x * x * x * x * x * x / 720.0)
     }
 }
 
