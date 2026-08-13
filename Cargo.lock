@@ -1190,9 +1190,9 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kiddo"
-version = "6.0.0"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20131a7981708df6a051a83cefb0d7675f587241a46857ebf196e1304c8f90f7"
+checksum = "b6f89e2ceacbac74a3b0dbe6674ef49f78aa2ebd29e2ca0dce2d40c0dc24d621"
 dependencies = [
  "aligned-vec",
  "array-init",
