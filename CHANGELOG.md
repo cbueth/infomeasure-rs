@@ -1,10 +1,17 @@
 # Changelog
 
-## [0.3.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.1-rc.0) - 2026-08-13
+## [0.4.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.0-rc.0) - 2026-08-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @cbueth
+
+### 📈 Enhancement
+
+- perf(kernel): store Cholesky factor flat for cache-friendly Mahalanobis [[#49](https://codeberg.org/cbueth/infomeasure-rs/pulls/49)]
+- perf(discrete): use FxHashMap and packed u128 joint keys [[#48](https://codeberg.org/cbueth/infomeasure-rs/pulls/48)]
+- perf(ordinal): hoist factorial table + slice indexing in symbolization [[#47](https://codeberg.org/cbueth/infomeasure-rs/pulls/47)]
+- perf(ksg): skip sorting + adaptive result capacity on within queries [[#46](https://codeberg.org/cbueth/infomeasure-rs/pulls/46)]
 
 ### 📦️ Dependency
 
