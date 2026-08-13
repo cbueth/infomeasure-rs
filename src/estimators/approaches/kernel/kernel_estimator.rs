@@ -986,8 +986,9 @@ pub struct KernelEntropy<const K: usize> {
     pub tree: KdTreeKernel<K>,
     /// Standard deviations of the data in each dimension (used for Gaussian kernel scaling)
     pub std_devs: [f64; K],
-    /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2)
-    pub cholesky_factor: Option<Array2<f64>>,
+    /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2),
+    /// stored flat row-major (length K*K) for cache-friendly Mahalanobis forward substitution
+    pub cholesky_factor: Option<Vec<f64>>,
     /// Precision matrix (inverse of scaled covariance matrix) for GPU or direct Mahalanobis distance
     pub precision_matrix: Option<Array2<f64>>,
     /// Largest eigenvalue of the scaled covariance matrix, used for KD-tree search radius
@@ -1008,7 +1009,10 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
         // Pre-calculate normalization for other if it's Gaussian
         let (normalization_q, adaptive_radius_q) = if other.kernel_type == "gaussian" {
             let det_scaled_cov_q = if let Some(ref l) = other.cholesky_factor {
-                let diag_prod: f64 = l.diag().iter().product();
+                let mut diag_prod = 1.0;
+                for i in 0..K {
+                    diag_prod *= l[i * (K + 1)];
+                }
                 diag_prod * diag_prod
             } else {
                 other.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
@@ -1259,7 +1263,9 @@ impl<const K: usize> KernelEntropy<K> {
             // L * L^T = Σ_scaled
             let l = scaled_cov.cholesky(UPLO::Lower)
                 .expect("Covariance matrix must be positive definite. Check for redundant dimensions or duplicate data.");
-            cholesky_factor = Some(l);
+            // Store L flat row-major for cache-friendly Mahalanobis forward substitution
+            let flat: Vec<f64> = l.iter().copied().collect();
+            cholesky_factor = Some(flat);
 
             // Precision matrix (inverse of scaled covariance) for GPU
             let inv = scaled_cov
@@ -1331,7 +1337,8 @@ impl<const K: usize> KernelEntropy<K> {
     /// If only diagonal covariance is available, it falls back to scaled Euclidean distance.
     pub fn calculate_mahalanobis_distance(&self, p1: &[f64; K], p2: &[f64; K]) -> f64 {
         if let Some(ref l) = self.cholesky_factor {
-            // Solve L z = (p1 - p2) using forward substitution
+            // Solve L z = (p1 - p2) using forward substitution.
+            // L is flat row-major (length K*K); with const generic K the loops unroll.
             let mut diff = [0.0; K];
             for dim in 0..K {
                 diff[dim] = p1[dim] - p2[dim];
@@ -1340,10 +1347,11 @@ impl<const K: usize> KernelEntropy<K> {
             let mut z = [0.0; K];
             for i in 0..K {
                 let mut sum = 0.0;
+                let base = i * K;
                 for j in 0..i {
-                    sum += l[[i, j]] * z[j];
+                    sum += l[base + j] * z[j];
                 }
-                z[i] = (diff[i] - sum) / l[[i, i]];
+                z[i] = (diff[i] - sum) / l[base + i];
             }
 
             // dist_sq = ||z||^2
@@ -1428,7 +1436,10 @@ impl<const K: usize> KernelEntropy<K> {
         let bw = self.bandwidth;
 
         let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
-            let diag_prod: f64 = l.diag().iter().product();
+            let mut diag_prod = 1.0;
+            for i in 0..K {
+                diag_prod *= l[i * (K + 1)];
+            }
             diag_prod * diag_prod
         } else {
             self.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
@@ -1712,5 +1723,116 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
         // which handles CPU/GPU dispatching and kernel type selection.
         let densities = self.kde_probability_density();
         densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use rstest::rstest;
+
+    /// Build a KernelEntropy<2> with a hand-specified (flat row-major) Cholesky factor
+    /// or None to exercise the diagonal fallback. The tree/points are not used by
+    /// `calculate_mahalanobis_distance`.
+    fn kernel_2d(
+        cholesky: Option<Vec<f64>>,
+        std_devs: [f64; 2],
+        bandwidth: f64,
+    ) -> KernelEntropy<2> {
+        let points = vec![[0.0, 0.0], [1.0, 1.0]];
+        let tree = KdTreeKernel::<2>::new_from_slice(&points).unwrap();
+        KernelEntropy {
+            points,
+            n_samples: 2,
+            kernel_type: "gaussian".to_string(),
+            bandwidth,
+            tree,
+            std_devs,
+            cholesky_factor: cholesky,
+            precision_matrix: None,
+            max_eigenvalue: 1.0,
+            force_cpu: false,
+        }
+    }
+
+    /// Diagonal Cholesky L = [[a, 0], [0, b]]: d_M^2 = (dx/a)^2 + (dy/b)^2.
+    /// Flat row-major: [a, 0.0, 0.0, b].
+    #[rstest]
+    #[case([0.0, 0.0], [3.0, 4.0], vec![2.0, 0.0, 0.0, 4.0], 3.25)]
+    #[case([1.0, 1.0], [2.0, 3.0], vec![2.0, 0.0, 0.0, 4.0], 0.5)]
+    #[case([0.0, 0.0], [1.0, 0.0], vec![2.0, 0.0, 0.0, 4.0], 0.25)]
+    #[case([0.0, 0.0], [3.0, 4.0], vec![5.0, 0.0, 0.0, 1.0], 0.36 + 16.0)]
+    fn mahalanobis_diagonal_cholesky(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] l: Vec<f64>,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(Some(l), [1.0, 1.0], 1.0);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// Full lower-triangular Cholesky L = [[a, 0], [c, b]] exercises the flat
+    /// forward-substitution indexing across both rows. Flat row-major: [a, 0.0, c, b].
+    #[rstest]
+    #[case([0.0, 0.0], [4.0, 8.0], vec![2.0, 0.0, 1.0, 4.0], 4.0 + 2.25)]
+    #[case([0.0, 0.0], [0.0, 8.0], vec![2.0, 0.0, 1.0, 4.0], 4.0)]
+    #[case([0.0, 0.0], [2.0, 6.0], vec![2.0, 0.0, 1.0, 4.0], 1.0 + 1.5625)]
+    #[case([0.0, 0.0], [3.0, 6.0], vec![3.0, 0.0, 2.0, 2.0], 1.0 + 4.0)]
+    fn mahalanobis_full_cholesky(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] l: Vec<f64>,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(Some(l), [1.0, 1.0], 1.0);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// Fallback (cholesky_factor = None): scaled Euclidean with scale = bandwidth * std_dev.
+    #[rstest]
+    #[case([0.0, 0.0], [3.0, 4.0], [1.0, 1.0], 1.0, 25.0)]
+    #[case([0.0, 0.0], [1.0, 1.0], [1.0, 1.0], 1.0, 2.0)]
+    #[case([2.0, 2.0], [2.0, 6.0], [1.0, 1.0], 1.0, 16.0)]
+    #[case([0.0, 0.0], [2.0, 4.0], [1.0, 1.0], 2.0, 5.0)]
+    #[case([0.0, 0.0], [6.0, 0.0], [1.0, 2.0], 1.0, 36.0)]
+    fn mahalanobis_diagonal_fallback(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] std_devs: [f64; 2],
+        #[case] bandwidth: f64,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(None, std_devs, bandwidth);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// The Mahalanobis distance is symmetric: d(p1, p2) == d(p2, p1).
+    #[test]
+    fn mahalanobis_symmetric() {
+        let kernel = kernel_2d(Some(vec![2.0, 1.0, 0.0, 4.0]), [1.0, 1.0], 1.0);
+        let pairs = [
+            ([0.0, 0.0], [4.0, 8.0]),
+            ([1.5, -2.0], [-3.0, 7.25]),
+            ([0.1, 0.2], [-9.0, 1.0]),
+        ];
+        for (p1, p2) in pairs {
+            let d12 = kernel.calculate_mahalanobis_distance(&p1, &p2);
+            let d21 = kernel.calculate_mahalanobis_distance(&p2, &p1);
+            assert_relative_eq!(d12, d21, epsilon = 1e-12);
+        }
     }
 }
