@@ -993,6 +993,14 @@ pub struct KernelEntropy<const K: usize> {
     pub precision_matrix: Option<Array2<f64>>,
     /// Largest eigenvalue of the scaled covariance matrix, used for KD-tree search radius
     pub max_eigenvalue: f64,
+    /// Sample mean per dimension (used by the Gaussian whitening transform); `None` for box kernel
+    pub mean: Option<[f64; K]>,
+    /// Data points transformed by `y = L⁻¹(x - mean)`; `Some` only for the Gaussian kernel
+    /// when the full Cholesky factor is available. In whitened space the Mahalanobis distance
+    /// is a plain Euclidean distance and the KD-tree search radius is data-independent.
+    pub whitened_points: Option<Vec<[f64; K]>>,
+    /// KD-tree built on `whitened_points`; `Some` only for the Gaussian kernel with Cholesky
+    pub whitened_tree: Option<KdTreeKernel<K>>,
     /// Force CPU implementation even if GPU support is available
     pub force_cpu: bool,
 }
@@ -1019,10 +1027,13 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
             };
             let norm =
                 n_q * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov_q.sqrt();
-            let radius = if other.n_samples > 5000 {
-                36.0 * other.max_eigenvalue
+            let base_radius = if other.n_samples > 5000 { 36.0 } else { 64.0 };
+            // In whitened space the covariance is identity, so the search radius is
+            // the constant truncation bound; otherwise scale by λ_max as before.
+            let radius = if other.whitened_tree.is_some() {
+                base_radius
             } else {
-                64.0 * other.max_eigenvalue
+                base_radius * other.max_eigenvalue
             };
             (norm, radius)
         } else {
@@ -1037,24 +1048,58 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                 // Gaussian kernel density at query_point using other's covariance
                 let mut local_density = 0.0;
 
-                let neighbors = other
-                    .tree
-                    .query(query_point)
-                    .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
-                    .unsorted()
-                    .with_result_capacity(capacity)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let neighbors_len = neighbors.len();
-                for neighbor in neighbors {
-                    let neighbor_point = &other.points[neighbor.item as usize];
-                    let dist_sq = other.calculate_mahalanobis_distance(query_point, neighbor_point);
-                    local_density += (-0.5 * dist_sq).exp();
-                }
-                if i == 0 {
-                    capacity = (neighbors_len as f64 * 1.2) as usize;
-                    if capacity == 0 {
-                        capacity = 1;
+                if let (Some(wtree), Some(wpoints), Some(mean), Some(l)) = (
+                    &other.whitened_tree,
+                    &other.whitened_points,
+                    &other.mean,
+                    &other.cholesky_factor,
+                ) {
+                    // Whitened fast path: whiten the query point with other's transform,
+                    // then accumulate exp(-½‖y_q - y_p‖²) directly in the visitor.
+                    let mut yq = [0.0; K];
+                    for dim in 0..K {
+                        let base = dim * K;
+                        let mut sum = 0.0;
+                        for j in 0..dim {
+                            sum += l[base + j] * yq[j];
+                        }
+                        yq[dim] = (query_point[dim] - mean[dim] - sum) / l[base + dim];
+                    }
+                    wtree
+                        .query(&yq)
+                        .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
+                        .unsorted()
+                        .with_scratch(&mut scratch)
+                        .visit(|item| {
+                            let p = &wpoints[item.item as usize];
+                            let mut dist_sq = 0.0;
+                            for dim in 0..K {
+                                let d = yq[dim] - p[dim];
+                                dist_sq += d * d;
+                            }
+                            local_density += (-0.5 * dist_sq).exp();
+                        });
+                } else {
+                    let neighbors = other
+                        .tree
+                        .query(query_point)
+                        .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
+                        .unsorted()
+                        .with_result_capacity(capacity)
+                        .with_scratch(&mut scratch)
+                        .execute();
+                    let neighbors_len = neighbors.len();
+                    for neighbor in neighbors {
+                        let neighbor_point = &other.points[neighbor.item as usize];
+                        let dist_sq =
+                            other.calculate_mahalanobis_distance(query_point, neighbor_point);
+                        local_density += (-0.5 * dist_sq).exp();
+                    }
+                    if i == 0 {
+                        capacity = (neighbors_len as f64 * 1.2) as usize;
+                        if capacity == 0 {
+                            capacity = 1;
+                        }
                     }
                 }
 
@@ -1224,6 +1269,7 @@ impl<const K: usize> KernelEntropy<K> {
         let mut precision_matrix = None;
 
         // Calculate standard deviations (always done as it's cheap and used by Box kernel too)
+        let mut means = [0.0; K];
         for dim in 0..K {
             let mut mean = 0.0;
             let mut m2 = 0.0;
@@ -1235,6 +1281,7 @@ impl<const K: usize> KernelEntropy<K> {
                 let delta2 = point[dim] - mean;
                 m2 += delta * delta2;
             }
+            means[dim] = mean;
             let variance = if count < 2.0 { 0.0 } else { m2 / (count - 1.0) };
             std_devs[dim] = variance.sqrt();
         }
@@ -1287,6 +1334,38 @@ impl<const K: usize> KernelEntropy<K> {
             (max_std * bandwidth).powi(2)
         };
 
+        // Whitening transform for the Gaussian kernel: y = L⁻¹(x - m) where L Lᵀ = Σ_scaled.
+        // In whitened space d_M²(p,q) = ‖y_p - y_q‖² exactly, so the density inner loop
+        // becomes an O(K) dot product and the KD-tree radius is a data-independent constant.
+        let (whitened_points, whitened_tree) = if kernel_type == "gaussian" {
+            if let Some(ref l) = cholesky_factor {
+                let wpoints: Vec<[f64; K]> = points
+                    .iter()
+                    .map(|p| {
+                        // Solve L y = (p - m) via forward substitution.
+                        let mut y = [0.0; K];
+                        for i in 0..K {
+                            let base = i * K;
+                            let mut sum = 0.0;
+                            for j in 0..i {
+                                sum += l[base + j] * y[j];
+                            }
+                            y[i] = (p[i] - means[i] - sum) / l[base + i];
+                        }
+                        y
+                    })
+                    .collect();
+                let wtree = KdTreeKernel::<K>::new_from_slice(&wpoints).unwrap();
+                (Some(wpoints), Some(wtree))
+            } else {
+                (None, None)
+            }
+        } else {
+            (None, None)
+        };
+
+        let is_gaussian = kernel_type == "gaussian";
+
         Self {
             points,
             n_samples,
@@ -1297,6 +1376,9 @@ impl<const K: usize> KernelEntropy<K> {
             cholesky_factor,
             precision_matrix,
             max_eigenvalue,
+            mean: is_gaussian.then_some(means),
+            whitened_points,
+            whitened_tree,
             force_cpu: false,
         }
     }
@@ -1431,7 +1513,81 @@ impl<const K: usize> KernelEntropy<K> {
     }
 
     /// Internal method to compute density using Gaussian kernel on CPU
+    ///
+    /// Uses the whitened-space fast path when the Cholesky factor is available
+    /// (O(K) dot-product inner loop, data-independent radius); otherwise falls
+    /// back to the Mahalanobis forward-substitution path.
     pub fn gaussian_kernel_density_cpu(&self) -> Array1<f64> {
+        if let Some(ref wtree) = self.whitened_tree {
+            self.gaussian_kernel_density_cpu_whitened(wtree)
+        } else {
+            self.gaussian_kernel_density_cpu_mahalanobis()
+        }
+    }
+
+    /// Whitened-space Gaussian density: `d_M² = ‖y_p - y_q‖²`, so candidates are
+    /// queried in a Euclidean ball of fixed squared radius and the inner loop is a
+    /// plain dot product. Identical density to `gaussian_kernel_density_cpu_mahalanobis`
+    /// up to fp rounding (the transform is an isometry for the Mahalanobis metric).
+    fn gaussian_kernel_density_cpu_whitened(&self, wtree: &KdTreeKernel<K>) -> Array1<f64> {
+        let n = self.n_samples as f64;
+        let bw = self.bandwidth;
+
+        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
+            let mut diag_prod = 1.0;
+            for i in 0..K {
+                diag_prod *= l[i * (K + 1)];
+            }
+            diag_prod * diag_prod
+        } else {
+            self.std_devs.iter().map(|&s| (bw * s).powi(2)).product()
+        };
+
+        let normalization =
+            n * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+
+        // In whitened space the covariance is the identity, so the search radius is
+        // the squared Mahalanobis truncation bound (64 for N<=5000, 36 otherwise),
+        // matching the original `64·λ_max` / `36·λ_max` thresholds.
+        let adaptive_radius = if self.n_samples > 5000 { 36.0 } else { 64.0 };
+
+        let wpoints = self
+            .whitened_points
+            .as_deref()
+            .expect("whitened tree implies whitened points");
+        let mut scratch = Default::default();
+        for (i, query_point) in wpoints.iter().enumerate() {
+            let mut sum_k = 0.0;
+            wtree
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                .unsorted()
+                .with_scratch(&mut scratch)
+                .visit(|item| {
+                    let p = &wpoints[item.item as usize];
+                    let mut dist_sq = 0.0;
+                    for dim in 0..K {
+                        let d = query_point[dim] - p[dim];
+                        dist_sq += d * d;
+                    }
+                    #[cfg(feature = "fast_exp")]
+                    {
+                        sum_k += self.fast_exp(-0.5 * dist_sq);
+                    }
+                    #[cfg(not(feature = "fast_exp"))]
+                    {
+                        sum_k += (-0.5 * dist_sq).exp();
+                    }
+                });
+            densities[i] = sum_k / normalization;
+        }
+        densities
+    }
+
+    /// Mahalanobis-space Gaussian density (fallback when no Cholesky factor exists,
+    /// e.g. manually constructed estimators). Original forward-substitution path.
+    fn gaussian_kernel_density_cpu_mahalanobis(&self) -> Array1<f64> {
         let n = self.n_samples as f64;
         let bw = self.bandwidth;
 
@@ -1752,6 +1908,9 @@ mod tests {
             cholesky_factor: cholesky,
             precision_matrix: None,
             max_eigenvalue: 1.0,
+            mean: None,
+            whitened_points: None,
+            whitened_tree: None,
             force_cpu: false,
         }
     }
@@ -1833,6 +1992,48 @@ mod tests {
             let d12 = kernel.calculate_mahalanobis_distance(&p1, &p2);
             let d21 = kernel.calculate_mahalanobis_distance(&p2, &p1);
             assert_relative_eq!(d12, d21, epsilon = 1e-12);
+        }
+    }
+
+    /// The whitened-space density path must reproduce the Mahalanobis
+    /// forward-substitution path to fp rounding (the transform is an isometry for
+    /// the Mahalanobis metric), for well-conditioned data.
+    #[rstest]
+    fn whitened_density_matches_mahalanobis(#[values(100, 500)] n: usize) {
+        use rand::SeedableRng;
+        use rand::distributions::Distribution;
+        use rand::rngs::StdRng;
+        use rand_distr::Normal;
+
+        type Case = (u64, [f64; 2], [f64; 2], f64, f64);
+        let cases: [Case; 3] = [
+            (42u64, [0.0, 0.0], [1.0, 1.0], 0.0, 0.9),
+            (7u64, [3.0, -2.0], [1.0, 1.0], 0.6, 0.5),
+            (99u64, [-5.0, 8.0], [0.25, 4.0], -0.8, 1.0),
+        ];
+
+        for (seed, mean, var, corr, bw) in cases {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut data = Array2::<f64>::zeros((n, 2));
+            let zx = Normal::new(0.0, var[0].sqrt()).unwrap();
+            let zy = Normal::new(0.0, var[1].sqrt()).unwrap();
+            for i in 0..n {
+                let x = zx.sample(&mut rng);
+                let y = corr * x + (1.0 - corr * corr).sqrt() * zy.sample(&mut rng);
+                data[[i, 0]] = x + mean[0];
+                data[[i, 1]] = y + mean[1];
+            }
+            let kernel = KernelEntropy::<2>::new_2d(data, "gaussian".to_string(), bw);
+            let densities_w = kernel.gaussian_kernel_density_cpu();
+            let densities_m = kernel.gaussian_kernel_density_cpu_mahalanobis();
+            for i in 0..n {
+                assert_relative_eq!(
+                    densities_w[i],
+                    densities_m[i],
+                    max_relative = 1e-9,
+                    epsilon = 1e-12
+                );
+            }
         }
     }
 }
