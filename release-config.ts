@@ -59,11 +59,19 @@ export default {
   skipLabels: ['skip-release', 'skip-changelog', 'regression'],
   skipCommitsWithoutPullRequest: true,
   commentOnReleasedPullRequests: true,
-  // Update version files during release preparation so the release PR carries the bump
+  // Update version files during release preparation so the release PR carries the bump:
+  // Cargo.toml, CITATION.cff, plus the user-facing version references in README.md
+  // ("Now available!" banner and dependency snippets) and src/lib.rs (docs.rs banner).
   beforePrepare: async ({ exec, nextVersion }) => {
     const today = new Date().toISOString().split('T')[0];
     await exec(`sed -i "s/^version:.*/version: ${nextVersion}/" CITATION.cff`);
     await exec(`sed -i "s/^date-released:.*/date-released: ${today}/" CITATION.cff`);
     await exec(`sed -i "1,/^version = .*/s/^version = .*/version = \\"${nextVersion}\\"/" Cargo.toml`);
+    // Bump the "Now available!" banner in README and the crate docs (docs.rs).
+    await exec(`sed -i "s/\\*\\*v[0-9][^ ]*/\\*\\*v${nextVersion}/g" README.md src/lib.rs`);
+    // Bump the plain dependency snippet: infomeasure = "0.3.0"
+    await exec(`sed -i "s/infomeasure = \\"[0-9][^\\"]*\\"/infomeasure = \\"${nextVersion}\\"/g" README.md`);
+    // Bump the feature-flavored snippets: infomeasure = { version = "0.3.0", ... }
+    await exec(`sed -i "s/infomeasure = { version = \\"[0-9][^\\"]*\\"/infomeasure = { version = \\"${nextVersion}\\"/g" README.md`);
   },
 };

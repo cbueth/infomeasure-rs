@@ -29,18 +29,26 @@ steps:
       CARGO_REGISTRY_TOKEN:
         from_secret: crates_io_token
     commands:
-      # Guard: only publish when Cargo.toml matches the version being released.
-      # The tag version is taken from the release-PR title (merge commit message);
-      # beforePrepare must have bumped Cargo.toml to the same version.
+      # Guard: only publish when Cargo.toml, README.md and src/lib.rs all match the
+      # version being released. The tag version is taken from the release-PR title
+      # (merge commit message); beforePrepare must have bumped all of them.
       - |
         set -e
         RELEASE_VER=$(printf '%s' "$CI_COMMIT_MESSAGE" | sed -n "s/.*'Release \([^']*\)'.*/\1/p" | head -n1)
         CARGO_VER=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)
+        README_VER=$(sed -n 's/.*infomeasure = "\([0-9][^"]*\)".*/\1/p' README.md | head -n1)
+        LIB_VER=$(sed -n 's/.*\*\*v\([0-9][^ ]*\).*/\1/p' src/lib.rs | head -n1)
         [ -n "$RELEASE_VER" ] || { echo "Error: could not parse release version from commit message."; exit 1; }
         [ -n "$CARGO_VER" ] || { echo "Error: could not read version from Cargo.toml."; exit 1; }
-        if [ "$RELEASE_VER" != "$CARGO_VER" ]; then
-          echo "Error: Cargo.toml version '$CARGO_VER' does not match released version '$RELEASE_VER'."
-          echo "Release preparation did not bump Cargo.toml. Uncheck 'Mark this version as a release candidate' in the release PR and re-run before merging."
+        [ -n "$README_VER" ] || { echo "Error: could not read version from README.md."; exit 1; }
+        [ -n "$LIB_VER" ] || { echo "Error: could not read version from src/lib.rs."; exit 1; }
+        STALE=""
+        [ "$RELEASE_VER" = "$CARGO_VER" ] || STALE="$STALE Cargo.toml($CARGO_VER)"
+        [ "$RELEASE_VER" = "$README_VER" ] || STALE="$STALE README.md($README_VER)"
+        [ "$RELEASE_VER" = "$LIB_VER" ] || STALE="$STALE src/lib.rs($LIB_VER)"
+        if [ -n "$STALE" ]; then
+          echo "Error: version mismatch against release '$RELEASE_VER':$STALE"
+          echo "Release preparation did not bump all version files. Uncheck 'Mark this version as a release candidate' in the release PR and re-run before merging."
           exit 1
         fi
         echo "Releasing $CARGO_VER (matches release '$RELEASE_VER')."
