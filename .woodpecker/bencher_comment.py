@@ -16,6 +16,7 @@ events. It:
 Uses only the Python standard library. Env vars:
   BENCHER_API_URL   (default https://api.bencher.dev)
   BENCHER_PROJECT   (default infomeasure-rs)
+  BENCHER_DELTA_THRESHOLD (default 10; % |Δ| for improved/regressed classification)
   CODEGBERG_PR_COMMENT_TOKEN (Forgejo API token, write:issue scope)
   CI_REPO_OWNER, CI_REPO_NAME, CI_COMMIT_PULL_REQUEST,
   CI_COMMIT_SOURCE_BRANCH, CI_COMMIT_TARGET_BRANCH, CI_COMMIT_SHA
@@ -35,6 +36,16 @@ BENCHER_API_URL = os.environ.get("BENCHER_API_URL", "https://api.bencher.dev")
 BENCHER_PROJECT = os.environ.get("BENCHER_PROJECT", "infomeasure-rs")
 CODEGBERG_TOKEN = os.environ.get("CODEGBERG_PR_COMMENT_TOKEN", "")
 CODEGBERG_URL = "https://codeberg.org"
+TOP_CHANGES = 10
+DEFAULT_DELTA_THRESHOLD = 10.0
+
+
+def delta_threshold() -> float:
+    raw = os.environ.get("BENCHER_DELTA_THRESHOLD", "")
+    try:
+        return float(raw) if raw else DEFAULT_DELTA_THRESHOLD
+    except ValueError:
+        return DEFAULT_DELTA_THRESHOLD
 
 # The marker tag is the last thing in the comment body. It lets us find an
 # existing comment to update on a rerun instead of creating duplicates.
@@ -111,6 +122,30 @@ def measure_value(results: list, benchmark_name: str) -> typing.Optional[float]:
     return None
 
 
+def _collect_rows(results: list, base_results: list) -> list:
+    """Return (benchmark name, formatted value, delta %) per benchmark."""
+    rows = []
+    for iteration in results:
+        for result in iteration:
+            name = result["benchmark"]["name"]
+            for m in result.get("measures", []):
+                value = m.get("metric", {}).get("value")
+                if value is None:
+                    continue
+                base_value = measure_value(base_results, name)
+                delta = percent_delta(value, base_value) if base_value is not None else None
+                rows.append((name, format_ns(value), delta))
+    return rows
+
+
+def _markdown_table(rows: list) -> str:
+    lines = ["| Benchmark | Result | Δ vs target |", "| --- | ---: | ---: |"]
+    for name, value_str, delta in rows:
+        delta_str = f"{delta:+.1f}%" if delta is not None else "—"
+        lines.append(f"| {name} | {value_str} | {delta_str} |")
+    return "\n".join(lines)
+
+
 def render_markdown(pr_report: dict, base_report: typing.Optional[dict]) -> str:
     project = pr_report["project"]["name"]
     branch = pr_report["branch"]["name"]
@@ -142,37 +177,54 @@ def render_markdown(pr_report: dict, base_report: typing.Optional[dict]) -> str:
         lines.append("")
 
     results = pr_report.get("results") or []
+    base_results = (base_report.get("results") or []) if base_report else []
     benchmark_count = sum(len(it) for it in results)
     if benchmark_count == 0:
         lines.append("_No benchmarks found in this report._")
         lines.append("")
     else:
-        rows = []
-        for iteration in results:
-            for result in iteration:
-                name = result["benchmark"]["name"]
-                for m in result.get("measures", []):
-                    value = m.get("metric", {}).get("value")
-                    if value is None:
-                        continue
-                    base_value = None
-                    if base_report is not None:
-                        base_value = measure_value(
-                            base_report.get("results") or [], name
-                        )
-                    if base_value is not None:
-                        delta = percent_delta(value, base_value)
-                        delta_str = f"{delta:+.1f}%"
-                    else:
-                        delta_str = "—"
-                    rows.append((name, format_ns(value), delta_str))
+        rows = _collect_rows(results, base_results)
+        # Benchmarks without a baseline sort last; the rest by |Δ| descending.
+        rows.sort(
+            key=lambda r: (
+                r[2] is None,
+                -(abs(r[2]) if r[2] is not None else 0.0),
+            )
+        )
 
-        rows.sort(key=lambda r: r[0])
-        lines.append("| Benchmark | Result | Δ vs target |")
-        lines.append("| --- | ---: | ---: |")
-        for name, value_str, delta_str in rows:
-            lines.append(f"| {name} | {value_str} | {delta_str} |")
+        threshold = delta_threshold()
+        improved = sum(1 for _, _, d in rows if d is not None and d <= -threshold)
+        regressed = sum(1 for _, _, d in rows if d is not None and d >= threshold)
+        unchanged = len(rows) - improved - regressed
+
+        lines.append("### Summary")
         lines.append("")
+        lines.append(
+            f"✅ **Improved:** {improved} · "
+            f"⚪ **Unchanged:** {unchanged} · "
+            f"❌ **Regressed:** {regressed}"
+        )
+        lines.append(
+            f"<sub>|Δ| ≥ {threshold:g}% counts as a change; "
+            "Δ vs the start-point baseline</sub>"
+        )
+        lines.append("")
+
+        shown = rows[:TOP_CHANGES]
+        lines.append("### Top changes")
+        lines.append("")
+        lines.append(_markdown_table(shown))
+        lines.append("")
+
+        if len(rows) > TOP_CHANGES:
+            hidden = rows[TOP_CHANGES:]
+            lines.append("<details>")
+            lines.append(f"<summary>All {len(rows)} benchmarks (show/hide)</summary>")
+            lines.append("")
+            lines.append(_markdown_table(hidden))
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
 
     lines.append("---")
     lines.append("")
