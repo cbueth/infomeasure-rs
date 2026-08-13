@@ -1725,3 +1725,114 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
         densities.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use rstest::rstest;
+
+    /// Build a KernelEntropy<2> with a hand-specified (flat row-major) Cholesky factor
+    /// or None to exercise the diagonal fallback. The tree/points are not used by
+    /// `calculate_mahalanobis_distance`.
+    fn kernel_2d(
+        cholesky: Option<Vec<f64>>,
+        std_devs: [f64; 2],
+        bandwidth: f64,
+    ) -> KernelEntropy<2> {
+        let points = vec![[0.0, 0.0], [1.0, 1.0]];
+        let tree = KdTreeKernel::<2>::new_from_slice(&points).unwrap();
+        KernelEntropy {
+            points,
+            n_samples: 2,
+            kernel_type: "gaussian".to_string(),
+            bandwidth,
+            tree,
+            std_devs,
+            cholesky_factor: cholesky,
+            precision_matrix: None,
+            max_eigenvalue: 1.0,
+            force_cpu: false,
+        }
+    }
+
+    /// Diagonal Cholesky L = [[a, 0], [0, b]]: d_M^2 = (dx/a)^2 + (dy/b)^2.
+    /// Flat row-major: [a, 0.0, 0.0, b].
+    #[rstest]
+    #[case([0.0, 0.0], [3.0, 4.0], vec![2.0, 0.0, 0.0, 4.0], 3.25)]
+    #[case([1.0, 1.0], [2.0, 3.0], vec![2.0, 0.0, 0.0, 4.0], 0.5)]
+    #[case([0.0, 0.0], [1.0, 0.0], vec![2.0, 0.0, 0.0, 4.0], 0.25)]
+    #[case([0.0, 0.0], [3.0, 4.0], vec![5.0, 0.0, 0.0, 1.0], 0.36 + 16.0)]
+    fn mahalanobis_diagonal_cholesky(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] l: Vec<f64>,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(Some(l), [1.0, 1.0], 1.0);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// Full lower-triangular Cholesky L = [[a, 0], [c, b]] exercises the flat
+    /// forward-substitution indexing across both rows. Flat row-major: [a, 0.0, c, b].
+    #[rstest]
+    #[case([0.0, 0.0], [4.0, 8.0], vec![2.0, 0.0, 1.0, 4.0], 4.0 + 2.25)]
+    #[case([0.0, 0.0], [0.0, 8.0], vec![2.0, 0.0, 1.0, 4.0], 4.0)]
+    #[case([0.0, 0.0], [2.0, 6.0], vec![2.0, 0.0, 1.0, 4.0], 1.0 + 1.5625)]
+    #[case([0.0, 0.0], [3.0, 6.0], vec![3.0, 0.0, 2.0, 2.0], 1.0 + 4.0)]
+    fn mahalanobis_full_cholesky(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] l: Vec<f64>,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(Some(l), [1.0, 1.0], 1.0);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// Fallback (cholesky_factor = None): scaled Euclidean with scale = bandwidth * std_dev.
+    #[rstest]
+    #[case([0.0, 0.0], [3.0, 4.0], [1.0, 1.0], 1.0, 25.0)]
+    #[case([0.0, 0.0], [1.0, 1.0], [1.0, 1.0], 1.0, 2.0)]
+    #[case([2.0, 2.0], [2.0, 6.0], [1.0, 1.0], 1.0, 16.0)]
+    #[case([0.0, 0.0], [2.0, 4.0], [1.0, 1.0], 2.0, 5.0)]
+    #[case([0.0, 0.0], [6.0, 0.0], [1.0, 2.0], 1.0, 36.0)]
+    fn mahalanobis_diagonal_fallback(
+        #[case] p1: [f64; 2],
+        #[case] p2: [f64; 2],
+        #[case] std_devs: [f64; 2],
+        #[case] bandwidth: f64,
+        #[case] expected: f64,
+    ) {
+        let kernel = kernel_2d(None, std_devs, bandwidth);
+        assert_relative_eq!(
+            kernel.calculate_mahalanobis_distance(&p1, &p2),
+            expected,
+            epsilon = 1e-12
+        );
+    }
+
+    /// The Mahalanobis distance is symmetric: d(p1, p2) == d(p2, p1).
+    #[test]
+    fn mahalanobis_symmetric() {
+        let kernel = kernel_2d(Some(vec![2.0, 1.0, 0.0, 4.0]), [1.0, 1.0], 1.0);
+        let pairs = [
+            ([0.0, 0.0], [4.0, 8.0]),
+            ([1.5, -2.0], [-3.0, 7.25]),
+            ([0.1, 0.2], [-9.0, 1.0]),
+        ];
+        for (p1, p2) in pairs {
+            let d12 = kernel.calculate_mahalanobis_distance(&p1, &p2);
+            let d21 = kernel.calculate_mahalanobis_distance(&p2, &p1);
+            assert_relative_eq!(d12, d21, epsilon = 1e-12);
+        }
+    }
+}
