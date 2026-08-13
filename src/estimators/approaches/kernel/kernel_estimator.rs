@@ -1080,27 +1080,18 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                             local_density += (-0.5 * dist_sq).exp();
                         });
                 } else {
-                    let neighbors = other
+                    other
                         .tree
                         .query(query_point)
                         .within::<SquaredEuclidean<f64>>(adaptive_radius_q)
                         .unsorted()
-                        .with_result_capacity(capacity)
                         .with_scratch(&mut scratch)
-                        .execute();
-                    let neighbors_len = neighbors.len();
-                    for neighbor in neighbors {
-                        let neighbor_point = &other.points[neighbor.item as usize];
-                        let dist_sq =
-                            other.calculate_mahalanobis_distance(query_point, neighbor_point);
-                        local_density += (-0.5 * dist_sq).exp();
-                    }
-                    if i == 0 {
-                        capacity = (neighbors_len as f64 * 1.2) as usize;
-                        if capacity == 0 {
-                            capacity = 1;
-                        }
-                    }
+                        .visit(|item| {
+                            let neighbor_point = &other.points[item.item as usize];
+                            let dist_sq =
+                                other.calculate_mahalanobis_distance(query_point, neighbor_point);
+                            local_density += (-0.5 * dist_sq).exp();
+                        });
                 }
 
                 local_density / normalization_q
@@ -1586,7 +1577,8 @@ impl<const K: usize> KernelEntropy<K> {
     }
 
     /// Mahalanobis-space Gaussian density (fallback when no Cholesky factor exists,
-    /// e.g. manually constructed estimators). Original forward-substitution path.
+    /// e.g. manually constructed estimators). Forward-substitution path, fused into
+    /// kiddo's `.visit()` (no result Vec materialised), mirroring the whitened path.
     fn gaussian_kernel_density_cpu_mahalanobis(&self) -> Array1<f64> {
         let n = self.n_samples as f64;
         let bw = self.bandwidth;
@@ -1612,38 +1604,26 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         let mut scratch = Default::default();
-        let mut capacity = 64;
         for (i, query_point) in self.points.iter().enumerate() {
-            let candidates = self
-                .tree
+            let mut sum_k = 0.0;
+            self.tree
                 .query(query_point)
                 .within::<SquaredEuclidean<f64>>(adaptive_radius)
                 .unsorted()
-                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
-                .execute();
-
-            let candidates_len = candidates.len();
-            let mut sum_k = 0.0;
-            for candidate in candidates {
-                let p = &self.points[candidate.item as usize];
-                let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
-                #[cfg(feature = "fast_exp")]
-                {
-                    sum_k += self.fast_exp(-0.5 * dist_sq);
-                }
-                #[cfg(not(feature = "fast_exp"))]
-                {
-                    sum_k += (-0.5 * dist_sq).exp();
-                }
-            }
+                .visit(|item| {
+                    let p = &self.points[item.item as usize];
+                    let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
+                    #[cfg(feature = "fast_exp")]
+                    {
+                        sum_k += self.fast_exp(-0.5 * dist_sq);
+                    }
+                    #[cfg(not(feature = "fast_exp"))]
+                    {
+                        sum_k += (-0.5 * dist_sq).exp();
+                    }
+                });
             densities[i] = sum_k / normalization;
-            if i == 0 {
-                capacity = (candidates_len as f64 * 1.2) as usize;
-                if capacity == 0 {
-                    capacity = 1;
-                }
-            }
         }
         densities
     }
