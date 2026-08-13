@@ -61,17 +61,10 @@ println!("Kernel entropy: {}", kernel_entropy);
 
 - **`gpu`**: Enable GPU-accelerated kernel density estimation. Useful for large
   datasets with continuous variables (kernel approach) and batch processing.
-- **`fast_exp`**: Use fast exponential approximations for improved performance
-  in the exponential family (k-NN) estimators.
 
 ```toml
 [dependencies]
 infomeasure = { version = "0.3.0", features = ["gpu"] }
-```
-
-```toml
-[dependencies]
-infomeasure = { version = "0.3.0", features = ["fast_exp"] }
 ```
 
 ## Feature Status
