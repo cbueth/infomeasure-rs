@@ -33,7 +33,6 @@ rand_distr = ">=0.4"
 [features]
 default = []
 gpu = []
-fast_exp = []
 
 [dev-dependencies]
 rstest = "0.26.1"  # For fixture-based testint

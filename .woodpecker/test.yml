@@ -21,7 +21,7 @@ when:
 
 matrix:
   RUST: [stable, beta]
-  FEATURES: [""]  # fast_exp degrades the accuracy, making tests fail; not testing gpu on CI
+  FEATURES: [""]  # not testing gpu on CI (no GPU adapter)
 
 steps:
   - name: build

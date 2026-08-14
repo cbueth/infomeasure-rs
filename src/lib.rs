@@ -87,7 +87,6 @@
 //! # Feature Flags
 //!
 //! - `gpu`: Enable GPU acceleration for kernel estimators
-//! - `fast_exp`: Use fast exponential approximations (trades accuracy for speed)
 //!
 //! # Python Compatibility
 //!
