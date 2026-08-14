@@ -26,6 +26,7 @@
 
 ### Misc
 
+- fix(kernel): remove unused capacity/i left by visit-fusion merge [[#56](https://codeberg.org/cbueth/infomeasure-rs/pulls/56)]
 - ci(release): auto-bump version refs in README and lib.rs on release [[#55](https://codeberg.org/cbueth/infomeasure-rs/pulls/55)]
 - ci(bench): add Bencher report PR comment [[#50](https://codeberg.org/cbueth/infomeasure-rs/pulls/50)]
 - ci: migrate from CodSpeed to Bencher Cloud Free [[#44](https://codeberg.org/cbueth/infomeasure-rs/pulls/44)]
