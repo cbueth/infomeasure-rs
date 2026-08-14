@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.1-rc.0) - 2026-08-13
+## [0.3.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.1-rc.0) - 2026-08-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(kernel): count-only box kernel query via kiddo visit [[#52](https://codeberg.org/cbueth/infomeasure-rs/pulls/52)]
 - perf(kernel): mean-centered whitening transform for the Gaussian density [[#51](https://codeberg.org/cbueth/infomeasure-rs/pulls/51)]
 - perf(kernel): store Cholesky factor flat for cache-friendly Mahalanobis [[#49](https://codeberg.org/cbueth/infomeasure-rs/pulls/49)]
 - perf(discrete): use FxHashMap and packed u128 joint keys [[#48](https://codeberg.org/cbueth/infomeasure-rs/pulls/48)]
