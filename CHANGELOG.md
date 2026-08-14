@@ -1,10 +1,14 @@
 # Changelog
 
-## [0.3.1-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.1-rc.0) - 2026-08-14
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @cbueth
+
+### 💥 Breaking changes
+
+- refactor(kernel)!: remove fast_exp feature flag [[#54](https://codeberg.org/cbueth/infomeasure-rs/pulls/54)]
 
 ### ⚡ Performance
 
@@ -22,6 +26,7 @@
 
 ### Misc
 
+- ci(release): auto-bump version refs in README and lib.rs on release [[#55](https://codeberg.org/cbueth/infomeasure-rs/pulls/55)]
 - ci(bench): add Bencher report PR comment [[#50](https://codeberg.org/cbueth/infomeasure-rs/pulls/50)]
 - ci: migrate from CodSpeed to Bencher Cloud Free [[#44](https://codeberg.org/cbueth/infomeasure-rs/pulls/44)]
 - docs(release): clarify release trigger in release workflow comment [[#42](https://codeberg.org/cbueth/infomeasure-rs/pulls/42)]
