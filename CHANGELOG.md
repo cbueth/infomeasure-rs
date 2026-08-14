@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(ksg): count-only marginal queries via kiddo visit [[#53](https://codeberg.org/cbueth/infomeasure-rs/pulls/53)]
 - perf(kernel): count-only box kernel query via kiddo visit [[#52](https://codeberg.org/cbueth/infomeasure-rs/pulls/52)]
 - perf(kernel): mean-centered whitening transform for the Gaussian density [[#51](https://codeberg.org/cbueth/infomeasure-rs/pulls/51)]
 - perf(kernel): store Cholesky factor flat for cache-friendly Mahalanobis [[#49](https://codeberg.org/cbueth/infomeasure-rs/pulls/49)]
