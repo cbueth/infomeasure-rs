@@ -1109,22 +1109,14 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
                 let r = bw / 2.0;
                 let r_eps = r + 1e-15;
 
-                let candidates = other
+                let mut count = 0usize;
+                other
                     .tree
                     .query(query_point)
                     .within::<Chebyshev<f64>>(r_eps)
                     .unsorted()
-                    .with_result_capacity(capacity)
                     .with_scratch(&mut scratch)
-                    .execute();
-
-                let count = candidates.len();
-                if i == 0 {
-                    capacity = (count as f64 * 1.2) as usize;
-                    if capacity == 0 {
-                        capacity = 1;
-                    }
-                }
+                    .visit(|_| count += 1);
                 (count as f64) * box_vol_inv
             };
 
@@ -1480,6 +1472,10 @@ impl<const K: usize> KernelEntropy<K> {
     }
 
     /// Internal method to compute density using box kernel on CPU
+    ///
+    /// Uses kiddo's public `.visit()` as a count-only query: only
+    /// `count = candidates.len()` is needed, so no result Vec is materialised
+    /// (the result-collection write/add/copy/push was ~26% of box kernel time).
     pub fn box_kernel_density_cpu(&self) -> Array1<f64> {
         let volume = self.bandwidth.powi(K as i32);
         let n_volume = self.n_samples as f64 * volume;
@@ -1488,26 +1484,16 @@ impl<const K: usize> KernelEntropy<K> {
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
         let mut scratch = Default::default();
-        let mut capacity = 64;
 
         for (i, query_point) in self.points.iter().enumerate() {
-            let candidates = self
-                .tree
+            let mut count = 0usize;
+            self.tree
                 .query(query_point)
                 .within::<Chebyshev<f64>>(r_eps)
                 .unsorted()
-                .with_result_capacity(capacity)
                 .with_scratch(&mut scratch)
-                .execute();
-
-            let count = candidates.len();
+                .visit(|_| count += 1);
             densities[i] = count as f64 / n_volume;
-            if i == 0 {
-                capacity = (count as f64 * 1.2) as usize;
-                if capacity == 0 {
-                    capacity = 1;
-                }
-            }
         }
         densities
     }
