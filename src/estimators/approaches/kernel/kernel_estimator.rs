@@ -1057,8 +1057,7 @@ impl<const K: usize> CrossEntropy for KernelEntropy<K> {
 
         let mut scratch = Default::default();
         let box_vol_inv = 1.0 / (n_q * bw.powi(K as i32));
-        let mut capacity = 64;
-        for (i, query_point) in self.points.iter().enumerate() {
+        for query_point in self.points.iter() {
             let density = if other.kernel_type == "gaussian" {
                 // Gaussian kernel density at query_point using other's covariance
                 let mut local_density = 0.0;
@@ -1571,7 +1570,8 @@ impl<const K: usize> KernelEntropy<K> {
     }
 
     /// Mahalanobis-space Gaussian density (fallback when no Cholesky factor exists,
-    /// e.g. manually constructed estimators). Original forward-substitution path.
+    /// e.g. manually constructed estimators). Forward-substitution path, fused into
+    /// kiddo's `.visit()` (no result Vec materialised), mirroring the whitened path.
     fn gaussian_kernel_density_cpu_mahalanobis(&self) -> Array1<f64> {
         let n = self.n_samples as f64;
         let bw = self.bandwidth;
