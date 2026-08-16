@@ -29,6 +29,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     curl \
+    # GPU (wgpu -> Vulkan via NVK): Vulkan loader + Mesa drivers (NVK) + tools.
+    # Requires /dev/dri mounted into the container (see laptop agent volumes).
+    libvulkan1 \
+    mesa-vulkan-drivers \
+    vulkan-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for Python package management
