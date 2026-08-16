@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+workspace:
+  base: /build
+  path: .
+
+labels:
+  provider: self-hosted
+  type: gpu
+
+when:
+  - event: [push, pull_request]
+    branch: [main, develop]
+    path:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - tests/**
+      - .docker/**
+      - .woodpecker/**
+  - event: manual
+
+steps:
+  - name: build
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    environment:
+      CARGO_HOME: /target/infomeasure-rs-cargo-gpu
+      CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
+    commands:
+      - if [ ! -e /target/infomeasure-rs-gpu/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-gpu /target/infomeasure-rs-cargo-gpu &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-gpu/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-gpu/ &&
+          touch /target/infomeasure-rs-gpu/.seeded;
+        fi
+      - cargo build -j 4 --workspace --features gpu
+
+  - name: test
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    environment:
+      CARGO_HOME: /target/infomeasure-rs-cargo-gpu
+      CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
+    commands:
+      - cargo test -j 4 --features gpu --test all_tests -- gpu
+      - cargo test -j 4 --features gpu --test all_tests -- discrete_gpu_batch_matches_cpu --ignored
