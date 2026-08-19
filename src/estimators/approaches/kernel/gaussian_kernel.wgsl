@@ -10,11 +10,10 @@
 // the Mahalanobis distance becomes a plain Euclidean distance. The per-candidate
 // inner loop is therefore an O(dim_count) dot product and the truncation radius
 // is a data-independent constant (no precision matrix, no max_eigenvalue).
-
-// Structure for point data
-struct GpuPoint {
-    values: array<f32, 32>, // Support up to 32 dimensions
-};
+//
+// Points are stored in a compact flat array of N * dim_count f32 values
+// (row-major), indexed as points[i * dim_count + d], to cut upload and
+// global-read traffic for low dimensions.
 
 // Configuration parameters
 struct GpuConfig {
@@ -25,7 +24,7 @@ struct GpuConfig {
 };
 
 // Bind groups
-@group(0) @binding(0) var<storage, read> points: array<GpuPoint>;
+@group(0) @binding(0) var<storage, read> points: array<f32>;
 @group(0) @binding(1) var<uniform> config: GpuConfig;
 @group(0) @binding(2) var<storage, read_write> output: array<f32>;
 
@@ -39,8 +38,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    // Get the query point
-    let query_point = points[idx];
+    let q_base = idx * config.dim_count;
 
     // Calculate density for this point
     var density: f32 = 0.0;
@@ -48,14 +46,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Loop through all other points
     for (var i: u32 = 0; i < config.point_count; i = i + 1) {
-        // Get the neighbor point
-        let neighbor_point = points[i];
+        let n_base = i * config.dim_count;
 
         // Squared Euclidean distance in whitened space (equals squared
         // Mahalanobis distance in the original space).
         var squared_dist: f32 = 0.0;
         for (var d: u32 = 0; d < config.dim_count; d = d + 1) {
-            let diff = query_point.values[d] - neighbor_point.values[d];
+            let diff = points[q_base + d] - points[n_base + d];
             squared_dist += diff * diff;
         }
 
@@ -72,13 +69,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    // Normalize the density
-    let normalized_density = density / config.normalization;
-
-    // Apply log transform for entropy calculation: H = -E[log(f(x))]
-    if (normalized_density > 0.0) {
-        output[idx] = -log(normalized_density);
-    } else {
-        output[idx] = 0.0;
-    }
+    // Normalize the density and return it directly
+    // (the host applies -log when converting to entropy).
+    output[idx] = density / config.normalization;
 }

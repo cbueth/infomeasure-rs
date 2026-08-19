@@ -11,14 +11,6 @@ use bytemuck::{Pod, Zeroable};
 use ndarray::Array1;
 use wgpu::util::DeviceExt;
 
-// Define a struct for the point data that can be sent to the GPU
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-struct GpuPoint {
-    values: [f32; 32],  // Support up to 32 dimensions
-    _padding: [f32; 0], // No padding needed
-}
-
 // Define a struct for the bandwidth that can be sent to the GPU (for Box kernel)
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
@@ -143,13 +135,9 @@ impl<const K: usize> KernelEntropy<K> {
             return self.gaussian_kernel_density_cpu();
         }
 
-        // Try to run the GPU implementation, fall back to CPU if it fails
+        // The GPU shader returns density directly (no exp round-trip).
         match self.run_gaussian_gpu_calculation() {
-            Ok(result) => {
-                // The GPU calculation currently returns local entropy values: -ln(density)
-                // We need to convert it back to density: density = exp(-local_entropy)
-                result.mapv(|h| (-h).exp())
-            }
+            Ok(result) => result,
             Err(_) => self.gaussian_kernel_density_cpu(),
         }
     }
@@ -161,13 +149,9 @@ impl<const K: usize> KernelEntropy<K> {
             return self.box_kernel_density_cpu();
         }
 
-        // Try to run the GPU implementation, fall back to CPU if it fails
+        // The GPU shader returns density directly (no exp round-trip).
         match self.run_box_gpu_calculation() {
-            Ok(result) => {
-                // The GPU calculation currently returns local entropy values: -ln(density)
-                // We need to convert it back to density: density = exp(-local_entropy)
-                result.mapv(|h| (-h).exp())
-            }
+            Ok(result) => result,
             Err(_) => self.box_kernel_density_cpu(),
         }
     }
@@ -226,7 +210,7 @@ impl<const K: usize> KernelEntropy<K> {
 
         // Try to run the GPU implementation, fall back to CPU if it fails
         match self.run_gaussian_gpu_calculation() {
-            Ok(result) => result,
+            Ok(density) => density.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 }),
             Err(e) => {
                 println!("GPU calculation failed: {e}, falling back to CPU implementation",);
                 self.gaussian_kernel_local_values()
@@ -281,7 +265,7 @@ impl<const K: usize> KernelEntropy<K> {
 
         // Try to run the GPU implementation, fall back to CPU if it fails
         match self.run_box_gpu_calculation() {
-            Ok(result) => result,
+            Ok(density) => density.mapv(|d| if d > 0.0 { -d.ln() } else { 0.0 }),
             Err(e) => {
                 println!("GPU calculation failed: {e}, falling back to CPU implementation");
                 self.box_kernel_local_values()
@@ -343,19 +327,13 @@ impl<const K: usize> KernelEntropy<K> {
             .whitened_points
             .as_deref()
             .ok_or("whitened points unavailable for Gaussian GPU path")?;
-        let mut gpu_points = Vec::with_capacity(wpoints.len());
+
+        // Compact flat layout: N * K f32 values, row-major (points[i*K + d]).
+        let mut gpu_points = Vec::with_capacity(wpoints.len() * K);
         for point in wpoints {
-            let mut gpu_point = GpuPoint {
-                values: [0.0; 32],
-                _padding: [],
-            };
-
-            // Copy point values to GPU point
-            for (i, &val) in point.iter().enumerate() {
-                gpu_point.values[i] = val as f32;
+            for &val in point.iter() {
+                gpu_points.push(val as f32);
             }
-
-            gpu_points.push(gpu_point);
         }
 
         let gpu_config = GpuConfig {
@@ -451,20 +429,13 @@ impl<const K: usize> KernelEntropy<K> {
 
         let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
 
-        // Prepare data for GPU
-        let mut gpu_points = Vec::with_capacity(self.points.len());
+        // Prepare data for GPU — compact flat layout: N * K f32 values,
+        // row-major (points[i*K + d]).
+        let mut gpu_points = Vec::with_capacity(self.points.len() * K);
         for point in &self.points {
-            let mut gpu_point = GpuPoint {
-                values: [0.0; 32],
-                _padding: [],
-            };
-
-            // Copy point values to GPU point
-            for (i, &val) in point.iter().enumerate() {
-                gpu_point.values[i] = val as f32;
+            for &val in point.iter() {
+                gpu_points.push(val as f32);
             }
-
-            gpu_points.push(gpu_point);
         }
 
         // Prepare bandwidth for GPU
