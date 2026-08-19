@@ -30,7 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     curl \
     # GPU (wgpu -> Vulkan via NVK): Vulkan loader + Mesa drivers (NVK) + tools.
-    # Requires /dev/dri mounted into the container (see laptop agent volumes).
+    # Requires /dev/dri passed to the container via docker `--device`/woodpecker
+    # step `devices:` (bind-mounting alone does NOT grant device access).
     libvulkan1 \
     mesa-vulkan-drivers \
     vulkan-tools \

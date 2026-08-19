@@ -23,8 +23,21 @@ when:
   - event: manual
 
 steps:
+  - name: check-gpu
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    devices:
+      - /dev/dri:/dev/dri
+    commands:
+      - vulkaninfo --summary
+      - if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
+          echo "ERROR: no discrete GPU found (only iGPU/software renderer)" >&2;
+          exit 1;
+        fi
+
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
@@ -40,6 +53,8 @@ steps:
 
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:stable
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
