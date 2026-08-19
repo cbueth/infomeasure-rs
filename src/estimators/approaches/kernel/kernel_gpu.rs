@@ -19,15 +19,6 @@ struct GpuPoint {
     _padding: [f32; 0], // No padding needed
 }
 
-// Define a struct for the precision matrix that can be sent to the GPU (for Gaussian kernel)
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-struct GpuPrecisionMatrix {
-    values: [f32; 1024], // Support up to 32x32 dimensions
-    dim_count: u32,      // Actual number of dimensions
-    _padding: [u32; 3],  // Padding to ensure 16-byte alignment
-}
-
 // Define a struct for the bandwidth that can be sent to the GPU (for Box kernel)
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
@@ -47,15 +38,58 @@ struct GpuConfig {
     adaptive_radius: f32,
 }
 
-/// Shared bind-group layout for the kernel shaders:
-///   binding 0: points   (storage, read)
-///   binding 1: params   (storage, read)  — precision matrix or bandwidth
-///   binding 2: config   (uniform)
-///   binding 3: output   (storage, read_write)
-fn kernel_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
+/// Bind-group layout for the (whitened) Gaussian shader:
+///   binding 0: points (storage, read) — whitened points
+///   binding 1: config (uniform)
+///   binding 2: output (storage, read_write)
+fn gaussian_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
     ctx.device
         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Kernel Bind Group Layout"),
+            label: Some("Gaussian Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        })
+}
+
+/// Bind-group layout for the box shader:
+///   binding 0: points    (storage, read)
+///   binding 1: bandwidth (storage, read)
+///   binding 2: config    (uniform)
+///   binding 3: output    (storage, read_write)
+fn box_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
+    ctx.device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Box Bind Group Layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -296,19 +330,21 @@ impl<const K: usize> KernelEntropy<K> {
         let normalization =
             (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
 
-        // Determine adaptive radius based on data density and max_eigenvalue
-        // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
-        let adaptive_radius = if self.n_samples > 5000 {
-            36.0 * self.max_eigenvalue // 6σ
-        } else {
-            64.0 * self.max_eigenvalue // 8σ
-        };
+        // In whitened space the covariance is the identity, so the truncation
+        // radius is a fixed, data-independent constant (same as the CPU
+        // `gaussian_kernel_density_cpu_whitened` path).
+        let adaptive_radius = if self.n_samples > 5000 { 36.0 } else { 64.0 };
 
         let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
 
-        // Prepare data for GPU
-        let mut gpu_points = Vec::with_capacity(self.points.len());
-        for point in &self.points {
+        // Pack the WHITENED points for the GPU. In whitened space d_M² = ‖y_p-y_q‖²
+        // is a plain Euclidean distance, so the shader only needs these points.
+        let wpoints = self
+            .whitened_points
+            .as_deref()
+            .ok_or("whitened points unavailable for Gaussian GPU path")?;
+        let mut gpu_points = Vec::with_capacity(wpoints.len());
+        for point in wpoints {
             let mut gpu_point = GpuPoint {
                 values: [0.0; 32],
                 _padding: [],
@@ -320,30 +356,6 @@ impl<const K: usize> KernelEntropy<K> {
             }
 
             gpu_points.push(gpu_point);
-        }
-
-        // Prepare precision matrix for GPU
-        let mut gpu_precision_matrix = GpuPrecisionMatrix {
-            values: [0.0; 1024],
-            dim_count: K as u32,
-            _padding: [0; 3],
-        };
-
-        if let Some(ref prec) = self.precision_matrix {
-            for r in 0..K {
-                for c in 0..K {
-                    // Store in row-major order with 32 columns for easy GPU indexing
-                    gpu_precision_matrix.values[r * 32 + c] = prec[[r, c]] as f32;
-                }
-            }
-        } else {
-            // Fallback to diagonal precision
-            for i in 0..K {
-                let scale = self.bandwidth * self.std_devs[i];
-                if scale > 0.0 {
-                    gpu_precision_matrix.values[i * 32 + i] = (1.0 / (scale * scale)) as f32;
-                }
-            }
         }
 
         let gpu_config = GpuConfig {
@@ -362,14 +374,6 @@ impl<const K: usize> KernelEntropy<K> {
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
-        let precision_matrix_buffer =
-            ctx.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Precision Matrix Buffer"),
-                    contents: bytemuck::bytes_of(&gpu_precision_matrix),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
-
         let out_bytes = (n as u64) * std::mem::size_of::<f32>() as u64;
         let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Output Buffer"),
@@ -378,7 +382,7 @@ impl<const K: usize> KernelEntropy<K> {
             mapped_at_creation: false,
         });
 
-        let layout = kernel_bind_group_layout(ctx);
+        let layout = gaussian_bind_group_layout(ctx);
         let config_buffer = ctx.config_buffer(&gpu_config);
         let bindings = [
             wgpu::BindGroupEntry {
@@ -387,14 +391,10 @@ impl<const K: usize> KernelEntropy<K> {
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: precision_matrix_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
                 resource: config_buffer.as_entire_binding(),
             },
             wgpu::BindGroupEntry {
-                binding: 3,
+                binding: 2,
                 resource: output_buffer.as_entire_binding(),
             },
         ];
@@ -506,7 +506,7 @@ impl<const K: usize> KernelEntropy<K> {
             mapped_at_creation: false,
         });
 
-        let layout = kernel_bind_group_layout(ctx);
+        let layout = box_bind_group_layout(ctx);
         let config_buffer = ctx.config_buffer(&gpu_config);
         let bindings = [
             wgpu::BindGroupEntry {

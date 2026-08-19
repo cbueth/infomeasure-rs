@@ -9,10 +9,8 @@
 //! adapter, device and queue, plus a cache of compute pipelines (one per
 //! [`ShaderKind`]).
 //!
-//! Centralising wgpu setup here removes the repeated per-call
-//! `Instance`, `request_adapter`, `request_device`, pipeline construction that
-//! previously happened in every GPU kernel invocation (and several times per
-//! composite measure).
+//! Centralising wgpu setup here prevents repeated per-call
+//! `Instance`, `request_adapter`, `request_device`, pipeline construction.
 
 use futures_intrusive::channel::shared::oneshot_channel;
 use pollster::block_on;
@@ -46,7 +44,7 @@ pub struct ComputePass<'a> {
 ///
 /// Creation happens exactly once on first use. If no hardware adapter can be
 /// found, [`GpuContext::get`] caches `None` so every later call cheaply falls
-/// back to CPU — preserving the estimator-level fallback behaviour.
+/// back to CPU, preserving the estimator-level fallback behaviour.
 pub struct GpuContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -161,8 +159,8 @@ impl GpuContext {
 
     /// Runs a compute pass and reads back `out_bytes` bytes into a CPU `Vec<u8>`.
     ///
-    /// `params.layout` and `params.bindings` fully describe the bind group; the
-    /// caller is responsible for allocating its own storage buffers (points,
+    /// `params.layout` and `params.bindings` fully describe the bind group.
+    /// The caller is responsible for allocating its own storage buffers (points,
     /// parameters, output) and constructing the layout to match the shader.
     /// `params.n_items` is the number of work-items (one thread per item, 256
     /// threads per workgroup).
