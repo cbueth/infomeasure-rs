@@ -4,18 +4,16 @@
  * SPDX-License-Identifier: MIT OR Apache-2.0
  */
 
-// Gaussian kernel compute shader for entropy calculation
+// Gaussian kernel compute shader for entropy calculation.
+//
+// Works in WHITENED space: the host transforms the points y = L^-1(x - m) so
+// the Mahalanobis distance becomes a plain Euclidean distance. The per-candidate
+// inner loop is therefore an O(dim_count) dot product and the truncation radius
+// is a data-independent constant (no precision matrix, no max_eigenvalue).
 
 // Structure for point data
 struct GpuPoint {
     values: array<f32, 32>, // Support up to 32 dimensions
-};
-
-// Structure for precision matrix
-struct GpuPrecisionMatrix {
-    values: array<f32, 1024>, // Support up to 32x32 dimensions
-    dim_count: u32,         // Actual number of dimensions
-    _padding: array<u32, 3>, // Padding to ensure 16-byte alignment
 };
 
 // Configuration parameters
@@ -23,14 +21,13 @@ struct GpuConfig {
     point_count: u32,
     dim_count: u32,
     normalization: f32,
-    adaptive_radius: f32,
+    adaptive_radius: f32, // fixed squared truncation bound in whitened space
 };
 
 // Bind groups
 @group(0) @binding(0) var<storage, read> points: array<GpuPoint>;
-@group(0) @binding(1) var<storage, read> precision_matrix: GpuPrecisionMatrix;
-@group(0) @binding(2) var<uniform> config: GpuConfig;
-@group(0) @binding(3) var<storage, read_write> output: array<f32>;
+@group(0) @binding(1) var<uniform> config: GpuConfig;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
 
 // Main compute shader entry point
 @compute @workgroup_size(256)
@@ -54,30 +51,18 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Get the neighbor point
         let neighbor_point = points[i];
 
-        // Calculate squared Euclidean distance first for adaptive radius check (bounding sphere)
-        var squared_euclidean_dist: f32 = 0.0;
-        var diffs: array<f32, 32>;
+        // Squared Euclidean distance in whitened space (equals squared
+        // Mahalanobis distance in the original space).
+        var squared_dist: f32 = 0.0;
         for (var d: u32 = 0; d < config.dim_count; d = d + 1) {
             let diff = query_point.values[d] - neighbor_point.values[d];
-            diffs[d] = diff;
-            squared_euclidean_dist += diff * diff;
+            squared_dist += diff * diff;
         }
 
-        // Check if point is within the circumscribed sphere of the Gaussian ellipsoid
-        if (squared_euclidean_dist <= config.adaptive_radius) {
-            // Calculate squared Mahalanobis distance: d_M^2 = diff^T * Omega * diff
-            var squared_mahalanobis_dist: f32 = 0.0;
-            for (var row: u32 = 0; row < config.dim_count; row = row + 1) {
-                var row_sum: f32 = 0.0;
-                for (var col: u32 = 0; col < config.dim_count; col = col + 1) {
-                    // Precision matrix is stored in row-major order with 32 columns
-                    row_sum += precision_matrix.values[row * 32u + col] * diffs[col];
-                }
-                squared_mahalanobis_dist += diffs[row] * row_sum;
-            }
-
-            // Apply Gaussian kernel: exp(-squared_mahalanobis_dist/2)
-            let term = exp(-max(0.0, squared_mahalanobis_dist) / 2.0);
+        // Check if point is within the truncation ball
+        if (squared_dist <= config.adaptive_radius) {
+            // Gaussian kernel: exp(-squared_dist / 2)
+            let term = exp(-0.5 * squared_dist);
 
             // Kahan summation for better precision
             let y = term - c_density;

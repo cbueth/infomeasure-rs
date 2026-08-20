@@ -6,10 +6,9 @@
 // This module is only included when the `gpu` feature flag is enabled
 
 use crate::estimators::approaches::kernel::KernelEntropy;
+use crate::estimators::gpu::{ComputePass, GpuContext, ShaderKind};
 use bytemuck::{Pod, Zeroable};
-use futures_intrusive::channel::shared::oneshot_channel;
 use ndarray::Array1;
-use pollster::block_on;
 use wgpu::util::DeviceExt;
 
 // Define a struct for the point data that can be sent to the GPU
@@ -18,15 +17,6 @@ use wgpu::util::DeviceExt;
 struct GpuPoint {
     values: [f32; 32],  // Support up to 32 dimensions
     _padding: [f32; 0], // No padding needed
-}
-
-// Define a struct for the precision matrix that can be sent to the GPU (for Gaussian kernel)
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-struct GpuPrecisionMatrix {
-    values: [f32; 1024], // Support up to 32x32 dimensions
-    dim_count: u32,      // Actual number of dimensions
-    _padding: [u32; 3],  // Padding to ensure 16-byte alignment
 }
 
 // Define a struct for the bandwidth that can be sent to the GPU (for Box kernel)
@@ -46,6 +36,103 @@ struct GpuConfig {
     dim_count: u32,
     normalization: f32,
     adaptive_radius: f32,
+}
+
+/// Bind-group layout for the (whitened) Gaussian shader:
+///   binding 0: points (storage, read) — whitened points
+///   binding 1: config (uniform)
+///   binding 2: output (storage, read_write)
+fn gaussian_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
+    ctx.device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Gaussian Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        })
+}
+
+/// Bind-group layout for the box shader:
+///   binding 0: points    (storage, read)
+///   binding 1: bandwidth (storage, read)
+///   binding 2: config    (uniform)
+///   binding 3: output    (storage, read_write)
+fn box_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
+    ctx.device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Box Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        })
 }
 
 impl<const K: usize> KernelEntropy<K> {
@@ -243,40 +330,21 @@ impl<const K: usize> KernelEntropy<K> {
         let normalization =
             (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
 
-        // Determine adaptive radius based on data density and max_eigenvalue
-        // We use a larger radius (6σ) to ensure better parity with Scipy which uses all points
-        let adaptive_radius = if self.n_samples > 5000 {
-            36.0 * self.max_eigenvalue // 6σ
-        } else {
-            64.0 * self.max_eigenvalue // 8σ
-        };
+        // In whitened space the covariance is the identity, so the truncation
+        // radius is a fixed, data-independent constant (same as the CPU
+        // `gaussian_kernel_density_cpu_whitened` path).
+        let adaptive_radius = if self.n_samples > 5000 { 36.0 } else { 64.0 };
 
-        // Initialize wgpu
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
 
-        // Request an adapter
-        let adapter = match block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })) {
-            Ok(adapter) => adapter,
-            Err(_) => return Err("Failed to find an appropriate adapter".into()),
-        };
-
-        // Create device and queue
-        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("Gaussian Kernel Device"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::default(),
-            trace: wgpu::Trace::default(),
-            experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        }))?;
-
-        // Prepare data for GPU
-        let mut gpu_points = Vec::with_capacity(self.points.len());
-        for point in &self.points {
+        // Pack the WHITENED points for the GPU. In whitened space d_M² = ‖y_p-y_q‖²
+        // is a plain Euclidean distance, so the shader only needs these points.
+        let wpoints = self
+            .whitened_points
+            .as_deref()
+            .ok_or("whitened points unavailable for Gaussian GPU path")?;
+        let mut gpu_points = Vec::with_capacity(wpoints.len());
+        for point in wpoints {
             let mut gpu_point = GpuPoint {
                 values: [0.0; 32],
                 _padding: [],
@@ -290,227 +358,69 @@ impl<const K: usize> KernelEntropy<K> {
             gpu_points.push(gpu_point);
         }
 
-        // Prepare precision matrix for GPU
-        let mut gpu_precision_matrix = GpuPrecisionMatrix {
-            values: [0.0; 1024],
-            dim_count: K as u32,
-            _padding: [0; 3],
-        };
-
-        if let Some(ref prec) = self.precision_matrix {
-            for r in 0..K {
-                for c in 0..K {
-                    // Store in row-major order with 32 columns for easy GPU indexing
-                    gpu_precision_matrix.values[r * 32 + c] = prec[[r, c]] as f32;
-                }
-            }
-        } else {
-            // Fallback to diagonal precision
-            for i in 0..K {
-                let scale = self.bandwidth * self.std_devs[i];
-                if scale > 0.0 {
-                    gpu_precision_matrix.values[i * 32 + i] = (1.0 / (scale * scale)) as f32;
-                }
-            }
-        }
-
         let gpu_config = GpuConfig {
-            point_count: self.points.len() as u32,
+            point_count: n as u32,
             dim_count: K as u32,
             normalization: normalization as f32,
             adaptive_radius: adaptive_radius as f32,
         };
 
         // Create buffers
-        let points_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Points Buffer"),
-            contents: bytemuck::cast_slice(&gpu_points),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
-
-        let precision_matrix_buffer =
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Precision Matrix Buffer"),
-                contents: bytemuck::bytes_of(&gpu_precision_matrix),
+        let points_buffer = ctx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Points Buffer"),
+                contents: bytemuck::cast_slice(&gpu_points),
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
-        let config_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Config Buffer"),
-            contents: bytemuck::bytes_of(&gpu_config),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-
-        let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let out_bytes = (n as u64) * std::mem::size_of::<f32>() as u64;
+        let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Output Buffer"),
-            size: (self.points.len() * std::mem::size_of::<f32>()) as u64,
+            size: out_bytes,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
-        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Staging Buffer"),
-            size: (self.points.len() * std::mem::size_of::<f32>()) as u64,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let layout = gaussian_bind_group_layout(ctx);
+        let config_buffer = ctx.config_buffer(&gpu_config);
+        let bindings = [
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: points_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: config_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: output_buffer.as_entire_binding(),
+            },
+        ];
 
-        // Create shader module
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Gaussian Kernel Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("gaussian_kernel.wgsl").into()),
-        });
+        let raw = ctx
+            .run_compute(
+                ShaderKind::Gaussian,
+                include_str!("gaussian_kernel.wgsl"),
+                ComputePass {
+                    layout: &layout,
+                    bindings: &bindings,
+                    output: &output_buffer,
+                    out_bytes,
+                    n_items: n as u32,
+                },
+            )
+            .ok_or("GPU computation failed")?;
+        let result: Vec<f32> = bytemuck::cast_slice(&raw).to_vec();
 
-        // Create bind group layout
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Gaussian Kernel Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
-
-        // Create pipeline layout
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Gaussian Kernel Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            immediate_size: 0,
-        });
-
-        // Create compute pipeline
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Gaussian Kernel Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
-
-        // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Gaussian Kernel Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: points_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: precision_matrix_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: config_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: output_buffer.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Create command encoder
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Gaussian Kernel Command Encoder"),
-        });
-
-        // Compute pass
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Gaussian Kernel Compute Pass"),
-                timestamp_writes: None,
-            });
-            compute_pass.set_pipeline(&compute_pipeline);
-            compute_pass.set_bind_group(0, &bind_group, &[]);
-
-            // Dispatch workgroups
-            // Use 256 threads per workgroup
-            let workgroup_size = 256;
-            let workgroup_count = (self.points.len() as u32).div_ceil(workgroup_size);
-            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        // Convert the results to f64 and return
+        let mut local_values = Array1::<f64>::zeros(n);
+        for (i, &val) in result.iter().enumerate() {
+            local_values[i] = val as f64;
         }
 
-        // Copy output to staging buffer
-        encoder.copy_buffer_to_buffer(
-            &output_buffer,
-            0,
-            &staging_buffer,
-            0,
-            (self.points.len() * std::mem::size_of::<f32>()) as u64,
-        );
-
-        // Submit command buffer
-        queue.submit(std::iter::once(encoder.finish()));
-
-        // Read back results
-        let buffer_slice = staging_buffer.slice(..);
-        let (sender, receiver) = oneshot_channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
-            sender.send(v).unwrap();
-        });
-
-        // Wait for the GPU to finish
-        device
-            .poll(wgpu::PollType::wait_indefinitely())
-            .expect("Failed to poll device");
-
-        // Get the mapped data
-        if let Some(Ok(())) = block_on(receiver.receive()) {
-            let data = buffer_slice.get_mapped_range();
-            let result: Vec<f32> = bytemuck::cast_slice(&data).to_vec();
-            drop(data);
-            staging_buffer.unmap();
-
-            // Convert the results to f64 and return
-            let mut local_values = Array1::<f64>::zeros(self.points.len());
-            for (i, &val) in result.iter().enumerate() {
-                local_values[i] = val as f64;
-            }
-
-            Ok(local_values)
-        } else {
-            Err("Failed to read back results from GPU".into())
-        }
+        Ok(local_values)
     }
 
     /// Main GPU calculation function for Box kernel
@@ -539,28 +449,7 @@ impl<const K: usize> KernelEntropy<K> {
         // where K is the box kernel (uniform within the bandwidth)
         let normalization = self.n_samples as f64 * volume;
 
-        // Initialize wgpu
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-
-        // Request an adapter
-        let adapter = match block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })) {
-            Ok(adapter) => adapter,
-            Err(_) => return Err("Failed to find an appropriate adapter".into()),
-        };
-
-        // Create device and queue
-        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("Box Kernel Device"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::default(),
-            trace: wgpu::Trace::default(),
-            experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        }))?;
+        let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
 
         // Prepare data for GPU
         let mut gpu_points = Vec::with_capacity(self.points.len());
@@ -593,193 +482,72 @@ impl<const K: usize> KernelEntropy<K> {
         };
 
         // Create buffers
-        let points_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Points Buffer"),
-            contents: bytemuck::cast_slice(&gpu_points),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let points_buffer = ctx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Points Buffer"),
+                contents: bytemuck::cast_slice(&gpu_points),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
-        let bandwidth_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Bandwidth Buffer"),
-            contents: bytemuck::bytes_of(&gpu_bandwidth),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let bandwidth_buffer = ctx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Bandwidth Buffer"),
+                contents: bytemuck::bytes_of(&gpu_bandwidth),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
-        let config_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Config Buffer"),
-            contents: bytemuck::bytes_of(&gpu_config),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-
-        let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let out_bytes = (self.points.len() as u64) * std::mem::size_of::<f32>() as u64;
+        let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Output Buffer"),
-            size: (self.points.len() * std::mem::size_of::<f32>()) as u64,
+            size: out_bytes,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
-        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Staging Buffer"),
-            size: (self.points.len() * std::mem::size_of::<f32>()) as u64,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let layout = box_bind_group_layout(ctx);
+        let config_buffer = ctx.config_buffer(&gpu_config);
+        let bindings = [
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: points_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: bandwidth_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: config_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: output_buffer.as_entire_binding(),
+            },
+        ];
 
-        // Create shader module
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Box Kernel Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("box_kernel.wgsl").into()),
-        });
+        let raw = ctx
+            .run_compute(
+                ShaderKind::Box,
+                include_str!("box_kernel.wgsl"),
+                ComputePass {
+                    layout: &layout,
+                    bindings: &bindings,
+                    output: &output_buffer,
+                    out_bytes,
+                    n_items: self.points.len() as u32,
+                },
+            )
+            .ok_or("GPU computation failed")?;
+        let result: Vec<f32> = bytemuck::cast_slice(&raw).to_vec();
 
-        // Create bind group layout
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Box Kernel Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
-
-        // Create pipeline layout
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Box Kernel Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            immediate_size: 0,
-        });
-
-        // Create compute pipeline
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Box Kernel Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
-
-        // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Box Kernel Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: points_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: bandwidth_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: config_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: output_buffer.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Create command encoder
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Box Kernel Command Encoder"),
-        });
-
-        // Compute pass
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Box Kernel Compute Pass"),
-                timestamp_writes: None,
-            });
-            compute_pass.set_pipeline(&compute_pipeline);
-            compute_pass.set_bind_group(0, &bind_group, &[]);
-
-            // Dispatch workgroups
-            // Use 256 threads per workgroup
-            let workgroup_size = 256;
-            let workgroup_count = (self.points.len() as u32).div_ceil(workgroup_size);
-            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        // Convert the results to f64 and return
+        let mut local_values = Array1::<f64>::zeros(self.points.len());
+        for (i, &val) in result.iter().enumerate() {
+            local_values[i] = val as f64;
         }
 
-        // Copy output to staging buffer
-        encoder.copy_buffer_to_buffer(
-            &output_buffer,
-            0,
-            &staging_buffer,
-            0,
-            (self.points.len() * std::mem::size_of::<f32>()) as u64,
-        );
-
-        // Submit command buffer
-        queue.submit(std::iter::once(encoder.finish()));
-
-        // Read back results
-        let buffer_slice = staging_buffer.slice(..);
-        let (sender, receiver) = oneshot_channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
-            sender.send(v).unwrap();
-        });
-
-        // Wait for the GPU to finish
-        device
-            .poll(wgpu::PollType::wait_indefinitely())
-            .expect("Failed to poll device");
-
-        // Get the mapped data
-        if let Some(Ok(())) = block_on(receiver.receive()) {
-            let data = buffer_slice.get_mapped_range();
-            let result: Vec<f32> = bytemuck::cast_slice(&data).to_vec();
-            drop(data);
-            staging_buffer.unmap();
-
-            // Convert the results to f64 and return
-            let mut local_values = Array1::<f64>::zeros(self.points.len());
-            for (i, &val) in result.iter().enumerate() {
-                local_values[i] = val as f64;
-            }
-
-            Ok(local_values)
-        } else {
-            Err("Failed to read back results from GPU".into())
-        }
+        Ok(local_values)
     }
 }

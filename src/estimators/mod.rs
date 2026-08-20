@@ -51,6 +51,8 @@ pub mod approaches;
 #[macro_use]
 pub(crate) mod doc_macros;
 pub mod entropy;
+#[cfg(feature = "gpu")]
+pub mod gpu;
 pub mod mutual_information;
 pub mod traits;
 pub mod transfer_entropy;

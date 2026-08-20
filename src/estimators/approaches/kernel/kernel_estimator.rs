@@ -99,7 +99,7 @@ use crate::estimators::traits::{
 use crate::estimators::utils::te_slicing::{cte_observations_const, te_observations_const};
 use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
-use ndarray_linalg::{Cholesky, Inverse, UPLO};
+use ndarray_linalg::{Cholesky, UPLO};
 use ndarray_stats::CorrelationExt;
 
 /// Kernel-based transfer entropy estimator.
@@ -1004,8 +1004,6 @@ pub struct KernelEntropy<const K: usize> {
     /// Lower triangular matrix L from Cholesky decomposition of scaled covariance matrix (Σ * h^2),
     /// stored flat row-major (length K*K) for cache-friendly Mahalanobis forward substitution
     pub cholesky_factor: Option<Vec<f64>>,
-    /// Precision matrix (inverse of scaled covariance matrix) for GPU or direct Mahalanobis distance
-    pub precision_matrix: Option<Array2<f64>>,
     /// Largest eigenvalue of the scaled covariance matrix, used for KD-tree search radius
     pub max_eigenvalue: f64,
     /// Sample mean per dimension (used by the Gaussian whitening transform); `None` for box kernel
@@ -1263,7 +1261,6 @@ impl<const K: usize> KernelEntropy<K> {
         // Calculate standard deviations and covariance for kernels
         let mut std_devs = [0.0; K];
         let mut cholesky_factor = None;
-        let mut precision_matrix = None;
 
         // Calculate standard deviations (always done as it's cheap and used by Box kernel too)
         let mut means = [0.0; K];
@@ -1310,12 +1307,6 @@ impl<const K: usize> KernelEntropy<K> {
             // Store L flat row-major for cache-friendly Mahalanobis forward substitution
             let flat: Vec<f64> = l.iter().copied().collect();
             cholesky_factor = Some(flat);
-
-            // Precision matrix (inverse of scaled covariance) for GPU
-            let inv = scaled_cov
-                .inv()
-                .expect("Failed to invert covariance matrix");
-            precision_matrix = Some(inv);
 
             use ndarray_linalg::EigValsh;
             let eigenvalues = scaled_cov
@@ -1371,7 +1362,6 @@ impl<const K: usize> KernelEntropy<K> {
             tree,
             std_devs,
             cholesky_factor,
-            precision_matrix,
             max_eigenvalue,
             mean: is_gaussian.then_some(means),
             whitened_points,
@@ -1790,7 +1780,6 @@ mod tests {
             tree,
             std_devs,
             cholesky_factor: cholesky,
-            precision_matrix: None,
             max_eigenvalue: 1.0,
             mean: None,
             whitened_points: None,

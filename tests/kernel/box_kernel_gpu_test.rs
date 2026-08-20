@@ -50,6 +50,87 @@ fn test_box_kernel_cpu_vs_gpu() {
     }
 }
 
+/// Test that compares the CPU and GPU implementations of the (whitened) Gaussian
+/// kernel.
+///
+/// This verifies the Step-2 GPU restructure: the GPU shader now consumes the
+/// whitened points and computes a plain O(K) Euclidean dot product, so it must
+/// reproduce the whitened CPU path's density exactly (to f32 tolerance).
+/// The GPU path is only triggered for datasets of 1600+ points, so a larger size
+/// is used here.
+#[test]
+#[cfg(feature = "gpu")]
+fn test_gaussian_kernel_cpu_vs_gpu() {
+    let seed = 42;
+    let size = 2000; // >= 1600 triggers the Gaussian GPU path
+    let bandwidths = [0.5, 1.0, 1.5];
+    let dimensions = [1, 2, 4];
+
+    println!("Testing Gaussian kernel CPU vs GPU implementation");
+
+    for &dim in &dimensions {
+        for &bandwidth in &bandwidths {
+            let data = generate_random_nd_data(size, dim, seed);
+            let test_name =
+                format!("Gaussian Kernel (dim={dim}, bandwidth={bandwidth}, size={size})");
+            println!("Testing {test_name}");
+
+            match dim {
+                1 => compare_gaussian_kernel_cpu_vs_gpu::<1>(data, bandwidth, &test_name),
+                2 => compare_gaussian_kernel_cpu_vs_gpu::<2>(data, bandwidth, &test_name),
+                4 => compare_gaussian_kernel_cpu_vs_gpu::<4>(data, bandwidth, &test_name),
+                _ => panic!("Unsupported dimension: {dim}"),
+            };
+        }
+    }
+}
+
+/// Helper function to compare CPU and GPU implementations of the Gaussian kernel.
+#[cfg(feature = "gpu")]
+fn compare_gaussian_kernel_cpu_vs_gpu<const K: usize>(
+    data: Array2<f64>,
+    bandwidth: f64,
+    test_name: &str,
+) {
+    let kernel = Entropy::nd_kernel_with_type::<K>(data.clone(), "gaussian".to_string(), bandwidth);
+
+    // CPU whitened path
+    let cpu = kernel.gaussian_kernel_local_values();
+    // GPU path (whitened shader)
+    let gpu = kernel.gaussian_kernel_local_values_gpu();
+
+    assert_eq!(cpu.len(), gpu.len(), "{test_name} length mismatch");
+    assert!(
+        gpu.iter().all(|&v| v.is_finite()),
+        "{test_name} GPU produced non-finite values"
+    );
+
+    let epsilon = 1e-4;
+    let max_relative = 1e-3;
+    assert_relative_eq!(
+        cpu.mean().unwrap(),
+        gpu.mean().unwrap(),
+        epsilon = epsilon,
+        max_relative = max_relative
+    );
+
+    // Sample a subset of local values to keep the test fast.
+    let sample_size = cpu.len().min(10);
+    let step = cpu.len() / sample_size.max(1);
+    for i in (0..cpu.len()).step_by(step.max(1)) {
+        if cpu[i].abs() > 1e-6 && gpu[i].abs() > 1e-6 {
+            assert_relative_eq!(
+                cpu[i],
+                gpu[i],
+                epsilon = epsilon,
+                max_relative = max_relative
+            );
+        }
+    }
+
+    println!("{test_name} - CPU and GPU (whitened) Gaussian implementations match");
+}
+
 /// Helper function to compare CPU and GPU implementations of the box kernel
 #[cfg(feature = "gpu")]
 fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
