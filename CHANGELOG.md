@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-16
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf(gpu): shared wgpu context + whitened Gaussian shader [[#57](https://codeberg.org/cbueth/infomeasure-rs/pulls/57)]
 - perf(ksg): count-only marginal queries via kiddo visit [[#53](https://codeberg.org/cbueth/infomeasure-rs/pulls/53)]
 - perf(kernel): count-only box kernel query via kiddo visit [[#52](https://codeberg.org/cbueth/infomeasure-rs/pulls/52)]
 - perf(kernel): mean-centered whitening transform for the Gaussian density [[#51](https://codeberg.org/cbueth/infomeasure-rs/pulls/51)]
