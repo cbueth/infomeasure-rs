@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: MIT OR Apache-2.0
  */
 
-// Box kernel compute shader for entropy calculation
-
-// Structure for point data
-struct GpuPoint {
-    values: array<f32, 32>, // Support up to 32 dimensions
-};
+// Box kernel compute shader for entropy calculation.
+//
+// Points are stored in a compact flat array of N * dim_count f32 values
+// (row-major), indexed as points[i * dim_count + d]. This avoids a padded
+// per-point struct, cutting upload and global-read traffic for low dimensions.
 
 // Structure for bandwidth
 struct GpuBandwidth {
@@ -27,7 +26,7 @@ struct GpuConfig {
 };
 
 // Bind groups
-@group(0) @binding(0) var<storage, read> points: array<GpuPoint>;
+@group(0) @binding(0) var<storage, read> points: array<f32>;
 @group(0) @binding(1) var<storage, read> bandwidth_info: GpuBandwidth;
 @group(0) @binding(2) var<uniform> config: GpuConfig;
 @group(0) @binding(3) var<storage, read_write> output: array<f32>;
@@ -42,22 +41,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    // Get the query point
-    let query_point = points[idx];
-
     // Count neighbors within bandwidth/2 (L-infinity distance)
     var neighbor_count: f32 = 0.0;
     let r = bandwidth_info.value / 2.0;
     let r_eps = r + 1e-6; // Using slightly larger epsilon for f32
+    let q_base = idx * config.dim_count;
 
     // Loop through all other points
     for (var i: u32 = 0; i < config.point_count; i = i + 1) {
-        // Get the neighbor point
-        let neighbor_point = points[i];
+        let n_base = i * config.dim_count;
 
         var in_box: bool = true;
         for (var dim: u32 = 0; dim < config.dim_count; dim = dim + 1) {
-            let diff = abs(query_point.values[dim] - neighbor_point.values[dim]);
+            let diff = abs(points[q_base + dim] - points[n_base + dim]);
             if (diff > r_eps) {
                 in_box = false;
                 break;
@@ -69,14 +65,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    // Normalize the count
-    let normalized_count = neighbor_count / config.normalization;
-
-    // Apply log transform for entropy calculation: H = -E[log(f(x))]
-    // Handle the case where count is zero (should not happen in practice)
-    if (normalized_count > 0.0) {
-        output[idx] = -log(normalized_count);
-    } else {
-        output[idx] = 0.0;
-    }
+    // Normalize the count and return the density directly
+    // (the host applies -log when converting to entropy).
+    output[idx] = neighbor_count / config.normalization;
 }
