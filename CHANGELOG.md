@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf(gpu): return density directly + compact point layout [[#58](https://codeberg.org/cbueth/infomeasure-rs/pulls/58)]
 - perf(gpu): shared wgpu context + whitened Gaussian shader [[#57](https://codeberg.org/cbueth/infomeasure-rs/pulls/57)]
 - perf(ksg): count-only marginal queries via kiddo visit [[#53](https://codeberg.org/cbueth/infomeasure-rs/pulls/53)]
 - perf(kernel): count-only box kernel query via kiddo visit [[#52](https://codeberg.org/cbueth/infomeasure-rs/pulls/52)]
