@@ -33,10 +33,10 @@ steps:
       LD_LIBRARY_PATH: /usr/lib/nvidia
     commands:
       - vulkaninfo --summary
-      - if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
+      - 'if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
           echo "ERROR: no discrete GPU found (only iGPU/software renderer)" >&2;
           exit 1;
-        fi
+        fi'
 
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
