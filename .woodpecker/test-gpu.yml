@@ -26,12 +26,11 @@ steps:
   - name: check-gpu
     image: codeberg.org/cbueth/infomeasure-rs:stable
     pull: true
-    devices:
-      - nvidia.com/gpu=all
     environment:
       NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/nvidia
+      NVIDIA_VISIBLE_DEVICES: all
     commands:
+      - . /usr/local/bin/init-nvidia-vulkan.sh
       - vulkaninfo --summary
       - 'if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
           echo "ERROR: no discrete GPU found (only iGPU/software renderer)" >&2;
@@ -41,11 +40,7 @@ steps:
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
     pull: true
-    devices:
-      - nvidia.com/gpu=all
     environment:
-      NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/nvidia
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
@@ -61,14 +56,13 @@ steps:
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:stable
     pull: true
-    devices:
-      - nvidia.com/gpu=all
     environment:
       NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/nvidia
+      NVIDIA_VISIBLE_DEVICES: all
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
+      - . /usr/local/bin/init-nvidia-vulkan.sh
       - cargo test -j 4 --features gpu --test all_tests -- gpu
       - cargo test -j 4 --features gpu --test all_tests -- discrete_gpu_batch_matches_cpu --ignored

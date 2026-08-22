@@ -41,6 +41,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
+# NVIDIA GPU steps: locate the injected libEGL_nvidia.so and craft a Vulkan ICD
+# json (VK_ICD_FILENAMES). The nvidia runtime mounts driver libs at nix store
+# paths (not FHS), and the driver's own ICD json references libGLX_nvidia.so,
+# which fails in a headless container. See .docker/init-nvidia-vulkan.sh.
+COPY init-nvidia-vulkan.sh /usr/local/bin/init-nvidia-vulkan.sh
+RUN chmod +x /usr/local/bin/init-nvidia-vulkan.sh
+
 # Pre-install Rust tools
 RUN rustup component add rustfmt clippy
 
