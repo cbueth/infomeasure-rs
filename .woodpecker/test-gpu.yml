@@ -25,8 +25,11 @@ when:
 steps:
   - name: check-gpu
     image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
     devices:
-      - /dev/dri:/dev/dri
+      - nvidia.com/gpu=all
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: all
     commands:
       - vulkaninfo --summary
       - if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
@@ -36,9 +39,11 @@ steps:
 
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
     devices:
-      - /dev/dri:/dev/dri
+      - nvidia.com/gpu=all
     environment:
+      NVIDIA_DRIVER_CAPABILITIES: all
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
@@ -53,9 +58,11 @@ steps:
 
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
     devices:
-      - /dev/dri:/dev/dri
+      - nvidia.com/gpu=all
     environment:
+      NVIDIA_DRIVER_CAPABILITIES: all
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
