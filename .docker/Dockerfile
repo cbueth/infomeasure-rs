@@ -45,7 +45,7 @@ RUN ln -sf /root/.local/bin/uv /usr/local/bin/uv
 # json (VK_ICD_FILENAMES). The nvidia runtime mounts driver libs at nix store
 # paths (not FHS), and the driver's own ICD json references libGLX_nvidia.so,
 # which fails in a headless container. See .docker/init-nvidia-vulkan.sh.
-COPY init-nvidia-vulkan.sh /usr/local/bin/init-nvidia-vulkan.sh
+COPY .docker/init-nvidia-vulkan.sh /usr/local/bin/init-nvidia-vulkan.sh
 RUN chmod +x /usr/local/bin/init-nvidia-vulkan.sh
 
 # Pre-install Rust tools
