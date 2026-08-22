@@ -28,14 +28,14 @@ use statrs::function::gamma::{digamma, ln_gamma};
 /// - $\rho(\beta \mid \mathbf{n})$ is the posterior weight of $\beta$ given the counts $\mathbf{n}$.
 /// - $\beta$ is the parameter of the symmetric Dirichlet prior $\mathrm{Dir}(\beta)$.
 ///
-/// This implementation uses adaptive Simpson integration to compute these integrals numerically.
+/// This implementation uses adaptive Gauss–Kronrod (15-point) integration, mirroring
+/// SciPy's `quad`, and a Brent root-find for the log-ρ extremum.
 ///
 #[doc = doc_snippets!(discrete_guide_ref)]
 pub struct NsbEntropy {
     dataset: DiscreteDataset,
     k_override: Option<usize>,
     tol: f64,
-    max_recursion: usize,
 }
 
 impl NsbEntropy {
@@ -44,8 +44,7 @@ impl NsbEntropy {
         Self {
             dataset,
             k_override,
-            tol: 1e-6,
-            max_recursion: 12,
+            tol: 1e-9,
         }
     }
 
@@ -84,44 +83,118 @@ impl NsbEntropy {
         digamma(total_alpha + 1.0) - (sum_term / total_alpha)
     }
 
-    fn find_l0(&self, k: usize, n: usize) -> f64 {
-        // Find extremum of log rho using a simple search over K0 in [0.1, K]
-        let func = |k0: f64| -> f64 { (k as f64) / k0 - digamma(k0 + n as f64) + digamma(k0) };
-        let mut best_k0 = 0.1_f64;
-        let mut best_val = f64::INFINITY;
-        let steps = 200usize;
-        let upper = k as f64;
-        let mut t = 0.1_f64;
-        let step = (upper - 0.1_f64) / (steps as f64);
-        for _ in 0..steps {
-            let v = func(t).abs();
-            if v < best_val {
-                best_val = v;
-                best_k0 = t;
+    /// Find the extremum of log ρ by locating the root of
+    /// `K/K0 - ψ(K0 + N) + ψ(K0)` on `[0.1, K]` via Brent's method
+    /// (matching Python's `scipy.optimize.root_scalar(..., method="brentq")`).
+    fn find_extremum_k0(&self, k: usize, n: usize) -> f64 {
+        let func = |k0: f64| (k as f64) / k0 - digamma(k0 + n as f64) + digamma(k0);
+
+        // Brent's method operates on a bracket [a, b] with f(a) and f(b) of
+        // opposite sign. If the initial bracket does not straddle the root,
+        // fall back to a coarse scan (matches Python's brentq fallback).
+        let mut a = 0.1_f64;
+        let mut b = k as f64;
+        let mut fa = func(a);
+        let mut fb = func(b);
+        if fa * fb >= 0.0 {
+            let steps = 64usize;
+            let step = (b - a) / (steps as f64);
+            let mut t = a;
+            let mut best = a;
+            let mut best_v = f64::INFINITY;
+            for _ in 0..=steps {
+                let v = func(t).abs();
+                if v < best_v {
+                    best_v = v;
+                    best = t;
+                }
+                t += step;
             }
-            t += step;
+            return best;
         }
-        let extremum_beta = best_k0 / (k as f64);
-        // We'll compute l0 at this beta
-        let counts = self.counts_vec();
-        self.neg_log_rho(extremum_beta, k, n, &counts)
+
+        // Brent's method (Numerical Recipes `zbrent`, equivalent to SciPy's
+        // `brentq`). Maintains a bracket `[b, c]` with f(b)·f(c) < 0 at all
+        // times, combining inverse quadratic interpolation with bisection.
+        let mut c = b;
+        let mut fc = fb;
+        let mut d = b - a;
+        let mut e = b - a;
+        const TOL: f64 = 1e-12;
+        const ITMAX: usize = 100;
+
+        for _ in 0..ITMAX {
+            if (fb > 0.0) == (fc > 0.0) {
+                // The root lies between b and c; discard a and re-bracket.
+                c = a;
+                fc = fa;
+                d = b - a;
+                e = d;
+            }
+            if fc.abs() < fb.abs() {
+                a = b;
+                b = c;
+                c = a;
+                fa = fb;
+                fb = fc;
+                fc = fa;
+            }
+            let tol1 = 2.0 * f64::EPSILON * b.abs() + 0.5 * TOL;
+            let xm = 0.5 * (c - b);
+            if xm.abs() <= tol1 || fb == 0.0 {
+                return b;
+            }
+
+            if e.abs() >= tol1 && fa.abs() > fb.abs() {
+                // Attempt inverse quadratic interpolation.
+                let s = fb / fa;
+                let (mut p, mut q);
+                if a == c {
+                    p = 2.0 * xm * s;
+                    q = 1.0 - s;
+                } else {
+                    q = fa / fc;
+                    let r = fb / fc;
+                    p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0));
+                    q = (q - 1.0) * (r - 1.0) * (s - 1.0);
+                }
+                if p > 0.0 {
+                    q = -q;
+                }
+                p = p.abs();
+                let min1 = 3.0 * xm * q - (tol1 * q).abs();
+                let min2 = (e * q).abs();
+                if 2.0 * p < min1.min(min2) {
+                    e = d;
+                    d = p / q;
+                } else {
+                    d = xm;
+                    e = d;
+                }
+            } else {
+                // Bisection.
+                d = xm;
+                e = d;
+            }
+            a = b;
+            fa = fb;
+            b += if d.abs() >= tol1 {
+                d
+            } else if xm >= 0.0 {
+                tol1
+            } else {
+                -tol1
+            };
+            fb = func(b);
+        }
+        b
     }
 
-    // Adaptive Simpson integration
-    fn simpson<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, tol: f64, depth: usize) -> f64 {
-        fn simp<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64) -> f64 {
-            let c = 0.5 * (a + b);
-            let h = b - a;
-            (h / 6.0) * (f(a) + 4.0 * f(c) + f(b))
-        }
-        let c = 0.5 * (a + b);
-        let s_ab = simp(f, a, b);
-        let s_ac = simp(f, a, c);
-        let s_cb = simp(f, c, b);
-        if depth == 0 || (s_ac + s_cb - s_ab).abs() < 15.0 * tol {
-            return s_ac + s_cb + (s_ac + s_cb - s_ab) / 15.0;
-        }
-        Self::simpson(f, a, c, tol / 2.0, depth - 1) + Self::simpson(f, c, b, tol / 2.0, depth - 1)
+    fn find_l0(&self, k: usize, n: usize) -> f64 {
+        let extremum_k0 = self.find_extremum_k0(k, n);
+        let extremum_beta = extremum_k0 / (k as f64);
+        let counts = self.counts_vec();
+        self.neg_log_rho(extremum_beta, k, n, &counts)
     }
 }
 
@@ -160,16 +233,108 @@ impl GlobalValue for NsbEntropy {
         let f_num = |beta: f64| ((-(neg_log_rho(beta)) + l0).exp()) * dxi(beta) * bayes(beta);
         let f_den = |beta: f64| ((-(neg_log_rho(beta)) + l0).exp()) * dxi(beta);
 
-        // Avoid singularity at beta=0 by starting slightly above 0
+        // Avoid singularity at beta=0 by starting slightly above 0.
         let a = 1e-8;
-        let num = Self::simpson(&f_num, a, upper, self.tol, self.max_recursion);
-        let den = Self::simpson(&f_den, a, upper, self.tol, self.max_recursion);
+        let num = adaptive_gk15(&f_num, a, upper, self.tol, MAX_SUBDIVISIONS);
+        let den = adaptive_gk15(&f_den, a, upper, self.tol, MAX_SUBDIVISIONS);
 
         if den == 0.0 || !den.is_finite() {
             return f64::NAN;
         }
         num / den
     }
+}
+
+/// Maximum recursion depth for the adaptive integrator. This is a *depth* bound,
+/// so the worst-case interval count is `2^MAX_SUBDIVISIONS`. It must stay small:
+/// near the β→0 singularity the integrand is steep and the error estimate never
+/// converges, so without a tight cap the bisection would explode exponentially.
+const MAX_SUBDIVISIONS: usize = 12;
+
+/// Abscissae, Kronrod weights and embedded Gauss weights of the 15-point
+/// Gauss–Kronrod rule (QUADPACK `dqk15`). Only the positive abscissae are given;
+/// the rule is symmetric about the origin. The centre abscissa is `XGK[7] = 0`.
+///
+/// Ordering matches the authoritative `dqk15.f` (evaluated with 80-digit
+/// arithmetic by L. W. Fullerton, Bell Labs, 1981):
+/// - `XGK` = `[xgk1, xgk2, ..., xgk8]` (even indices are the embedded Gauss nodes)
+/// - `WGK` = `[wgk1, wgk2, ..., wgk8]`
+/// - `WG`  = `[wg1, wg2, wg3, wg4]` (7-point Gauss weights; `WG[3]` is the centre)
+const XGK: [f64; 8] = [
+    0.991_455_371_120_812_6,
+    0.949_107_912_342_758_5,
+    0.864_864_423_359_769_1,
+    0.741_531_185_599_394_4,
+    0.586_087_235_467_691_1,
+    0.405_845_151_377_397_2,
+    0.207_784_955_007_898_5,
+    0.0,
+];
+const WGK: [f64; 8] = [
+    0.022_935_322_010_529_2,
+    0.063_092_092_629_978_6,
+    0.104_790_010_322_250_2,
+    0.140_653_259_715_525_9,
+    0.169_004_726_639_267_9,
+    0.190_350_578_064_785_4,
+    0.204_432_940_075_298_9,
+    0.209_482_141_084_727_8,
+];
+const WG: [f64; 4] = [
+    0.129_484_966_168_869_7,
+    0.279_705_391_489_276_7,
+    0.381_830_050_505_118_9,
+    0.417_959_183_673_469_4,
+];
+
+/// Evaluate a single 15-point Gauss–Kronrod interval, returning `(integral, err)`
+/// where `err` is the difference between the 15- and 7-point estimates (this is
+/// the `dqk15` error estimate, before the `resasc` correction).
+fn gk15<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64) -> (f64, f64) {
+    let center = 0.5 * (a + b);
+    let half = 0.5 * (b - a);
+
+    let fc = f(center);
+    let mut res_k = fc * WGK[7]; // centre uses wgk(8)
+    let mut res_g = fc * WG[3]; // centre uses wg(4)
+
+    // dqk15 loop 1: the odd-indexed abscissae XGK[1], XGK[3], XGK[5] carry both
+    // Gauss weights WG[0..2] and Kronrod weights WGK[1], WGK[3], WGK[5].
+    for (j, &wg) in WG.iter().take(3).enumerate() {
+        let node = 2 * j + 1;
+        let absc = half * XGK[node];
+        let fsum = f(center - absc) + f(center + absc);
+        res_g += wg * fsum;
+        res_k += WGK[node] * fsum;
+    }
+
+    // dqk15 loop 2: the even-indexed abscissae XGK[0], XGK[2], XGK[4], XGK[6]
+    // are Kronrod-only nodes.
+    for (j, &wgk) in WGK.iter().take(7).step_by(2).enumerate() {
+        let node = 2 * j;
+        let absc = half * XGK[node];
+        let fsum = f(center - absc) + f(center + absc);
+        res_k += wgk * fsum;
+    }
+
+    let result = res_k * half;
+    let abserr = (res_k - res_g).abs() * half;
+    (result, abserr)
+}
+
+/// Adaptive Gauss–Kronrod 15 integration by recursive bisection until the error
+/// estimate is below `tol` or `max_depth` subdivisions are reached.
+fn adaptive_gk15<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, tol: f64, max_depth: usize) -> f64 {
+    if max_depth == 0 {
+        return gk15(f, a, b).0;
+    }
+    let c = 0.5 * (a + b);
+    let (whole, whole_err) = gk15(f, a, b);
+    if whole_err < tol {
+        return whole;
+    }
+    adaptive_gk15(f, a, c, tol * 0.5, max_depth - 1)
+        + adaptive_gk15(f, c, b, tol * 0.5, max_depth - 1)
 }
 
 impl LocalValues for NsbEntropy {
