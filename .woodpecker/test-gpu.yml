@@ -30,7 +30,7 @@ steps:
       - nvidia.com/gpu=all
     environment:
       NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
+      LD_LIBRARY_PATH: /usr/lib/nvidia
     commands:
       - vulkaninfo --summary
       - if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
@@ -45,7 +45,7 @@ steps:
       - nvidia.com/gpu=all
     environment:
       NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
+      LD_LIBRARY_PATH: /usr/lib/nvidia
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
@@ -65,7 +65,7 @@ steps:
       - nvidia.com/gpu=all
     environment:
       NVIDIA_DRIVER_CAPABILITIES: all
-      LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
+      LD_LIBRARY_PATH: /usr/lib/nvidia
       CARGO_HOME: /target/infomeasure-rs-cargo-gpu
       CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
