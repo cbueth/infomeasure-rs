@@ -11,7 +11,9 @@ use ndarray::Array2;
 
 // Import test helper functions
 #[cfg(feature = "gpu")]
-use crate::test_helpers::{generate_random_nd_data, measure_execution_time};
+use crate::test_helpers::{
+    assert_hardware_gpu_adapter, generate_random_nd_data, measure_execution_time,
+};
 
 /// Test that compares the CPU and GPU implementations of the box kernel
 ///
@@ -20,6 +22,8 @@ use crate::test_helpers::{generate_random_nd_data, measure_execution_time};
 #[test]
 #[cfg(feature = "gpu")]
 fn test_box_kernel_cpu_vs_gpu() {
+    assert_hardware_gpu_adapter();
+
     // Set up test parameters
     let seed = 42;
     let size = 1000; // Use a larger size to make GPU acceleration worthwhile
@@ -198,6 +202,8 @@ fn compare_box_kernel_cpu_vs_gpu<const K: usize>(
 #[test]
 #[cfg(feature = "gpu")]
 fn test_box_kernel_gpu_fallback() {
+    assert_hardware_gpu_adapter();
+
     // Set up test parameters
     let seed = 42;
 
@@ -319,6 +325,8 @@ fn test_box_kernel_fallback<const K: usize>(
 #[cfg(feature = "gpu")]
 #[ignore]
 fn test_box_kernel_performance() {
+    assert_hardware_gpu_adapter();
+
     // Set up test parameters
     let seed = 42;
     let sizes = [1000, 10000, 100000];

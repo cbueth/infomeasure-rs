@@ -6,8 +6,12 @@ workspace:
   base: /build
   path: .
 
+# All benches run on the fixed box (laptop, GTX 1060). Runs are recorded on the
+# `self-hosted-gpu` testbed so Bencher NEVER thresholds them against the old VPS
+# (`self-hosted`) numbers — different testbed = no cross-hardware comparison.
 labels:
   provider: self-hosted
+  type: gpu
 
 when:
   - event: [push, pull_request]
@@ -34,8 +38,8 @@ steps:
           touch /target/infomeasure-rs-bench/.seeded;
         fi
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
-        cargo bench --no-run $BENCH_ARGS
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
+        cargo bench --no-run --features gpu $BENCH_ARGS
 
   - name: bench
     image: codeberg.org/cbueth/infomeasure-rs:stable
@@ -51,13 +55,16 @@ steps:
       BENCH_ORDERS: "3"
       BENCH_ALPHAS: "1.2"
       BENCH_Q_VALUES: "1.2"
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
     commands:
+      - . /usr/local/bin/init-nvidia-vulkan.sh
       - if [ ! -x "$CARGO_HOME/bin/bencher" ]; then
           curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh;
         fi
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte"
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
         CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
@@ -68,16 +75,16 @@ steps:
             --start-point "$CI_COMMIT_TARGET_BRANCH" \
             --start-point-clone-thresholds \
             --start-point-reset \
-            --testbed self-hosted \
+            --testbed self-hosted-gpu \
             --error-on-alert \
-            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
+            cargo bench --features gpu $BENCH_ARGS -- $CRIT_FLAGS
         else
           bencher run \
             --adapter rust_criterion \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
-            --testbed self-hosted \
+            --testbed self-hosted-gpu \
             --threshold-measure latency \
             --threshold-test t_test \
             --threshold-min-sample-size 10 \
@@ -85,7 +92,7 @@ steps:
             --threshold-upper-boundary 0.99 \
             --thresholds-reset \
             --error-on-alert \
-            cargo bench $BENCH_ARGS -- $CRIT_FLAGS
+            cargo bench --features gpu $BENCH_ARGS -- $CRIT_FLAGS
         fi
 
   - name: comment

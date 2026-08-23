@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 #[cfg(feature = "gpu")]
+use crate::test_helpers::assert_hardware_gpu_adapter;
+#[cfg(feature = "gpu")]
 use infomeasure::estimators::LocalValues;
 #[cfg(feature = "gpu")]
 use infomeasure::estimators::mutual_information::MutualInformation;
@@ -20,6 +22,8 @@ use rstest::rstest;
 #[rstest]
 #[cfg(feature = "gpu")]
 fn test_kernel_mi_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
+    assert_hardware_gpu_adapter();
+
     let seed = 42;
     let mut rng = StdRng::seed_from_u64(seed);
     let size = 2500; // Large enough to trigger GPU for box (2000) and gaussian (500)
@@ -56,6 +60,8 @@ fn test_kernel_mi_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
 #[rstest]
 #[cfg(feature = "gpu")]
 fn test_kernel_te_gpu_parity(#[values("box", "gaussian")] kernel_type: &str) {
+    assert_hardware_gpu_adapter();
+
     let seed = 44;
     let mut rng = StdRng::seed_from_u64(seed);
     let size = 2500;
