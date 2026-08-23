@@ -8,6 +8,7 @@ workspace:
 
 labels:
   provider: self-hosted
+  type: cpu
 
 when:
   - event: [push, pull_request]

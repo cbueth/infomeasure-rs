@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2025-2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+workspace:
+  base: /build
+  path: .
+
+labels:
+  provider: self-hosted
+  type: gpu
+
+when:
+  - event: [push, pull_request]
+    branch: [main, develop]
+    path:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - tests/**
+      - .docker/**
+      - .woodpecker/**
+  - event: manual
+
+steps:
+  - name: check-gpu
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
+    commands:
+      - . /usr/local/bin/init-nvidia-vulkan.sh
+      - vulkaninfo --summary
+      - 'if ! vulkaninfo --summary 2>/dev/null | grep -q "PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; then
+          echo "ERROR: no discrete GPU found (only iGPU/software renderer)" >&2;
+          exit 1;
+        fi'
+
+  - name: build
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
+    environment:
+      CARGO_HOME: /target/infomeasure-rs-cargo-gpu
+      CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
+    commands:
+      - if [ ! -e /target/infomeasure-rs-gpu/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-gpu /target/infomeasure-rs-cargo-gpu &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-gpu/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-gpu/ &&
+          touch /target/infomeasure-rs-gpu/.seeded;
+        fi
+      - cargo build -j 8 --workspace --features gpu
+
+  - name: test
+    image: codeberg.org/cbueth/infomeasure-rs:stable
+    pull: true
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
+      CARGO_HOME: /target/infomeasure-rs-cargo-gpu
+      CARGO_TARGET_DIR: /target/infomeasure-rs-gpu
+      CARGO_MANIFEST_DIR: /build/tests/validation_crate
+    commands:
+      - . /usr/local/bin/init-nvidia-vulkan.sh
+      # Filter BEFORE `--`, harness args after it. Putting the filter after a
+      # second `--` makes libtest drop the filter and run the FULL suite (823
+      # tests incl. CPU ones) — one of which then segfaults.
+      # --test-threads 1: each GPU test builds its own wgpu device; running them
+      # concurrently (default = one thread per core) crashes the NVIDIA driver
+      # with SIGSEGV. Serialize so only one GPU context exists at a time.
+      - cargo test -j 8 --features gpu --test all_tests gpu -- --test-threads 1
+      - cargo test -j 8 --features gpu --test all_tests discrete_gpu_batch_matches_cpu -- --ignored --test-threads 1

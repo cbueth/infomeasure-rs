@@ -7,6 +7,35 @@ use std::time::{Duration, Instant};
 // Import and re-export commonly used items
 pub use approx::assert_relative_eq;
 
+/// Assert that a hardware (non-software) GPU adapter is available.
+///
+/// Panics if wgpu only finds a software adapter (llvmpipe/lavapipe) or no adapter
+/// at all, so GPU tests fail loudly instead of silently running on the CPU.
+#[cfg(feature = "gpu")]
+#[allow(dead_code)] // only used by GPU test binaries
+pub fn assert_hardware_gpu_adapter() -> wgpu::AdapterInfo {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+    }))
+    .expect("no GPU adapter found - is the GPU exposed to this container?");
+
+    let info = adapter.get_info();
+    let name = info.name.to_ascii_lowercase();
+    let is_software = info.device_type == wgpu::DeviceType::Cpu
+        || name.contains("llvmpipe")
+        || name.contains("lavapipe")
+        || name.contains("swiftshader");
+    assert!(
+        !is_software,
+        "GPU adapter is a software fallback ({}, {}) - GPU tests must not run on the CPU",
+        info.name, info.driver
+    );
+    info
+}
+
 /// Print only if verbose mode is enabled (cargo test --verbose)
 #[macro_export]
 macro_rules! verbose_println {

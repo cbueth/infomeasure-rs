@@ -6,8 +6,9 @@
 # Decoupled from Cargo.lock - compiled artifacts live on the runner's volume.
 
 when:
-  - branch: main
-    event: [manual, cron]
+  - event: manual
+  - event: cron
+    branch: main
     path: [.docker/Dockerfile, tests/validation_crate/requirements.txt]
 
 matrix:

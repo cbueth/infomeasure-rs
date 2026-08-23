@@ -9,11 +9,14 @@ use infomeasure::estimators::GlobalValue;
 use infomeasure::estimators::approaches::discrete::mle::DiscreteEntropy;
 use ndarray::{Array2, array};
 
+use crate::test_helpers::assert_hardware_gpu_adapter;
+
 // This is a smoke test to exercise the GPU histogram path for DiscreteEntropy::from_rows.
 // It is ignored by default as not all CI environments have a usable GPU.
 #[test]
 #[ignore]
 fn discrete_gpu_batch_matches_cpu() {
+    assert_hardware_gpu_adapter();
     let data: Array2<i32> = array![
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         [5, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 9, 9, 9, 9, 9, 9, 9],

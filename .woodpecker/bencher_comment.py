@@ -76,15 +76,24 @@ def bencher_get(path: str) -> dict:
     raise last_err if last_err else RuntimeError(f"GET {url} failed")
 
 
-def bencher_list_reports(branch: str, per_page: int = 1) -> list:
-    q = urllib.parse.urlencode({"branch": branch, "per_page": per_page})
-    return bencher_get(f"/reports?{q}")
+def bencher_list_reports(branch: str, per_page: int = 1, testbed: typing.Optional[str] = None) -> list:
+    q = {"branch": branch, "per_page": per_page}
+    if testbed:
+        q["testbed"] = testbed
+    return bencher_get(f"/reports?{urllib.parse.urlencode(q)}")
 
 
-def bencher_get_report(branch: str, hash: typing.Optional[str] = None) -> typing.Optional[dict]:
+def bencher_get_report(
+    branch: str,
+    hash: typing.Optional[str] = None,
+    testbed: typing.Optional[str] = None,
+) -> typing.Optional[dict]:
     """Return a report for a branch. If `hash` is given, find the (oldest)
-    report whose head commit matches it; otherwise return the latest report."""
-    reports = bencher_list_reports(branch, per_page=100)
+    report whose head commit matches it; otherwise return the latest report.
+    `testbed` restricts the lookup so the baseline is only drawn from the same
+    testbed (e.g. `self-hosted-gpu`) — otherwise old numbers from another
+    machine (e.g. the VPS `self-hosted`) would be compared against it."""
+    reports = bencher_list_reports(branch, per_page=100, testbed=testbed)
     if not reports:
         return None
     if hash is not None:
@@ -298,7 +307,9 @@ def main() -> int:
         return 0
 
     base_report = bencher_get_report(
-        target, hash=pr_report["branch"]["head"]["start_point"]["version"]["hash"]
+        target,
+        hash=pr_report["branch"]["head"]["start_point"]["version"]["hash"],
+        testbed=pr_report["testbed"]["slug"],
     )
     if base_report is None:
         print(
