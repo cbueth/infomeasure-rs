@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-20
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -28,6 +28,7 @@
 
 ### Misc
 
+- ci(gpu): GPU test pipeline + self-hosted runner label separation [[#59](https://codeberg.org/cbueth/infomeasure-rs/pulls/59)]
 - fix(kernel): remove unused capacity/i left by visit-fusion merge [[#56](https://codeberg.org/cbueth/infomeasure-rs/pulls/56)]
 - ci(release): auto-bump version refs in README and lib.rs on release [[#55](https://codeberg.org/cbueth/infomeasure-rs/pulls/55)]
 - ci(bench): add Bencher report PR comment [[#50](https://codeberg.org/cbueth/infomeasure-rs/pulls/50)]
