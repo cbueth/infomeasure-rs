@@ -31,11 +31,11 @@ fn main() {
         data.slice(ndarray::s![..20])
     );
 
-    // 1. Default threshold (0.1)
-    // This will warn because Ratio (1.x) > 0.1, but it will return a valid value because N > K_obs.
+    // 1. Default threshold (2.0)
+    // No warning here because the data are in the ANSB regime (Ratio 1.x <= 2.0).
     let est_default = Entropy::new_ansb(data.clone(), None);
     let h_default = est_default.global_value();
-    println!("Default threshold (0.1): entropy = {h_default:.6} (Warning expected above)");
+    println!("Default threshold (2.0): entropy = {h_default:.6} (No warning expected)");
 
     // 2. Custom threshold (2.0)
     // No warning here because Ratio (1.x) < 2.0.
@@ -61,9 +61,14 @@ fn main() {
     println!("Row 1 entropy: {:.6}", batch[0].global_value());
     println!("Row 2 entropy: {:.6}", batch[1].global_value());
 
-    println!("\nNote: ANSB is defined only when N > K. If N <= K, it returns NaN.");
-    println!("The undersampled threshold warning triggers if the ratio N/K exceeds the parameter.");
     println!(
-        "Since N/K is always > 1 for valid ANSB estimates, the default threshold (0.1) always warns."
+        "\nNote: ANSB is defined only when N > K (at least one coincidence). If N <= K, it returns NaN."
     );
+    println!(
+        "The undersampled warning triggers when the ratio N/K exceeds the threshold parameter."
+    );
+    println!(
+        "ANSB assumes K ~ N; for well-sampled data (N/K > 2.0 by default) the estimate diverges like 2*ln(N)."
+    );
+    println!("Both warnings are emitted at most once per process.");
 }
