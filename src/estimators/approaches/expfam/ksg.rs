@@ -60,7 +60,7 @@
 //! - [Kraskov et al., 2004](crate::guide::references#ksg2004)
 //! - [Frenzel & Pompe, 2007](crate::guide::references#frenzel2007)
 
-use kiddo::{Chebyshev, Donnelly, QueryScratch, SquaredEuclidean};
+use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use statrs::function::gamma::digamma;
 
@@ -79,6 +79,12 @@ use crate::estimators::utils::te_slicing::{cte_observations_const, te_observatio
 ///
 /// Count-only: uses kiddo's public `.visit()` so no result `Vec` is materialised —
 /// the KSG marginal/conditional neighbour counting only needs the count.
+/// Reference ball counter kept as the test oracle for [`SortedSpace`]:
+/// production paths all go through the sorted-window scan.
+#[cfg(test)]
+use kiddo::{Donnelly, QueryScratch};
+
+#[cfg(test)]
 fn count_neighbors_within<const K: usize>(
     tree: &KdTreeExpfam<K>,
     query: &[f64; K],
@@ -216,8 +222,7 @@ macro_rules! impl_ksg_mi {
                 $(
                     let m_data = self.data[$d_idx].view();
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
-                    let m_tree = KdTreeExpfam::<$d_param>::new_from_slice(&m_points).unwrap();
-                    let mut within_scratch = Default::default();
+                    let m_sorted = SortedSpace::new(m_points.clone());
 
                     let mut counts = Vec::with_capacity(n_samples);
                     for i in 0..n_samples {
@@ -228,8 +233,7 @@ macro_rules! impl_ksg_mi {
                             // Type 1 uses strict inequality: dist < eps
                             // Python uses: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                             if eps > 0.0 {
-                                let raw =
-                                    count_neighbors_within(&m_tree, p, eps, self.use_chebyshev, true, &mut within_scratch);
+                                let raw = m_sorted.count_within(p, eps, self.use_chebyshev, true);
                                 // Subtract 1 to exclude the point itself (same as Python)
                                 raw - 1
                             } else {
@@ -237,7 +241,7 @@ macro_rules! impl_ksg_mi {
                             }
                         } else {
                             // Type 2 uses inclusive inequality: dist <= eps
-                            count_neighbors_within(&m_tree, p, eps, self.use_chebyshev, false, &mut within_scratch)
+                            m_sorted.count_within(p, eps, self.use_chebyshev, false)
                         };
 
                         counts.push(count as f64);
@@ -313,6 +317,87 @@ impl_ksg_mi!(
     (D1, D2, D3, D4, D5, D6),
     (0, 1, 2, 3, 4, 5)
 );
+
+/// Smallest representable `f64` strictly greater than `x`.
+fn next_up(x: f64) -> f64 {
+    if x.is_nan() || x == f64::INFINITY {
+        return x;
+    }
+    if x == -0.0 {
+        return 0.0;
+    }
+    let bits = x.to_bits();
+    if x >= 0.0 {
+        f64::from_bits(bits + 1)
+    } else {
+        f64::from_bits(bits - 1)
+    }
+}
+
+/// A point cloud sorted once by its first coordinate, turning ball counting
+/// into a window scan instead of a per-query kd-tree traversal.
+///
+/// Any Chebyshev or squared-Euclidean ball of radius `eps` around a query is
+/// contained in the axis-0 slab $\left[q_0 - \varepsilon, q_0 +
+/// \varepsilon\right]$ (widened by one ulp per side), so scanning that slab
+/// and filtering with the same floating-point expressions kiddo evaluates
+/// yields identical integer counts at every dimensionality.
+struct SortedSpace<const D: usize> {
+    /// Points ascending by `[0]` (`total_cmp`; input contains no NaNs).
+    points: Vec<[f64; D]>,
+}
+
+impl<const D: usize> SortedSpace<D> {
+    fn new(mut points: Vec<[f64; D]>) -> Self {
+        points.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        Self { points }
+    }
+
+    /// Raw neighbour count within `eps` of `query`, self included, matching
+    /// [`count_neighbors_within`] bit-for-bit for both metrics and both
+    /// boundary modes.
+    ///
+    /// The scan range is delimited by partitioning on the same rounded
+    /// per-axis subtraction kiddo evaluates, widened by two ulps of `eps`.
+    /// Widening the *radius* instead of materialising interval bounds
+    /// $\left[q_0 \pm \varepsilon\right]$ sidesteps catastrophic cancellation
+    /// when $q_0 \approx \mp\varepsilon$, where a naively rounded sum would
+    /// truncate the slab near zero.
+    fn count_within(
+        &self,
+        query: &[f64; D],
+        eps: f64,
+        use_chebyshev: bool,
+        exclusive: bool,
+    ) -> usize {
+        let slack = next_up(next_up(eps));
+        let q0 = query[0];
+        // Prefix predicates are monotone because rounding is monotone.
+        let start = self.points.partition_point(|p| q0 - p[0] > slack);
+        let end = start + self.points[start..].partition_point(|p| p[0] - q0 <= slack);
+
+        self.points[start..end]
+            .iter()
+            .filter(|p| {
+                if use_chebyshev {
+                    let d = p
+                        .iter()
+                        .zip(query.iter())
+                        .map(|(pi, qi)| (pi - qi).abs())
+                        .fold(0.0_f64, f64::max);
+                    if exclusive { d < eps } else { d <= eps }
+                } else {
+                    let mut d2 = 0.0;
+                    for (pi, qi) in p.iter().zip(query.iter()) {
+                        d2 += (pi - qi) * (pi - qi);
+                    }
+                    let e2 = eps * eps;
+                    if exclusive { d2 < e2 } else { d2 <= e2 }
+                }
+            })
+            .count()
+    }
+}
 
 /// KSG (kNN-based) conditional mutual information estimator.
 ///
@@ -429,13 +514,9 @@ impl<
         let yz_points = NdDataset::<D2_COND>::points_as_vec(yz);
         let z_points = NdDataset::<D_COND>::points_as_vec(z.to_owned());
 
-        let xz_tree = KdTreeExpfam::<D1_COND>::new_from_slice(&xz_points).unwrap();
-        let yz_tree = KdTreeExpfam::<D2_COND>::new_from_slice(&yz_points).unwrap();
-        let z_tree = KdTreeExpfam::<D_COND>::new_from_slice(&z_points).unwrap();
-
-        let mut xz_scratch = Default::default();
-        let mut yz_scratch = Default::default();
-        let mut z_scratch = Default::default();
+        let xz_sorted = SortedSpace::new(xz_points.clone());
+        let yz_sorted = SortedSpace::new(yz_points.clone());
+        let z_sorted = SortedSpace::new(z_points.clone());
 
         let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
@@ -450,30 +531,11 @@ impl<
                 // Algorithm 1 uses strict inequality (dist < eps)
                 // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
                 if eps > 0.0 {
-                    let raw_xz = count_neighbors_within(
-                        &xz_tree,
-                        &xz_points[i],
-                        eps,
-                        self.use_chebyshev,
-                        true,
-                        &mut xz_scratch,
-                    );
-                    let raw_yz = count_neighbors_within(
-                        &yz_tree,
-                        &yz_points[i],
-                        eps,
-                        self.use_chebyshev,
-                        true,
-                        &mut yz_scratch,
-                    );
-                    let raw_z = count_neighbors_within(
-                        &z_tree,
-                        &z_points[i],
-                        eps,
-                        self.use_chebyshev,
-                        true,
-                        &mut z_scratch,
-                    );
+                    let raw_xz =
+                        xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, true);
+                    let raw_yz =
+                        yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, true);
+                    let raw_z = z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, true);
                     (raw_xz as i32 - 1, raw_yz as i32 - 1, raw_z as i32 - 1)
                 } else {
                     (0, 0, 0)
@@ -481,30 +543,9 @@ impl<
             } else {
                 // Algorithm 2 uses inclusive inequality (distance <= eps).
                 // Python: query_ball_point(..., r=eps, p=inf, ...)
-                let raw_xz = count_neighbors_within(
-                    &xz_tree,
-                    &xz_points[i],
-                    eps,
-                    self.use_chebyshev,
-                    false,
-                    &mut xz_scratch,
-                );
-                let raw_yz = count_neighbors_within(
-                    &yz_tree,
-                    &yz_points[i],
-                    eps,
-                    self.use_chebyshev,
-                    false,
-                    &mut yz_scratch,
-                );
-                let raw_z = count_neighbors_within(
-                    &z_tree,
-                    &z_points[i],
-                    eps,
-                    self.use_chebyshev,
-                    false,
-                    &mut z_scratch,
-                );
+                let raw_xz = xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, false);
+                let raw_yz = yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, false);
+                let raw_z = z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, false);
                 (raw_xz as i32, raw_yz as i32, raw_z as i32)
             };
 
@@ -1006,4 +1047,150 @@ impl<
         D_YF_YP_ZP,
     >
 {
+}
+
+#[cfg(test)]
+mod ksg_count_tests {
+    #![allow(unused_imports)]
+    use super::*;
+    use ndarray::array;
+    use rstest::rstest;
+
+    /// Reference implementation with the same floating-point expressions the
+    /// kiddo queries evaluate: per-dimension absolute differences folded into
+    /// Chebyshev max or squared-Euclidean sum, compared against `eps`.
+    fn brute_force_count<const D: usize>(
+        points: &[[f64; D]],
+        query: &[f64; D],
+        eps: f64,
+        use_chebyshev: bool,
+        exclusive: bool,
+    ) -> usize {
+        points
+            .iter()
+            .filter(|p| {
+                if use_chebyshev {
+                    let d = p
+                        .iter()
+                        .zip(query)
+                        .map(|(pi, qi)| (pi - qi).abs())
+                        .fold(0.0_f64, f64::max);
+                    if exclusive { d < eps } else { d <= eps }
+                } else {
+                    let mut d2 = 0.0;
+                    for (pi, qi) in p.iter().zip(query) {
+                        d2 += (pi - qi) * (pi - qi);
+                    }
+                    let e2 = eps * eps;
+                    if exclusive { d2 < e2 } else { d2 <= e2 }
+                }
+            })
+            .count()
+    }
+
+    fn seeded_points(n: usize, dim: usize, seed: u64, duplicates: bool) -> Array2<f64> {
+        use rand::Rng;
+        use rand::SeedableRng;
+        use rand::rngs::StdRng;
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut data = Array2::<f64>::zeros((n, dim));
+        for v in data.iter_mut() {
+            *v = if duplicates {
+                // Coarse grid forces many exact coordinate collisions.
+                let r: f64 = rng.gen_range(0.0..10.0);
+                (r.floor()) / 4.0
+            } else {
+                rng.gen_range(-5.0..5.0)
+            };
+        }
+        data
+    }
+
+    fn check_sorted_space<const D: usize>(n: usize, seed: u64, duplicates: bool) {
+        let data = seeded_points(n, D, seed, duplicates);
+        let points = NdDataset::<D>::points_as_vec(data);
+        let tree = KdTreeExpfam::<D>::new_from_slice(&points).unwrap();
+        let sorted = SortedSpace::new(points.clone());
+        let mut scratch = Default::default();
+
+        for (i, q) in points.iter().enumerate() {
+            let eps = 0.37 + 0.11 * i as f64;
+            for use_chebyshev in [true, false] {
+                for exclusive in [true, false] {
+                    let want = brute_force_count(&points, q, eps, use_chebyshev, exclusive);
+                    let got_sorted = sorted.count_within(q, eps, use_chebyshev, exclusive);
+                    let got_kiddo = count_neighbors_within(
+                        &tree,
+                        q,
+                        eps,
+                        use_chebyshev,
+                        exclusive,
+                        &mut scratch,
+                    );
+                    assert_eq!(
+                        got_sorted, want,
+                        "brute mismatch i={i} cheb={use_chebyshev} excl={exclusive}"
+                    );
+                    assert_eq!(
+                        got_sorted, got_kiddo,
+                        "kiddo mismatch i={i} cheb={use_chebyshev} excl={exclusive}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[rstest]
+    fn sorted_space_d1_matches_brute_force_and_kiddo(#[values(true, false)] duplicates: bool) {
+        check_sorted_space::<1>(64, 7, duplicates);
+    }
+
+    #[rstest]
+    fn sorted_space_d3_matches_brute_force_and_kiddo(#[values(true, false)] duplicates: bool) {
+        check_sorted_space::<3>(48, 11, duplicates);
+    }
+
+    /// Points sitting *exactly* at distance `eps` must move together across the
+    /// strict/inclusive boundary — the tie scenario the Python parity suite
+    /// stresses, reproduced here at the counting layer.
+    #[test]
+    fn boundary_ties_flip_only_at_inclusive() {
+        let raw = array![[0.0], [0.25], [-0.5], [0.75]];
+        let points = NdDataset::<1>::points_as_vec(raw);
+        let sorted = SortedSpace::new(points.clone());
+
+        // Query at origin, eps = 0.25: only the self point and +0.25 qualify.
+        assert_eq!(sorted.count_within(&[0.0], 0.25, true, true), 1);
+        assert_eq!(sorted.count_within(&[0.0], 0.25, true, false), 2);
+    }
+
+    /// `eps == 0` with inclusive boundaries still counts coincident points
+    /// (distance 0 ≤ 0); exclusive counts nothing, matching Type-1's early
+    /// `eps > 0` guard upstream.
+    #[test]
+    fn zero_epsilon_counts_coincident_points_when_inclusive() {
+        let raw = array![[1.5], [1.5], [1.5], [2.0]];
+        let points = NdDataset::<1>::points_as_vec(raw);
+        let sorted = SortedSpace::new(points.clone());
+
+        assert_eq!(sorted.count_within(&[1.5], 0.0, true, true), 0);
+        assert_eq!(sorted.count_within(&[1.5], 0.0, true, false), 3);
+    }
+
+    /// When $q_0 = -\varepsilon$ the sum $q_0 + \varepsilon$ cancels to zero,
+    /// so a slab built from rounded interval bounds would truncate near zero
+    /// and drop neighbours kiddo counts. Radius-slack partitioning must keep
+    /// them.
+    #[test]
+    fn window_survives_catastrophic_cancellation() {
+        let raw = array![[-0.1], [1e-300], [5e-17], [0.5]];
+        let points = NdDataset::<1>::points_as_vec(raw);
+        let sorted = SortedSpace::new(points.clone());
+
+        // Query sits at exactly -eps: the far edge of its ball is ~0.
+        // Self and 1e-300 are within rounded distance eps; 5e-17 already
+        // lands ~4 ulps above eps after rounding, so it is out for kiddo too.
+        assert_eq!(sorted.count_within(&[-0.1], 0.1, true, false), 2);
+        assert_eq!(sorted.count_within(&[-0.1], 0.1, true, true), 1);
+    }
 }
