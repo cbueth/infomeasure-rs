@@ -34,6 +34,10 @@
 //! PROFILE_SECONDS    sampling duration       (default 5)
 //! PROFILE_TOP        table rows              (default 25)
 //! PROFILE_FORMAT     text | json             (default text)
+//! PROFILE_GPU        1 = dispatch through GPU paths where the estimator has
+//!                    them (kernel families). Requires the `gpu` feature.
+//!                    Reports per-job GPU pass milliseconds from wgpu
+//!                    timestamp queries instead of a CPU flamegraph.
 //! ```
 //!
 //! Run with:
@@ -235,6 +239,7 @@ struct Params {
     alpha: f64,
     q: f64,
     seed: u64,
+    gpu: bool,
 }
 
 fn main() {
@@ -264,6 +269,7 @@ fn main() {
     let top: usize = env_or("PROFILE_TOP", "25").parse().expect("PROFILE_TOP");
     let format = env_or("PROFILE_FORMAT", "text");
     let seed: u64 = env_or("PROFILE_SEED", "42").parse().expect("PROFILE_SEED");
+    let gpu_mode = env_or("PROFILE_GPU", "0") == "1";
     let params = Params {
         n,
         k,
@@ -272,12 +278,114 @@ fn main() {
         alpha,
         q,
         seed,
+        gpu: gpu_mode,
     };
+    let mut gpu_ctx: Option<&infomeasure::estimators::gpu::GpuContext> = None;
+    if gpu_mode {
+        #[cfg(feature = "gpu")]
+        {
+            if matches!(workload.family, Family::KernelGaussian | Family::KernelBox) {
+                infomeasure::estimators::gpu::set_gpu_min_points_override(Some(0), Some(0));
+                gpu_ctx = infomeasure::estimators::gpu::GpuContext::get();
+            } else {
+                eprintln!(
+                    "note: {} has no GPU path yet; profiling on CPU",
+                    workload.key()
+                );
+            }
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
+            eprintln!("PROFILE_GPU=1 requires building with --features gpu");
+            std::process::exit(2);
+        }
+    }
 
     // One untimed iteration first so allocator warm-up and lazy statics do not
     // pollute the samples.
     run_once(&workload, &params);
     let deadline = Instant::now() + Duration::from_secs(seconds);
+
+    // GPU mode: CPU stack sampling is meaningless while blocked in wgpu's
+    // poll, so report timestamp-derived pass durations plus wall clock
+    // instead of a ranked function table.
+    if let Some(ctx) = gpu_ctx {
+        let mut iterations = 0usize;
+        let mut wall = Duration::ZERO;
+        let mut gpu_ms_samples: Vec<Vec<f64>> = Vec::new();
+        while Instant::now() < deadline {
+            let t0 = Instant::now();
+            run_once(&workload, &params);
+            wall += t0.elapsed();
+            iterations += 1;
+            if let Some(ms) = ctx.last_batch_gpu_ms() {
+                gpu_ms_samples.push(ms);
+            }
+        }
+
+        let timestamps = ctx.timestamps_enabled();
+        let job_count = gpu_ms_samples.first().map(Vec::len).unwrap_or(0);
+        let mut jobs_json = Vec::new();
+        for j in 0..job_count {
+            let mut vals: Vec<f64> = gpu_ms_samples
+                .iter()
+                .filter_map(|v| v.get(j))
+                .copied()
+                .collect();
+            if vals.is_empty() {
+                continue;
+            }
+            vals.sort_by(f64::total_cmp);
+            let mean = vals.iter().sum::<f64>() / vals.len() as f64;
+            let p50 = vals[vals.len() / 2];
+            let max = vals[vals.len() - 1];
+            if format == "json" {
+                jobs_json.push(serde_json::json!({
+                    "index": j,
+                    "mean_ms": mean,
+                    "p50_ms": p50,
+                    "max_ms": max,
+                }));
+            } else {
+                println!("job {j}: mean {mean:.3}ms  p50 {p50:.3}ms  max {max:.3}ms");
+            }
+        }
+
+        if format == "json" {
+            let doc = serde_json::json!({
+                "estimator": workload.key(),
+                "mode": "gpu",
+                "n": n,
+                "k": k,
+                "bandwidth": bw,
+                "seconds": seconds,
+                "iterations": iterations,
+                "wall_ms_per_iter_mean":
+                    wall.as_secs_f64() * 1e3 / iterations.max(1) as f64,
+                "timestamps_enabled": timestamps,
+                "note": if timestamps {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::json!(
+                        "adapter lacks timestamp queries; only wall time reported"
+                    )
+                },
+                "jobs": jobs_json,
+            });
+            println!("{doc}");
+        } else {
+            println!(
+                "estimator={} n={n} k={k} bw={bw} seconds={seconds} \
+                 iterations={iterations} wall_ms/iter={:.3}",
+                workload.key(),
+                wall.as_secs_f64() * 1e3 / iterations.max(1) as f64,
+            );
+            if !timestamps {
+                println!("(adapter lacks timestamp queries; wall time only)");
+            }
+        }
+        return;
+    }
 
     let guard = ProfilerGuardBuilder::default()
         .frequency(FREQ_HZ)
@@ -650,7 +758,7 @@ fn run_once(workload: &Workload, p: &Params) {
             let kt = kernel_type(&family);
             let mut est =
                 TransferEntropy::new_cte_kernel_with_type(&s, &t, &c, 1, 1, 1, 1, kt, p.bw);
-            est.set_force_cpu(true);
+            est.set_force_cpu(!p.gpu);
             gv!(est)
         }
         _ => unreachable!("entropy-only families have no MI/CMI/TE/CTE workloads"),

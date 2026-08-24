@@ -95,6 +95,26 @@ When optimising, capture a JSON profile before and after your change and
 compare the ranked self-time entries. Wall-clock deltas belong to
 criterion/Bencher.
 
+### GPU workloads
+
+Kernel-family workloads accept `PROFILE_GPU=1`, which dispatches through the
+GPU paths regardless of the usual size gates and reports per-job GPU pass
+milliseconds from wgpu timestamp queries instead of a CPU flamegraph:
+
+```bash
+OPENBLAS_NUM_THREADS=1 PROFILE_GPU=1 \
+    PROFILE_ESTIMATOR=kernel_gaussian_mi_cpu \
+    cargo run --profile profiling --features profiling,gpu --example profile_report
+```
+
+Coverage follows the implementation automatically: any estimator that routes
+through the shared batch runner is timed with no per-estimator plumbing, so new
+GPU-backed estimators become profileable by default. Where the adapter does not
+support inside-pass timestamps (Metal) or its boundary timestamps prove unusable,
+the harness degrades to wall time per iteration and flags this in the JSON
+output rather than emitting zeros. For shader-internals depth beyond timings,
+use Xcode Instruments on macOS or NVIDIA Nsight on Linux.
+
 ## Code Style
 
 The project follows standard Rust formatting. Run formatting before committing:
