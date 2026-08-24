@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-23
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf(nsb): adaptive Gauss-Kronrod integration and Brent root-finding [[#61](https://codeberg.org/cbueth/infomeasure-rs/pulls/61)]
 - perf(gpu): return density directly + compact point layout [[#58](https://codeberg.org/cbueth/infomeasure-rs/pulls/58)]
 - perf(gpu): shared wgpu context + whitened Gaussian shader [[#57](https://codeberg.org/cbueth/infomeasure-rs/pulls/57)]
 - perf(ksg): count-only marginal queries via kiddo visit [[#53](https://codeberg.org/cbueth/infomeasure-rs/pulls/53)]
