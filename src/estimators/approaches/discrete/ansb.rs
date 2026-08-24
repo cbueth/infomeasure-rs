@@ -160,59 +160,56 @@ impl OptionalLocalValues for AnsbEntropy {
 mod tests {
     use super::*;
 
-    /// No other unit test in this binary touches `AnsbEntropy::global_value`,
-    /// so resetting the process-wide flags here is race-free.
+    /// Reset the process-wide warning latches.
+    ///
+    /// The latches are global statics, so all scenarios must run sequentially
+    /// inside the single test below — parallel `#[test]`s resetting and
+    /// asserting on the same statics would race (this flaked on beta).
     fn reset_flags() {
         UNDERSAMPLED_WARNING_EMITTED.store(false, Ordering::Relaxed);
         NO_COINCIDENCES_WARNING_EMITTED.store(false, Ordering::Relaxed);
     }
 
     #[test]
-    fn undersampled_warning_fires_once_per_process() {
+    fn warning_latch_lifecycle() {
+        // Well-sampled data: alphabet 2, N=40 → N/K = 20 > default threshold 2.0
+        let well_sampled: Array1<i32> = (0..40).map(|i| i % 2).collect();
+
+        // 1. INFINITY disables the undersampled check entirely
         reset_flags();
-        // Well-sampled: alphabet 2, N=40 → N/K = 20 > default threshold 2.0
-        let data: Array1<i32> = (0..40).map(|i| i % 2).collect();
-        let est = AnsbEntropy::new(data, None, AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD);
+        let silenced = AnsbEntropy::new(well_sampled.clone(), None, f64::INFINITY);
+        assert!(silenced.global_value().is_finite());
+        assert!(!UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
 
-        let h = est.global_value();
-        assert!(h.is_finite());
-        assert!(UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
-
-        // Second call stays quiet (flag latched), value unchanged
-        let h2 = est.global_value();
-        assert_eq!(h, h2);
-
-        // Quiet path: strongly undersampled data never touch the flag
+        // 2. Default threshold warns, but exactly once per process (latched)
         reset_flags();
-        let undersampled = Array1::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 9]); // N/K = 10/9 ≈ 1.11
-        let est_q = AnsbEntropy::new(
-            undersampled,
+        let est = AnsbEntropy::new(
+            well_sampled,
             None,
             AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD,
         );
-        assert!(est_q.global_value().is_finite());
-        assert!(!UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
-    }
+        let h = est.global_value();
+        assert!(h.is_finite());
+        assert!(UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
+        assert_eq!(h, est.global_value());
 
-    #[test]
-    fn no_coincidences_warns_and_returns_nan() {
+        // 3. Data below the threshold stays quiet: N/K = 10/9 ≈ 1.11 < 2.0
         reset_flags();
-        // All-unique data → Δ = N − K = 0; threshold disabled to isolate the path
-        let data = Array1::from(vec![1, 2, 3, 4, 5]);
-        let est = AnsbEntropy::new(data, None, f64::INFINITY);
+        let near_boundary = Array1::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 9]);
+        let quiet = AnsbEntropy::new(
+            near_boundary,
+            None,
+            AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD,
+        );
+        assert!(quiet.global_value().is_finite());
+        assert!(!UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
 
-        assert!(est.global_value().is_nan());
+        // 4. No coincidences (Δ = N − K = 0): dedicated warning + NaN result
+        reset_flags();
+        let all_unique = Array1::from(vec![1, 2, 3, 4, 5]);
+        let degenerate = AnsbEntropy::new(all_unique, None, f64::INFINITY);
+        assert!(degenerate.global_value().is_nan());
         assert!(NO_COINCIDENCES_WARNING_EMITTED.load(Ordering::Relaxed));
-        assert!(!UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
-    }
-
-    #[test]
-    fn custom_threshold_can_silence_the_check() {
-        reset_flags();
-        let data: Array1<i32> = (0..40).map(|i| i % 2).collect();
-        let est = AnsbEntropy::new(data, None, f64::INFINITY);
-
-        assert!(est.global_value().is_finite());
         assert!(!UNDERSAMPLED_WARNING_EMITTED.load(Ordering::Relaxed));
     }
 }

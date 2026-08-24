@@ -1455,16 +1455,19 @@ impl<const K: usize> KernelEntropy<K> {
 
     /// Computes local probability density values for each data point
     ///
-    /// Note: The GPU size thresholds (1600 for Gaussian, 5000 for box kernel)
-    /// are architecture-dependent and may vary across GPU hardware generations
-    /// and driver versions.
+    /// Note: The GPU size gates are adaptive (see `estimators::gpu`); their
+    /// defaults are machine-relative crossover estimates tunable via the
+    /// `INFOMEASURE_GPU_MIN_*` environment variables.
     pub fn kde_probability_density(&self) -> Array1<f64> {
         #[cfg(feature = "gpu")]
         {
+            use crate::estimators::gpu::{gpu_min_points_box, gpu_min_points_gaussian};
             if !self.force_cpu {
-                if self.kernel_type == "box" && self.n_samples >= 5000 {
+                if self.kernel_type == "box" && self.n_samples >= gpu_min_points_box() {
                     return self.box_kernel_density_gpu();
-                } else if self.kernel_type == "gaussian" && self.n_samples >= 1600 {
+                } else if self.kernel_type == "gaussian"
+                    && self.n_samples >= gpu_min_points_gaussian()
+                {
                     return self.gaussian_kernel_density_gpu();
                 }
             }
@@ -1551,19 +1554,16 @@ impl<const K: usize> KernelEntropy<K> {
         let mut scratch = Default::default();
         for (i, query_point) in wpoints.iter().enumerate() {
             let mut sum_k = 0.0;
+            // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
+            // squared distance kiddo computes during traversal is reused directly
+            // instead of re-deriving it from the coordinates.
             wtree
                 .query(query_point)
                 .within::<SquaredEuclidean<f64>>(adaptive_radius)
                 .unsorted()
                 .with_scratch(&mut scratch)
                 .visit(|item| {
-                    let p = &wpoints[item.item as usize];
-                    let mut dist_sq = 0.0;
-                    for dim in 0..K {
-                        let d = query_point[dim] - p[dim];
-                        dist_sq += d * d;
-                    }
-                    sum_k += (-0.5 * dist_sq).exp();
+                    sum_k += (-0.5 * item.distance).exp();
                 });
             densities[i] = sum_k / normalization;
         }

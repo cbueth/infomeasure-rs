@@ -92,6 +92,10 @@ name = "kernel_gpu"
 harness = false
 
 [[bench]]
+name = "gpu_crossover"
+harness = false
+
+[[bench]]
 name = "cmi"
 harness = false
 

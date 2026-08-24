@@ -7,7 +7,7 @@
 //! Each test case builds the estimator twice — once with GPU enabled (default
 //! when built with `--features gpu`) and once forced to CPU via
 //! `set_force_cpu(true)` — then asserts the local values match. Sizes are
-//! chosen above the GPU dispatch thresholds (gaussian >= 1600, box >= 5000) so
+//! chosen above the GPU dispatch gates (see `estimators::gpu` defaults) so
 //! the GPU path is actually exercised.
 
 #[cfg(feature = "gpu")]
@@ -28,7 +28,7 @@ use rand::{Rng, SeedableRng};
 use rstest::rstest;
 
 #[cfg(feature = "gpu")]
-const SIZE: usize = 6000; // above box (5000) and gaussian (1600) GPU thresholds
+const SIZE: usize = 6000; // above both GPU dispatch gates (box 4000, gaussian 1200)
 #[cfg(feature = "gpu")]
 const BANDWIDTH: f64 = 1.0;
 

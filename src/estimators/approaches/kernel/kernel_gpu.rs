@@ -6,7 +6,9 @@
 // This module is only included when the `gpu` feature flag is enabled
 
 use crate::estimators::approaches::kernel::KernelEntropy;
-use crate::estimators::gpu::{ComputePass, GpuContext, ShaderKind};
+use crate::estimators::gpu::{
+    ComputePass, GpuContext, ShaderKind, gpu_min_points_box, gpu_min_points_gaussian,
+};
 use bytemuck::{Pod, Zeroable};
 use ndarray::Array1;
 use wgpu::util::DeviceExt;
@@ -172,7 +174,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Performance Characteristics
     ///
     /// The GPU implementation provides dramatic speedups compared to the CPU implementation:
-    /// - For 1600 data points: significant speedups begin to materialise
+    /// - Around the dispatch gate: significant speedups begin to materialise
     /// - For 5000 data points: ~89-131x faster, with significant gains even for low dimensions
     /// - For 10000 data points: ~87-337x faster, with the most dramatic improvements for lower dimensions
     ///
@@ -188,9 +190,10 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Fallback Behavior
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
-    /// - If the dataset has fewer than 1600 points (GPU overhead outweighs benefits).
-    ///   Note: This threshold is architecture-dependent; the optimal crossover point
-    ///   may vary across GPU hardware generations and driver versions.
+    /// - If the dataset has fewer than [`gpu_min_points_gaussian`] points (GPU overhead
+    ///   outweighs benefits). The gate is adaptive: its built-in default lives in
+    ///   `estimators::gpu`, software renderers are gated off entirely, and it can be
+    ///   tuned per machine via `INFOMEASURE_GPU_MIN_GAUSSIAN`.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn gaussian_kernel_local_values_gpu(&self) -> Array1<f64> {
@@ -203,8 +206,8 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Check if we have enough points to make GPU acceleration worthwhile
-        // Based on benchmark analysis, GPU is beneficial for Gaussian kernel when dataset size >= 1600
-        if self.points.len() < 1600 {
+        // (adaptive per-machine gate, see `estimators::gpu`).
+        if self.points.len() < gpu_min_points_gaussian() {
             return self.gaussian_kernel_local_values();
         }
 
@@ -243,9 +246,10 @@ impl<const K: usize> KernelEntropy<K> {
     /// # Fallback Behavior
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
-    /// - If the dataset has fewer than 5000 points (GPU overhead outweighs benefits).
-    ///   Note: This threshold is architecture-dependent; the optimal crossover point
-    ///   may vary across GPU hardware generations and driver versions.
+    /// - If the dataset has fewer than [`gpu_min_points_box`] points (GPU overhead
+    ///   outweighs benefits). The gate is adaptive: its built-in default lives in
+    ///   `estimators::gpu`, software renderers are gated off entirely, and it can be
+    ///   tuned per machine via `INFOMEASURE_GPU_MIN_BOX`.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn box_kernel_local_values_gpu(&self) -> Array1<f64> {
@@ -258,8 +262,8 @@ impl<const K: usize> KernelEntropy<K> {
         }
 
         // Check if we have enough points to make GPU acceleration worthwhile
-        // Based on benchmark analysis, GPU is beneficial for Box kernel when dataset size >= 5000
-        if self.points.len() < 5000 {
+        // (adaptive per-machine gate, see `estimators::gpu`).
+        if self.points.len() < gpu_min_points_box() {
             return self.box_kernel_local_values();
         }
 
