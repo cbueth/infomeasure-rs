@@ -1455,16 +1455,19 @@ impl<const K: usize> KernelEntropy<K> {
 
     /// Computes local probability density values for each data point
     ///
-    /// Note: The GPU size thresholds (1600 for Gaussian, 5000 for box kernel)
-    /// are architecture-dependent and may vary across GPU hardware generations
-    /// and driver versions.
+    /// Note: The GPU size gates are adaptive (see `estimators::gpu`); their
+    /// defaults are machine-relative crossover estimates tunable via the
+    /// `INFOMEASURE_GPU_MIN_*` environment variables.
     pub fn kde_probability_density(&self) -> Array1<f64> {
         #[cfg(feature = "gpu")]
         {
+            use crate::estimators::gpu::{gpu_min_points_box, gpu_min_points_gaussian};
             if !self.force_cpu {
-                if self.kernel_type == "box" && self.n_samples >= 5000 {
+                if self.kernel_type == "box" && self.n_samples >= gpu_min_points_box() {
                     return self.box_kernel_density_gpu();
-                } else if self.kernel_type == "gaussian" && self.n_samples >= 1600 {
+                } else if self.kernel_type == "gaussian"
+                    && self.n_samples >= gpu_min_points_gaussian()
+                {
                     return self.gaussian_kernel_density_gpu();
                 }
             }

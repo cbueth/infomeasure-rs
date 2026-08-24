@@ -15,6 +15,7 @@
 use futures_intrusive::channel::shared::oneshot_channel;
 use pollster::block_on;
 use rustc_hash::FxHashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 use wgpu::util::DeviceExt;
 
@@ -40,12 +41,225 @@ pub struct ComputePass<'a> {
     pub n_items: u32,
 }
 
+/// Minimum dataset size (in points) at which the Gaussian-kernel GPU path
+/// begins to win over the optimised CPU hot path.
+///
+/// Provisional snapshot from M4 Pro crossover measurements (tie at ~800,
+/// clear GPU win by 1200), kept conservative for discrete cards that pay
+/// transfer costs. Crossovers are machine-relative and shift with either
+/// side's optimisations: tune per machine via `INFOMEASURE_GPU_MIN_GAUSSIAN`
+/// and consult the `gpu_crossover` Bencher history instead of retuning here.
+pub const GAUSSIAN_GPU_MIN_POINTS: usize = 1200;
+
+/// Same as [`GAUSSIAN_GPU_MIN_POINTS`] for the box kernel, whose GPU win only
+/// materialises at larger sizes (neighbour counting vs. exp evaluation).
+/// M4 Pro tie at ~3200, clear win by 4000.
+pub const BOX_GPU_MIN_POINTS: usize = 4000;
+
+/// Per-kernel minimum points below which the CPU path is used.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GpuMinPoints {
+    pub gaussian: usize,
+    pub r#box: usize,
+}
+
+impl GpuMinPoints {
+    /// Shipped constants, derived from benchmark analysis. Deliberately kept
+    /// for every *hardware* adapter: per-machine crossovers are tuned through
+    /// the overrides below rather than a hardware-family table.
+    const HARDWARE_DEFAULTS: Self = Self {
+        gaussian: GAUSSIAN_GPU_MIN_POINTS,
+        r#box: BOX_GPU_MIN_POINTS,
+    };
+
+    /// Software renderers (llvmpipe/lavapipe, WARP, virtio) execute WGSL on
+    /// the CPU and lose to the native kernel at any size, so by default they
+    /// never get dispatched. wgpu ranks them last but does not exclude them,
+    /// so on GPU-less machines they would otherwise be selected silently.
+    const SOFTWARE_NEVER: Self = Self {
+        gaussian: usize::MAX,
+        r#box: usize::MAX,
+    };
+
+    fn defaults(is_software_renderer: bool) -> Self {
+        if is_software_renderer {
+            Self::SOFTWARE_NEVER
+        } else {
+            Self::HARDWARE_DEFAULTS
+        }
+    }
+}
+
+/// Partial override of [`GpuMinPoints`]; `None` fields fall through to the
+/// next layer (programmatic → environment → built-in default).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GpuMinPointsOverride {
+    pub gaussian: Option<usize>,
+    pub r#box: Option<usize>,
+}
+
+/// A `DeviceType::Cpu` or virtual adapter executes shaders in software, see
+/// [`GpuMinPoints::SOFTWARE_NEVER`]. Detection relies on the backend-reported
+/// device type alone — adapter name strings are unreliable (e.g. Mesa reports
+/// "llvmpipe" for OpenGL while Vulkan uses real hardware).
+fn is_software_renderer(info: &wgpu::AdapterInfo) -> bool {
+    matches!(
+        info.device_type,
+        wgpu::DeviceType::Cpu | wgpu::DeviceType::VirtualGpu
+    )
+}
+
+/// Parses one env-var value into a point threshold. Invalid values are treated
+/// as unset rather than errors (`""`, `"fast"`, negatives for [`usize`]...).
+fn parse_env_value(raw: Option<&str>) -> Option<usize> {
+    raw.map(str::trim)
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse().ok())
+}
+
+/// Parses the env-var pair into an override. Both variables are independent,
+/// so a single valid value yields a partial override.
+fn parse_env_min_points(gaussian: Option<&str>, r#box: Option<&str>) -> GpuMinPointsOverride {
+    GpuMinPointsOverride {
+        gaussian: parse_env_value(gaussian),
+        r#box: parse_env_value(r#box),
+    }
+}
+
+/// Layers overrides onto defaults: programmatic beats environment beats the
+/// built-in constants. Uniform for every adapter, including software ones —
+/// explicit requests may always force a path (e.g. to benchmark it).
+fn resolve_min_points(
+    defaults: GpuMinPoints,
+    env: GpuMinPointsOverride,
+    programmatic: GpuMinPointsOverride,
+) -> GpuMinPoints {
+    GpuMinPoints {
+        gaussian: programmatic
+            .gaussian
+            .or(env.gaussian)
+            .unwrap_or(defaults.gaussian),
+        r#box: programmatic.r#box.or(env.r#box).unwrap_or(defaults.r#box),
+    }
+}
+
+/// Adapter information captured once per process without creating a device,
+/// so gate resolution never forces full wgpu initialisation for small-N calls
+/// that stay on the CPU anyway. `None` if no adapter exists at all — then the
+/// GPU paths fall back to CPU regardless and the thresholds never matter.
+static ADAPTER_INFO: LazyLock<Option<wgpu::AdapterInfo>> = LazyLock::new(|| {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+    block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        compatible_surface: None,
+        force_fallback_adapter: false,
+    }))
+    .ok()
+    .map(|adapter| adapter.get_info())
+});
+
+/// Environment overrides, read once at first use:
+/// `INFOMEASURE_GPU_MIN_GAUSSIAN` / `INFOMEASURE_GPU_MIN_BOX`.
+static ENV_OVERRIDE: LazyLock<GpuMinPointsOverride> = LazyLock::new(|| {
+    parse_env_min_points(
+        std::env::var("INFOMEASURE_GPU_MIN_GAUSSIAN")
+            .ok()
+            .as_deref(),
+        std::env::var("INFOMEASURE_GPU_MIN_BOX").ok().as_deref(),
+    )
+});
+
+/// Programmatic override packed into a single atomic (two `u32` lanes,
+/// `u32::MAX` = unset), so gate reads stay lock-free on the hot path.
+const UNSET_LANE: u64 = u32::MAX as u64;
+static PROGRAMMATIC_OVERRIDE: AtomicU64 = AtomicU64::new((UNSET_LANE << 32) | UNSET_LANE);
+
+fn encode_lane(value: Option<usize>) -> u64 {
+    // Clamp instead of colliding with the unset sentinel. Sizes near
+    // u32::MAX points are not representable datasets anyway.
+    let v = value.map_or(u32::MAX, |v| {
+        u32::try_from(v).unwrap_or(u32::MAX - 1).min(u32::MAX - 1)
+    });
+    v as u64
+}
+
+fn decode_lane(lane: u64) -> Option<usize> {
+    (lane != UNSET_LANE).then_some(lane as usize)
+}
+
+fn programmatic_override() -> GpuMinPointsOverride {
+    let bits = PROGRAMMATIC_OVERRIDE.load(Ordering::Relaxed);
+    GpuMinPointsOverride {
+        gaussian: decode_lane(bits >> 32),
+        r#box: decode_lane(bits & 0xFFFF_FFFF),
+    }
+}
+
+/// Overrides the dispatch gates for this process (highest precedence).
+///
+/// Intended for benchmarks and tests: hidden from docs because production
+/// code should rely on the environment variables instead.
+///
+/// - `Some(0)` forces the corresponding kernel onto the GPU at any size.
+/// - `None` clears that lane, falling back to env/default resolution.
+#[doc(hidden)]
+pub fn set_gpu_min_points_override(gaussian: Option<usize>, r#box: Option<usize>) {
+    PROGRAMMATIC_OVERRIDE.store(
+        (encode_lane(gaussian) << 32) | encode_lane(r#box),
+        Ordering::Relaxed,
+    );
+}
+
+/// Built-in minimum points for the currently detected adapter, before any
+/// override is applied (software renderers resolve to `usize::MAX`).
+#[doc(hidden)]
+pub fn gpu_min_points_gaussian_default() -> usize {
+    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).gaussian
+}
+
+/// See [`gpu_min_points_gaussian_default`].
+#[doc(hidden)]
+pub fn gpu_min_points_box_default() -> usize {
+    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).r#box
+}
+
+/// Effective Gaussian-kernel gate: points below this stay on the CPU.
+pub fn gpu_min_points_gaussian() -> usize {
+    resolve_min_points(
+        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        *ENV_OVERRIDE,
+        programmatic_override(),
+    )
+    .gaussian
+}
+
+/// Effective box-kernel gate: points below this stay on the CPU.
+pub fn gpu_min_points_box() -> usize {
+    resolve_min_points(
+        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        *ENV_OVERRIDE,
+        programmatic_override(),
+    )
+    .r#box
+}
+
+/// The adapter selected by the same request wgpu performs for the compute
+/// context, captured without device creation. Useful for logging which
+/// hardware (or software renderer) a run dispatched to.
+#[doc(hidden)]
+pub fn gpu_adapter_info() -> Option<&'static wgpu::AdapterInfo> {
+    ADAPTER_INFO.as_ref()
+}
+
 /// A lazily-initialised, process-wide wgpu context.
 ///
 /// Creation happens exactly once on first use. If no hardware adapter can be
 /// found, [`GpuContext::get`] caches `None` so every later call cheaply falls
 /// back to CPU, preserving the estimator-level fallback behaviour.
 pub struct GpuContext {
+    /// Adapter the context was created on, for diagnostics (which hardware or
+    /// software renderer a run actually dispatched to).
+    pub info: wgpu::AdapterInfo,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pipelines: Mutex<FxHashMap<ShaderKind, wgpu::ComputePipeline>>,
@@ -68,6 +282,19 @@ impl GpuContext {
         }))
         .ok()?;
 
+        let info = adapter.get_info();
+        println!(
+            "infomeasure GPU: dispatching to '{}' ({:?} via {:?}){}",
+            info.name,
+            info.device_type,
+            info.backend,
+            if is_software_renderer(&info) {
+                " — software renderer, gated off unless overridden"
+            } else {
+                ""
+            }
+        );
+
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("infomeasure GPU Device"),
             required_features: wgpu::Features::empty(),
@@ -79,6 +306,7 @@ impl GpuContext {
         .ok()?;
 
         Some(GpuContext {
+            info,
             device,
             queue,
             pipelines: Mutex::new(FxHashMap::default()),
@@ -232,6 +460,163 @@ mod tests {
     use crate::estimators::approaches::discrete::mle_gpu::gpu_histogram_rows_dense;
     use ndarray::array;
     use rstest::rstest;
+
+    /// Synthetic [`wgpu::AdapterInfo`] for classification tests.
+    fn info_fixture(name: &str, vendor: u32, device_type: wgpu::DeviceType) -> wgpu::AdapterInfo {
+        wgpu::AdapterInfo {
+            name: name.to_string(),
+            vendor,
+            device: 0,
+            device_type,
+            device_pci_bus_id: String::new(),
+            driver: String::new(),
+            driver_info: String::new(),
+            backend: wgpu::Backend::Vulkan,
+            subgroup_min_size: 32,
+            subgroup_max_size: 1024,
+            transient_saves_memory: false,
+        }
+    }
+
+    #[rstest]
+    #[case("llvmpipe (LLVM 18.1.3)", wgpu::DeviceType::Cpu, true)]
+    #[case("WARP Software Adapter", wgpu::DeviceType::Cpu, true)]
+    #[case("virtio_gpu", wgpu::DeviceType::VirtualGpu, true)]
+    #[case("NVIDIA GeForce GTX 1060", wgpu::DeviceType::DiscreteGpu, false)]
+    #[case("Apple M4 Pro", wgpu::DeviceType::IntegratedGpu, false)]
+    #[case("Mystery Renderer", wgpu::DeviceType::Other, false)]
+    fn detects_software_renderers_by_device_type(
+        #[case] name: &str,
+        #[case] device_type: wgpu::DeviceType,
+        #[case] expected: bool,
+    ) {
+        // Vendor IDs are deliberately bogus: detection must rely on the backend
+        // reported device type alone (names lie, e.g. GL llvmpipe strings).
+        let info = info_fixture(name, 0xdead, device_type);
+        assert_eq!(is_software_renderer(&info), expected);
+    }
+
+    #[rstest]
+    #[case(Some("1600"), Some("5000"), Some(1600), Some(5000))]
+    #[case(Some(" 42 "), None, Some(42), None)]
+    #[case(None, Some("3000"), None, Some(3000))]
+    fn parse_env_min_points_accepts_valid_values(
+        #[case] gaussian: Option<&str>,
+        #[case] r#box: Option<&str>,
+        #[case] want_gaussian: Option<usize>,
+        #[case] want_box: Option<usize>,
+    ) {
+        let parsed = parse_env_min_points(gaussian, r#box);
+        assert_eq!(parsed.gaussian, want_gaussian);
+        assert_eq!(parsed.r#box, want_box);
+    }
+
+    #[test]
+    fn parse_env_min_points_rejects_invalid_values() {
+        let parsed = parse_env_min_points(Some("fast"), Some("-5"));
+        assert_eq!(parsed, GpuMinPointsOverride::default());
+        let parsed_partial = parse_env_min_points(Some("900"), Some("nope"));
+        assert_eq!(parsed_partial.gaussian, Some(900));
+        assert_eq!(parsed_partial.r#box, None);
+    }
+
+    #[test]
+    fn resolution_precedence_programmatic_over_env_over_defaults() {
+        let hardware = GpuMinPoints {
+            gaussian: 1600,
+            r#box: 5000,
+        };
+        let env = GpuMinPointsOverride {
+            gaussian: Some(1000),
+            r#box: None,
+        };
+
+        // No overrides at all → shipped constants.
+        let resolved = resolve_min_points(
+            hardware,
+            GpuMinPointsOverride::default(),
+            GpuMinPointsOverride::default(),
+        );
+        assert_eq!(resolved, hardware);
+
+        // Env fills gaps, programmatic wins everywhere.
+        let resolved = resolve_min_points(
+            hardware,
+            env,
+            GpuMinPointsOverride {
+                gaussian: None,
+                r#box: Some(7),
+            },
+        );
+        assert_eq!(
+            resolved,
+            GpuMinPoints {
+                gaussian: 1000,
+                r#box: 7
+            }
+        );
+    }
+
+    #[test]
+    fn hardware_defaults_match_the_benchmarked_crossover() {
+        assert_eq!(
+            GpuMinPoints::defaults(false),
+            GpuMinPoints {
+                gaussian: GAUSSIAN_GPU_MIN_POINTS,
+                r#box: BOX_GPU_MIN_POINTS
+            },
+            "defaults are provisional crossover snapshots (see the constants' \
+             docs). Retune only with gpu_crossover data, never by hand"
+        );
+    }
+
+    #[test]
+    fn software_renderers_never_get_dispatched_by_default() {
+        let never = GpuMinPoints::defaults(true);
+        assert_eq!(never.gaussian, usize::MAX);
+        assert_eq!(never.r#box, usize::MAX);
+        // Overrides stay uniform (prog > env > default): an explicit request
+        // may still force the software path, e.g. for benchmarking it.
+        let resolved = resolve_min_points(
+            GpuMinPoints::defaults(true),
+            GpuMinPointsOverride {
+                gaussian: Some(1),
+                r#box: None,
+            },
+            GpuMinPointsOverride::default(),
+        );
+        assert_eq!(resolved.gaussian, 1);
+        assert_eq!(resolved.r#box, usize::MAX);
+    }
+
+    /// The programmatic override is a global atomic, so this test restores it.
+    /// A concurrent estimator call observing a transient override value merely
+    /// routes differently for one call — parity between CPU and GPU paths is
+    /// enforced independently, so no assertion elsewhere depends on routing.
+    #[test]
+    fn programmatic_override_roundtrip_and_clear() {
+        set_gpu_min_points_override(Some(42), None);
+        assert_eq!(gpu_min_points_gaussian(), 42);
+        assert_eq!(gpu_min_points_box(), gpu_min_points_box_default());
+
+        set_gpu_min_points_override(None, Some(7));
+        assert_eq!(gpu_min_points_gaussian(), gpu_min_points_gaussian_default());
+        assert_eq!(gpu_min_points_box(), 7);
+
+        set_gpu_min_points_override(None, None);
+        assert_eq!(gpu_min_points_gaussian(), gpu_min_points_gaussian_default());
+        assert_eq!(gpu_min_points_box(), gpu_min_points_box_default());
+    }
+
+    /// Gate resolution must work without panicking on any machine — including
+    /// ones with no adapter at all (defaults then simply never matter because
+    /// the GPU paths fall back to CPU anyway).
+    #[test]
+    fn gate_getters_work_without_hardware_assumptions() {
+        assert!(gpu_min_points_gaussian() > 0);
+        assert!(gpu_min_points_box() > 0);
+        let _ = gpu_adapter_info(); // probe must be side-effect free for callers
+    }
 
     /// The shared context is a process-wide singleton: repeated calls return the
     /// same instance (no per-call wgpu setup).
