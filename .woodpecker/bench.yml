@@ -38,7 +38,7 @@ steps:
           touch /target/infomeasure-rs-bench/.seeded;
         fi
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
         cargo bench --no-run --features gpu $BENCH_ARGS
 
   - name: bench
@@ -64,7 +64,7 @@ steps:
         fi
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
         CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
