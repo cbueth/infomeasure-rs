@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf(ksg): exact sorted-window marginal counting [[#65](https://codeberg.org/cbueth/infomeasure-rs/pulls/65)]
 - perf(gpu): batch multi-space density dispatches into one round-trip [[#66](https://codeberg.org/cbueth/infomeasure-rs/pulls/66)]
 - perf(kernel): reuse kiddo squared distances in whitened Gaussian hot path [[#63](https://codeberg.org/cbueth/infomeasure-rs/pulls/63)]
 - feat(gpu): adaptive CPU/GPU dispatch gates with per-machine overrides [[#64](https://codeberg.org/cbueth/infomeasure-rs/pulls/64)]
