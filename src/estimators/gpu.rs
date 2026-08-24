@@ -19,6 +19,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 use wgpu::util::DeviceExt;
 
+/// Threads per workgroup for all compute dispatches.
+const BATCH_WORKGROUP_SIZE: u32 = 256;
+
 /// Identifies one of the compute shaders, used as the pipeline-cache key.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderKind {
@@ -251,6 +254,26 @@ pub fn gpu_adapter_info() -> Option<&'static wgpu::AdapterInfo> {
     ADAPTER_INFO.as_ref()
 }
 
+/// A self-contained compute job for [`GpuContext::run_compute_batch`].
+///
+/// Payloads are raw bytes for the shader's bindings; the batch runner creates
+/// the device buffers, encodes every dispatch into a single command encoder,
+/// and reads all results back after one submit-and-wait cycle.
+pub struct BatchJob {
+    /// Which cached pipeline/layout to use.
+    pub kind: ShaderKind,
+    /// WGSL source (only read on first compile for `kind`).
+    pub wgsl: &'static str,
+    /// Read-only storage payload bound at slot 0 (the point cloud).
+    pub points: Vec<u8>,
+    /// Optional second read-only storage payload at slot 1 (box bandwidth).
+    pub extra_storage: Option<Vec<u8>>,
+    /// Uniform payload.
+    pub config: Vec<u8>,
+    /// Work-items; output is `n_items` f32 values.
+    pub n_items: u32,
+}
+
 /// A lazily-initialised, process-wide wgpu context.
 ///
 /// Creation happens exactly once on first use. If no hardware adapter can be
@@ -263,6 +286,7 @@ pub struct GpuContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pipelines: Mutex<FxHashMap<ShaderKind, wgpu::ComputePipeline>>,
+    bind_group_layouts: Mutex<FxHashMap<ShaderKind, wgpu::BindGroupLayout>>,
 }
 
 impl GpuContext {
@@ -310,7 +334,49 @@ impl GpuContext {
             device,
             queue,
             pipelines: Mutex::new(FxHashMap::default()),
+            bind_group_layouts: Mutex::new(FxHashMap::default()),
         })
+    }
+
+    /// Returns the cached bind-group layout for `kind`, creating it on first
+    /// use. Layouts are cheap handles, so cloning out of the cache is fine.
+    pub fn bind_group_layout(&self, kind: ShaderKind) -> wgpu::BindGroupLayout {
+        let mut layouts = self
+            .bind_group_layouts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(l) = layouts.get(&kind) {
+            return l.clone();
+        }
+        let entry = |binding: u32, ty: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        };
+        let storage_read = |b: u32| entry(b, wgpu::BufferBindingType::Storage { read_only: true });
+        let storage_rw = |b: u32| entry(b, wgpu::BufferBindingType::Storage { read_only: false });
+        let uniform = |b: u32| entry(b, wgpu::BufferBindingType::Uniform);
+        // Gaussian shape: points ro / config uniform / output rw.
+        // Box shape: points ro / extra storage ro / config uniform / output rw.
+        // Histogram shape: data ro / atomic counts rw / config uniform.
+        let entries: &[wgpu::BindGroupLayoutEntry] = match kind {
+            ShaderKind::Gaussian => &[storage_read(0), uniform(1), storage_rw(2)],
+            ShaderKind::Box => &[storage_read(0), storage_read(1), uniform(2), storage_rw(3)],
+            ShaderKind::Histogram => &[storage_read(0), storage_rw(1), uniform(2)],
+        };
+        let layout = self
+            .device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("infomeasure bind group layout"),
+                entries,
+            });
+        layouts.insert(kind, layout.clone());
+        layout
     }
 
     /// Returns the cached compute pipeline for `kind`, compiling `wgsl` on first
@@ -452,6 +518,169 @@ impl GpuContext {
 
         Some(result)
     }
+
+    /// Runs several compute jobs with a **single** submit-and-wait cycle.
+    ///
+    /// Every job's dispatch is encoded into one command encoder and submitted
+    /// together; results are read back after one `poll`. This amortises the
+    /// per-invocation round-trip stall (measured at a ~2.5 ms fixed floor on
+    /// Metal, dwarfing everything else) across jobs — multi-space estimators
+    /// (MI/CMI/TE/CTE density evaluations) stop paying it per space.
+    ///
+    /// Results are returned in job order as `n_items` f32 values each.
+    /// `None` on any GPU error (callers should fall back to CPU); an empty
+    /// job list returns an empty result vector.
+    pub fn run_compute_batch(&self, jobs: &[BatchJob]) -> Option<Vec<Vec<f32>>> {
+        if jobs.is_empty() {
+            return Some(Vec::new());
+        }
+
+        struct Prepared {
+            bind_group: wgpu::BindGroup,
+            pipeline: wgpu::ComputePipeline,
+            output: wgpu::Buffer,
+            staging: wgpu::Buffer,
+            out_bytes: u64,
+            n_items: u32,
+        }
+        let mut prepared = Vec::with_capacity(jobs.len());
+
+        for job in jobs.iter() {
+            let points_buffer = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("batch points buffer"),
+                    contents: &job.points,
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+            let extra_buffer = job.extra_storage.as_ref().map(|bytes| {
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("batch aux storage buffer"),
+                        contents: bytes,
+                        usage: wgpu::BufferUsages::STORAGE,
+                    })
+            });
+            let config_buffer = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("batch config buffer"),
+                    contents: &job.config,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+            let out_bytes = job.n_items as u64 * std::mem::size_of::<f32>() as u64;
+            let output_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("batch output buffer"),
+                size: out_bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
+
+            let layout = self.bind_group_layout(job.kind);
+            // Binding shapes are fixed per shader kind; only box carries an
+            // extra read-only storage payload.
+            let mut entries = vec![wgpu::BindGroupEntry {
+                binding: 0,
+                resource: points_buffer.as_entire_binding(),
+            }];
+            match job.kind {
+                ShaderKind::Gaussian => {
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: config_buffer.as_entire_binding(),
+                    });
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: output_buffer.as_entire_binding(),
+                    });
+                }
+                ShaderKind::Box => {
+                    let extra = extra_buffer.as_ref()?;
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: extra.as_entire_binding(),
+                    });
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: config_buffer.as_entire_binding(),
+                    });
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: output_buffer.as_entire_binding(),
+                    });
+                }
+                // The histogram shader is dispatched through its own path.
+                ShaderKind::Histogram => return None,
+            }
+
+            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("batch bind group"),
+                layout: &layout,
+                entries: &entries,
+            });
+            let pipeline = self.pipeline(job.kind, job.wgsl, &layout)?;
+            let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("batch staging buffer"),
+                size: out_bytes,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+
+            prepared.push(Prepared {
+                bind_group,
+                pipeline,
+                output: output_buffer,
+                staging,
+                out_bytes,
+                n_items: job.n_items,
+            });
+        }
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("batch encoder"),
+            });
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("batch compute pass"),
+                timestamp_writes: None,
+            });
+            for p in &prepared {
+                compute_pass.set_pipeline(&p.pipeline);
+                compute_pass.set_bind_group(0, &p.bind_group, &[]);
+                compute_pass.dispatch_workgroups(p.n_items.div_ceil(BATCH_WORKGROUP_SIZE), 1, 1);
+            }
+        }
+        for p in &prepared {
+            encoder.copy_buffer_to_buffer(&p.output, 0, &p.staging, 0, p.out_bytes);
+        }
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // One poll wakes every mapped slice; collect in job order.
+        let mut receivers = Vec::with_capacity(prepared.len());
+        for p in &prepared {
+            let slice = p.staging.slice(..);
+            let (sender, receiver) = oneshot_channel();
+            slice.map_async(wgpu::MapMode::Read, move |v| {
+                sender.send(v).ok();
+            });
+            receivers.push(receiver);
+        }
+        self.device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+
+        let mut results = Vec::with_capacity(prepared.len());
+        for (p, receiver) in prepared.iter().zip(receivers) {
+            let _ = block_on(receiver.receive())?;
+            let slice = p.staging.slice(..);
+            let view = slice.get_mapped_range();
+            let floats: Vec<f32> = bytemuck::cast_slice(&view).to_vec();
+            drop(view);
+            p.staging.unmap();
+            results.push(floats);
+        }
+        Some(results)
+    }
 }
 
 #[cfg(all(test, feature = "gpu"))]
@@ -460,6 +689,7 @@ mod tests {
     use crate::estimators::approaches::discrete::mle_gpu::gpu_histogram_rows_dense;
     use ndarray::array;
     use rstest::rstest;
+    use wgpu::util::DeviceExt;
 
     /// Synthetic [`wgpu::AdapterInfo`] for classification tests.
     fn info_fixture(name: &str, vendor: u32, device_type: wgpu::DeviceType) -> wgpu::AdapterInfo {
@@ -719,6 +949,131 @@ mod tests {
                     "row {r} count for value {k} mismatch"
                 );
             }
+        }
+    }
+
+    fn box_job(n: usize, seed: u64) -> BatchJob {
+        // Deterministic pseudo-random points in [0, 1)^2, packed flat f32.
+        let mut state = seed;
+        let mut points = Vec::with_capacity(n * 2 * 4);
+        for _ in 0..n * 2 {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let v = ((state >> 11) as f64 / (1u64 << 53) as f64) as f32;
+            points.extend_from_slice(&v.to_ne_bytes());
+        }
+        #[repr(C)]
+        #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+        struct Bandwidth {
+            value: f32,
+            dim_count: u32,
+            _padding: [u32; 2],
+        }
+        #[repr(C)]
+        #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+        struct Config {
+            point_count: u32,
+            dim_count: u32,
+            normalization: f32,
+            _padding: u32,
+        }
+        let bandwidth = Bandwidth {
+            value: 0.9,
+            dim_count: 2,
+            _padding: [0; 2],
+        };
+        let config = Config {
+            point_count: n as u32,
+            dim_count: 2,
+            normalization: (n as f32) * (0.9f32 * 0.45).powi(2),
+            _padding: 0,
+        };
+        BatchJob {
+            kind: ShaderKind::Box,
+            wgsl: include_str!("approaches/kernel/box_kernel.wgsl"),
+            points,
+            extra_storage: Some(bytemuck::bytes_of(&bandwidth).to_vec()),
+            config: bytemuck::bytes_of(&config).to_vec(),
+            n_items: n as u32,
+        }
+    }
+
+    /// Batched execution must produce results bit-for-bit identical to running
+    /// the same jobs sequentially through `run_compute` — batching amortises
+    /// submission overhead, never changes arithmetic.
+    #[test]
+    fn batch_matches_sequential_runs() {
+        let ctx = GpuContext::get().expect("a hardware GPU adapter should be available");
+        let jobs = [box_job(64, 7), box_job(96, 11)];
+
+        let mut sequential = Vec::new();
+        for job in &jobs {
+            let out_bytes = job.n_items as u64 * 4;
+            let points_buffer = ctx
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("test seq points"),
+                    contents: &job.points,
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+            let extra_buffer = ctx
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("test seq bandwidth"),
+                    contents: job.extra_storage.as_deref().unwrap(),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+            let config_buffer = ctx
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("test seq config"),
+                    contents: &job.config,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+            let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("test batch seq output"),
+                size: out_bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
+            let layout = ctx.bind_group_layout(job.kind);
+            let bindings = [
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: points_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: extra_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: config_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: output_buffer.as_entire_binding(),
+                },
+            ];
+            let raw = ctx
+                .run_compute(
+                    job.kind,
+                    job.wgsl,
+                    ComputePass {
+                        layout: &layout,
+                        bindings: &bindings,
+                        output: &output_buffer,
+                        out_bytes,
+                        n_items: job.n_items,
+                    },
+                )
+                .expect("sequential run should succeed");
+            sequential.push(bytemuck::cast_slice::<u8, f32>(&raw).to_vec());
+        }
+
+        let batched = ctx.run_compute_batch(&jobs).expect("batch should succeed");
+        assert_eq!(batched.len(), jobs.len());
+        for (seq, bat) in sequential.iter().zip(&batched) {
+            assert_eq!(seq, bat, "batched result must match sequential result");
         }
     }
 }
