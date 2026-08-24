@@ -885,6 +885,9 @@ impl TransferEntropy {
     }
 
     /// Create a ANSB discrete transfer entropy estimator.
+    ///
+    /// Uses the default undersampled-regime threshold
+    /// ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`]).
     pub fn new_discrete_ansb(
         source: &Array1<i32>,
         destination: &Array1<i32>,
@@ -898,7 +901,7 @@ impl TransferEntropy {
             src_hist_len,
             dest_hist_len,
             step_size,
-            |data| AnsbEntropy::new(data, None, 0.0),
+            |data| AnsbEntropy::new(data, None, AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD),
         )
     }
 
@@ -1081,6 +1084,9 @@ impl TransferEntropy {
     }
 
     /// Create an ANSB discrete conditional transfer entropy estimator.
+    ///
+    /// Uses the default undersampled-regime threshold
+    /// ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`]).
     pub fn new_cte_discrete_ansb(
         source: &Array1<i32>,
         destination: &Array1<i32>,
@@ -1098,7 +1104,7 @@ impl TransferEntropy {
             dest_hist_len,
             cond_hist_len,
             step_size,
-            |data| AnsbEntropy::new(data, None, 0.1),
+            |data| AnsbEntropy::new(data, None, AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD),
         )
     }
 

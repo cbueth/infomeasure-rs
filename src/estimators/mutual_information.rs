@@ -917,17 +917,25 @@ impl MutualInformation {
     }
 
     /// Create a ANSB discrete mutual information estimator.
+    ///
+    /// Uses the default undersampled-regime threshold
+    /// ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`]).
     pub fn new_discrete_ansb(series: &[Array1<i32>]) -> DiscreteMutualInformation<AnsbEntropy> {
-        DiscreteMutualInformation::new(series, |data| AnsbEntropy::new(data, None, 0.0))
+        DiscreteMutualInformation::new(series, |data| {
+            AnsbEntropy::new(data, None, AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD)
+        })
     }
 
     /// Create a ANSB discrete conditional mutual information estimator.
+    ///
+    /// Uses the default undersampled-regime threshold
+    /// ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`]).
     pub fn new_cmi_discrete_ansb(
         series: &[Array1<i32>],
         cond: &Array1<i32>,
     ) -> DiscreteConditionalMutualInformation<AnsbEntropy> {
         DiscreteConditionalMutualInformation::new(series, cond, |data| {
-            AnsbEntropy::new(data, None, 0.0)
+            AnsbEntropy::new(data, None, AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD)
         })
     }
 

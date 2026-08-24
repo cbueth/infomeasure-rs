@@ -423,9 +423,15 @@ impl Entropy {
 
     /// Create an ANSB (asymptotic NSB) discrete entropy estimator.
     ///
-    /// Requires optional K override; uses default undersampled threshold of 0.1; global-only.
+    /// Requires optional K override; uses the default undersampled-regime
+    /// threshold ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`], warns at most
+    /// once per process when exceeded); global-only.
     pub fn new_ansb(data: Array1<i32>, k_override: Option<usize>) -> AnsbEntropy {
-        AnsbEntropy::new(data, k_override, 0.1)
+        AnsbEntropy::new(
+            data,
+            k_override,
+            AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD,
+        )
     }
 
     /// Create an ANSB (asymptotic NSB) discrete entropy estimator.
@@ -505,9 +511,14 @@ impl Entropy {
 
     /// Create a vector of ANSB estimators (global-only), one per row.
     ///
-    /// Uses default undersampled threshold of 0.1.
+    /// Uses the default undersampled-regime threshold
+    /// ([`AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD`]).
     pub fn new_ansb_rows(data: Array2<i32>, k_override: Option<usize>) -> Vec<AnsbEntropy> {
-        AnsbEntropy::from_rows(data, k_override, 0.1)
+        AnsbEntropy::from_rows(
+            data,
+            k_override,
+            AnsbEntropy::DEFAULT_UNDERSAMPLED_THRESHOLD,
+        )
     }
 
     /// Create a vector of ANSB estimators (global-only), one per row.
