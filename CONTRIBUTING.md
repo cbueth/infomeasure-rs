@@ -59,6 +59,39 @@ Run a specific test:
 cargo test -- <test_name>
 ```
 
+## Profiling
+
+The repository ships a sampling profiler harness for finding hotspots in the
+estimator implementations. It samples CPU stacks on macOS, Linux and Windows
+without kernel privileges.
+
+```bash
+RUSTFLAGS="-Cforce-frame-pointers" OPENBLAS_NUM_THREADS=1 \
+    cargo run --profile profiling --features profiling --example profile_report
+```
+
+Both environment prefixes matter:
+
+- `RUSTFLAGS="-Cforce-frame-pointers"` keeps frame pointers in compiled code so
+  the sampler walks stacks directly. Without it, libunwind's DWARF unwinder is
+  used from inside a signal handler, which is not async-signal-safe on Apple
+  silicon and traps intermittently.
+- `OPENBLAS_NUM_THREADS=1` stops OpenBLAS (which configures its worker pool
+  before `main`) from busy-spinning through roughly a fifth of all samples.
+
+Select what to profile with `PROFILE_ESTIMATOR`. Available workloads:
+`discrete_entropy`, `mi_discrete`, `ordinal`, `renyi`, `tsallis`, `kl`,
+`ksg_mi`, `ksg_cmi`, `kernel_gaussian_cpu`, `kernel_box_cpu`.
+
+Useful knobs: `PROFILE_N` (dataset size), `PROFILE_K`, `PROFILE_BW`,
+`PROFILE_ORDER`, `PROFILE_ALPHA`, `PROFILE_Q`, `PROFILE_SECONDS`,
+`PROFILE_TOP` (table rows), and `PROFILE_FORMAT=json` for machine-readable
+output. A flamegraph SVG lands in `target/profiling/` for visual inspection.
+
+When optimising, capture a JSON profile before and after your change and
+compare the ranked self-time entries. Wall-clock deltas belong to
+criterion/Bencher.
+
 ## Code Style
 
 The project follows standard Rust formatting. Run formatting before committing:

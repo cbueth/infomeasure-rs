@@ -33,6 +33,16 @@ rand_distr = ">=0.4"
 [features]
 default = []
 gpu = []
+profiling = ["dep:pprof"]
+
+[dependencies.pprof]
+version = "0.14"
+optional = true
+features = ["flamegraph", "frame-pointer"]
+
+[profile.profiling]
+inherits = "release"
+debug = true
 
 [dev-dependencies]
 rstest = "0.26.1"  # For fixture-based testint
