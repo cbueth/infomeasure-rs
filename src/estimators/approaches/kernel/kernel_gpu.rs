@@ -6,12 +6,9 @@
 // This module is only included when the `gpu` feature flag is enabled
 
 use crate::estimators::approaches::kernel::KernelEntropy;
-use crate::estimators::gpu::{
-    ComputePass, GpuContext, ShaderKind, gpu_min_points_box, gpu_min_points_gaussian,
-};
+use crate::estimators::gpu::{GpuContext, gpu_min_points_box, gpu_min_points_gaussian};
 use bytemuck::{Pod, Zeroable};
 use ndarray::Array1;
-use wgpu::util::DeviceExt;
 
 // Define a struct for the bandwidth that can be sent to the GPU (for Box kernel)
 #[repr(C)]
@@ -32,104 +29,131 @@ struct GpuConfig {
     adaptive_radius: f32,
 }
 
-/// Bind-group layout for the (whitened) Gaussian shader:
-///   binding 0: points (storage, read) — whitened points
-///   binding 1: config (uniform)
-///   binding 2: output (storage, read_write)
-fn gaussian_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
-    ctx.device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Gaussian Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        })
-}
-
-/// Bind-group layout for the box shader:
-///   binding 0: points    (storage, read)
-///   binding 1: bandwidth (storage, read)
-///   binding 2: config    (uniform)
-///   binding 3: output    (storage, read_write)
-fn box_bind_group_layout(ctx: &GpuContext) -> wgpu::BindGroupLayout {
-    ctx.device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Box Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        })
-}
-
 impl<const K: usize> KernelEntropy<K> {
+    /// Packs this estimator's state into a [`BatchJob`] for its kernel type,
+    /// applying the same eligibility gates as [`KernelEntropy::kde_probability_density`].
+    ///
+    /// Returns `None` when the CPU path should be used instead (forced, below
+    /// the size crossover, over the dimension limit) or when packing fails.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn try_density_job(&self) -> Option<crate::estimators::gpu::BatchJob> {
+        if self.force_cpu {
+            return None;
+        }
+        // Size crossovers mirror kde_probability_density, resolving through
+        // PR A's layered gate constants (env / programmatic / default).
+        let min_points = match self.kernel_type.as_str() {
+            "box" => gpu_min_points_box(),
+            "gaussian" => gpu_min_points_gaussian(),
+            _ => return None,
+        };
+        if K > 32 || self.n_samples < min_points {
+            return None;
+        }
+
+        match self.kernel_type.as_str() {
+            "gaussian" => self.gaussian_batch_job().ok(),
+            "box" => self.box_batch_job().ok(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    fn gaussian_batch_job(
+        &self,
+    ) -> Result<crate::estimators::gpu::BatchJob, Box<dyn std::error::Error>> {
+        use crate::estimators::gpu::{BatchJob, ShaderKind};
+
+        let n = self.points.len();
+
+        // Calculate normalization factor: N * sqrt(det(2πΣ_scaled))
+        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
+            let mut diag_prod = 1.0;
+            for i in 0..K {
+                diag_prod *= l[i * (K + 1)];
+            }
+            diag_prod * diag_prod
+        } else {
+            self.std_devs
+                .iter()
+                .map(|&s| (self.bandwidth * s).powi(2))
+                .product()
+        };
+        let normalization =
+            (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
+        // Whitened space ⇒ covariance identity ⇒ data-independent truncation
+        // radius (matches gaussian_kernel_density_cpu_whitened).
+        let adaptive_radius = if self.n_samples > 5000 { 36.0 } else { 64.0 };
+
+        let wpoints = self
+            .whitened_points
+            .as_deref()
+            .ok_or("whitened points unavailable for Gaussian GPU path")?;
+
+        // Compact flat layout: N * K f32 values, row-major (points[i*K + d]).
+        let mut points = Vec::with_capacity(wpoints.len() * K);
+        for point in wpoints {
+            for &val in point.iter() {
+                points.push(val as f32);
+            }
+        }
+
+        let config = GpuConfig {
+            point_count: n as u32,
+            dim_count: K as u32,
+            normalization: normalization as f32,
+            adaptive_radius: adaptive_radius as f32,
+        };
+
+        Ok(BatchJob {
+            kind: ShaderKind::Gaussian,
+            wgsl: include_str!("gaussian_kernel.wgsl"),
+            points: bytemuck::cast_slice(&points).to_vec(),
+            extra_storage: None,
+            config: bytemuck::bytes_of(&config).to_vec(),
+            n_items: n as u32,
+        })
+    }
+
+    #[cfg(feature = "gpu")]
+    fn box_batch_job(
+        &self,
+    ) -> Result<crate::estimators::gpu::BatchJob, Box<dyn std::error::Error>> {
+        use crate::estimators::gpu::{BatchJob, ShaderKind};
+
+        // volume = bandwidth^K; denominator of the KDE formula.
+        let volume = self.bandwidth.powi(K as i32);
+        let normalization = self.n_samples as f64 * volume;
+
+        // Compact flat layout: N * K f32 values, row-major (points[i*K + d]).
+        let mut points = Vec::with_capacity(self.points.len() * K);
+        for point in &self.points {
+            for &val in point.iter() {
+                points.push(val as f32);
+            }
+        }
+        let bandwidth = GpuBandwidth {
+            value: self.bandwidth as f32,
+            dim_count: K as u32,
+            _padding: [0; 2],
+        };
+        let config = GpuConfig {
+            point_count: self.points.len() as u32,
+            dim_count: K as u32,
+            normalization: normalization as f32,
+            adaptive_radius: 0.0, // Not used for box kernel
+        };
+
+        Ok(BatchJob {
+            kind: ShaderKind::Box,
+            wgsl: include_str!("box_kernel.wgsl"),
+            points: bytemuck::cast_slice(&points).to_vec(),
+            extra_storage: Some(bytemuck::bytes_of(&bandwidth).to_vec()),
+            config: bytemuck::bytes_of(&config).to_vec(),
+            n_items: self.points.len() as u32,
+        })
+    }
+
     /// Computes local probability density values using a Gaussian kernel with GPU acceleration
     pub fn gaussian_kernel_density_gpu(&self) -> Array1<f64> {
         // Check if dimensions are within supported range
@@ -294,235 +318,53 @@ impl<const K: usize> KernelEntropy<K> {
     /// - `Ok(Array1<f64>)`: Array of local entropy values if the GPU calculation succeeds
     /// - `Err(Box<dyn std::error::Error>)`: Error if any step of the GPU calculation fails
     fn run_gaussian_gpu_calculation(&self) -> Result<Array1<f64>, Box<dyn std::error::Error>> {
-        let n = self.points.len();
-
-        // Calculate normalization factor: N * sqrt(det(2πΣ_scaled))
-        // det(2πΣ_scaled) = (2π)^K * det(Σ_scaled)
-        // det(Σ_scaled) = det(L * L^T) = det(L)^2
-        // Since L is lower triangular, det(L) is the product of its diagonal elements.
-        let det_scaled_cov = if let Some(ref l) = self.cholesky_factor {
-            let mut diag_prod = 1.0;
-            for i in 0..K {
-                diag_prod *= l[i * (K + 1)];
-            }
-            diag_prod * diag_prod
-        } else {
-            // Fallback to diagonal covariance if cholesky_factor is None
-            self.std_devs
-                .iter()
-                .map(|&s| (self.bandwidth * s).powi(2))
-                .product()
-        };
-
-        // Normalization: N * (2π)^(K/2) * sqrt(det(Σ_scaled))
-        let normalization =
-            (n as f64) * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
-
-        // In whitened space the covariance is the identity, so the truncation
-        // radius is a fixed, data-independent constant (same as the CPU
-        // `gaussian_kernel_density_cpu_whitened` path).
-        let adaptive_radius = if self.n_samples > 5000 { 36.0 } else { 64.0 };
-
         let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
-
-        // Pack the WHITENED points for the GPU. In whitened space d_M² = ‖y_p-y_q‖²
-        // is a plain Euclidean distance, so the shader only needs these points.
-        let wpoints = self
-            .whitened_points
-            .as_deref()
-            .ok_or("whitened points unavailable for Gaussian GPU path")?;
-
-        // Compact flat layout: N * K f32 values, row-major (points[i*K + d]).
-        let mut gpu_points = Vec::with_capacity(wpoints.len() * K);
-        for point in wpoints {
-            for &val in point.iter() {
-                gpu_points.push(val as f32);
-            }
-        }
-
-        let gpu_config = GpuConfig {
-            point_count: n as u32,
-            dim_count: K as u32,
-            normalization: normalization as f32,
-            adaptive_radius: adaptive_radius as f32,
-        };
-
-        // Create buffers
-        let points_buffer = ctx
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Points Buffer"),
-                contents: bytemuck::cast_slice(&gpu_points),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-
-        let out_bytes = (n as u64) * std::mem::size_of::<f32>() as u64;
-        let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Output Buffer"),
-            size: out_bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-
-        let layout = gaussian_bind_group_layout(ctx);
-        let config_buffer = ctx.config_buffer(&gpu_config);
-        let bindings = [
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: points_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: config_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: output_buffer.as_entire_binding(),
-            },
-        ];
-
-        let raw = ctx
-            .run_compute(
-                ShaderKind::Gaussian,
-                include_str!("gaussian_kernel.wgsl"),
-                ComputePass {
-                    layout: &layout,
-                    bindings: &bindings,
-                    output: &output_buffer,
-                    out_bytes,
-                    n_items: n as u32,
-                },
-            )
+        let job = self.gaussian_batch_job()?;
+        let mut results = ctx
+            .run_compute_batch(&[job])
             .ok_or("GPU computation failed")?;
-        let result: Vec<f32> = bytemuck::cast_slice(&raw).to_vec();
-
-        // Convert the results to f64 and return
-        let mut local_values = Array1::<f64>::zeros(n);
-        for (i, &val) in result.iter().enumerate() {
-            local_values[i] = val as f64;
-        }
-
-        Ok(local_values)
+        let raw = results.pop().ok_or("GPU computation returned no result")?;
+        Ok(Array1::from_iter(raw.into_iter().map(|v| v as f64)))
     }
 
-    /// Main GPU calculation function for Box kernel
+    /// Main GPU calculation function for Box kernel.
     ///
-    /// This method handles the actual GPU computation for the Box kernel entropy calculation.
-    /// It prepares the data for the GPU, runs the computation, and processes the results.
-    ///
-    /// # Implementation Details
-    ///
-    /// - Uses Manhattan distance to count neighbors within bandwidth/2
-    /// - Normalizes by the volume of the hypercube (bandwidth^d) and the number of samples
-    /// - Uses a WGSL compute shader for parallel processing
-    /// - Optimized for high-dimensional data and large datasets
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(Array1<f64>)`: Array of local entropy values if the GPU calculation succeeds
-    /// - `Err(Box<dyn std::error::Error>)`: Error if any step of the GPU calculation fails
+    /// Prepares the packed job payload and runs it through the shared batch
+    /// runner as a single-job batch; see [`GpuContext::run_compute_batch`].
     fn run_box_gpu_calculation(&self) -> Result<Array1<f64>, Box<dyn std::error::Error>> {
-        // Calculate volume = bandwidth^d (where d = K)
-        // This is the volume of the hypercube with side length = bandwidth
-        let volume = self.bandwidth.powi(K as i32);
-
-        // Normalization factor: N * volume
-        // This is the denominator in the KDE formula: f̂(x) = (1/Nh^d) ∑ K((x - x_i)/h)
-        // where K is the box kernel (uniform within the bandwidth)
-        let normalization = self.n_samples as f64 * volume;
-
         let ctx = GpuContext::get().ok_or("Failed to obtain GPU context")?;
-
-        // Prepare data for GPU — compact flat layout: N * K f32 values,
-        // row-major (points[i*K + d]).
-        let mut gpu_points = Vec::with_capacity(self.points.len() * K);
-        for point in &self.points {
-            for &val in point.iter() {
-                gpu_points.push(val as f32);
-            }
-        }
-
-        // Prepare bandwidth for GPU
-        let gpu_bandwidth = GpuBandwidth {
-            value: self.bandwidth as f32,
-            dim_count: K as u32,
-            _padding: [0; 2],
-        };
-
-        let gpu_config = GpuConfig {
-            point_count: self.points.len() as u32,
-            dim_count: K as u32,
-            normalization: normalization as f32,
-            adaptive_radius: 0.0, // Not used for box kernel
-        };
-
-        // Create buffers
-        let points_buffer = ctx
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Points Buffer"),
-                contents: bytemuck::cast_slice(&gpu_points),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-
-        let bandwidth_buffer = ctx
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Bandwidth Buffer"),
-                contents: bytemuck::bytes_of(&gpu_bandwidth),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-
-        let out_bytes = (self.points.len() as u64) * std::mem::size_of::<f32>() as u64;
-        let output_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Output Buffer"),
-            size: out_bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-
-        let layout = box_bind_group_layout(ctx);
-        let config_buffer = ctx.config_buffer(&gpu_config);
-        let bindings = [
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: points_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: bandwidth_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: config_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 3,
-                resource: output_buffer.as_entire_binding(),
-            },
-        ];
-
-        let raw = ctx
-            .run_compute(
-                ShaderKind::Box,
-                include_str!("box_kernel.wgsl"),
-                ComputePass {
-                    layout: &layout,
-                    bindings: &bindings,
-                    output: &output_buffer,
-                    out_bytes,
-                    n_items: self.points.len() as u32,
-                },
-            )
+        let job = self.box_batch_job()?;
+        let mut results = ctx
+            .run_compute_batch(&[job])
             .ok_or("GPU computation failed")?;
-        let result: Vec<f32> = bytemuck::cast_slice(&raw).to_vec();
-
-        // Convert the results to f64 and return
-        let mut local_values = Array1::<f64>::zeros(self.points.len());
-        for (i, &val) in result.iter().enumerate() {
-            local_values[i] = val as f64;
-        }
-
-        Ok(local_values)
+        let raw = results.pop().ok_or("GPU computation returned no result")?;
+        Ok(Array1::from_iter(raw.into_iter().map(|v| v as f64)))
     }
+}
+
+/// Decodes a batch result vector (one f32 per point, in order) into density
+/// values per space.
+#[cfg(feature = "gpu")]
+pub(crate) fn densities_from_batch(raw: Vec<Vec<f32>>) -> Vec<Array1<f64>> {
+    raw.into_iter()
+        .map(|r| Array1::from_iter(r.into_iter().map(|v| v as f64)))
+        .collect()
+}
+
+/// Runs every GPU-eligible space in `sources` through one batched round-trip,
+/// returning densities in the same order. `None` if any space falls back to
+/// CPU or a GPU step fails (callers then evaluate each space individually).
+#[cfg(feature = "gpu")]
+pub(crate) fn try_density_batch(
+    sources: &[Box<
+        dyn crate::estimators::approaches::kernel::kernel_estimator::DensityJobSource,
+    >],
+) -> Option<Vec<Array1<f64>>> {
+    let ctx = GpuContext::get()?;
+    let mut jobs = Vec::with_capacity(sources.len());
+    for s in sources {
+        jobs.push(s.try_job()?);
+    }
+    let results = ctx.run_compute_batch(&jobs)?;
+    Some(densities_from_batch(results))
 }

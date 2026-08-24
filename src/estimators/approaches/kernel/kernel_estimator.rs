@@ -89,6 +89,8 @@
 
 use crate::estimators::approaches::common_nd::KdTreeKernel;
 use crate::estimators::doc_macros::doc_snippets;
+#[cfg(feature = "gpu")]
+use crate::estimators::gpu::BatchJob;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator,
     MutualInformationEstimator, TransferEntropyEstimator,
@@ -201,15 +203,15 @@ impl<
         self.force_cpu = force_cpu;
     }
 
-    /// Helper method to compute density for a multi-dimensional dataset.
-    fn compute_density<const D: usize>(&self, data: Array2<f64>) -> Array1<f64> {
+    /// Builds a single-space estimator, honouring `force_cpu`.
+    fn new_est<const D: usize>(&self, data: Array2<f64>) -> KernelEntropy<D> {
         let mut est = KernelEntropy::<D>::new_with_kernel_type(
             data,
             self.kernel_type.clone(),
             self.bandwidth,
         );
         est.set_force_cpu(self.force_cpu);
-        est.kde_probability_density()
+        est
     }
 }
 
@@ -340,10 +342,17 @@ impl<
         let xp_yp = concatenate(Axis(1), &[xp.view(), yp.view()]).unwrap();
         let yf_yp = concatenate(Axis(1), &[yf.view(), yp.view()]).unwrap();
 
-        let p_joint_all = self.compute_density::<D_JOINT>(joint_all);
-        let p_yp = self.compute_density::<D_YP>(yp);
-        let p_xp_yp = self.compute_density::<D_XP_YP>(xp_yp);
-        let p_yf_yp = self.compute_density::<D_YF_YP>(yf_yp);
+        let sources: Vec<Box<dyn DensityJobSource>> = vec![
+            Box::new(self.new_est::<D_JOINT>(joint_all)),
+            Box::new(self.new_est::<D_YP>(yp)),
+            Box::new(self.new_est::<D_XP_YP>(xp_yp)),
+            Box::new(self.new_est::<D_YF_YP>(yf_yp)),
+        ];
+        let densities = batched_or_individual(&sources);
+        let p_joint_all = &densities[0];
+        let p_yp = &densities[1];
+        let p_xp_yp = &densities[2];
+        let p_yf_yp = &densities[3];
 
         let n = p_joint_all.len();
         let mut local_te = Array1::zeros(n);
@@ -465,15 +474,15 @@ impl<
         self.force_cpu = force_cpu;
     }
 
-    /// Helper method to compute density for a multi-dimensional dataset.
-    fn compute_density<const D: usize>(&self, data: Array2<f64>) -> Array1<f64> {
+    /// Builds a single-space estimator, honouring `force_cpu`.
+    fn new_est<const D: usize>(&self, data: Array2<f64>) -> KernelEntropy<D> {
         let mut est = KernelEntropy::<D>::new_with_kernel_type(
             data,
             self.kernel_type.clone(),
             self.bandwidth,
         );
         est.set_force_cpu(self.force_cpu);
-        est.kde_probability_density()
+        est
     }
 }
 
@@ -624,10 +633,17 @@ impl<
         let yp_zp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
         let yf_yp_zp = concatenate(Axis(1), &[yf.view(), yp.view(), zp.view()]).unwrap();
 
-        let p_joint_all = self.compute_density::<D_JOINT>(joint_all);
-        let p_xp_yp_zp = self.compute_density::<D_XP_YP_ZP>(xp_yp_zp);
-        let p_yp_zp = self.compute_density::<D_YP_ZP>(yp_zp);
-        let p_yf_yp_zp = self.compute_density::<D_YF_YP_ZP>(yf_yp_zp);
+        let sources: Vec<Box<dyn DensityJobSource>> = vec![
+            Box::new(self.new_est::<D_JOINT>(joint_all)),
+            Box::new(self.new_est::<D_XP_YP_ZP>(xp_yp_zp)),
+            Box::new(self.new_est::<D_YP_ZP>(yp_zp)),
+            Box::new(self.new_est::<D_YF_YP_ZP>(yf_yp_zp)),
+        ];
+        let densities = batched_or_individual(&sources);
+        let p_joint_all = &densities[0];
+        let p_xp_yp_zp = &densities[1];
+        let p_yp_zp = &densities[2];
+        let p_yf_yp_zp = &densities[3];
 
         let n = p_joint_all.len();
         let mut local_cte = Array1::zeros(n);
@@ -640,6 +656,41 @@ impl<
         }
         local_cte
     }
+}
+
+/// Type-erases a single KDE space so multi-space estimators (MI/CMI/TE/CTE)
+/// can dispatch every density evaluation through one batched GPU round-trip.
+///
+/// [`density`](Self::density) is the always-available path (GPU gates + CPU
+/// fallback); [`try_job`](Self::try_job) exposes the packed GPU job when the
+/// space is GPU-eligible.
+pub(crate) trait DensityJobSource {
+    fn density(&self) -> Array1<f64>;
+    #[cfg(feature = "gpu")]
+    fn try_job(&self) -> Option<BatchJob>;
+}
+
+impl<const K: usize> DensityJobSource for KernelEntropy<K> {
+    fn density(&self) -> Array1<f64> {
+        self.kde_probability_density()
+    }
+    #[cfg(feature = "gpu")]
+    fn try_job(&self) -> Option<BatchJob> {
+        self.try_density_job()
+    }
+}
+
+/// Evaluates every space's density, batching all of them into a single GPU
+/// round-trip when every space is GPU-eligible, otherwise falling back to
+/// per-space evaluation.
+fn batched_or_individual(sources: &[Box<dyn DensityJobSource>]) -> Vec<Array1<f64>> {
+    #[cfg(feature = "gpu")]
+    {
+        if let Some(densities) = super::kernel_gpu::try_density_batch(sources) {
+            return densities;
+        }
+    }
+    sources.iter().map(|s| s.density()).collect()
 }
 
 macro_rules! impl_kernel_mi {
@@ -694,30 +745,29 @@ macro_rules! impl_kernel_mi {
                     &self.data.iter().map(|d| d.view()).collect::<Vec<_>>(),
                 ).unwrap();
 
-                let mut joint_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
-                    joint_data,
-                    self.kernel_type.clone(),
-                    self.bandwidth,
-                );
-                joint_est.set_force_cpu(self.force_cpu);
-                let joint_density = joint_est.kde_probability_density();
-
-                let mut marginal_densities = Vec::new();
+                let mut sources: Vec<Box<dyn DensityJobSource>> =
+                    vec![Box::new(KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                        joint_data,
+                        self.kernel_type.clone(),
+                        self.bandwidth,
+                    ))];
                 $(
-                    let mut m_est = KernelEntropy::<$d_param>::new_with_kernel_type(
+                    sources.push(Box::new(KernelEntropy::<$d_param>::new_with_kernel_type(
                         self.data[$d_idx].clone(),
                         self.kernel_type.clone(),
-                        self.bandwidth
-                    );
-                    m_est.set_force_cpu(self.force_cpu);
-                    marginal_densities.push(m_est.kde_probability_density());
+                        self.bandwidth,
+                    )));
                 )*
+
+                let densities = batched_or_individual(&sources);
+                let joint_density = &densities[0];
+                let marginal_densities = &densities[1..];
 
                 let n = joint_density.len();
                 let mut local_mi = Array1::zeros(n);
                 for i in 0..n {
                     let mut sum_log_p_marginals = 0.0;
-                    for densities in &marginal_densities {
+                    for densities in marginal_densities {
                         if densities[i] > 0.0 {
                             sum_log_p_marginals += densities[i].ln();
                         }
@@ -864,39 +914,36 @@ impl<
         all_data_vec.push(self.cond.view());
         let all_data = concatenate(Axis(1), &all_data_vec).unwrap();
 
-        let mut p_joint_all_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
-            all_data,
-            self.kernel_type.clone(),
-            self.bandwidth,
-        );
-        p_joint_all_est.set_force_cpu(self.force_cpu);
-        let p_joint_all = p_joint_all_est.kde_probability_density();
-
-        let mut p_cond_est = KernelEntropy::<D_COND>::new_with_kernel_type(
-            self.cond.clone(),
-            self.kernel_type.clone(),
-            self.bandwidth,
-        );
-        p_cond_est.set_force_cpu(self.force_cpu);
-        let p_cond = p_cond_est.kde_probability_density();
-
         let xi_z1 = concatenate(Axis(1), &[self.series[0].view(), self.cond.view()]).unwrap();
-        let mut p_marg1_est = KernelEntropy::<D1_COND>::new_with_kernel_type(
-            xi_z1,
-            self.kernel_type.clone(),
-            self.bandwidth,
-        );
-        p_marg1_est.set_force_cpu(self.force_cpu);
-        let p_marg1 = p_marg1_est.kde_probability_density();
-
         let xi_z2 = concatenate(Axis(1), &[self.series[1].view(), self.cond.view()]).unwrap();
-        let mut p_marg2_est = KernelEntropy::<D2_COND>::new_with_kernel_type(
-            xi_z2,
-            self.kernel_type.clone(),
-            self.bandwidth,
-        );
-        p_marg2_est.set_force_cpu(self.force_cpu);
-        let p_marg2 = p_marg2_est.kde_probability_density();
+
+        let sources: Vec<Box<dyn DensityJobSource>> = vec![
+            Box::new(KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                all_data,
+                self.kernel_type.clone(),
+                self.bandwidth,
+            )),
+            Box::new(KernelEntropy::<D_COND>::new_with_kernel_type(
+                self.cond.clone(),
+                self.kernel_type.clone(),
+                self.bandwidth,
+            )),
+            Box::new(KernelEntropy::<D1_COND>::new_with_kernel_type(
+                xi_z1,
+                self.kernel_type.clone(),
+                self.bandwidth,
+            )),
+            Box::new(KernelEntropy::<D2_COND>::new_with_kernel_type(
+                xi_z2,
+                self.kernel_type.clone(),
+                self.bandwidth,
+            )),
+        ];
+        let densities = batched_or_individual(&sources);
+        let p_joint_all = &densities[0];
+        let p_cond = &densities[1];
+        let p_marg1 = &densities[2];
+        let p_marg2 = &densities[3];
 
         let n = p_joint_all.len();
         let mut local_cmi = Array1::zeros(n);
