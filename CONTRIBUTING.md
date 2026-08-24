@@ -79,9 +79,12 @@ Both environment prefixes matter:
 - `OPENBLAS_NUM_THREADS=1` stops OpenBLAS (which configures its worker pool
   before `main`) from busy-spinning through roughly a fifth of all samples.
 
-Select what to profile with `PROFILE_ESTIMATOR`. Available workloads:
-`discrete_entropy`, `mi_discrete`, `ordinal`, `renyi`, `tsallis`, `kl`,
-`ksg_mi`, `ksg_cmi`, `kernel_gaussian_cpu`, `kernel_box_cpu`.
+Select what to profile with `PROFILE_ESTIMATOR`. Workloads cover every
+approach family across measures: `discrete_entropy`, `mi_discrete`,
+`discrete_{cmi,te,cte}`, `ordinal` plus
+`{ordinal,renyi_entropy,tsallis_entropy,kl_entropy,ksg}_{mi,cmi,te,cte}`,
+and `kernel_{gaussian,box}_{mi,cmi,te,cte}_cpu`. Running with an unknown
+value prints the full list.
 
 Useful knobs: `PROFILE_N` (dataset size), `PROFILE_K`, `PROFILE_BW`,
 `PROFILE_ORDER`, `PROFILE_ALPHA`, `PROFILE_Q`, `PROFILE_SECONDS`,
