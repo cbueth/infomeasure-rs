@@ -191,9 +191,9 @@ impl<const K: usize> KernelEntropy<K> {
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
     /// - If the dataset has fewer than [`gpu_min_points_gaussian`] points (GPU overhead
-    ///   outweighs benefits). The gate is adaptive: it defaults to 1200 on hardware
-    ///   adapters, is disabled for software renderers, and can be tuned per machine via
-    ///   `INFOMEASURE_GPU_MIN_GAUSSIAN`.
+    ///   outweighs benefits). The gate is adaptive: its built-in default lives in
+    ///   `estimators::gpu`, software renderers are gated off entirely, and it can be
+    ///   tuned per machine via `INFOMEASURE_GPU_MIN_GAUSSIAN`.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn gaussian_kernel_local_values_gpu(&self) -> Array1<f64> {
@@ -247,9 +247,9 @@ impl<const K: usize> KernelEntropy<K> {
     ///
     /// This method automatically falls back to the CPU implementation in the following cases:
     /// - If the dataset has fewer than [`gpu_min_points_box`] points (GPU overhead
-    ///   outweighs benefits). The gate is adaptive: it defaults to 4000 on hardware
-    ///   adapters, is disabled for software renderers, and can be tuned per machine via
-    ///   `INFOMEASURE_GPU_MIN_BOX`.
+    ///   outweighs benefits). The gate is adaptive: its built-in default lives in
+    ///   `estimators::gpu`, software renderers are gated off entirely, and it can be
+    ///   tuned per machine via `INFOMEASURE_GPU_MIN_BOX`.
     /// - If the dimensionality exceeds 32 (current GPU implementation limitation)
     /// - If any step of the GPU calculation fails (ensures robustness)
     pub fn box_kernel_local_values_gpu(&self) -> Array1<f64> {
