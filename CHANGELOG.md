@@ -12,6 +12,8 @@
 
 ### ⚡ Performance
 
+- perf(kernel): reuse kiddo squared distances in whitened Gaussian hot path [[#63](https://codeberg.org/cbueth/infomeasure-rs/pulls/63)]
+- feat(gpu): adaptive CPU/GPU dispatch gates with per-machine overrides [[#64](https://codeberg.org/cbueth/infomeasure-rs/pulls/64)]
 - perf(nsb): adaptive Gauss-Kronrod integration and Brent root-finding [[#61](https://codeberg.org/cbueth/infomeasure-rs/pulls/61)]
 - perf(gpu): return density directly + compact point layout [[#58](https://codeberg.org/cbueth/infomeasure-rs/pulls/58)]
 - perf(gpu): shared wgpu context + whitened Gaussian shader [[#57](https://codeberg.org/cbueth/infomeasure-rs/pulls/57)]
