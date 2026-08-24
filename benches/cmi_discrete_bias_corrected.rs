@@ -9,13 +9,14 @@ use std::time::Duration;
 
 mod utils;
 
-use utils::bench_sizes_extended;
+use utils::bench_sizes;
 
 fn bench_cmi_discrete_miller_madow(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_miller_madow");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -45,9 +46,10 @@ fn bench_cmi_discrete_miller_madow(c: &mut Criterion) {
 
 fn bench_cmi_discrete_shrink(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_shrink");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -77,9 +79,10 @@ fn bench_cmi_discrete_shrink(c: &mut Criterion) {
 
 fn bench_cmi_discrete_chao_shen(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_chao_shen");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -109,9 +112,10 @@ fn bench_cmi_discrete_chao_shen(c: &mut Criterion) {
 
 fn bench_cmi_discrete_nsb(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_nsb");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -141,9 +145,10 @@ fn bench_cmi_discrete_nsb(c: &mut Criterion) {
 
 fn bench_cmi_discrete_ansb(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_ansb");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -173,9 +178,10 @@ fn bench_cmi_discrete_ansb(c: &mut Criterion) {
 
 fn bench_cmi_discrete_bonachela(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_bonachela");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -205,9 +211,10 @@ fn bench_cmi_discrete_bonachela(c: &mut Criterion) {
 
 fn bench_cmi_discrete_grassberger(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_grassberger");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -237,9 +244,10 @@ fn bench_cmi_discrete_grassberger(c: &mut Criterion) {
 
 fn bench_cmi_discrete_zhang(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_zhang");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -269,9 +277,10 @@ fn bench_cmi_discrete_zhang(c: &mut Criterion) {
 
 fn bench_cmi_discrete_bayes(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_bayes");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
@@ -301,9 +310,10 @@ fn bench_cmi_discrete_bayes(c: &mut Criterion) {
 
 fn bench_cmi_discrete_chao_wang_jost(c: &mut Criterion) {
     let mut group = c.benchmark_group("cmi_discrete_chao_wang_jost");
-    group.measurement_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(3));
+    group.sample_size(10);
 
-    let sizes = bench_sizes_extended();
+    let sizes = bench_sizes();
     let num_states = 10;
     let seed = 42u64;
 
