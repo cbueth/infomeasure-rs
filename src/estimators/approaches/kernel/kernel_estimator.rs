@@ -1554,19 +1554,16 @@ impl<const K: usize> KernelEntropy<K> {
         let mut scratch = Default::default();
         for (i, query_point) in wpoints.iter().enumerate() {
             let mut sum_k = 0.0;
+            // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
+            // squared distance kiddo computes during traversal is reused directly
+            // instead of re-deriving it from the coordinates.
             wtree
                 .query(query_point)
                 .within::<SquaredEuclidean<f64>>(adaptive_radius)
                 .unsorted()
                 .with_scratch(&mut scratch)
                 .visit(|item| {
-                    let p = &wpoints[item.item as usize];
-                    let mut dist_sq = 0.0;
-                    for dim in 0..K {
-                        let d = query_point[dim] - p[dim];
-                        dist_sq += d * d;
-                    }
-                    sum_k += (-0.5 * dist_sq).exp();
+                    sum_k += (-0.5 * item.distance).exp();
                 });
             densities[i] = sum_k / normalization;
         }
