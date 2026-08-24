@@ -771,6 +771,7 @@ pub struct KernelConditionalMutualInformation<
     pub bandwidth: f64,
     pub series: Vec<Array2<f64>>,
     pub cond: Array2<f64>,
+    pub force_cpu: bool,
 }
 
 impl<
@@ -794,7 +795,13 @@ impl<
             bandwidth: _bandwidth,
             series: series.to_vec(),
             cond: cond.clone(),
+            force_cpu: false,
         }
+    }
+
+    /// Sets whether to force CPU implementation even if GPU support is available.
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
     }
 }
 
@@ -857,35 +864,39 @@ impl<
         all_data_vec.push(self.cond.view());
         let all_data = concatenate(Axis(1), &all_data_vec).unwrap();
 
-        let p_joint_all = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+        let mut p_joint_all_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
             all_data,
             self.kernel_type.clone(),
             self.bandwidth,
-        )
-        .kde_probability_density();
+        );
+        p_joint_all_est.set_force_cpu(self.force_cpu);
+        let p_joint_all = p_joint_all_est.kde_probability_density();
 
-        let p_cond = KernelEntropy::<D_COND>::new_with_kernel_type(
+        let mut p_cond_est = KernelEntropy::<D_COND>::new_with_kernel_type(
             self.cond.clone(),
             self.kernel_type.clone(),
             self.bandwidth,
-        )
-        .kde_probability_density();
+        );
+        p_cond_est.set_force_cpu(self.force_cpu);
+        let p_cond = p_cond_est.kde_probability_density();
 
         let xi_z1 = concatenate(Axis(1), &[self.series[0].view(), self.cond.view()]).unwrap();
-        let p_marg1 = KernelEntropy::<D1_COND>::new_with_kernel_type(
+        let mut p_marg1_est = KernelEntropy::<D1_COND>::new_with_kernel_type(
             xi_z1,
             self.kernel_type.clone(),
             self.bandwidth,
-        )
-        .kde_probability_density();
+        );
+        p_marg1_est.set_force_cpu(self.force_cpu);
+        let p_marg1 = p_marg1_est.kde_probability_density();
 
         let xi_z2 = concatenate(Axis(1), &[self.series[1].view(), self.cond.view()]).unwrap();
-        let p_marg2 = KernelEntropy::<D2_COND>::new_with_kernel_type(
+        let mut p_marg2_est = KernelEntropy::<D2_COND>::new_with_kernel_type(
             xi_z2,
             self.kernel_type.clone(),
             self.bandwidth,
-        )
-        .kde_probability_density();
+        );
+        p_marg2_est.set_force_cpu(self.force_cpu);
+        let p_marg2 = p_marg2_est.kde_probability_density();
 
         let n = p_joint_all.len();
         let mut local_cmi = Array1::zeros(n);
