@@ -342,10 +342,11 @@ fn main() {
     let out_dir = "target/profiling";
     create_dir_all(out_dir).ok();
 
-    // Side artifact for human inspection: a flamegraph rooted at the profiled
-    // function. Stacks are emitted in collapsed form and pruned below
-    // `run_once`, so runtime startup frames and background threads (BLAS pool,
-    // allocator service calls) do not bury the interesting layers.
+    // Side artifact for human inspection: a flamegraph rooted at the estimator
+    // entry frame. Stacks are emitted in collapsed form, pruned below the
+    // outermost `infomeasure` frame (dropping the harness loop, runtime
+    // startup frames and background threads), so every pixel of width belongs
+    // to library code.
     let svg_path = format!("{out_dir}/flamegraph_{}.svg", workload.key());
     let mut collapsed = String::new();
     for (frames, count) in report.data.iter() {
@@ -359,7 +360,7 @@ fn main() {
         }
         let Some(cut) = ordered
             .iter()
-            .position(|sym| sym.name().contains("profile_report::run_once"))
+            .rposition(|sym| sym.name().contains("infomeasure::"))
         else {
             continue;
         };
