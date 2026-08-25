@@ -9,7 +9,6 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 [![crates.io](https://img.shields.io/crates/v/infomeasure.svg)](https://crates.io/crates/infomeasure)
 [![rustc](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSES/MIT.txt)
-[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/cbueth/infomeasure-rs?utm_source=badge)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-visit-8A2BE2)](https://cbueth.codeberg.page/infomeasure-rs/)
 
 > **v1.0.0-rc.0 — Now available!**
