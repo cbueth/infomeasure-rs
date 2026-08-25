@@ -280,7 +280,10 @@ fn main() {
         seed,
         gpu: gpu_mode,
     };
+    #[cfg(feature = "gpu")]
     let mut gpu_ctx: Option<&infomeasure::estimators::gpu::GpuContext> = None;
+    #[cfg(not(feature = "gpu"))]
+    let _gpu_ctx: Option<std::convert::Infallible> = None;
     if gpu_mode {
         #[cfg(feature = "gpu")]
         {
@@ -301,14 +304,20 @@ fn main() {
         }
     }
 
-    // One untimed iteration first so allocator warm-up and lazy statics do not
-    // pollute the samples.
-    run_once(&workload, &params);
+    // Warm phase: run until allocator arenas, lazy statics and page cache
+    // reach steady state, so samples capture the hot loop rather than
+    // first-touch costs. One-shot estimator construction stays part of the
+    // measured work by design; only process-level cold start is excluded.
+    let warm_until = Instant::now() + Duration::from_millis(300);
+    while Instant::now() < warm_until {
+        run_once(&workload, &params);
+    }
     let deadline = Instant::now() + Duration::from_secs(seconds);
 
     // GPU mode: CPU stack sampling is meaningless while blocked in wgpu's
     // poll, so report timestamp-derived pass durations plus wall clock
     // instead of a ranked function table.
+    #[cfg(feature = "gpu")]
     if let Some(ctx) = gpu_ctx {
         let mut iterations = 0usize;
         let mut wall = Duration::ZERO;
