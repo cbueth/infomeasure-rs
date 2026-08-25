@@ -59,6 +59,65 @@ Run a specific test:
 cargo test -- <test_name>
 ```
 
+## Profiling
+
+The repository ships a sampling profiler harness for finding hotspots in the
+estimator implementations. It samples CPU stacks on macOS, Linux and Windows
+without kernel privileges.
+
+```bash
+RUSTFLAGS="-Cforce-frame-pointers" OPENBLAS_NUM_THREADS=1 \
+    cargo run --profile profiling --features profiling --example profile_report
+```
+
+Both environment prefixes matter:
+
+- `RUSTFLAGS="-Cforce-frame-pointers"` keeps frame pointers in compiled code so
+  the sampler walks stacks directly. Without it, libunwind's DWARF unwinder is
+  used from inside a signal handler, which is not async-signal-safe on Apple
+  silicon and traps intermittently.
+- `OPENBLAS_NUM_THREADS=1` stops OpenBLAS (which configures its worker pool
+  before `main`) from busy-spinning through roughly a fifth of all samples.
+
+Select what to profile with `PROFILE_ESTIMATOR`. Workloads cover every
+approach family across measures: `discrete_entropy`, `mi_discrete`,
+`discrete_{cmi,te,cte}`, `ordinal` plus
+`{ordinal,renyi_entropy,tsallis_entropy,kl_entropy,ksg}_{mi,cmi,te,cte}`,
+and `kernel_{gaussian,box}_{mi,cmi,te,cte}_cpu`. Running with an unknown
+value prints the full list.
+
+Useful knobs: `PROFILE_N` (dataset size), `PROFILE_K`, `PROFILE_BW`,
+`PROFILE_ORDER`, `PROFILE_ALPHA`, `PROFILE_Q`, `PROFILE_SECONDS`,
+`PROFILE_TOP` (table rows), and `PROFILE_FORMAT=json` for machine-readable
+output. A flamegraph SVG lands in `target/profiling/` for visual inspection.
+
+When optimising, capture a JSON profile before and after your change and
+compare the ranked self-time entries. Wall-clock deltas belong to
+criterion/Bencher.
+Treat sample shares as hints only: frames that touch fresh memory over-report
+(page faults bill kernel time to the touching line), so always confirm with a
+before/after wall-clock A/B.
+
+### GPU workloads
+
+Kernel-family workloads accept `PROFILE_GPU=1`, which dispatches through the
+GPU paths regardless of the usual size gates and reports per-job GPU pass
+milliseconds from wgpu timestamp queries instead of a CPU flamegraph:
+
+```bash
+OPENBLAS_NUM_THREADS=1 PROFILE_GPU=1 \
+    PROFILE_ESTIMATOR=kernel_gaussian_mi_cpu \
+    cargo run --profile profiling --features profiling,gpu --example profile_report
+```
+
+Coverage follows the implementation automatically: any estimator that routes
+through the shared batch runner is timed with no per-estimator plumbing, so new
+GPU-backed estimators become profileable by default. Where the adapter does not
+support inside-pass timestamps (Metal) or its boundary timestamps prove unusable,
+the harness degrades to wall time per iteration and flags this in the JSON
+output rather than emitting zeros. For shader-internals depth beyond timings,
+use Xcode Instruments on macOS or NVIDIA Nsight on Linux.
+
 ## Code Style
 
 The project follows standard Rust formatting. Run formatting before committing:

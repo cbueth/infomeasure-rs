@@ -27,12 +27,23 @@ statrs = ">=0.16"  # For special functions (digamma)
 ndarray-stats = ">=0.7.0"  # covariance matrix
 ndarray-linalg = { version = ">=0.18.1", features = ["openblas-static"] }  # .cholesky
 rustc-hash = ">=1.1"  # Fast non-cryptographic hashing for HashMap hot paths
-rand = ">=0.8"
+rand = { version = ">=0.8", features = ["small_rng"] }
 rand_distr = ">=0.4"
 
 [features]
 default = []
 gpu = []
+profiling = ["dep:pprof"]
+
+[dependencies.pprof]
+version = "0.14"
+optional = true
+features = ["flamegraph", "frame-pointer"]
+
+[profile.profiling]
+inherits = "release"
+debug = true
+
 
 [dev-dependencies]
 rstest = "0.26.1"  # For fixture-based testint
