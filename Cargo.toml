@@ -44,9 +44,6 @@ features = ["flamegraph", "frame-pointer"]
 inherits = "release"
 debug = true
 
-[[example]]
-name = "profile_report"
-required-features = ["profiling"]
 
 [dev-dependencies]
 rstest = "0.26.1"  # For fixture-based testint

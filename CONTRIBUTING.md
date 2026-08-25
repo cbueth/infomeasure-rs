@@ -94,6 +94,9 @@ output. A flamegraph SVG lands in `target/profiling/` for visual inspection.
 When optimising, capture a JSON profile before and after your change and
 compare the ranked self-time entries. Wall-clock deltas belong to
 criterion/Bencher.
+Treat sample shares as hints only: frames that touch fresh memory over-report
+(page faults bill kernel time to the touching line), so always confirm with a
+before/after wall-clock A/B.
 
 ### GPU workloads
 
