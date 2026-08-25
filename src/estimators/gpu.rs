@@ -1161,7 +1161,12 @@ mod tests {
         let jobs = [box_job(64, 7), box_job(96, 11)];
         ctx.run_compute_batch(&jobs).expect("batch should succeed");
         if let Some(ms) = ctx.last_batch_gpu_ms() {
-            assert_eq!(ms.len(), 2, "one duration per job");
+            // Per-job mode yields one duration per job; boundary-only mode
+            // (e.g. Metal) yields a single whole-pass duration.
+            assert!(
+                ms.len() == 2 || ms.len() == 1,
+                "expected per-job or single-pass durations, got {ms:?}"
+            );
             assert!(
                 ms.iter().all(|v| v.is_finite() && *v > 0.0),
                 "durations must be positive, got {ms:?}"
