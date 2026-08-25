@@ -756,3 +756,73 @@ mod embedding_view_tests {
         assert_eq!(old.to_bits(), new.to_bits(), "empty-window divergence");
     }
 }
+
+#[cfg(test)]
+mod mle_fusion_tests {
+    use crate::estimators::approaches::discrete::DiscreteConditionalTransferEntropy;
+    use crate::estimators::approaches::discrete::DiscreteTransferEntropy;
+    use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+    use crate::estimators::traits::GlobalValue;
+    use ndarray::Array1;
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+    use rstest::rstest;
+
+    fn codes(n: usize, states: i32, seed: u64) -> Array1<i32> {
+        let mut rng = StdRng::seed_from_u64(seed);
+        Array1::from((0..n).map(|_| rng.gen_range(0..states)).collect::<Vec<_>>())
+    }
+
+    #[rstest]
+    #[case(1, 1, 1)]
+    #[case(2, 1, 2)]
+    #[case(1, 3, 2)]
+    #[case(3, 3, 3)]
+    #[case(2, 2, 5)]
+    fn fused_mle_te_matches_generic(#[case] l: usize, #[case] k: usize, #[case] tau: usize) {
+        let source = codes(37, 6, 5);
+        let dest = codes(37, 6, 17);
+
+        let legacy = DiscreteTransferEntropy::new(&source, &dest, l, k, tau, DiscreteEntropy::new)
+            .global_value();
+        let fused = DiscreteTransferEntropy::new_mle(&source, &dest, l, k, tau).global_value();
+
+        let scale = legacy.abs().max(1.0);
+        assert!(
+            (legacy - fused).abs() <= 1e-12 * scale,
+            "l={l} k={k} tau={tau}: {legacy} vs {fused}"
+        );
+    }
+
+    #[rstest]
+    #[case(1, 1, 1)]
+    #[case(2, 2, 2)]
+    #[case(3, 1, 3)]
+    fn fused_mle_cte_matches_generic(#[case] l: usize, #[case] k: usize, #[case] tau: usize) {
+        let source = codes(31, 5, 21);
+        let dest = codes(31, 5, 22);
+        let cond = codes(31, 4, 23);
+
+        let legacy = DiscreteConditionalTransferEntropy::new(
+            &source,
+            &dest,
+            &cond,
+            l,
+            k,
+            k,
+            tau,
+            DiscreteEntropy::new,
+        )
+        .global_value();
+        let fused =
+            DiscreteConditionalTransferEntropy::new_mle(&source, &dest, &cond, l, k, k, tau)
+                .global_value();
+
+        let scale = legacy.abs().max(1.0);
+        assert!(
+            (legacy - fused).abs() <= 1e-12 * scale,
+            "l={l} k={k} tau={tau}: {legacy} vs {fused}"
+        );
+    }
+}

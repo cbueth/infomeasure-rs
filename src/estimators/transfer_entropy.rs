@@ -676,13 +676,12 @@ impl TransferEntropy {
         dest_hist_len: usize,
         step_size: usize,
     ) -> DiscreteTransferEntropy<DiscreteEntropy> {
-        DiscreteTransferEntropy::new(
+        DiscreteTransferEntropy::new_mle(
             source,
             destination,
             src_hist_len,
             dest_hist_len,
             step_size,
-            DiscreteEntropy::new,
         )
     }
 
@@ -1005,7 +1004,7 @@ impl TransferEntropy {
         cond_hist_len: usize,
         step_size: usize,
     ) -> DiscreteConditionalTransferEntropy<DiscreteEntropy> {
-        DiscreteConditionalTransferEntropy::new(
+        DiscreteConditionalTransferEntropy::new_mle(
             source,
             destination,
             condition,
@@ -1013,7 +1012,6 @@ impl TransferEntropy {
             dest_hist_len,
             cond_hist_len,
             step_size,
-            DiscreteEntropy::new,
         )
     }
 
