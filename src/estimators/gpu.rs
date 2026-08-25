@@ -293,6 +293,11 @@ pub struct GpuContext {
     /// attribution within a batched pass rather than one duration for the
     /// whole pass.
     timestamps_inside: bool,
+    /// Opt-in switch for pass timing. Instrumentation adds per-batch query-set
+    /// creation, timestamp writes and an extra resolve/copy/map — pure
+    /// overhead for everyone but the profiler harness, so it ships disabled
+    /// and benchmarks never pay for it.
+    pass_timing_enabled: std::sync::atomic::AtomicBool,
     /// Flipped off when an adapter reports timestamps but produces only zero
     /// deltas (observed on Metal, whose pass-boundary writes are not wired
     /// through), so downstream consumers stop receiving meaningless data.
@@ -369,6 +374,7 @@ impl GpuContext {
             bind_group_layouts: Mutex::new(FxHashMap::default()),
             timestamps_enabled,
             timestamps_inside,
+            pass_timing_enabled: std::sync::atomic::AtomicBool::new(false),
             timings_usable: std::sync::atomic::AtomicBool::new(true),
             last_batch_gpu_ms: Mutex::new(None),
         })
@@ -680,7 +686,16 @@ impl GpuContext {
         // batch.
         let n_jobs = prepared.len();
         let per_job = self.timestamps_inside;
-        let (query_set, resolve_buffer, ts_staging) = if self.timestamps_enabled {
+        let timing_on = self
+            .pass_timing_enabled
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if !timing_on {
+            *self
+                .last_batch_gpu_ms
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
+        }
+        let (query_set, resolve_buffer, ts_staging) = if timing_on && self.timestamps_enabled {
             let count = if per_job { 2 * n_jobs as u32 + 1 } else { 2 };
             let qs = self.device.create_query_set(&wgpu::QuerySetDescriptor {
                 label: Some("batch timestamps"),
@@ -823,6 +838,16 @@ impl GpuContext {
     /// active.
     pub fn timestamps_enabled(&self) -> bool {
         self.timestamps_enabled
+    }
+
+    /// Enables or disables GPU pass timing. Off by default: the
+    /// instrumentation (query set creation, per-dispatch timestamp writes, an
+    /// extra resolve/copy/map cycle) is measurable overhead that only the
+    /// profiler harness wants. When disabled,
+    /// [`last_batch_gpu_ms`](Self::last_batch_gpu_ms) reports `None`.
+    pub fn set_pass_timing_enabled(&self, on: bool) {
+        self.pass_timing_enabled
+            .store(on, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Per-job GPU pass durations in milliseconds of the most recently
@@ -1158,6 +1183,7 @@ mod tests {
     #[test]
     fn batch_publishes_gpu_timings_when_usable() {
         let ctx = GpuContext::get().expect("a hardware GPU adapter should be available");
+        ctx.set_pass_timing_enabled(true);
         let jobs = [box_job(64, 7), box_job(96, 11)];
         ctx.run_compute_batch(&jobs).expect("batch should succeed");
         if let Some(ms) = ctx.last_batch_gpu_ms() {
@@ -1173,6 +1199,17 @@ mod tests {
             );
         }
         // else: timestamps unsupported/unusable on this adapter — fine.
+    }
+
+    /// With pass timing disabled (the default), batches must not publish GPU
+    /// durations — benchmarks never pay for instrumentation.
+    #[test]
+    fn batch_publishes_nothing_when_timing_disabled() {
+        let ctx = GpuContext::get().expect("a hardware GPU adapter should be available");
+        ctx.set_pass_timing_enabled(false);
+        let jobs = [box_job(64, 7), box_job(96, 11)];
+        ctx.run_compute_batch(&jobs).expect("batch should succeed");
+        assert_eq!(ctx.last_batch_gpu_ms(), None);
     }
 
     /// Batched execution must produce results bit-for-bit identical to running
