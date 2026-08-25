@@ -16,7 +16,7 @@
 //! column 0 contains the most distant past sample and the last column contains the most
 //! recent past sample.
 
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayView1};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
@@ -238,6 +238,137 @@ pub fn cte_observations_const<
 /// (with `t` the corresponding base index) contains
 /// $(Y_{t-6},\ Y_{t-4},\ Y_{t-2})$ in columns `[0, 1, 2]`, and the matching
 /// `dest_future` entry is $Y_t$.
+/// Zero-copy strided views equivalent to the columns of [`te_slices`]
+/// output for `i32` code series, used by the discrete/ordinal TE/CTE
+/// constructors so no intermediate arrays are materialised.
+///
+/// Columns are ordered oldest-first, matching the Array2 column semantics of
+/// the slicing functions. Each history column is a stride-`step_size` slice
+/// of the input; the future is a contiguous strided slice.
+pub(crate) struct TeEmbeddingViews<'a> {
+    pub dest_future: ndarray::ArrayView1<'a, i32>,
+    pub dest_past_cols: Vec<ndarray::ArrayView1<'a, i32>>,
+    pub src_past_cols: Vec<ndarray::ArrayView1<'a, i32>>,
+}
+
+/// Number of observation rows for the given series length and embedding
+/// parameters (mirrors `te_observations`).
+fn te_row_count(n: usize, max_delay: usize, step_size: usize) -> usize {
+    if max_delay >= n {
+        0
+    } else {
+        (n - max_delay).div_ceil(step_size)
+    }
+}
+
+/// History column `col` (0 = oldest) as a strided view.
+fn hist_col<'a>(
+    arr: &'a Array1<i32>,
+    col: usize,
+    hist_len: usize,
+    max_delay: usize,
+    step_size: usize,
+    n_samples: usize,
+) -> ArrayView1<'a, i32> {
+    let steps_back = (hist_len - col) * step_size;
+    let first = max_delay - steps_back;
+    strided_take(arr, first, step_size, n_samples)
+}
+
+/// View of `n_samples` elements starting at `first`, stride `step`.
+fn strided_take<'a>(
+    arr: &'a Array1<i32>,
+    first: usize,
+    step: usize,
+    n_samples: usize,
+) -> ArrayView1<'a, i32> {
+    if n_samples == 0 {
+        return arr.slice(ndarray::s![0..0]);
+    }
+    let last = first + (n_samples - 1) * step;
+    debug_assert!(last < arr.len(), "embedding column exceeds series length");
+    arr.slice(ndarray::s![first..=last.min(arr.len() - 1);step])
+}
+
+pub(crate) fn te_embedding_views<'a>(
+    source: &'a Array1<i32>,
+    destination: &'a Array1<i32>,
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    step_size: usize,
+) -> TeEmbeddingViews<'a> {
+    let max_delay = src_hist_len.max(dest_hist_len) * step_size;
+    let n_samples = te_row_count(destination.len(), max_delay, step_size);
+
+    TeEmbeddingViews {
+        dest_future: {
+            let first = max_delay.min(destination.len());
+            strided_take(destination, first, step_size, n_samples)
+        },
+        dest_past_cols: (0..dest_hist_len)
+            .map(|c| {
+                hist_col(
+                    destination,
+                    c,
+                    dest_hist_len,
+                    max_delay,
+                    step_size,
+                    n_samples,
+                )
+            })
+            .collect(),
+        src_past_cols: (0..src_hist_len)
+            .map(|c| hist_col(source, c, src_hist_len, max_delay, step_size, n_samples))
+            .collect(),
+    }
+}
+
+/// Zero-copy variant of [`cte_slices`] columns; see [`TeEmbeddingViews`].
+pub(crate) struct CteEmbeddingViews<'a> {
+    pub dest_future: ndarray::ArrayView1<'a, i32>,
+    pub dest_past_cols: Vec<ndarray::ArrayView1<'a, i32>>,
+    pub src_past_cols: Vec<ndarray::ArrayView1<'a, i32>>,
+    pub cond_past_cols: Vec<ndarray::ArrayView1<'a, i32>>,
+}
+
+pub(crate) fn cte_embedding_views<'a>(
+    source: &'a Array1<i32>,
+    destination: &'a Array1<i32>,
+    condition: &'a Array1<i32>,
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    cond_hist_len: usize,
+    step_size: usize,
+) -> CteEmbeddingViews<'a> {
+    let max_delay = src_hist_len.max(dest_hist_len).max(cond_hist_len) * step_size;
+    let n_samples = te_row_count(destination.len(), max_delay, step_size);
+
+    CteEmbeddingViews {
+        dest_future: {
+            let first = max_delay.min(destination.len());
+            strided_take(destination, first, step_size, n_samples)
+        },
+        dest_past_cols: (0..dest_hist_len)
+            .map(|c| {
+                hist_col(
+                    destination,
+                    c,
+                    dest_hist_len,
+                    max_delay,
+                    step_size,
+                    n_samples,
+                )
+            })
+            .collect(),
+        src_past_cols: (0..src_hist_len)
+            .map(|c| hist_col(source, c, src_hist_len, max_delay, step_size, n_samples))
+            .collect(),
+        cond_past_cols: (0..cond_hist_len)
+            .map(|c| hist_col(condition, c, cond_hist_len, max_delay, step_size, n_samples))
+            .collect(),
+    }
+}
+
 pub fn te_slices<T: Clone + Default>(
     source: &Array1<T>,
     destination: &Array1<T>,
@@ -518,4 +649,110 @@ pub fn cte_observations<T: Clone + Default>(
     }
 
     (dest_future, dest_history, src_history, cond_history)
+}
+
+#[cfg(test)]
+mod embedding_view_tests {
+    use super::*;
+    use crate::estimators::approaches::discrete::DiscreteConditionalMutualInformation;
+    use crate::estimators::approaches::discrete::discrete_utils::{
+        reduce_array2_compact, reduce_hist_columns_compact,
+    };
+    use crate::estimators::traits::GlobalValue;
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+    use rstest::rstest;
+
+    fn codes(n: usize, states: i32, seed: u64) -> Array1<i32> {
+        let mut rng = StdRng::seed_from_u64(seed);
+        Array1::from((0..n).map(|_| rng.gen_range(0..states)).collect::<Vec<_>>())
+    }
+
+    /// Column views must reproduce the materialised Array2 columns exactly.
+    #[rstest]
+    #[case(1, 1, 1)]
+    #[case(2, 1, 1)]
+    #[case(1, 2, 2)]
+    #[case(3, 2, 2)]
+    #[case(2, 3, 5)]
+    fn views_match_materialised_columns(#[case] l: usize, #[case] k: usize, #[case] tau: usize) {
+        let source = codes(29, 5, 7);
+        let destination = codes(29, 5, 11);
+        let condition = codes(29, 5, 13);
+
+        let (df, dh, sh) = te_slices(&source, &destination, l, k, tau);
+        let v = te_embedding_views(&source, &destination, l, k, tau);
+
+        assert_eq!(v.dest_future, df.column(0));
+        for (c, col) in dh.columns().into_iter().enumerate() {
+            assert_eq!(v.dest_past_cols[c], col, "dest history col {c}");
+        }
+        for (c, col) in sh.columns().into_iter().enumerate() {
+            assert_eq!(v.src_past_cols[c], col, "src history col {c}");
+        }
+
+        let (df, _dh, _sh, ch) = cte_slices(&source, &destination, &condition, l, k, k, tau);
+        let cv = cte_embedding_views(&source, &destination, &condition, l, k, k, tau);
+        assert_eq!(cv.dest_future, df.column(0));
+        for (c, col) in ch.columns().into_iter().enumerate() {
+            assert_eq!(cv.cond_past_cols[c], col, "cond history col {c}");
+        }
+        let _ = dh;
+    }
+
+    fn legacy_te_global(s: &Array1<i32>, d: &Array1<i32>, l: usize, k: usize, tau: usize) -> f64 {
+        let (df, dh, sh) = te_slices(s, d, l, k, tau);
+        let src = reduce_array2_compact(&sh);
+        let dst = reduce_array2_compact(&dh);
+        let fut = df.column(0).to_owned();
+        DiscreteConditionalMutualInformation::new(
+            &[src, fut],
+            &dst,
+            crate::estimators::approaches::discrete::mle::DiscreteEntropy::new,
+        )
+        .global_value()
+    }
+
+    fn new_te_global(s: &Array1<i32>, d: &Array1<i32>, l: usize, k: usize, tau: usize) -> f64 {
+        let v = te_embedding_views(s, d, l, k, tau);
+        let src = reduce_hist_columns_compact(v.src_past_cols.iter().copied());
+        let dst = reduce_hist_columns_compact(v.dest_past_cols.iter().copied());
+        DiscreteConditionalMutualInformation::new(
+            &[src, v.dest_future.to_owned()],
+            &dst,
+            crate::estimators::approaches::discrete::mle::DiscreteEntropy::new,
+        )
+        .global_value()
+    }
+
+    /// Estimator built on strided views must equal the materialised-array
+    /// reference bit-for-bit (identical integer codes feed identical counting).
+    #[rstest]
+    #[case(1, 1, 1)]
+    #[case(2, 1, 1)]
+    #[case(1, 2, 2)]
+    #[case(2, 3, 2)]
+    #[case(3, 3, 3)]
+    #[case(2, 2, 5)]
+    fn te_matches_legacy_pipeline(#[case] l: usize, #[case] k: usize, #[case] tau: usize) {
+        let source = codes(23, 4, 42);
+        let dest = codes(23, 4, 99);
+        let old = legacy_te_global(&source, &dest, l, k, tau);
+        let new = new_te_global(&source, &dest, l, k, tau);
+        assert_eq!(old.to_bits(), new.to_bits(), "l={l} k={k} tau={tau}");
+    }
+
+    /// Degenerate case where the window exceeds the series: both paths see
+    /// empty embeddings.
+    #[test]
+    fn te_empty_window_matches_legacy() {
+        let source = codes(4, 3, 1);
+        let dest = codes(4, 3, 2);
+        let old = legacy_te_global(&source, &dest, 3, 3, 3);
+        let new = new_te_global(&source, &dest, 3, 3, 3);
+        // Whatever the CMI machinery returns for empty embeddings (a finite
+        // value, as it happens), both paths must return the identical bits.
+        assert_eq!(old.to_bits(), new.to_bits(), "empty-window divergence");
+    }
 }

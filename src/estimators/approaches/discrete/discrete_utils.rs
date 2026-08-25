@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2, ArrayView1, Axis};
 use rustc_hash::FxHashMap;
 
 /// Shared dataset and utilities for discrete (histogram-based) entropy estimators.
@@ -151,23 +151,31 @@ fn pack_joint_key(codes: impl IntoIterator<Item = i32>, min_code: i32, bits: u32
 /// giving each dimension a fixed bit width) to avoid per-entry `Vec<i32>` allocation. If the
 /// packing would overflow (`k * bit_width > 128`), a `Vec<i32>`-keyed fallback is used.
 pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
-    if code_arrays.is_empty() {
+    let views: Vec<ArrayView1<i32>> = code_arrays.iter().map(|arr| arr.view()).collect();
+    reduce_views_compact(&views)
+}
+
+/// Core of [`reduce_joint_space_compact`] operating on borrowed column views,
+/// so callers holding strided embedding columns can reduce without
+/// materialising arrays.
+pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
+    if cols.is_empty() {
         return Array1::zeros(0);
     }
-    let len = code_arrays[0].len();
-    for arr in code_arrays.iter() {
+    let len = cols[0].len();
+    for col in cols.iter() {
         assert_eq!(
-            arr.len(),
+            col.len(),
             len,
             "All code arrays must have the same length for joint reduction"
         );
     }
-    let k = code_arrays.len();
+    let k = cols.len();
 
     let mut min_code = i32::MAX;
     let mut max_code = i32::MIN;
-    for arr in code_arrays.iter() {
-        for &c in arr.iter() {
+    for col in cols.iter() {
+        for &c in col.iter() {
             min_code = min_code.min(c);
             max_code = max_code.max(c);
         }
@@ -186,7 +194,7 @@ pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
         let mut map: FxHashMap<u128, i32> = FxHashMap::default();
         let mut next_id: i32 = 0;
         for i in 0..len {
-            let key = pack_joint_key(code_arrays.iter().map(|arr| arr[i]), min_code, bits)
+            let key = pack_joint_key(cols.iter().map(|col| col[i]), min_code, bits)
                 .expect("width pre-checked");
             let id = *map.entry(key).or_insert_with(|| {
                 let v = next_id;
@@ -203,8 +211,8 @@ pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
         let mut next_id: i32 = 0;
         for i in 0..len {
             let mut key: Vec<i32> = Vec::with_capacity(k);
-            for arr in code_arrays.iter() {
-                key.push(arr[i]);
+            for col in cols.iter() {
+                key.push(col[i]);
             }
             let id = *map.entry(key).or_insert_with(|| {
                 let v = next_id;
@@ -222,6 +230,17 @@ pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
 pub fn reduce_array2_compact(data: &Array2<i32>) -> Array1<i32> {
     let columns: Vec<Array1<i32>> = data.axis_iter(Axis(1)).map(|col| col.to_owned()).collect();
     reduce_joint_space_compact(&columns)
+}
+
+/// Reduce history *columns* given as (possibly strided) views into one compact
+/// 1D code array. Equivalent to [`reduce_array2_compact`] over a matrix whose
+/// columns are these views, without materialising that matrix.
+pub(crate) fn reduce_hist_columns_compact<'a, I>(cols: I) -> Array1<i32>
+where
+    I: IntoIterator<Item = ndarray::ArrayView1<'a, i32>>,
+{
+    let views: Vec<ndarray::ArrayView1<i32>> = cols.into_iter().collect();
+    reduce_views_compact(&views)
 }
 
 #[cfg(test)]
