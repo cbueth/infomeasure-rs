@@ -309,7 +309,7 @@ impl DiscreteTransferEntropy<crate::estimators::approaches::discrete::mle::Discr
     /// intermediate dense-code recounting. Numerics identical to
     /// [`DiscreteTransferEntropy::new`] with an MLE constructor up to
     /// floating-point summation order.
-    pub fn new_mle(
+    pub(crate) fn new_mle(
         source: &Array1<i32>,
         destination: &Array1<i32>,
         src_hist_len: usize,
@@ -445,7 +445,7 @@ impl
     /// Fused MLE construction for conditional transfer entropy; see
     /// [`DiscreteTransferEntropy::new_mle`].
     #[allow(clippy::too_many_arguments)]
-    pub fn new_mle(
+    pub(crate) fn new_mle(
         source: &Array1<i32>,
         destination: &Array1<i32>,
         condition: &Array1<i32>,
