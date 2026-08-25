@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-24
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf: add profiling infra [[#68](https://codeberg.org/cbueth/infomeasure-rs/pulls/68)]
 - perf(ksg): exact sorted-window marginal counting [[#65](https://codeberg.org/cbueth/infomeasure-rs/pulls/65)]
 - perf(gpu): batch multi-space density dispatches into one round-trip [[#66](https://codeberg.org/cbueth/infomeasure-rs/pulls/66)]
 - perf(kernel): reuse kiddo squared distances in whitened Gaussian hot path [[#63](https://codeberg.org/cbueth/infomeasure-rs/pulls/63)]
