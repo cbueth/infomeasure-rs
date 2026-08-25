@@ -68,13 +68,15 @@ pub mod zhang;
 // Additional helpers
 pub mod discrete_batch;
 
-use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::discrete_utils::{
+    reduce_joint_space_compact, reduce_views_compact,
+};
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
 };
-use ndarray::Array1;
+use ndarray::{Array1, ArrayView1};
 
 /// Discrete Mutual Information estimator using the entropy-summation formula.
 ///
@@ -164,17 +166,21 @@ impl<E> DiscreteConditionalMutualInformation<E> {
         // I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)
         // General: I(X1; ...; Xn | Z) = sum H(Xi, Z) - H(X1, ..., Xn, Z) - (n-1)H(Z)
 
-        let marginal_conds = series
-            .iter()
-            .map(|s| {
-                let joint_xz = reduce_joint_space_compact(&[s.clone(), cond.clone()]);
+        // Reduce straight over borrowed views: cloning each series per
+        // marginal (and the whole stack for the joint) showed up as ~19% of
+        // discrete TE wall time in profiler scans.
+        let mut cond_view_stack: Vec<ArrayView1<i32>> = series.iter().map(|s| s.view()).collect();
+        cond_view_stack.push(cond.view());
+
+        let marginal_conds = (0..series.len())
+            .map(|i| {
+                let pair = [series[i].view(), cond.view()];
+                let joint_xz = reduce_views_compact(&pair);
                 constructor.clone()(joint_xz)
             })
             .collect();
 
-        let mut joint_all_vec = series.to_vec();
-        joint_all_vec.push(cond.clone());
-        let joint_all_codes = reduce_joint_space_compact(&joint_all_vec);
+        let joint_all_codes = reduce_views_compact(&cond_view_stack);
         let joint_cond = constructor.clone()(joint_all_codes);
 
         let cond_only = constructor(cond.clone());
@@ -258,15 +264,16 @@ impl<E> DiscreteTransferEntropy<E> {
     where
         F: Fn(Array1<i32>) -> E + Clone,
     {
-        use crate::estimators::approaches::discrete::discrete_utils::reduce_array2_compact;
-        use crate::estimators::utils::te_slicing::te_slices;
+        use crate::estimators::approaches::discrete::discrete_utils::reduce_hist_columns_compact;
+        use crate::estimators::utils::te_slicing::te_embedding_views;
 
-        let (dest_future, dest_history, src_history) =
-            te_slices(source, destination, src_hist_len, dest_hist_len, step_size);
+        // Zero-copy strided views instead of materialising three intermediate
+        // arrays that were only ever reduced column-wise.
+        let views = te_embedding_views(source, destination, src_hist_len, dest_hist_len, step_size);
 
-        let src_past_codes = reduce_array2_compact(&src_history);
-        let dest_past_codes = reduce_array2_compact(&dest_history);
-        let dest_future_flat = dest_future.column(0).to_owned();
+        let src_past_codes = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+        let dest_past_codes = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+        let dest_future_flat = views.dest_future.to_owned();
 
         // TE(X -> Y) = I(X_past; Y_next | Y_past)
         let inner = DiscreteConditionalMutualInformation::new(
@@ -319,11 +326,11 @@ impl<E> DiscreteConditionalTransferEntropy<E> {
         F: Fn(Array1<i32>) -> E + Clone,
     {
         use crate::estimators::approaches::discrete::discrete_utils::{
-            reduce_array2_compact, reduce_joint_space_compact,
+            reduce_hist_columns_compact, reduce_joint_space_compact,
         };
-        use crate::estimators::utils::te_slicing::cte_slices;
+        use crate::estimators::utils::te_slicing::cte_embedding_views;
 
-        let (dest_future, dest_history, src_history, cond_history) = cte_slices(
+        let views = cte_embedding_views(
             source,
             destination,
             condition,
@@ -333,10 +340,10 @@ impl<E> DiscreteConditionalTransferEntropy<E> {
             step_size,
         );
 
-        let src_past_codes = reduce_array2_compact(&src_history);
-        let dest_past_codes = reduce_array2_compact(&dest_history);
-        let cond_past_codes = reduce_array2_compact(&cond_history);
-        let dest_future_flat = dest_future.column(0).to_owned();
+        let src_past_codes = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+        let dest_past_codes = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+        let cond_past_codes = reduce_hist_columns_compact(views.cond_past_cols.iter().copied());
+        let dest_future_flat = views.dest_future.to_owned();
 
         // CTE(X -> Y | Z) = I(X_past; Y_next | Y_past, Z_past)
         let joint_cond_codes = reduce_joint_space_compact(&[dest_past_codes, cond_past_codes]);
