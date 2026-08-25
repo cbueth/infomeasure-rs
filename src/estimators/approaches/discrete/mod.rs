@@ -68,13 +68,15 @@ pub mod zhang;
 // Additional helpers
 pub mod discrete_batch;
 
-use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
+use crate::estimators::approaches::discrete::discrete_utils::{
+    reduce_joint_space_compact, reduce_views_compact,
+};
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
 };
-use ndarray::Array1;
+use ndarray::{Array1, ArrayView1};
 
 /// Discrete Mutual Information estimator using the entropy-summation formula.
 ///
@@ -164,17 +166,21 @@ impl<E> DiscreteConditionalMutualInformation<E> {
         // I(X; Y | Z) = H(X, Z) + H(Y, Z) - H(X, Y, Z) - H(Z)
         // General: I(X1; ...; Xn | Z) = sum H(Xi, Z) - H(X1, ..., Xn, Z) - (n-1)H(Z)
 
-        let marginal_conds = series
-            .iter()
-            .map(|s| {
-                let joint_xz = reduce_joint_space_compact(&[s.clone(), cond.clone()]);
+        // Reduce straight over borrowed views: cloning each series per
+        // marginal (and the whole stack for the joint) showed up as ~19% of
+        // discrete TE wall time in profiler scans.
+        let mut cond_view_stack: Vec<ArrayView1<i32>> = series.iter().map(|s| s.view()).collect();
+        cond_view_stack.push(cond.view());
+
+        let marginal_conds = (0..series.len())
+            .map(|i| {
+                let pair = [series[i].view(), cond.view()];
+                let joint_xz = reduce_views_compact(&pair);
                 constructor.clone()(joint_xz)
             })
             .collect();
 
-        let mut joint_all_vec = series.to_vec();
-        joint_all_vec.push(cond.clone());
-        let joint_all_codes = reduce_joint_space_compact(&joint_all_vec);
+        let joint_all_codes = reduce_views_compact(&cond_view_stack);
         let joint_cond = constructor.clone()(joint_all_codes);
 
         let cond_only = constructor(cond.clone());
