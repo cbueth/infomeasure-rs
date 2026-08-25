@@ -288,25 +288,30 @@ pub struct GpuContext {
     pipelines: Mutex<FxHashMap<ShaderKind, wgpu::ComputePipeline>>,
     bind_group_layouts: Mutex<FxHashMap<ShaderKind, wgpu::BindGroupLayout>>,
     /// Whether the adapter exposes timestamp queries; gates GPU pass timing.
+    #[cfg(feature = "profiling")]
     timestamps_enabled: bool,
     /// Whether timestamps can be written *inside* a pass, enabling per-job
     /// attribution within a batched pass rather than one duration for the
     /// whole pass.
+    #[cfg(feature = "profiling")]
     timestamps_inside: bool,
     /// Opt-in switch for pass timing. Instrumentation adds per-batch query-set
     /// creation, timestamp writes and an extra resolve/copy/map — pure
     /// overhead for everyone but the profiler harness, so it ships disabled
     /// and benchmarks never pay for it.
+    #[cfg(feature = "profiling")]
     pass_timing_enabled: std::sync::atomic::AtomicBool,
     /// Flipped off when an adapter reports timestamps but produces only zero
     /// deltas (observed on Metal, whose pass-boundary writes are not wired
     /// through), so downstream consumers stop receiving meaningless data.
+    #[cfg(feature = "profiling")]
     timings_usable: std::sync::atomic::AtomicBool,
     /// Per-job GPU pass durations (milliseconds) of the most recent batch.
     /// `None` while a batch is in flight or when timing is unsupported. This
     /// lives at the dispatch chokepoint so every estimator that routes through
     /// [`GpuContext::run_compute_batch`] is profileable without per-estimator
     /// plumbing.
+    #[cfg(feature = "profiling")]
     last_batch_gpu_ms: Mutex<Option<Vec<f64>>>,
 }
 
@@ -344,18 +349,29 @@ impl GpuContext {
         // durations. Not every adapter exposes them (some software renderers
         // do not), so they are requested only when available and everything
         // downstream degrades to phase wall-clock timing.
-        let wanted = wgpu::Features::TIMESTAMP_QUERY;
-        let wanted_inside = wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES;
-        let available = adapter.features();
-        let timestamps_enabled = available.contains(wanted);
-        let timestamps_inside = available.contains(wanted_inside);
-        let required = if timestamps_enabled && timestamps_inside {
-            wanted | wanted_inside
-        } else if timestamps_enabled {
-            wanted
-        } else {
-            wgpu::Features::empty()
-        };
+        #[cfg(feature = "profiling")]
+        let timestamps_enabled;
+        #[cfg(feature = "profiling")]
+        let timestamps_inside;
+        #[cfg(feature = "profiling")]
+        let required;
+        #[cfg(not(feature = "profiling"))]
+        let required = wgpu::Features::empty();
+        #[cfg(feature = "profiling")]
+        {
+            let wanted = wgpu::Features::TIMESTAMP_QUERY;
+            let wanted_inside = wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES;
+            let available = adapter.features();
+            timestamps_enabled = available.contains(wanted);
+            timestamps_inside = available.contains(wanted_inside);
+            required = if timestamps_enabled && timestamps_inside {
+                wanted | wanted_inside
+            } else if timestamps_enabled {
+                wanted
+            } else {
+                wgpu::Features::empty()
+            };
+        }
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("infomeasure GPU Device"),
             required_features: required,
@@ -372,10 +388,15 @@ impl GpuContext {
             queue,
             pipelines: Mutex::new(FxHashMap::default()),
             bind_group_layouts: Mutex::new(FxHashMap::default()),
+            #[cfg(feature = "profiling")]
             timestamps_enabled,
+            #[cfg(feature = "profiling")]
             timestamps_inside,
+            #[cfg(feature = "profiling")]
             pass_timing_enabled: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(feature = "profiling")]
             timings_usable: std::sync::atomic::AtomicBool::new(true),
+            #[cfg(feature = "profiling")]
             last_batch_gpu_ms: Mutex::new(None),
         })
     }
@@ -685,16 +706,22 @@ impl GpuContext {
         // pass boundaries are recorded, yielding one duration for the whole
         // batch.
         let n_jobs = prepared.len();
+        #[cfg(feature = "profiling")]
         let per_job = self.timestamps_inside;
+        #[cfg(not(feature = "profiling"))]
+        let per_job = false;
+        #[cfg(feature = "profiling")]
         let timing_on = self
             .pass_timing_enabled
             .load(std::sync::atomic::Ordering::Relaxed);
+        #[cfg(feature = "profiling")]
         if !timing_on {
             *self
                 .last_batch_gpu_ms
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
         }
+        #[cfg(feature = "profiling")]
         let (query_set, resolve_buffer, ts_staging) = if timing_on && self.timestamps_enabled {
             let count = if per_job { 2 * n_jobs as u32 + 1 } else { 2 };
             let qs = self.device.create_query_set(&wgpu::QuerySetDescriptor {
@@ -718,13 +745,23 @@ impl GpuContext {
         } else {
             (None, None, None)
         };
+        #[cfg(not(feature = "profiling"))]
+        let (query_set, resolve_buffer, ts_staging): (
+            Option<wgpu::QuerySet>,
+            Option<wgpu::Buffer>,
+            Option<wgpu::Buffer>,
+        ) = (None, None, None);
 
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("batch encoder"),
             });
+        #[cfg(feature = "profiling")]
         let last_index = if per_job { 2 * n_jobs as u32 } else { 1 };
+        #[cfg(not(feature = "profiling"))]
+        let timestamp_writes: Option<wgpu::ComputePassTimestampWrites> = None;
+        #[cfg(feature = "profiling")]
         let timestamp_writes = query_set
             .as_ref()
             .map(|qs| wgpu::ComputePassTimestampWrites {
@@ -775,6 +812,7 @@ impl GpuContext {
             });
             receivers.push(receiver);
         }
+        #[cfg(feature = "profiling")]
         let ts_receiver = ts_staging.as_ref().map(|staging| {
             let slice = staging.slice(..);
             let (sender, receiver) = oneshot_channel();
@@ -796,50 +834,56 @@ impl GpuContext {
             results.push(floats);
         }
 
-        // Convert raw ticks to milliseconds per job and publish them for the
-        // profiler harness (see [`GpuContext::last_batch_gpu_ms`]).
-        if let (Some((ts_staging, ts_receiver)), Some(period_ns)) =
-            (ts_receiver, Some(self.queue.get_timestamp_period()))
+        // Everything below exists only under the profiling feature.
+        #[cfg(feature = "profiling")]
         {
-            let _ = block_on(ts_receiver.receive())?;
-            let slice = ts_staging.slice(..);
-            let view = slice.get_mapped_range();
-            let ticks: Vec<u64> = bytemuck::cast_slice(&view).to_vec();
-            drop(view);
-            ts_staging.unmap();
-            use std::sync::atomic::Ordering;
-            let period_f = f64::from(period_ns);
-            let mut gpu_ms = Vec::with_capacity(n_jobs);
-            if per_job {
-                for i in 0..n_jobs {
-                    let start = ticks[2 * i];
-                    let end = ticks[2 * i + 1];
-                    gpu_ms.push(end.saturating_sub(start) as f64 * period_f / 1e6);
+            // Convert raw ticks to milliseconds per job and publish them for the
+            // profiler harness (see [`GpuContext::last_batch_gpu_ms`]).
+            if let (Some((ts_staging, ts_receiver)), Some(period_ns)) =
+                (ts_receiver, Some(self.queue.get_timestamp_period()))
+            {
+                let _ = block_on(ts_receiver.receive())?;
+                let slice = ts_staging.slice(..);
+                let view = slice.get_mapped_range();
+                let ticks: Vec<u64> = bytemuck::cast_slice(&view).to_vec();
+                drop(view);
+                ts_staging.unmap();
+                use std::sync::atomic::Ordering;
+                let period_f = f64::from(period_ns);
+                let mut gpu_ms = Vec::with_capacity(n_jobs);
+                if per_job {
+                    for i in 0..n_jobs {
+                        let start = ticks[2 * i];
+                        let end = ticks[2 * i + 1];
+                        gpu_ms.push(end.saturating_sub(start) as f64 * period_f / 1e6);
+                    }
+                } else {
+                    let total = ticks[1].saturating_sub(ticks[0]) as f64 * period_f / 1e6;
+                    gpu_ms.push(total);
                 }
-            } else {
-                let total = ticks[1].saturating_sub(ticks[0]) as f64 * period_f / 1e6;
-                gpu_ms.push(total);
-            }
-            // Some backends accept timestamp queries yet record no usable
-            // delta; publish nothing rather than streams of zeros.
-            if gpu_ms.iter().all(|v| *v == 0.0) {
-                self.timings_usable.store(false, Ordering::Relaxed);
-            } else if self.timings_usable.load(Ordering::Relaxed) {
-                *self
-                    .last_batch_gpu_ms
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner()) = Some(gpu_ms);
+                // Some backends accept timestamp queries yet record no usable
+                // delta; publish nothing rather than streams of zeros.
+                if gpu_ms.iter().all(|v| *v == 0.0) {
+                    self.timings_usable.store(false, Ordering::Relaxed);
+                } else if self.timings_usable.load(Ordering::Relaxed) {
+                    *self
+                        .last_batch_gpu_ms
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = Some(gpu_ms);
+                }
             }
         }
         Some(results)
     }
 
+    #[cfg(feature = "profiling")]
     /// Whether the adapter exposes timestamp queries and GPU pass timing is
     /// active.
     pub fn timestamps_enabled(&self) -> bool {
         self.timestamps_enabled
     }
 
+    #[cfg(feature = "profiling")]
     /// Enables or disables GPU pass timing. Off by default: the
     /// instrumentation (query set creation, per-dispatch timestamp writes, an
     /// extra resolve/copy/map cycle) is measurable overhead that only the
@@ -850,6 +894,7 @@ impl GpuContext {
             .store(on, std::sync::atomic::Ordering::Relaxed);
     }
 
+    #[cfg(feature = "profiling")]
     /// Per-job GPU pass durations in milliseconds of the most recently
     /// completed batch, `None` when no batch has run yet, the adapter lacks
     /// timestamp support, or the adapter's timestamps proved unusable. Because this is populated inside
@@ -1180,6 +1225,7 @@ mod tests {
     /// When the adapter's timestamps are usable, a batched run publishes one
     /// positive duration per job; adapters whose timestamps are unsupported or
     /// unusable publish `None` instead of zeros.
+    #[cfg(all(test, feature = "profiling"))]
     #[test]
     fn batch_publishes_gpu_timings_when_usable() {
         let ctx = GpuContext::get().expect("a hardware GPU adapter should be available");
@@ -1203,6 +1249,7 @@ mod tests {
 
     /// With pass timing disabled (the default), batches must not publish GPU
     /// durations — benchmarks never pay for instrumentation.
+    #[cfg(all(test, feature = "profiling"))]
     #[test]
     fn batch_publishes_nothing_when_timing_disabled() {
         let ctx = GpuContext::get().expect("a hardware GPU adapter should be available");
