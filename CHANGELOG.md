@@ -12,7 +12,7 @@
 
 ### ⚡ Performance
 
-- perf/te-slicing [[#69](https://codeberg.org/cbueth/infomeasure-rs/pulls/69)]
+- perf: improve `te_slicing` embedding [[#69](https://codeberg.org/cbueth/infomeasure-rs/pulls/69)]
 - perf: add profiling infra [[#68](https://codeberg.org/cbueth/infomeasure-rs/pulls/68)]
 - perf(ksg): exact sorted-window marginal counting [[#65](https://codeberg.org/cbueth/infomeasure-rs/pulls/65)]
 - perf(gpu): batch multi-space density dispatches into one round-trip [[#66](https://codeberg.org/cbueth/infomeasure-rs/pulls/66)]
