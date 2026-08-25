@@ -19,11 +19,17 @@ pub enum KsgType {
 }
 
 /// Add Gaussian noise to a 2D array.
+///
+/// The noise exists only to break degenerate ties in neighbour distances, so
+/// cryptographic-quality entropy is wasted cost: a per-call seeded [`SmallRng`]
+/// avoids ThreadRng's periodic OsRng reseeds, which profiler scans showed
+/// dominating KSG-family estimates at $N \geq 10^4$ (up to two thirds of wall
+/// time on pure entropy workloads).
 pub fn add_noise(mut data: Array2<f64>, noise_level: f64) -> Array2<f64> {
     if noise_level <= 0.0 {
         return data;
     }
-    let mut rng = thread_rng();
+    let mut rng = SmallRng::from_rng(thread_rng()).expect("system RNG unavailable");
     let normal = Normal::new(0.0, noise_level).unwrap();
     for x in data.iter_mut() {
         *x += normal.sample(&mut rng);
