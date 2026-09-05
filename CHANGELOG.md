@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-08-25
+## [1.0.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/1.0.0-rc.0) - 2026-09-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,7 @@
 
 ### ⚡ Performance
 
+- perf(discrete): single-pass fused MLE construction for TE/CTE [[#70](https://codeberg.org/cbueth/infomeasure-rs/pulls/70)]
 - perf: improve `te_slicing` embedding [[#69](https://codeberg.org/cbueth/infomeasure-rs/pulls/69)]
 - perf: add profiling infra [[#68](https://codeberg.org/cbueth/infomeasure-rs/pulls/68)]
 - perf(ksg): exact sorted-window marginal counting [[#65](https://codeberg.org/cbueth/infomeasure-rs/pulls/65)]
