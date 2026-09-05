@@ -28,7 +28,7 @@ use ndarray::{Array1, Array2};
 ///
 #[doc = doc_snippets!(discrete_guide_ref)]
 pub struct DiscreteEntropy {
-    dataset: DiscreteDataset,
+    pub(crate) dataset: DiscreteDataset,
 }
 
 impl DiscreteEntropy {

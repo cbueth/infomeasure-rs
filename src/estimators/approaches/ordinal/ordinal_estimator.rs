@@ -325,13 +325,12 @@ impl OrdinalTransferEntropy {
     ) -> Self {
         let src_codes = symbolize_series_compact(source, order, step_size, stable);
         let dest_codes = symbolize_series_compact(dest, order, step_size, stable);
-        let inner = DiscreteTransferEntropy::new(
+        let inner = DiscreteTransferEntropy::new_mle(
             &src_codes,
             &dest_codes,
             src_hist_len,
             dest_hist_len,
             step_size,
-            DiscreteEntropy::new,
         );
         Self { inner }
     }
@@ -379,7 +378,7 @@ impl OrdinalConditionalTransferEntropy {
         let src_codes = symbolize_series_compact(source, order, step_size, stable);
         let dest_codes = symbolize_series_compact(dest, order, step_size, stable);
         let cond_codes = symbolize_series_compact(cond, order, step_size, stable);
-        let inner = DiscreteConditionalTransferEntropy::new(
+        let inner = DiscreteConditionalTransferEntropy::new_mle(
             &src_codes,
             &dest_codes,
             &cond_codes,
@@ -387,7 +386,6 @@ impl OrdinalConditionalTransferEntropy {
             dest_hist_len,
             cond_hist_len,
             step_size,
-            DiscreteEntropy::new,
         );
         Self { inner }
     }

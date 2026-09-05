@@ -159,8 +159,15 @@ pub fn reduce_joint_space_compact(code_arrays: &[Array1<i32>]) -> Array1<i32> {
 /// so callers holding strided embedding columns can reduce without
 /// materialising arrays.
 pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
+    reduce_views_compact_counted(cols).0
+}
+
+/// Same reduction as [`reduce_views_compact`], additionally emitting the
+/// frequency of every dense code in code order (`counts[code]`), so callers
+/// can build datasets without recounting.
+pub(crate) fn reduce_views_compact_counted(cols: &[ArrayView1<i32>]) -> (Array1<i32>, Vec<usize>) {
     if cols.is_empty() {
-        return Array1::zeros(0);
+        return (Array1::zeros(0), Vec::new());
     }
     let len = cols[0].len();
     for col in cols.iter() {
@@ -182,9 +189,10 @@ pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
     }
 
     let mut out: Vec<i32> = Vec::with_capacity(len);
+    let mut counts: Vec<usize> = Vec::new();
     if min_code == i32::MAX {
         // All code arrays are empty. nothing to reduce.
-        return Array1::from(out);
+        return (Array1::from(out), Vec::new());
     }
 
     let range = (max_code as i64 - min_code as i64) as u128;
@@ -203,6 +211,10 @@ pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
                     .expect("Too many unique joint patterns to fit into i32");
                 v
             });
+            if counts.len() < next_id as usize {
+                counts.push(0);
+            }
+            counts[id as usize] += 1;
             out.push(id);
         }
     } else {
@@ -221,10 +233,15 @@ pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
                     .expect("Too many unique joint patterns to fit into i32");
                 v
             });
+            if counts.len() < next_id as usize {
+                counts.push(0);
+            }
+            counts[id as usize] += 1;
             out.push(id);
         }
     }
-    Array1::from(out)
+    let codes = Array1::from(out);
+    (codes, counts)
 }
 /// Reduce a 2D array (samples x dimensions) into a single compact 1D code array.
 pub fn reduce_array2_compact(data: &Array2<i32>) -> Array1<i32> {
@@ -241,6 +258,34 @@ where
 {
     let views: Vec<ndarray::ArrayView1<i32>> = cols.into_iter().collect();
     reduce_views_compact(&views)
+}
+
+/// Build a [`DiscreteDataset`] from dense codes plus their per-code counts,
+/// skipping the usual recount pass. `dense_counts[i]` is the frequency of
+/// code `i`; the alphabet is exactly `0..dense_counts.len()`.
+pub(crate) fn dataset_from_dense_codes(
+    codes: Array1<i32>,
+    dense_counts: &[usize],
+) -> DiscreteDataset {
+    let n: usize = dense_counts.iter().sum();
+    let k = dense_counts.len();
+    let n_f = n as f64;
+    let mut counts_map = FxHashMap::with_capacity_and_hasher(k, Default::default());
+    let mut dist = FxHashMap::with_capacity_and_hasher(k, Default::default());
+    for (i, &cnt) in dense_counts.iter().enumerate() {
+        if cnt == 0 {
+            continue;
+        }
+        counts_map.insert(i as i32, cnt);
+        dist.insert(i as i32, cnt as f64 / n_f);
+    }
+    DiscreteDataset {
+        data: codes,
+        counts: counts_map,
+        n,
+        k,
+        dist,
+    }
 }
 
 #[cfg(test)]
