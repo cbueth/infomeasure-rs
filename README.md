@@ -11,7 +11,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSES/MIT.txt)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-visit-8A2BE2)](https://cbueth.codeberg.page/infomeasure-rs/)
 
-> **v0.3.0 — Now available!**
+> **v0.4.0-rc.0 — Now available!**
 > All core features of the [infomeasure Python package](https://github.com/cbueth/infomeasure)
 > have been reimplemented in Rust.
 > Try it out with our [Rust Guide](https://docs.rs/infomeasure/latest/infomeasure/guide/index.html)
@@ -35,7 +35,7 @@ High-performance Rust library for information-theoretic measures with multiple e
 
 ```toml
 [dependencies]
-infomeasure = "0.3.0"
+infomeasure = "0.4.0-rc.0"
 ```
 
 ## Quick Start
@@ -63,7 +63,7 @@ println!("Kernel entropy: {}", kernel_entropy);
 
 ```toml
 [dependencies]
-infomeasure = { version = "0.3.0", features = ["gpu"] }
+infomeasure = { version = "0.4.0-rc.0", features = ["gpu"] }
 ```
 
 ## Feature Status

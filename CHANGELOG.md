@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.4.0-rc.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.0-rc.0) - 2026-09-11
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### 💥 Breaking changes
+
+- refactor(kernel)!: remove fast_exp feature flag [[#54](https://codeberg.org/cbueth/infomeasure-rs/pulls/54)]
+
+### 📚 Documentation
+
+- docs: add Use of AI section to contributing guidelines [[#71](https://codeberg.org/cbueth/infomeasure-rs/pulls/71)]
+
+### ⚡ Performance
+
+- perf(discrete): single-pass fused MLE construction for TE/CTE [[#70](https://codeberg.org/cbueth/infomeasure-rs/pulls/70)]
+- perf: improve `te_slicing` embedding [[#69](https://codeberg.org/cbueth/infomeasure-rs/pulls/69)]
+- perf: add profiling infra [[#68](https://codeberg.org/cbueth/infomeasure-rs/pulls/68)]
+- perf(ksg): exact sorted-window marginal counting [[#65](https://codeberg.org/cbueth/infomeasure-rs/pulls/65)]
+- perf(gpu): batch multi-space density dispatches into one round-trip [[#66](https://codeberg.org/cbueth/infomeasure-rs/pulls/66)]
+- perf(kernel): reuse kiddo squared distances in whitened Gaussian hot path [[#63](https://codeberg.org/cbueth/infomeasure-rs/pulls/63)]
+- feat(gpu): adaptive CPU/GPU dispatch gates with per-machine overrides [[#64](https://codeberg.org/cbueth/infomeasure-rs/pulls/64)]
+- perf(nsb): adaptive Gauss-Kronrod integration and Brent root-finding [[#61](https://codeberg.org/cbueth/infomeasure-rs/pulls/61)]
+- perf(gpu): return density directly + compact point layout [[#58](https://codeberg.org/cbueth/infomeasure-rs/pulls/58)]
+- perf(gpu): shared wgpu context + whitened Gaussian shader [[#57](https://codeberg.org/cbueth/infomeasure-rs/pulls/57)]
+- perf(ksg): count-only marginal queries via kiddo visit [[#53](https://codeberg.org/cbueth/infomeasure-rs/pulls/53)]
+- perf(kernel): count-only box kernel query via kiddo visit [[#52](https://codeberg.org/cbueth/infomeasure-rs/pulls/52)]
+- perf(kernel): mean-centered whitening transform for the Gaussian density [[#51](https://codeberg.org/cbueth/infomeasure-rs/pulls/51)]
+- perf(kernel): store Cholesky factor flat for cache-friendly Mahalanobis [[#49](https://codeberg.org/cbueth/infomeasure-rs/pulls/49)]
+- perf(discrete): use FxHashMap and packed u128 joint keys [[#48](https://codeberg.org/cbueth/infomeasure-rs/pulls/48)]
+- perf(ordinal): hoist factorial table + slice indexing in symbolization [[#47](https://codeberg.org/cbueth/infomeasure-rs/pulls/47)]
+- perf(ksg): skip sorting + adaptive result capacity on within queries [[#46](https://codeberg.org/cbueth/infomeasure-rs/pulls/46)]
+
+### 📦️ Dependency
+
+- chore(deps): bump kiddo from 6.0.0 to 6.0.1 [[#45](https://codeberg.org/cbueth/infomeasure-rs/pulls/45)]
+
+### Misc
+
+- chore(release): bump breaking changes to minor while pre-1.0 [[#72](https://codeberg.org/cbueth/infomeasure-rs/pulls/72)]
+- perf(bench): slim the bias-corrected discrete benchmark sweep [[#67](https://codeberg.org/cbueth/infomeasure-rs/pulls/67)]
+- fix(ansb): once-per-process stderr warnings and validity-regime threshold [[#62](https://codeberg.org/cbueth/infomeasure-rs/pulls/62)]
+- test(gpu): CPU-vs-GPU parity for kernel MI/TE/CMI/CTE [[#60](https://codeberg.org/cbueth/infomeasure-rs/pulls/60)]
+- ci(gpu): GPU test pipeline + self-hosted runner label separation [[#59](https://codeberg.org/cbueth/infomeasure-rs/pulls/59)]
+- fix(kernel): remove unused capacity/i left by visit-fusion merge [[#56](https://codeberg.org/cbueth/infomeasure-rs/pulls/56)]
+- ci(release): auto-bump version refs in README and lib.rs on release [[#55](https://codeberg.org/cbueth/infomeasure-rs/pulls/55)]
+- ci(bench): add Bencher report PR comment [[#50](https://codeberg.org/cbueth/infomeasure-rs/pulls/50)]
+- ci: migrate from CodSpeed to Bencher Cloud Free [[#44](https://codeberg.org/cbueth/infomeasure-rs/pulls/44)]
+- docs(release): clarify release trigger in release workflow comment [[#42](https://codeberg.org/cbueth/infomeasure-rs/pulls/42)]
+
 ## [0.3.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.3.0) - 2026-08-08
 
 ### ❤️ Thanks to all contributors! ❤️
