@@ -60,4 +60,4 @@ steps:
         echo "Releasing $CARGO_VER (matches release '$RELEASE_VER')."
       - cargo publish
     when:
-      - evaluate: 'CI_COMMIT_MESSAGE matches "^Merge pull request.*Release .*from next-release/main" || CI_COMMIT_MESSAGE matches "^Release [0-9]+\\.[0-9]+"'
+      - evaluate: 'CI_COMMIT_MESSAGE matches "^Merge pull request.*Release .*from next-release/main" || CI_COMMIT_MESSAGE matches "^Release [0-9]+[.][0-9]+"'
