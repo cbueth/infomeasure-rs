@@ -7,7 +7,9 @@ export default {
     {
       title: '💥 Breaking changes',
       labels: ['breaking', 'Compat/Breaking'],
-      bump: 'major',
+      // While major is 0 (pre-1.0), SemVer treats breaking changes as a minor
+      // bump. Flip this back to 'major' before releasing 1.0.
+      bump: 'minor',
       weight: 3,
     },
     {
