@@ -40,6 +40,7 @@
 
 ### Misc
 
+- ci(release): support squash-merge release messages and publish 0.4.0 [[#73](https://codeberg.org/cbueth/infomeasure-rs/pulls/73)]
 - chore(release): bump breaking changes to minor while pre-1.0 [[#72](https://codeberg.org/cbueth/infomeasure-rs/pulls/72)]
 - perf(bench): slim the bias-corrected discrete benchmark sweep [[#67](https://codeberg.org/cbueth/infomeasure-rs/pulls/67)]
 - fix(ansb): once-per-process stderr warnings and validity-regime threshold [[#62](https://codeberg.org/cbueth/infomeasure-rs/pulls/62)]
