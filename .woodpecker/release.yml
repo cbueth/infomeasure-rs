@@ -6,8 +6,14 @@
 #
 # Flow:
 # 1. Push to main → Creates Release PR (preparation)
-# 2. Release PR merged → plugin creates tag/release on Codeberg (detected via the "Release …" merge-commit message, no label needed)
+# 2. Release PR merged → plugin creates tag/release on Codeberg (detected via the "Release …" merge message, no label needed)
 # 3. cargo publish runs on the merge commit (detected via commit message pattern)
+#
+# The release PR may be merged either as a merge commit
+#   "Merge pull request 'Release …' (#N) from next-release/main"
+# or as a squash commit
+#   "Release … (#N)"
+# Both are matched by the publish step below.
 
 when:
   - event: push
@@ -34,7 +40,7 @@ steps:
       # (merge commit message); beforePrepare must have bumped all of them.
       - |
         set -e
-        RELEASE_VER=$(printf '%s' "$CI_COMMIT_MESSAGE" | sed -n "s/.*'Release \([^']*\)'.*/\1/p" | head -n1)
+        RELEASE_VER=$(printf '%s' "$CI_COMMIT_MESSAGE" | sed -n 's/.*Release \([0-9][0-9.]*\).*/\1/p' | head -n1)
         CARGO_VER=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)
         README_VER=$(sed -n 's/.*infomeasure = "\([0-9][^"]*\)".*/\1/p' README.md | head -n1)
         LIB_VER=$(sed -n 's/.*\*\*v\([0-9][^ ]*\).*/\1/p' src/lib.rs | head -n1)
@@ -54,4 +60,4 @@ steps:
         echo "Releasing $CARGO_VER (matches release '$RELEASE_VER')."
       - cargo publish
     when:
-      - evaluate: 'CI_COMMIT_MESSAGE matches "^Merge pull request.*Release.*from next-release/main"'
+      - evaluate: 'CI_COMMIT_MESSAGE matches "^Merge pull request.*Release .*from next-release/main" || CI_COMMIT_MESSAGE matches "^Release [0-9]+\\.[0-9]+"'
