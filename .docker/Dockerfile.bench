@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# Cross-package benchmark image.
+#
+# Extends the CI toolchain image with the third-party packages used for runtime
+# comparison: JIDT (Java), PyInform / dit / pyitlib / NPEET (Python) and
+# RTransferEntropy (R).
+#
+# Build on the CI runner (dev tag, no registry push):
+#   docker build -f .docker/Dockerfile.bench -t im-bench:dev .
+# Publish tag: codeberg.org/cbueth/infomeasure-rs:bench
+
+FROM codeberg.org/cbueth/infomeasure-rs:stable
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# --- JDK (JIDT) + R + headers needed to compile RTransferEntropy/Rcpp -------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-21-jdk-headless \
+        r-base-core \
+        r-base-dev \
+        libcurl4-openssl-dev \
+        libxml2-dev \
+        libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- JIDT (version- and checksum-pinned; see benchmarks/packages.lock) ------
+ARG JIDT_VERSION=1.6.1
+ARG JIDT_JAR_SHA256=2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11
+ENV JIDT_JAR=/opt/jidt/infodynamics.jar
+RUN set -eux; \
+    mkdir -p /opt/jidt; \
+    curl -fsSL -o /tmp/jidt.zip \
+        "https://lizier.me/joseph/software/jidt/download.php?file=infodynamics-dist-${JIDT_VERSION}.zip"; \
+    unzip -q /tmp/jidt.zip -d /tmp/jidt-extract; \
+    cp "$(find /tmp/jidt-extract -name 'infodynamics.jar' | head -n1)" "${JIDT_JAR}"; \
+    echo "${JIDT_JAR_SHA256}  ${JIDT_JAR}" | sha256sum -c -; \
+    rm -rf /tmp/jidt.zip /tmp/jidt-extract
+
+# Compile a tiny JIDT smoke program (real KSG compute, not an import check).
+COPY .docker/bench-jidt-smoke.java /opt/jidt-smoke/JidtSmoke.java
+RUN javac -cp "${JIDT_JAR}" -d /opt/jidt-smoke /opt/jidt-smoke/JidtSmoke.java
+
+# --- Bench Python env, separate from the validation venv --------------------
+# NPEET is not on PyPI; pinned to a commit (see benchmarks/packages.lock).
+ENV BENCH_VENV=/opt/bench-venv
+ARG NPEET_COMMIT=8b0d9485423f74e5eb199324cf362765596538d3
+RUN set -eux; \
+    uv venv "${BENCH_VENV}" --python python3; \
+    uv pip install --python "${BENCH_VENV}/bin/python" \
+        numpy scipy infomeasure pyinform dit pyitlib; \
+    uv pip install --python "${BENCH_VENV}/bin/python" \
+        "git+https://github.com/gregversteeg/NPEET@${NPEET_COMMIT}"
+
+# --- RTransferEntropy (compiles Rcpp; toolchain is present in the base) -----
+RUN Rscript -e 'install.packages("RTransferEntropy", repos="https://cloud.r-project.org")'
+
+COPY .docker/bench-smoke.sh /usr/local/bin/bench-smoke
+RUN chmod +x /usr/local/bin/bench-smoke
+
+WORKDIR /build
+CMD ["bash"]
