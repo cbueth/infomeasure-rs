@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -108,6 +110,8 @@ def main() -> int:
         "meta": {
             **meta,
             "schema": 2,
+            "generated": datetime.now(timezone.utc).isoformat(),
+            "run_id": f"cross_package_{int(time.time())}",
             "packages": list(packages.values()),
             "coverage": sorted([list(c) for c in coverage]),
             "excluded": EXCLUDED,

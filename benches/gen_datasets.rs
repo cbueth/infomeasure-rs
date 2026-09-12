@@ -111,6 +111,15 @@ fn emit_f64(
 fn main() -> std::io::Result<()> {
     let dir = data_dir();
     ensure_dir(&dir)?;
+    // Drop stale dataset files from a previous run (e.g. a changed seed set).
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|e| e == "bin") {
+                let _ = std::fs::remove_file(path);
+            }
+        }
+    }
     let sizes = sizes();
     let mut entries = Vec::new();
 
