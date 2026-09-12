@@ -37,9 +37,14 @@ K_HISTORY = 1
 
 
 def entropy_fn(x):
-    counts = np.bincount(np.asarray(x, dtype=int), minlength=int(x.max()) + 1)
-    d = Dist(counts.tolist())
-    return lambda: float(shannon.entropy(d))
+    xi = np.asarray(x, dtype=int)
+    mn = int(xi.max()) + 1
+
+    def call():
+        counts = np.bincount(xi, minlength=mn)
+        return float(shannon.entropy(Dist(counts.tolist())))
+
+    return call
 
 
 def mi_fn(x, y):
