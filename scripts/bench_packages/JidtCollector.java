@@ -19,6 +19,7 @@ import infodynamics.measures.continuous.kernel.MutualInfoCalculatorMultiVariateK
 import infodynamics.measures.continuous.kernel.TransferEntropyCalculatorKernel;
 import infodynamics.measures.continuous.kozachenko.EntropyCalculatorMultiVariateKozachenko;
 import infodynamics.measures.continuous.kraskov.ConditionalMutualInfoCalculatorMultiVariateKraskov1;
+import infodynamics.measures.continuous.kraskov.ConditionalTransferEntropyCalculatorKraskov;
 import infodynamics.measures.continuous.kraskov.MutualInfoCalculatorMultiVariateKraskov1;
 import infodynamics.measures.continuous.kraskov.TransferEntropyCalculatorKraskov;
 import infodynamics.measures.discrete.ConditionalMutualInformationCalculatorDiscrete;
@@ -50,7 +51,7 @@ public class JidtCollector {
 
     static boolean supported(String measure, String approach) {
         if (approach.equals("discrete")) return true;
-        if (approach.equals("ksg")) return !measure.equals("cte");
+        if (approach.equals("ksg")) return true;
         if (approach.equals("kernel_box")) return measure.equals("entropy") || measure.equals("mi") || measure.equals("te");
         return false; // JIDT has no Gaussian-kernel estimator
     }
@@ -181,12 +182,21 @@ public class JidtCollector {
                     m.setObservations(c[0], c[1], c[2]);
                     return m.computeAverageLocalOfObservations();
                 }
-                default: {
+                case "te": {
                     TransferEntropyCalculatorKraskov t = new TransferEntropyCalculatorKraskov();
                     t.setProperty("k", "4");
                     t.setProperty("NORMALISE", "false");
                     t.initialise(1);
                     t.setObservations(flat(c[0]), flat(c[1]));
+                    return t.computeAverageLocalOfObservations();
+                }
+                default: {
+                    ConditionalTransferEntropyCalculatorKraskov t =
+                            new ConditionalTransferEntropyCalculatorKraskov();
+                    t.setProperty("k", "4");
+                    t.setProperty("NORMALISE", "false");
+                    t.initialise(1, 1, 1);
+                    t.setObservations(flat(c[0]), flat(c[1]), flat(c[2]));
                     return t.computeAverageLocalOfObservations();
                 }
             }
@@ -258,7 +268,8 @@ public class JidtCollector {
                 case "entropy": return "EntropyCalculatorMultiVariateKozachenko";
                 case "mi": return "MutualInfoCalculatorMultiVariateKraskov1";
                 case "cmi": return "ConditionalMutualInfoCalculatorMultiVariateKraskov1";
-                default: return "TransferEntropyCalculatorKraskov";
+                case "te": return "TransferEntropyCalculatorKraskov";
+                default: return "ConditionalTransferEntropyCalculatorKraskov";
             }
         }
         switch (measure) {
@@ -315,7 +326,7 @@ public class JidtCollector {
         }
         b.append("],\"packages\":[{\"id\":\"jidt\",\"language\":\"java\",\"version\":\"1.6.1\",");
         b.append("\"released\":\"2023-08-22\",\"artifact_sha256\":\"2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11\",");
-        b.append("\"limitations\":\"No Gaussian-kernel estimator; no continuous conditional TE; no kernel conditional MI/CTE.\"}]},");
+        b.append("\"limitations\":\"No Gaussian-kernel estimator; no kernel conditional MI/CTE. Also ships a linear-Gaussian estimator family (not compared; no infomeasure counterpart).\"}]},");
         b.append("\"benchmarks\":[");
 
         boolean first = true;
