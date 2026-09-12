@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Run the full cross-package collection. Intended to run inside the :bench
-# image (Rust toolchain + JIDT + bench Python venv + R). Env:
+# image (Rust toolchain + JIDT + bench Python venv + Julia + R). Env:
 #   BENCH_DATA_DIR (default target/bench-data)
 #   BENCH_SHORT=1  (default)  small/fast slice for iteration
 #   BENCH_SIZES, BENCH_WARMUP, BENCH_ITERATIONS
@@ -31,22 +31,30 @@ fi
 export BENCH_WARMUP="$WARMUP" BENCH_ITERATIONS="$ITERS"
 
 echo "=== infomeasure-rs (build + generate + collect) ==="
+# Fresh fragments each full run: avoids stale collectors leaking into the merge.
+rm -f "$BENCH_DATA_DIR"/results/*.json
 cargo bench --bench gen_datasets
 cargo bench --bench collect_cross_package
+
+SEEDS="$("$PY" -c "import json;print(','.join(map(str,json.load(open('$BENCH_DATA_DIR/manifest.json'))['seeds'])))")"
+SIZES="$("$PY" -c "import json;print(','.join(map(str,json.load(open('$BENCH_DATA_DIR/manifest.json'))['sizes'])))")"
 
 echo "=== python collectors ==="
 "$PY" "$SCRIPT_DIR/collect_infomeasure_python.py"
 "$PY" "$SCRIPT_DIR/collect_pyinform.py"
 "$PY" "$SCRIPT_DIR/collect_pyitlib.py"
-"$PY" "$SCRIPT_DIR/collect_npeet.py"
+"$PY" "$SCRIPT_DIR/collect_pyentrp.py"
 "$PY" "$SCRIPT_DIR/collect_syntropy.py"
 "$PY" "$SCRIPT_DIR/collect_dit.py"
+
+echo "=== DiscreteEntropy.jl (julia) ==="
+julia "$SCRIPT_DIR/collect_discreteentropyjl.jl" \
+  --data-dir "$BENCH_DATA_DIR" --sizes "${SIZES:-}" --seeds "${SEEDS:-}" \
+  --warmup "$WARMUP" --iterations "$ITERS"
 
 echo "=== JIDT (native java) ==="
 rm -rf /tmp/jidtcls && mkdir -p /tmp/jidtcls
 javac -cp "$JIDT_JAR" -d /tmp/jidtcls "$SCRIPT_DIR/JidtCollector.java"
-SEEDS="$("$PY" -c "import json;print(','.join(map(str,json.load(open('$BENCH_DATA_DIR/manifest.json'))['seeds'])))")"
-SIZES="$("$PY" -c "import json;print(','.join(map(str,json.load(open('$BENCH_DATA_DIR/manifest.json'))['sizes'])))")"
 java -cp "$JIDT_JAR:/tmp/jidtcls" JidtCollector \
   --data-dir "$BENCH_DATA_DIR" --sizes "$SIZES" --seeds "$SEEDS" $SHORT_FLAG
 

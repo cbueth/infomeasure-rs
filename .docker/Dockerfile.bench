@@ -5,8 +5,8 @@
 # Cross-package benchmark image.
 #
 # Extends the CI toolchain image with the third-party packages used for runtime
-# comparison: JIDT (Java), PyInform / dit / pyitlib / NPEET (Python) and
-# RTransferEntropy (R).
+# comparison: JIDT (Java), PyInform / dit / pyitlib / pyentrp / Syntropy /
+# NPEET-free (Python), RTransferEntropy (R), and DiscreteEntropy.jl (Julia).
 #
 # Build on the CI runner (dev tag, no registry push):
 #   docker build -f .docker/Dockerfile.bench -t im-bench:dev .
@@ -44,15 +44,27 @@ COPY .docker/bench-jidt-smoke.java /opt/jidt-smoke/JidtSmoke.java
 RUN javac -cp "${JIDT_JAR}" -d /opt/jidt-smoke /opt/jidt-smoke/JidtSmoke.java
 
 # --- Bench Python env, separate from the validation venv --------------------
-# NPEET is not on PyPI; pinned to a commit (see benchmarks/packages.lock).
 ENV BENCH_VENV=/opt/bench-venv
-ARG NPEET_COMMIT=8b0d9485423f74e5eb199324cf362765596538d3
 RUN set -eux; \
     uv venv "${BENCH_VENV}" --python python3; \
     uv pip install --python "${BENCH_VENV}/bin/python" \
-        numpy scipy infomeasure pyinform dit pyitlib "syntropyx==0.0.2"; \
-    uv pip install --python "${BENCH_VENV}/bin/python" \
-        "git+https://github.com/gregversteeg/NPEET@${NPEET_COMMIT}"
+        numpy scipy infomeasure pyinform dit pyitlib pyentrp "syntropyx==0.0.2"
+
+# --- Julia + DiscreteEntropy.jl (natural home of discrete estimators) --------
+ARG JULIA_VERSION=1.12.7
+ARG JULIA_SHA256=4e7e9e776634d24835250de67cde39b0d4af15bc432eb20697e6be6c28ea69e8
+ENV JULIA_DEPOT_PATH=/opt/julia-depot
+ENV PATH=/opt/julia/bin:${PATH}
+RUN set -eux; \
+    curl -fsSL -o /tmp/julia.tar.gz \
+        "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-${JULIA_VERSION}-linux-x86_64.tar.gz"; \
+    echo "${JULIA_SHA256}  /tmp/julia.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/julia.tar.gz -C /opt; \
+    mv "/opt/julia-${JULIA_VERSION}" /opt/julia; \
+    rm -f /tmp/julia.tar.gz; \
+    julia --version; \
+    julia -e 'using Pkg; Pkg.add(["DiscreteEntropy", "JSON"]); Pkg.precompile()'; \
+    chmod -R a+rX /opt/julia /opt/julia-depot
 
 # --- RTransferEntropy (compiles Rcpp; toolchain is present in the base) -----
 RUN Rscript -e 'install.packages("RTransferEntropy", repos="https://cloud.r-project.org")'

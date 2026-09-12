@@ -5,9 +5,9 @@
 """Cross-package collector: PyInform (discrete, C ``inform`` library).
 
 Times only the estimator call on the shared canonical datasets and writes
-``results/pyinform.json``. PyInform's time-series API covers entropy, MI, TE
-and CTE; it has no first-class conditional MI, so that row is omitted.
-Results are in bits (base 2); history k=1.
+``results/pyinform.json``. Coverage: entropy, MI, conditional MI (via
+``shannon.conditional_mutual_info``) and the time-series TE/CTE. Results are in
+bits (base 2); TE/CTE history k=1.
 """
 
 from __future__ import annotations
@@ -52,6 +52,25 @@ def mi_fn(x, y):
     return lambda: float(mutual_info(xs, ys))
 
 
+def cmi_fn(x, y, z):
+    xi = np.asarray(x, dtype=int)
+    yi = np.asarray(y, dtype=int)
+    zi = np.asarray(z, dtype=int)
+    base = int(max(xi.max(), yi.max(), zi.max())) + 1
+
+    def counts(code):
+        return np.bincount(code, minlength=int(code.max()) + 1)
+
+    def call():
+        p_xyz = Dist(counts(xi * base * base + yi * base + zi).tolist())
+        p_xz = Dist(counts(xi * base + zi).tolist())
+        p_yz = Dist(counts(yi * base + zi).tolist())
+        p_z = Dist(counts(zi).tolist())
+        return float(shannon.conditional_mutual_info(p_xyz, p_xz, p_yz, p_z))
+
+    return call
+
+
 def te_fn(x, y):
     xs, ys = x.tolist(), y.tolist()
     return lambda: float(transfer_entropy(xs, ys, K_HISTORY))
@@ -69,6 +88,11 @@ def build_fn(measure, cols):
     y = cols[:, 1]
     if measure == "mi":
         return mi_fn(x, y), "pyinform.mutual_info"
+    if measure == "cmi":
+        return (
+            cmi_fn(x, y, cols[:, 2]),
+            "pyinform.shannon.conditional_mutual_info",
+        )
     if measure == "te":
         return te_fn(x, y), "pyinform.transfer_entropy"
     if measure == "cte":
@@ -77,8 +101,7 @@ def build_fn(measure, cols):
 
 
 def main() -> int:
-    # Measures PyInform supports as time-series calls.
-    measures = ["entropy", "mi", "te", "cte"]
+    measures = ["entropy", "mi", "cmi", "te", "cte"]
     short, warmup, iterations = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
@@ -100,9 +123,8 @@ def main() -> int:
             params = default_params(measure, APPROACH, n)
             params["k"] = K_HISTORY
             notes = (
-                "PyInform needs the empirical distribution built by the caller; "
-                "its construction is included in the timed call."
-                if measure == "entropy"
+                "Empirical distribution(s) built inside the timed call."
+                if measure in ("entropy", "cmi")
                 else None
             )
             benchmarks.append(
@@ -131,9 +153,9 @@ def main() -> int:
         short,
         extra={"base": 2, "library": "inform (C)"},
         limitations=(
-            "Discrete only; result in bits; history k=1. No first-class "
-            "conditional MI. For entropy, the empirical distribution is built "
-            "inside the timed call."
+            "Discrete only; result in bits; TE/CTE history k=1. Entropy/MI/CMI "
+            "build the empirical distribution(s) inside the timed call (CMI via "
+            "shannon.conditional_mutual_info). No continuous/KSG/kernel."
         ),
     )
     return 0
