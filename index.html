@@ -11,9 +11,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 16px; color: #333; }
 .container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-.header { padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.header { padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+.header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .header h1 { font-size: 16px; font-weight: 600; }
 .hw-badge { font-size: 11px; color: #666; background: #f0f0f0; padding: 3px 8px; border-radius: 10px; }
+.nav-links { display: flex; align-items: center; gap: 6px; }
+.nav-links a { font-size: 11px; color: #666; text-decoration: none; padding: 3px 10px; border: 1px solid #ddd; border-radius: 3px; background: #fff; }
+.nav-links a:hover { background: #f0f0f0; }
+.header-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .gpu-btn { padding:3px 10px; font-size:11px; border:1px solid #ddd; border-radius:3px; background:#fff; cursor:pointer; }
 .gpu-btn:hover { background:#f0f0f0; }
 .gpu-btn.active { background:#d4edda; color:#155724; border-color:#82b785; }
@@ -52,6 +57,8 @@ tr:hover { background: #f8f9fa; }
   .header { border-bottom-color: #444; }
   .header h1 { color: #eee; }
   .hw-badge { background: #444; color: #aaa; }
+  .nav-links a { border-color: #555; background: #333; color: #ccc; }
+  .nav-links a:hover { background: #444; }
   .gpu-btn { border-color:#555; background:#333; color:#ccc; }
   .gpu-btn:hover { background:#444; }
   .gpu-btn.active { background:#1a3a2c; color:#7fc1a0; border-color:#2a5a3c; }
@@ -82,12 +89,23 @@ tr:hover { background: #f8f9fa; }
 <body>
 <div class="container">
   <div class="header">
-    <h1>Infomeasure Benchmarks</h1>
-    <span class="hw-badge" id="hwBadge">…</span>
-    <span class="hw-badge" id="rustBadge">Rust ?</span>
-    <span class="hw-badge" id="pyBadge">Python ?</span>
-    <button class="tbtn" id="shareBtn" style="margin-left:auto">Share</button>
-    <span style="font-size:11px;color:#999" id="dataInfo"></span>
+    <div class="header-row">
+      <h1>Infomeasure Benchmarks</h1>
+      <span class="header-right">
+        <span class="nav-links">
+          <a href="https://codeberg.org/cbueth/infomeasure-rs" target="_blank" rel="noopener">Repository</a>
+          <a href="https://crates.io/crates/infomeasure" target="_blank" rel="noopener">crates.io</a>
+          <a href="https://docs.rs/infomeasure" target="_blank" rel="noopener">docs.rs</a>
+        </span>
+        <button class="tbtn" id="shareBtn">Share</button>
+        <span style="font-size:11px;color:#999" id="dataInfo"></span>
+      </span>
+    </div>
+    <div class="header-row">
+      <span class="hw-badge" id="hwBadge">…</span>
+      <span class="hw-badge" id="rustBadge">Rust ?</span>
+      <span class="hw-badge" id="pyBadge">Python ?</span>
+    </div>
   </div>
   <div class="view-tabs" id="viewTabs"></div>
   <div class="measure-bar" id="measureBar"></div>
@@ -275,6 +293,10 @@ function initUI() {
   // Restore state from URL hash
   const hash = location.hash.slice(1);
   if (hash) restoreStateHash(hash);
+
+  // Keep the active view tab in sync with the restored/current view
+  if (!views.includes(currentView)) currentView = 'overview';
+  vt.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === currentView));
 
   rebuildUI();
 
