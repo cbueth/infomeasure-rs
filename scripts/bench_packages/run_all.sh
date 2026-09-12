@@ -23,17 +23,9 @@ export BENCH_DATA_DIR="${BENCH_DATA_DIR:-$REPO/target/bench-data}"
 PY="${BENCH_PYTHON:-/opt/bench-venv/bin/python}"
 JIDT_JAR="${JIDT_JAR:-/opt/jidt/infodynamics.jar}"
 SHORT="${BENCH_SHORT:-0}"
-
-if [ "$SHORT" = "1" ]; then
-  WARMUP="${BENCH_WARMUP:-1}"
-  ITERS="${BENCH_ITERATIONS:-3}"
-  SHORT_FLAG="--short"
-else
-  WARMUP="${BENCH_WARMUP:-3}"
-  ITERS="${BENCH_ITERATIONS:-10}"
-  SHORT_FLAG=""
-fi
-export BENCH_WARMUP="$WARMUP" BENCH_ITERATIONS="$ITERS"
+export BENCH_SHORT="$SHORT"
+SHORT_FLAG=""
+[ "$SHORT" = "1" ] && SHORT_FLAG="--short"
 
 echo "=== infomeasure-rs (build + generate + collect) ==="
 # Fresh fragments each full run: avoids stale collectors leaking into the merge.
@@ -54,8 +46,7 @@ echo "=== python collectors ==="
 
 echo "=== DiscreteEntropy.jl (julia) ==="
 julia "$SCRIPT_DIR/collect_discreteentropyjl.jl" \
-  --data-dir "$BENCH_DATA_DIR" --sizes "${SIZES:-}" --seeds "${SEEDS:-}" \
-  --warmup "$WARMUP" --iterations "$ITERS"
+  --data-dir "$BENCH_DATA_DIR" --sizes "$SIZES" --seeds "$SEEDS"
 
 echo "=== JIDT (native java) ==="
 rm -rf /tmp/jidtcls && mkdir -p /tmp/jidtcls
@@ -65,8 +56,7 @@ java -cp "$JIDT_JAR:/tmp/jidtcls" JidtCollector \
 
 echo "=== RTransferEntropy (R) ==="
 Rscript "$SCRIPT_DIR/collect_rtransferentropy.R" \
-  --data-dir "$BENCH_DATA_DIR" --sizes "$SIZES" --seeds "$SEEDS" \
-  --warmup "$WARMUP" --iterations "$ITERS"
+  --data-dir "$BENCH_DATA_DIR" --sizes "$SIZES" --seeds "$SEEDS"
 
 echo "=== merge ==="
 "$PY" "$SCRIPT_DIR/merge_results.py"

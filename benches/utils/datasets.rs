@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 pub const DATA_VERSION: u32 = 1;
 
 /// Fixed dataset seeds (randomly generated for this project, not hand-picked).
-pub const SEEDS: [u64; 5] = [610418971, 2086847849, 627358495, 1501472984, 1400190726];
+pub const SEEDS: [u64; 4] = [610418971, 2086847849, 627358495, 1501472984];
 
 pub const NUM_STATES_DISCRETE: i32 = 10;
 pub const NUM_STATES_TE: i32 = 5;

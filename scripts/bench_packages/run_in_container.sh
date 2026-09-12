@@ -21,7 +21,8 @@ args=(
   -e CARGO_TARGET_DIR=/work/target/cargo
   -e BENCH_DATA_DIR="${BENCH_DATA_DIR:-/work/target/bench-data}"
 )
-for var in BENCH_SIZES BENCH_SHORT BENCH_WARMUP BENCH_ITERATIONS; do
+for var in BENCH_SIZES BENCH_SHORT BENCH_WARMUP_MAX BENCH_WARMUP_BUDGET_S \
+           BENCH_MIN_ITERS BENCH_MAX_ITERS BENCH_ITER_BUDGET_S; do
   if [ -n "${!var:-}" ]; then args+=(-e "$var=${!var}"); fi
 done
 

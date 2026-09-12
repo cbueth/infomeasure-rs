@@ -80,6 +80,7 @@ def main() -> int:
     benchmarks: list[dict] = []
     coverage: set[tuple[str, str]] = set()
     meta: dict = {}
+    runtime: dict | None = None
     for f in fragments:
         obj = json.loads(f.read_text())
         m = obj.get("meta", {})
@@ -90,6 +91,9 @@ def main() -> int:
         }
         if m.get("hardware") and not meta.get("hardware"):
             meta["hardware"] = m["hardware"]
+        # Use the reference harness (infomeasure-rs) for the run-level runtime.
+        if f.name == "infomeasure-rs.json" and m.get("runtime"):
+            runtime = m["runtime"]
         for p in m.get("packages", []):
             packages[p["id"]] = p
         for b in obj.get("benchmarks", []):
@@ -98,6 +102,8 @@ def main() -> int:
         print(f"  {f.name}: {len(obj.get('benchmarks', []))} entries")
 
     benchmarks.sort(key=lambda b: (b["measure"], b["approach"], b["params"]["n"], b["package"]))
+    if runtime:
+        meta = {**meta, "runtime": runtime}
     out = {
         "meta": {
             **meta,

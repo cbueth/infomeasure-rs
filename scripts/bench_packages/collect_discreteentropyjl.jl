@@ -22,8 +22,16 @@ data_dir = get_arg("--data-dir", get(ENV, "BENCH_DATA_DIR", "target/bench-data")
 out = get_arg("--out", joinpath(data_dir, "results", "discreteentropyjl.json"))
 sizes = parse.(Int, split(get_arg("--sizes", "100,400"), ","))
 seeds = parse.(Int, split(get_arg("--seeds", ""), ","))
-warmup = parse(Int, get_arg("--warmup", "3"))
-iterations = parse(Int, get_arg("--iterations", "10"))
+short = get(ENV, "BENCH_SHORT", "0") in ("1", "true", "True")
+if short
+    warmup_max = 1; warmup_budget = 0.0; min_iters = 1; max_iters = 3; iter_budget = 0.0
+else
+    warmup_max = parse(Int, get(ENV, "BENCH_WARMUP_MAX", "3"))
+    warmup_budget = parse(Float64, get(ENV, "BENCH_WARMUP_BUDGET_S", "0.4"))
+    min_iters = parse(Int, get(ENV, "BENCH_MIN_ITERS", "3"))
+    max_iters = parse(Int, get(ENV, "BENCH_MAX_ITERS", "10"))
+    iter_budget = parse(Float64, get(ENV, "BENCH_ITER_BUDGET_S", "1.5"))
+end
 
 read_i32(path) = collect(reinterpret(Int32, read(path)))
 col(flat, n, cols, c) = [flat[i * cols + c + 1] for i in 0:(n - 1)]
@@ -46,7 +54,7 @@ params(n) = Dict(
     "method" => "mle", "kernel_type" => nothing,
 )
 
-function benchmark(name, measure, sizes, seeds, data_dir, warmup, iterations)
+function benchmark(name, measure, sizes, seeds, data_dir)
     results = Dict[]
     for n in sizes
         times = Float64[]
@@ -68,13 +76,31 @@ function benchmark(name, measure, sizes, seeds, data_dir, warmup, iterations)
                     ),
                 )
             end
-            for _ in 1:warmup
+            w0 = time_ns()
+            w = 0
+            while true
                 f()
+                w += 1
+                if w >= warmup_max
+                    break
+                end
+                if warmup_budget > 0 && (time_ns() - w0) / 1e9 >= warmup_budget
+                    break
+                end
             end
-            for _ in 1:iterations
-                t0 = time_ns()
+            t0 = time_ns()
+            k = 0
+            while true
+                s = time_ns()
                 value = f()
-                push!(times, (time_ns() - t0) / 1e9)
+                push!(times, (time_ns() - s) / 1e9)
+                k += 1
+                if k >= max_iters
+                    break
+                end
+                if k >= min_iters && iter_budget > 0 && (time_ns() - t0) / 1e9 >= iter_budget
+                    break
+                end
             end
         end
         st = stats_dict(times)
@@ -97,8 +123,8 @@ function benchmark(name, measure, sizes, seeds, data_dir, warmup, iterations)
 end
 
 benchmarks = vcat(
-    benchmark("entropy", "entropy", sizes, seeds, data_dir, warmup, iterations),
-    benchmark("mi", "mi", sizes, seeds, data_dir, warmup, iterations),
+    benchmark("entropy", "entropy", sizes, seeds, data_dir),
+    benchmark("mi", "mi", sizes, seeds, data_dir),
 )
 
 meta = Dict(
@@ -106,7 +132,9 @@ meta = Dict(
     "run_id" => "fragment_discreteentropyjl",
     "hardware" => nothing,
     "runtime" => Dict(
-        "threads" => 1, "warmup" => warmup, "iterations" => iterations, "short" => warmup <= 1,
+        "threads" => 1, "adaptive" => !short, "warmup_max" => warmup_max,
+        "warmup_budget_s" => warmup_budget, "min_iters" => min_iters,
+        "max_iters" => max_iters, "iter_budget_s" => iter_budget,
     ),
     "seeds" => seeds,
     "packages" => [Dict(

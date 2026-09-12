@@ -20,8 +20,18 @@ data_dir <- get_arg("--data-dir", Sys.getenv("BENCH_DATA_DIR", "target/bench-dat
 out <- get_arg("--out", file.path(data_dir, "results", "rtransferentropy.json"))
 sizes <- as.integer(strsplit(get_arg("--sizes", "100,400"), ",")[[1]])
 seeds <- as.numeric(strsplit(get_arg("--seeds", ""), ",")[[1]])
-warmup <- as.integer(get_arg("--warmup", "3"))
-iterations <- as.integer(get_arg("--iterations", "10"))
+
+# Adaptive rounds, matching the other collectors (bounds CI wall time).
+short <- Sys.getenv("BENCH_SHORT", "0") %in% c("1", "true", "True")
+if (short) {
+  warmup_max <- 1L; warmup_budget <- 0; min_iters <- 1L; max_iters <- 3L; iter_budget <- 0
+} else {
+  warmup_max <- as.integer(Sys.getenv("BENCH_WARMUP_MAX", "3"))
+  warmup_budget <- as.numeric(Sys.getenv("BENCH_WARMUP_BUDGET_S", "0.4"))
+  min_iters <- as.integer(Sys.getenv("BENCH_MIN_ITERS", "3"))
+  max_iters <- as.integer(Sys.getenv("BENCH_MAX_ITERS", "10"))
+  iter_budget <- as.numeric(Sys.getenv("BENCH_ITER_BUDGET_S", "1.5"))
+}
 
 suppressMessages(library(RTransferEntropy))
 set_quiet(TRUE)
@@ -53,11 +63,23 @@ for (n in sizes) {
     flat <- read_i32(path)
     x <- flat[seq(1, length(flat), by = 2)]
     y <- flat[seq(2, length(flat), by = 2)]
-    for (w in seq_len(warmup)) invisible(calc_te(x, y))
-    for (it in seq_len(iterations)) {
-      t0 <- proc.time()[["elapsed"]]
+    w0 <- proc.time()[["elapsed"]]
+    w <- 0L
+    repeat {
+      invisible(calc_te(x, y))
+      w <- w + 1L
+      if (w >= warmup_max) break
+      if (warmup_budget > 0 && proc.time()[["elapsed"]] - w0 >= warmup_budget) break
+    }
+    t0 <- proc.time()[["elapsed"]]
+    k <- 0L
+    repeat {
+      s <- proc.time()[["elapsed"]]
       value <- calc_te(x, y)
-      times <- c(times, proc.time()[["elapsed"]] - t0)
+      times <- c(times, proc.time()[["elapsed"]] - s)
+      k <- k + 1L
+      if (k >= max_iters) break
+      if (k >= min_iters && iter_budget > 0 && proc.time()[["elapsed"]] - t0 >= iter_budget) break
     }
   }
   cat(sprintf("  %7s %-14s n=%-6d %9.3f ms\n", "te", "discrete", n, mean(times) * 1e3))
@@ -73,8 +95,9 @@ for (n in sizes) {
 
 seeds_json <- paste(sprintf("%d", as.integer(seeds)), collapse = ",")
 fragment <- sprintf(
-  '{"meta":{"schema":2,"run_id":"fragment_rtransferentropy","hardware":null,"runtime":{"threads":1,"warmup":%d,"iterations":%d,"short":%s},"seeds":[%s],"packages":[{"id":"rtransferentropy","language":"r","version":"%s","limitations":"Shannon TE only (quantile-binned discrete estimator); no entropy/MI/CMI, no KSG/kernel/ordinal, no Rényi/Tsallis."}],"coverage":[["te","discrete"]]},"benchmarks":[%s]}',
-  warmup, iterations, if (warmup <= 1) "true" else "false", seeds_json,
+  '{"meta":{"schema":2,"run_id":"fragment_rtransferentropy","hardware":null,"runtime":{"threads":1,"adaptive":%s,"warmup_max":%d,"warmup_budget_s":%.3g,"min_iters":%d,"max_iters":%d,"iter_budget_s":%.3g},"seeds":[%s],"packages":[{"id":"rtransferentropy","language":"r","version":"%s","limitations":"Shannon TE only (quantile-binned discrete estimator); no entropy/MI/CMI, no KSG/kernel/ordinal, no Rényi/Tsallis."}],"coverage":[["te","discrete"]]},"benchmarks":[%s]}',
+  if (short) "false" else "true", warmup_max, warmup_budget, min_iters, max_iters, iter_budget,
+  seeds_json,
   as.character(packageVersion("RTransferEntropy")),
   paste(entries, collapse = ",")
 )
