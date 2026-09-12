@@ -17,6 +17,56 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import data_dir  # noqa: E402
 
+# Packages deliberately not benchmarked, with the reason (rendered on the page).
+EXCLUDED = [
+    {
+        "id": "idtxl",
+        "language": "python",
+        "category": "framework",
+        "reason": (
+            "Network-inference / effective-connectivity framework (greedy "
+            "multivariate/bivariate TE, MI, AIS, PID, surrogate significance), "
+            "not a single-estimator library. Its CPU estimators delegate to "
+            "JIDT; the only independent implementation is a GPU-only OpenCL "
+            "KSG. Revisit in the GPU phase / as a framework comparison."
+        ),
+    },
+    {
+        "id": "npeet",
+        "language": "python",
+        "reason": (
+            "Dropped 2026-09-12: unmaintained since 2022 and not in the "
+            "paper's package survey; the KSG axis is covered by JIDT, "
+            "infomeasure and Syntropy."
+        ),
+    },
+    {
+        "id": "tet",
+        "language": "matlab",
+        "reason": "Matlab-only, 2013, binary time series; out of scope.",
+    },
+    {
+        "id": "trentool",
+        "language": "matlab",
+        "reason": "Matlab-only, 2017, TE only; out of scope.",
+    },
+    {
+        "id": "infotheory",
+        "language": "python/c++",
+        "reason": "Defunct (last release 2020); discrete/continuous limited.",
+    },
+    {
+        "id": "infotheoryjl",
+        "language": "julia",
+        "reason": "Unmaintained since 2016; entropy only.",
+    },
+    {
+        "id": "pyentropy",
+        "language": "python",
+        "reason": "Google Code archive; superseded by other packages.",
+    },
+]
+
 
 def main() -> int:
     d = data_dir()
@@ -54,6 +104,7 @@ def main() -> int:
             "schema": 2,
             "packages": list(packages.values()),
             "coverage": sorted([list(c) for c in coverage]),
+            "excluded": EXCLUDED,
         },
         "benchmarks": benchmarks,
     }

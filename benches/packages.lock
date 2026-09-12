@@ -11,10 +11,11 @@
 image:
   base: codeberg.org/cbueth/infomeasure-rs:stable
   base_digest: sha256:3628ef1188311b3d6a742281dab6d25fadd88f5b6deccad82b78db36a94cd1b5
-  bench_digest: sha256:54971eb06de67bd2c685e7e0709ab2978010b32bc7a8f736fe4fd557b69cb3a8
+  bench_digest: sha256:c5a7a77a7c34510998a5944888eb048c4eea0362664df00834536eea87ccc517
   os: Debian GNU/Linux 13 (trixie)
   python: "3.13.5"
   jdk: "21.0.12.1"
+  jl: "1.12.7"
   uv: "0.12.9"
 
 packages:
@@ -43,10 +44,20 @@ packages:
   - name: pyitlib
     version: "0.3.1"
     source: pypi
-  - name: npeet
-    version: "1.0.1"
-    source: >-
-      git+https://github.com/gregversteeg/NPEET@8b0d9485423f74e5eb199324cf362765596538d3
+  - name: pyentrp
+    version: "2.1.0"
+    source: pypi
+  - name: syntropyx
+    version: "0.0.2"
+    source: pypi
+  - name: DiscreteEntropy.jl
+    version: "0.2.1"
+    source: julia registry (General)
+    language: julia
+  - name: JSON.jl
+    version: "1.8.0"
+    source: julia registry (General)
+    language: julia
   - name: R
     version: "4.5.0"
     source: debian (r-base)
