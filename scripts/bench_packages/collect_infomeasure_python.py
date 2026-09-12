@@ -86,7 +86,7 @@ def build_fn(measure: str, approach: str, cols):
 
 
 def main() -> int:
-    short, warmup, iterations = timing_config()
+    cfg = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
 
@@ -99,7 +99,7 @@ def main() -> int:
                 for seed in seeds:
                     cols = load(measure, kind, seed, n)
                     fn, fname = build_fn(measure, approach, cols)
-                    t, value = time_call(fn, warmup, iterations)
+                    t, value = time_call(fn, cfg)
                     times.extend(t)
                 st = stats(times)
                 print(
@@ -126,9 +126,7 @@ def main() -> int:
         getattr(im, "__version__", "unknown"),
         benchmarks,
         seeds,
-        warmup,
-        iterations,
-        short,
+        cfg,
     )
     return 0
 

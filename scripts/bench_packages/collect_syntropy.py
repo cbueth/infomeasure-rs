@@ -68,7 +68,7 @@ def build_fn(measure, cols):
 
 
 def main() -> int:
-    short, warmup, iterations = timing_config()
+    cfg = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
 
@@ -79,7 +79,7 @@ def main() -> int:
             for seed in seeds:
                 cols = load(measure, "continuous", seed, n)
                 fn, fname = build_fn(measure, cols)
-                t, value = time_call(fn, warmup, iterations)
+                t, value = time_call(fn, cfg)
                 times.extend(t)
             st = stats(times)
             print(f"  {measure:>7} {APPROACH:<14} n={n:<6} {st['mean'] * 1e3:>9.3f} ms")
@@ -103,9 +103,7 @@ def main() -> int:
         "0.0.2",
         benchmarks,
         seeds,
-        warmup,
-        iterations,
-        short,
+        cfg,
         extra={"base": "nats"},
         limitations=(
             "Only the sample-based KNN (Kraskov) family is compared: "

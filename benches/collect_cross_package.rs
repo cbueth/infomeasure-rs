@@ -115,13 +115,31 @@ fn function_name(measure: Measure, approach: Approach) -> &'static str {
     }
 }
 
-/// Construct + compute the estimator on one dataset. This is the timed region.
-fn run_case(measure: Measure, approach: Approach, n: usize, seed: u64, dir: &Path) -> f64 {
+/// Pre-loaded dataset columns (file I/O happens outside the timed region).
+enum Loaded {
+    I32(Vec<Vec<i32>>),
+    F64(Vec<Vec<f64>>),
+}
+
+fn load_cols(measure: Measure, approach: Approach, n: usize, seed: u64, dir: &Path) -> Loaded {
     let id = dataset_id(measure.as_str(), approach.kind(), seed, n);
     let path = dataset_path(dir, &id);
     if approach.is_discrete() {
         let flat = read_i32(&path).expect("read discrete dataset");
-        let cols = deinterleave_i32(&flat, measure.n_cols());
+        Loaded::I32(deinterleave_i32(&flat, measure.n_cols()))
+    } else {
+        let flat = read_f64(&path).expect("read continuous dataset");
+        Loaded::F64(deinterleave_f64(&flat, measure.n_cols()))
+    }
+}
+
+/// Construct + compute the estimator on pre-loaded data. This is the timed region.
+fn run_case(measure: Measure, approach: Approach, data: &Loaded) -> f64 {
+    if approach.is_discrete() {
+        let cols = match data {
+            Loaded::I32(c) => c,
+            Loaded::F64(_) => unreachable!("discrete approach with continuous data"),
+        };
         let a = |i: usize| Array1::from(cols[i].clone());
         match measure {
             Measure::Entropy => Entropy::new_discrete(a(0)).global_value(),
@@ -134,8 +152,10 @@ fn run_case(measure: Measure, approach: Approach, n: usize, seed: u64, dir: &Pat
                 .global_value(),
         }
     } else {
-        let flat = read_f64(&path).expect("read continuous dataset");
-        let cols = deinterleave_f64(&flat, measure.n_cols());
+        let cols = match data {
+            Loaded::F64(c) => c,
+            Loaded::I32(_) => unreachable!("continuous approach with discrete data"),
+        };
         let a = |i: usize| Array1::from(cols[i].clone());
         let kt = approach.kernel_name().to_string();
         match measure {
@@ -225,6 +245,48 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
+fn env_f64(key: &str, default: f64) -> f64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+/// Adaptive round configuration (bounds CI wall time in full mode).
+struct Rounds {
+    short: bool,
+    warmup_max: usize,
+    warmup_budget: f64,
+    min_iters: usize,
+    max_iters: usize,
+    iter_budget: f64,
+}
+
+fn rounds_config() -> Rounds {
+    let short = std::env::var("BENCH_SHORT")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if short {
+        Rounds {
+            short,
+            warmup_max: 1,
+            warmup_budget: 0.0,
+            min_iters: 1,
+            max_iters: 3,
+            iter_budget: 0.0,
+        }
+    } else {
+        Rounds {
+            short,
+            warmup_max: env_usize("BENCH_WARMUP_MAX", 3),
+            warmup_budget: env_f64("BENCH_WARMUP_BUDGET_S", 0.4),
+            min_iters: env_usize("BENCH_MIN_ITERS", 3),
+            max_iters: env_usize("BENCH_MAX_ITERS", 10),
+            iter_budget: env_f64("BENCH_ITER_BUDGET_S", 1.5),
+        }
+    }
+}
+
 fn epoch_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -238,11 +300,7 @@ fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|_| dir.join("results").join("infomeasure-rs.json"));
 
-    let short = std::env::var("BENCH_SHORT")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
-    let warmup = env_usize("BENCH_WARMUP", if short { 1 } else { 3 });
-    let iterations = env_usize("BENCH_ITERATIONS", if short { 3 } else { 10 });
+    let rounds = rounds_config();
 
     let sizes = sizes();
     let measures = [
@@ -263,17 +321,41 @@ fn main() {
     for measure in measures {
         for approach in approaches {
             for &n in &sizes {
-                let mut times = Vec::with_capacity(SEEDS.len() * iterations);
+                let mut times = Vec::new();
                 let mut value = 0.0f64;
                 for &seed in &SEEDS {
-                    for _ in 0..warmup {
-                        std::hint::black_box(run_case(measure, approach, n, seed, &dir));
+                    // File I/O is deliberately outside the timed region.
+                    let data = load_cols(measure, approach, n, seed, &dir);
+                    let w0 = Instant::now();
+                    let mut w = 0;
+                    loop {
+                        std::hint::black_box(run_case(measure, approach, &data));
+                        w += 1;
+                        if w >= rounds.warmup_max {
+                            break;
+                        }
+                        if rounds.warmup_budget > 0.0
+                            && w0.elapsed().as_secs_f64() >= rounds.warmup_budget
+                        {
+                            break;
+                        }
                     }
-                    for _ in 0..iterations {
-                        let t0 = Instant::now();
-                        let v = run_case(measure, approach, n, seed, &dir);
-                        times.push(t0.elapsed().as_secs_f64());
-                        value = v;
+                    let t0 = Instant::now();
+                    let mut k = 0;
+                    loop {
+                        let s = Instant::now();
+                        value = run_case(measure, approach, &data);
+                        times.push(s.elapsed().as_secs_f64());
+                        k += 1;
+                        if k >= rounds.max_iters {
+                            break;
+                        }
+                        if k >= rounds.min_iters
+                            && (rounds.iter_budget <= 0.0
+                                || t0.elapsed().as_secs_f64() >= rounds.iter_budget)
+                        {
+                            break;
+                        }
                     }
                 }
                 let st = stats(&times);
@@ -331,7 +413,15 @@ fn main() {
                 "os": hardware.os,
                 "gpu": Value::Null,
             },
-            "runtime": { "threads": 1, "warmup": warmup, "iterations": iterations, "short": short },
+            "runtime": {
+                "threads": 1,
+                "adaptive": !rounds.short,
+                "warmup_max": rounds.warmup_max,
+                "warmup_budget_s": rounds.warmup_budget,
+                "min_iters": rounds.min_iters,
+                "max_iters": rounds.max_iters,
+                "iter_budget_s": rounds.iter_budget,
+            },
             "seeds": SEEDS,
             "packages": [{
                 "id": "infomeasure-rs",

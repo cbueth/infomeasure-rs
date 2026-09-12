@@ -102,7 +102,7 @@ def build_fn(measure, cols):
 
 def main() -> int:
     measures = ["entropy", "mi", "cmi", "te", "cte"]
-    short, warmup, iterations = timing_config()
+    cfg = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
 
@@ -113,7 +113,7 @@ def main() -> int:
             for seed in seeds:
                 cols = load(measure, "discrete", seed, n)
                 fn, fname = build_fn(measure, cols)
-                t, value = time_call(fn, warmup, iterations)
+                t, value = time_call(fn, cfg)
                 times.extend(t)
             st = stats(times)
             print(
@@ -148,9 +148,7 @@ def main() -> int:
         "0.2.0",
         benchmarks,
         seeds,
-        warmup,
-        iterations,
-        short,
+        cfg,
         extra={"base": 2, "library": "inform (C)"},
         limitations=(
             "Discrete only; result in bits; TE/CTE history k=1. Entropy/MI/CMI "

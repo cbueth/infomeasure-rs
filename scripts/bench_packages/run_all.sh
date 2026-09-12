@@ -6,18 +6,23 @@
 # Run the full cross-package collection. Intended to run inside the :bench
 # image (Rust toolchain + JIDT + bench Python venv + Julia + R). Env:
 #   BENCH_DATA_DIR (default target/bench-data)
-#   BENCH_SHORT=1  (default)  small/fast slice for iteration
-#   BENCH_SIZES, BENCH_WARMUP, BENCH_ITERATIONS
+#   BENCH_SHORT=1  small/fast slice for iteration (default: full, adaptive)
+#   BENCH_SIZES, BENCH_WARMUP_MAX, BENCH_MIN_ITERS, BENCH_MAX_ITERS, ...
 #   BENCH_PYTHON (default /opt/bench-venv/bin/python)
 #   JIDT_JAR (default /opt/jidt/infodynamics.jar)
 set -euo pipefail
+
+# Equalisation: single-threaded everywhere (JIDT NUM_THREADS=1 is set in the
+# collector; these cover BLAS/OpenMP/rayon in the Python/R/Julia/native libs).
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+       NUMEXPR_NUM_THREADS=1 RAYON_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../.." && pwd)"
 export BENCH_DATA_DIR="${BENCH_DATA_DIR:-$REPO/target/bench-data}"
 PY="${BENCH_PYTHON:-/opt/bench-venv/bin/python}"
 JIDT_JAR="${JIDT_JAR:-/opt/jidt/infodynamics.jar}"
-SHORT="${BENCH_SHORT:-1}"
+SHORT="${BENCH_SHORT:-0}"
 
 if [ "$SHORT" = "1" ]; then
   WARMUP="${BENCH_WARMUP:-1}"

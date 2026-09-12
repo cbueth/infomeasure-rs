@@ -35,7 +35,7 @@ APPROACH = "discrete"
 
 
 def main() -> int:
-    short, warmup, iterations = timing_config()
+    cfg = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
 
@@ -45,7 +45,7 @@ def main() -> int:
         for seed in seeds:
             x = load("entropy", "discrete", seed, n)[:, 0]
             fn = lambda: float(ent.shannon_entropy(x))  # noqa: E731
-            t, value = time_call(fn, warmup, iterations)
+            t, value = time_call(fn, cfg)
             times.extend(t)
         st = stats(times)
         print(f"  {'entropy':>7} {APPROACH:<14} n={n:<6} {st['mean'] * 1e3:>9.3f} ms")
@@ -69,9 +69,7 @@ def main() -> int:
         "2.1.0",
         benchmarks,
         seeds,
-        warmup,
-        iterations,
-        short,
+        cfg,
         extra={"base": 2},
         limitations=(
             "Entropy only: plug-in MLE over unique-value frequencies, base 2. "

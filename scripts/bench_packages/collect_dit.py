@@ -61,7 +61,7 @@ def build_fn(measure, cols):
 
 
 def main() -> int:
-    short, warmup, iterations = timing_config()
+    cfg = timing_config()
     sizes, seeds = sizes_and_seeds()
     benchmarks: list[dict] = []
 
@@ -72,7 +72,7 @@ def main() -> int:
             for seed in seeds:
                 cols = load(measure, "discrete", seed, n)
                 fn, fname = build_fn(measure, cols)
-                t, value = time_call(fn, warmup, iterations)
+                t, value = time_call(fn, cfg)
                 times.extend(t)
             st = stats(times)
             print(f"  {measure:>7} {APPROACH:<14} n={n:<6} {st['mean'] * 1e3:>9.3f} ms")
@@ -96,9 +96,7 @@ def main() -> int:
         "1.5",
         benchmarks,
         seeds,
-        warmup,
-        iterations,
-        short,
+        cfg,
         extra={"base": 2},
         limitations=(
             "Discrete only; this version exposes entropy and MI (no conditional "

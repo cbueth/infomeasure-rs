@@ -107,15 +107,34 @@ public class JidtCollector {
             m.setProperty("k", "4");
             m.setProperty("NORMALISE", "false");
         }
+        safeSetProperty(calc, "NUM_THREADS", "1");
     }
 
-    static double run(String measure, String approach, int n, int seed, Path dir) throws Exception {
+    /// Load one dataset's columns. Called outside the timed region.
+    static Object load(String measure, String approach, int n, int seed, Path dir)
+            throws IOException {
         String kind = approach.equals("discrete") ? "discrete" : "continuous";
         Path p = dir.resolve(measure + "_" + kind + "_s" + seed + "_n" + n + ".bin");
         int cols = ncols(measure);
-
         if (approach.equals("discrete")) {
-            int[][] c = colsI(readI32(p), n, cols);
+            return colsI(readI32(p), n, cols);
+        }
+        return colsD(readF64(p), n, cols);
+    }
+
+    /// Best-effort property set (some calculators reject unknown properties).
+    static void safeSetProperty(Object calc, String name, String value) {
+        try {
+            calc.getClass().getMethod("setProperty", String.class, String.class)
+                    .invoke(calc, name, value);
+        } catch (Exception ignored) {
+            // Calculator does not support this property.
+        }
+    }
+
+    static double run(String measure, String approach, Object data) throws Exception {
+        if (approach.equals("discrete")) {
+            int[][] c = (int[][]) data;
             int base = (measure.equals("te") || measure.equals("cte")) ? 5 : 10;
             switch (measure) {
                 case "entropy": {
@@ -155,13 +174,14 @@ public class JidtCollector {
             }
         }
 
-        double[][][] c = colsD(readF64(p), n, cols);
+        double[][][] c = (double[][][]) data;
         if (approach.equals("ksg")) {
             switch (measure) {
                 case "entropy": {
                     EntropyCalculatorMultiVariateKozachenko e =
                             new EntropyCalculatorMultiVariateKozachenko();
                     e.setProperty("k", "4");
+                    safeSetProperty(e, "NUM_THREADS", "1");
                     e.initialise(1);
                     e.setObservations(c[0]);
                     return e.computeAverageLocalOfObservations();
@@ -186,6 +206,7 @@ public class JidtCollector {
                     TransferEntropyCalculatorKraskov t = new TransferEntropyCalculatorKraskov();
                     t.setProperty("k", "4");
                     t.setProperty("NORMALISE", "false");
+                    safeSetProperty(t, "NUM_THREADS", "1");
                     t.initialise(1);
                     t.setObservations(flat(c[0]), flat(c[1]));
                     return t.computeAverageLocalOfObservations();
@@ -195,6 +216,7 @@ public class JidtCollector {
                             new ConditionalTransferEntropyCalculatorKraskov();
                     t.setProperty("k", "4");
                     t.setProperty("NORMALISE", "false");
+                    safeSetProperty(t, "NUM_THREADS", "1");
                     t.initialise(1, 1, 1);
                     t.setObservations(flat(c[0]), flat(c[1]), flat(c[2]));
                     return t.computeAverageLocalOfObservations();
@@ -311,14 +333,26 @@ public class JidtCollector {
             }
         }
         if (out == null) out = dir.resolve("results").resolve("jidt.json").toString();
-        int warmup = Integer.parseInt(System.getenv().getOrDefault("BENCH_WARMUP", shortMode ? "1" : "3"));
-        int iterations = Integer.parseInt(System.getenv().getOrDefault("BENCH_ITERATIONS", shortMode ? "3" : "10"));
+        int warmupMax, minIters, maxIters;
+        double warmupBudget, iterBudget;
+        if (shortMode) {
+            warmupMax = 1; warmupBudget = 0; minIters = 1; maxIters = 3; iterBudget = 0;
+        } else {
+            warmupMax = Integer.parseInt(System.getenv().getOrDefault("BENCH_WARMUP_MAX", "3"));
+            warmupBudget = Double.parseDouble(System.getenv().getOrDefault("BENCH_WARMUP_BUDGET_S", "0.4"));
+            minIters = Integer.parseInt(System.getenv().getOrDefault("BENCH_MIN_ITERS", "3"));
+            maxIters = Integer.parseInt(System.getenv().getOrDefault("BENCH_MAX_ITERS", "10"));
+            iterBudget = Double.parseDouble(System.getenv().getOrDefault("BENCH_ITER_BUDGET_S", "1.5"));
+        }
 
         StringBuilder b = new StringBuilder();
         b.append("{\"meta\":{\"schema\":2,\"run_id\":\"fragment_jidt\",\"hardware\":null,");
-        b.append("\"runtime\":{\"threads\":1,\"warmup\":").append(warmup)
-                .append(",\"iterations\":").append(iterations)
-                .append(",\"short\":").append(shortMode).append("},");
+        b.append("\"runtime\":{\"threads\":1,\"adaptive\":").append(!shortMode)
+                .append(",\"warmup_max\":").append(warmupMax)
+                .append(",\"warmup_budget_s\":").append(warmupBudget)
+                .append(",\"min_iters\":").append(minIters)
+                .append(",\"max_iters\":").append(maxIters)
+                .append(",\"iter_budget_s\":").append(iterBudget).append("},");
         b.append("\"seeds\":[");
         for (int i = 0; i < seeds.size(); i++) {
             if (i > 0) b.append(',');
@@ -338,11 +372,24 @@ public class JidtCollector {
                     List<Double> times = new ArrayList<>();
                     double value = 0;
                     for (int seed : seeds) {
-                        for (int w = 0; w < warmup; w++) run(measure, approach, n, seed, dir);
-                        for (int it = 0; it < iterations; it++) {
-                            long t0 = System.nanoTime();
-                            value = run(measure, approach, n, seed, dir);
-                            times.add((System.nanoTime() - t0) / 1e9);
+                        // File I/O is deliberately outside the timed region.
+                        Object data = load(measure, approach, n, seed, dir);
+                        long w0 = System.nanoTime();
+                        for (int w = 0; w < warmupMax; w++) {
+                            run(measure, approach, data);
+                            if (warmupBudget > 0 && (System.nanoTime() - w0) / 1e9 >= warmupBudget) {
+                                break;
+                            }
+                        }
+                        long t0 = System.nanoTime();
+                        for (int it = 0; it < maxIters; it++) {
+                            long s = System.nanoTime();
+                            value = run(measure, approach, data);
+                            times.add((System.nanoTime() - s) / 1e9);
+                            if (it + 1 >= minIters && iterBudget > 0
+                                    && (System.nanoTime() - t0) / 1e9 >= iterBudget) {
+                                break;
+                            }
                         }
                     }
                     if (!first) b.append(',');

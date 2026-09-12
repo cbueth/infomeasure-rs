@@ -55,22 +55,59 @@ def load(measure: str, kind: str, seed: int, n: int) -> np.ndarray:
     return arr.reshape(-1, COLS[measure])
 
 
-def timing_config() -> tuple[bool, int, int]:
+def timing_config() -> dict:
+    """Timing/budget config.
+
+    Short mode is fixed (1 warm-up + 3 iters) for fast local iteration. Full
+    mode is *adaptive* to bound CI wall time: warm up to `warmup_max` times
+    (stop early once `warmup_budget` seconds elapsed), then run at least
+    `min_iters` and up to `max_iters` timed iterations, stopping once
+    `iter_budget` seconds elapsed (always at least `min_iters`).
+    """
     short = os.environ.get("BENCH_SHORT", "") in ("1", "true", "True")
-    warmup = int(os.environ.get("BENCH_WARMUP", 1 if short else 3))
-    iterations = int(os.environ.get("BENCH_ITERATIONS", 3 if short else 10))
-    return short, warmup, iterations
+    if short:
+        return {
+            "short": True,
+            "warmup_max": 1,
+            "warmup_budget": 0.0,
+            "min_iters": 1,
+            "max_iters": 3,
+            "iter_budget": 0.0,
+        }
+    return {
+        "short": False,
+        "warmup_max": int(os.environ.get("BENCH_WARMUP_MAX", 3)),
+        "warmup_budget": float(os.environ.get("BENCH_WARMUP_BUDGET_S", 0.4)),
+        "min_iters": int(os.environ.get("BENCH_MIN_ITERS", 3)),
+        "max_iters": int(os.environ.get("BENCH_MAX_ITERS", 10)),
+        "iter_budget": float(os.environ.get("BENCH_ITER_BUDGET_S", 1.5)),
+    }
 
 
-def time_call(fn, warmup: int, iterations: int) -> tuple[list[float], float | None]:
-    for _ in range(warmup):
+def time_call(fn, cfg: dict) -> tuple[list[float], float | None]:
+    t0 = time.perf_counter()
+    warm = 0
+    while True:
         fn()
+        warm += 1
+        if warm >= cfg["warmup_max"]:
+            break
+        if cfg["warmup_budget"] > 0 and time.perf_counter() - t0 >= cfg["warmup_budget"]:
+            break
     times: list[float] = []
     value = None
-    for _ in range(iterations):
-        t0 = time.perf_counter()
+    t0 = time.perf_counter()
+    while True:
+        start = time.perf_counter()
         value = fn()
-        times.append(time.perf_counter() - t0)
+        times.append(time.perf_counter() - start)
+        n = len(times)
+        if n >= cfg["max_iters"]:
+            break
+        if n >= cfg["min_iters"] and (
+            cfg["iter_budget"] <= 0 or time.perf_counter() - t0 >= cfg["iter_budget"]
+        ):
+            break
     return times, value
 
 
@@ -124,9 +161,7 @@ def write_fragment(
     version: str,
     benchmarks: list[dict],
     seeds: list[int],
-    warmup: int,
-    iterations: int,
-    short: bool,
+    cfg: dict,
     extra: dict | None = None,
     limitations: str | None = None,
 ) -> Path:
@@ -144,9 +179,12 @@ def write_fragment(
         "hardware": None,
         "runtime": {
             "threads": 1,
-            "warmup": warmup,
-            "iterations": iterations,
-            "short": short,
+            "adaptive": not cfg["short"],
+            "warmup_max": cfg["warmup_max"],
+            "warmup_budget_s": cfg["warmup_budget"],
+            "min_iters": cfg["min_iters"],
+            "max_iters": cfg["max_iters"],
+            "iter_budget_s": cfg["iter_budget"],
         },
         "seeds": seeds,
         "packages": [pkg],
