@@ -28,6 +28,7 @@ def main() -> int:
 
     packages: dict[str, dict] = {}
     benchmarks: list[dict] = []
+    coverage: set[tuple[str, str]] = set()
     meta: dict = {}
     for f in fragments:
         obj = json.loads(f.read_text())
@@ -35,18 +36,25 @@ def main() -> int:
         meta = meta or {
             k: v
             for k, v in m.items()
-            if k not in ("packages", "run_id")
+            if k not in ("packages", "run_id", "coverage")
         }
         if m.get("hardware") and not meta.get("hardware"):
             meta["hardware"] = m["hardware"]
         for p in m.get("packages", []):
             packages[p["id"]] = p
-        benchmarks.extend(obj.get("benchmarks", []))
+        for b in obj.get("benchmarks", []):
+            benchmarks.append(b)
+            coverage.add((b["measure"], b["approach"]))
         print(f"  {f.name}: {len(obj.get('benchmarks', []))} entries")
 
     benchmarks.sort(key=lambda b: (b["measure"], b["approach"], b["params"]["n"], b["package"]))
     out = {
-        "meta": {**meta, "schema": 2, "packages": list(packages.values())},
+        "meta": {
+            **meta,
+            "schema": 2,
+            "packages": list(packages.values()),
+            "coverage": sorted([list(c) for c in coverage]),
+        },
         "benchmarks": benchmarks,
     }
     path = d / "cross_package.json"

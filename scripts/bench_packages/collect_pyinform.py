@@ -99,6 +99,12 @@ def main() -> int:
             )
             params = default_params(measure, APPROACH, n)
             params["k"] = K_HISTORY
+            notes = (
+                "PyInform needs the empirical distribution built by the caller; "
+                "its construction is included in the timed call."
+                if measure == "entropy"
+                else None
+            )
             benchmarks.append(
                 entry(
                     "pyinform",
@@ -110,6 +116,7 @@ def main() -> int:
                     params,
                     st,
                     value,
+                    notes=notes,
                 )
             )
 
@@ -123,6 +130,11 @@ def main() -> int:
         iterations,
         short,
         extra={"base": 2, "library": "inform (C)"},
+        limitations=(
+            "Discrete only; result in bits; history k=1. No first-class "
+            "conditional MI. For entropy, the empirical distribution is built "
+            "inside the timed call."
+        ),
     )
     return 0
 

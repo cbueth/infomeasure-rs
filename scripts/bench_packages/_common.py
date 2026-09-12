@@ -102,6 +102,7 @@ def entry(
     params: dict,
     st: dict,
     value: float | None = None,
+    notes: str | None = None,
 ) -> dict:
     return {
         "id": f"{measure}/{approach}/n{n}/{package}",
@@ -113,6 +114,7 @@ def entry(
         "params": params,
         "statistics": st,
         "value": value,
+        "notes": notes,
     }
 
 
@@ -126,12 +128,16 @@ def write_fragment(
     iterations: int,
     short: bool,
     extra: dict | None = None,
+    limitations: str | None = None,
 ) -> Path:
     import json
 
     pkg = {"id": package, "language": language, "version": version}
     if extra:
         pkg.update(extra)
+    # Human-readable coverage limits, rendered as an on-page note next to the
+    # "N/A" cells for this package (e.g. "discrete only", "no continuous CTE").
+    pkg["limitations"] = limitations
     meta = {
         "schema": 2,
         "run_id": f"fragment_{int(time.time())}",
@@ -144,6 +150,7 @@ def write_fragment(
         },
         "seeds": seeds,
         "packages": [pkg],
+        "coverage": sorted({(b["measure"], b["approach"]) for b in benchmarks}),
     }
     out = results_dir() / f"{package}.json"
     out.write_text(json.dumps({"meta": meta, "benchmarks": benchmarks}, indent=2))

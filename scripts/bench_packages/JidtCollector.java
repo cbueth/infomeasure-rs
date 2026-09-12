@@ -314,7 +314,8 @@ public class JidtCollector {
             b.append(seeds.get(i));
         }
         b.append("],\"packages\":[{\"id\":\"jidt\",\"language\":\"java\",\"version\":\"1.6.1\",");
-        b.append("\"released\":\"2023-08-22\",\"artifact_sha256\":\"2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11\"}]},");
+        b.append("\"released\":\"2023-08-22\",\"artifact_sha256\":\"2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11\",");
+        b.append("\"limitations\":\"No Gaussian-kernel estimator; no continuous conditional TE; no kernel conditional MI/CTE.\"}]},");
         b.append("\"benchmarks\":[");
 
         boolean first = true;
