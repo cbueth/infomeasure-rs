@@ -70,13 +70,18 @@ def do_pyitlib():
     from pyitlib import discrete_random_variable as drv
     print(f"       pyitlib H={float(drv.entropy([1, 2, 1, 2])):.6f}")
 
-def do_npeet():
-    from npeet import entropy_estimators as ee
-    mi = float(ee.mi(x.reshape(-1, 1).tolist(), y.reshape(-1, 1).tolist()))
-    print(f"       npeet MI={mi:.6f}")
+def do_pyentrp():
+    from pyentrp import entropy as ent
+    print(f"       pyentrp H={float(ent.shannon_entropy([1, 2, 1, 2, 1, 2])):.6f}")
+
+def do_syntropy():
+    from syntropy.knn import differential_entropy
+    _, h = differential_entropy(np.vstack([x, y]), k=4, idxs=(0,))
+    print(f"       syntropy knn H={float(h):.6f}")
 
 for name, fn in [("infomeasure", do_infomeasure), ("pyinform", do_pyinform),
-                 ("dit", do_dit), ("pyitlib", do_pyitlib), ("npeet", do_npeet)]:
+                 ("dit", do_dit), ("pyitlib", do_pyitlib), ("pyentrp", do_pyentrp),
+                 ("syntropy", do_syntropy)]:
     check(name, fn)
 
 sys.exit(1 if bad else 0)
@@ -96,6 +101,18 @@ if command -v Rscript >/dev/null; then
     fi
 else
     fail "Rscript missing"
+fi
+echo
+
+echo "=== julia ==="
+if command -v julia >/dev/null; then
+    if julia -e 'using DiscreteEntropy, JSON; println("       Julia ", VERSION, " DiscreteEntropy ", pkgversion(DiscreteEntropy))'; then
+        ok "DiscreteEntropy.jl"
+    else
+        fail "DiscreteEntropy.jl"
+    fi
+else
+    fail "julia missing"
 fi
 echo
 
