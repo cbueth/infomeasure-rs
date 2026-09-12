@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# --- JIDT (version- and checksum-pinned; see benchmarks/packages.lock) ------
+# --- JIDT (version- and checksum-pinned; see benches/packages.lock) ----------
 ARG JIDT_VERSION=1.6.1
 ARG JIDT_JAR_SHA256=2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11
 ENV JIDT_JAR=/opt/jidt/infodynamics.jar

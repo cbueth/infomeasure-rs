@@ -133,3 +133,11 @@ harness = false
 [[bench]]
 name = "kernel_gpu_codspeed"
 harness = false
+
+[[bench]]
+name = "gen_datasets"
+harness = false
+
+[[bench]]
+name = "collect_cross_package"
+harness = false

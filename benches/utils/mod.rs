@@ -5,6 +5,7 @@ use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Normal, Uniform};
 
 pub mod data;
+pub mod datasets;
 pub mod hardware;
 
 pub use data::*;
