@@ -39,6 +39,7 @@ echo "=== python collectors ==="
 "$PY" "$SCRIPT_DIR/collect_pyinform.py"
 "$PY" "$SCRIPT_DIR/collect_pyitlib.py"
 "$PY" "$SCRIPT_DIR/collect_npeet.py"
+"$PY" "$SCRIPT_DIR/collect_syntropy.py"
 "$PY" "$SCRIPT_DIR/collect_dit.py"
 
 echo "=== JIDT (native java) ==="

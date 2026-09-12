@@ -50,7 +50,7 @@ ARG NPEET_COMMIT=8b0d9485423f74e5eb199324cf362765596538d3
 RUN set -eux; \
     uv venv "${BENCH_VENV}" --python python3; \
     uv pip install --python "${BENCH_VENV}/bin/python" \
-        numpy scipy infomeasure pyinform dit pyitlib; \
+        numpy scipy infomeasure pyinform dit pyitlib "syntropyx==0.0.2"; \
     uv pip install --python "${BENCH_VENV}/bin/python" \
         "git+https://github.com/gregversteeg/NPEET@${NPEET_COMMIT}"
 
