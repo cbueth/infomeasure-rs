@@ -236,7 +236,7 @@ fn main() {
     let dir = data_dir();
     let out = std::env::var("BENCH_OUT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| dir.join("cross_package.json"));
+        .unwrap_or_else(|_| dir.join("results").join("infomeasure-rs.json"));
 
     let short = std::env::var("BENCH_SHORT")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
@@ -344,6 +344,9 @@ fn main() {
         "benchmarks": benchmarks,
     });
 
+    if let Some(parent) = out.parent() {
+        std::fs::create_dir_all(parent).expect("create output dir");
+    }
     std::fs::write(&out, serde_json::to_string_pretty(&output).unwrap()).expect("write output");
     println!(
         "wrote {} entries to {}",
