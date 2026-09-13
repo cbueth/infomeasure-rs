@@ -74,7 +74,10 @@ EXCLUDED = [
 def main() -> int:
     d = data_dir()
     rdir = d / "results"
-    fragments = sorted(rdir.glob("*.json"))
+    all_fragments = sorted(rdir.glob("*.json"))
+    # The alphabet family has its own viewer mode; keep it out of the merged
+    # cross_package.json (it is still published as a fragment).
+    fragments = [f for f in all_fragments if not f.stem.endswith("_alphabet")]
     if not fragments:
         print(f"no fragments in {rdir}", file=sys.stderr)
         return 1
@@ -111,7 +114,8 @@ def main() -> int:
     # not this merged file).
     hw = meta.get("hardware")
     if hw:
-        for f, obj in loaded:
+        for f in all_fragments:
+            obj = json.loads(f.read_text())
             if not obj.get("meta", {}).get("hardware"):
                 obj.setdefault("meta", {})["hardware"] = hw
                 f.write_text(json.dumps(obj, indent=2))

@@ -97,5 +97,33 @@ if selected rtransferentropy; then
     --data-dir "$BENCH_DATA_DIR" --sizes "$SIZES" --seeds "$SEEDS"
 fi
 
+# --- Alphabet-scaling family (discrete MLE across state counts) -------------
+AB_STATES="$("$PY" -c "import sys;sys.path.insert(0,'$SCRIPT_DIR');import _grid;print(','.join(map(str,_grid.alphabet()['states'])))")"
+AB_SIZES="$("$PY" -c "import sys;sys.path.insert(0,'$SCRIPT_DIR');import _grid;print(','.join(map(str,_grid.alphabet_sizes())))")"
+AB_BUDGET="$("$PY" -c "import sys;sys.path.insert(0,'$SCRIPT_DIR');import _grid;print(_grid.alphabet()['budget_s'])")"
+AB_CAPS="$("$PY" -c "import sys;sys.path.insert(0,'$SCRIPT_DIR');import _grid;print(','.join(f'{k}:{v}' for k,v in _grid.alphabet()['caps'].items()))")"
+
+if selected infomeasure-rs; then
+  echo "=== infomeasure-rs (alphabet) ==="
+  cargo bench --bench collect_alphabet
+fi
+# One generic Python collector covers all Python providers; restrict it to the
+# selected package ids.
+if selected infomeasure-python || selected pyinform || selected pyitlib || selected pyentrp || selected dit; then
+  AB_PKGS=""
+  for p in infomeasure-python pyinform pyitlib pyentrp dit; do
+    if selected "$p"; then AB_PKGS="${AB_PKGS:+$AB_PKGS,}$p"; fi
+  done
+  echo "=== Python packages (alphabet): $AB_PKGS ==="
+  BENCH_ALPHABET_PACKAGES="$AB_PKGS" "$PY" "$SCRIPT_DIR/collect_alphabet.py"
+fi
+if selected jidt; then
+  echo "=== JIDT (alphabet) ==="
+  javac -cp "$JIDT_JAR" -d /tmp/jidtcls "$SCRIPT_DIR/JidtAlphabetCollector.java"
+  java -cp "$JIDT_JAR:/tmp/jidtcls" JidtAlphabetCollector \
+    --data-dir "$BENCH_DATA_DIR" --states "$AB_STATES" --sizes "$AB_SIZES" \
+    --caps "$AB_CAPS" --budget "$AB_BUDGET" --seeds "$SEEDS" $SHORT_FLAG
+fi
+
 echo "=== merge ==="
 "$PY" "$SCRIPT_DIR/merge_results.py"
