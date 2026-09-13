@@ -88,6 +88,10 @@ steps:
 
   - name: image
     image: woodpeckerci/plugin-kaniko
+    # The :bench image only carries toolchains/packages; the collector source is
+    # cloned separately, so a failed/skipped image push must not block a run
+    # that can reuse the existing tag.
+    failure: ignore
     when:
       - event: [manual, tag, cron]
       - event: push
@@ -102,10 +106,11 @@ steps:
       password:
         from_secret: CODEBERG_PACKAGES_TOKEN
       single-snapshot: true
-      # Registry-backed layer cache so rebuilds are incremental. The plugin
-      # prefixes the registry, so this must NOT include codeberg.org.
-      cache: true
-      cache_repo: cbueth/infomeasure-rs-cache
+      # Registry layer cache disabled: Codeberg's registry garbage-collects
+      # untagged cache blobs, which leaves kaniko's cache index pointing at
+      # missing blobs and the final push fails with BLOB_UNKNOWN. Rebuilds are
+      # slower but reliable; re-enable only after recreating the cache repo.
+      cache: false
 
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
