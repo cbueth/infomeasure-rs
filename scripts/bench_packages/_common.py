@@ -55,14 +55,17 @@ def load(measure: str, kind: str, seed: int, n: int) -> np.ndarray:
     return arr.reshape(-1, COLS[measure])
 
 
-def timing_config() -> dict:
+def timing_config(detail_only: bool = False) -> dict:
     """Timing/budget config.
 
-    Short mode is fixed (1 warm-up + 3 iters) for fast local iteration. Full
-    mode is *adaptive* to bound CI wall time: warm up to `warmup_max` times
+    Short mode is fixed (1 warm-up + up to 3 iters) for fast local iteration.
+    Full mode is *adaptive* to bound CI wall time: warm up to `warmup_max` times
     (stop early once `warmup_budget` seconds elapsed), then run at least
     `min_iters` and up to `max_iters` timed iterations, stopping once
     `iter_budget` seconds elapsed (always at least `min_iters`).
+
+    `detail_only=True` selects a tighter budget for the detailed grid variants
+    (single seed) so the full infomeasure grid stays inside its time target.
     """
     short = os.environ.get("BENCH_SHORT", "") in ("1", "true", "True")
     if short:
@@ -71,8 +74,20 @@ def timing_config() -> dict:
             "warmup_max": 1,
             "warmup_budget": 0.0,
             "min_iters": 1,
-            "max_iters": 3,
+            "max_iters": 2,
             "iter_budget": 0.0,
+        }
+    if detail_only:
+        # Profile A: guarantees >=5 samples (10 for fast calls) so the
+        # reported stddev/CI are meaningful. Set BENCH_DETAIL_MIN_ITERS=3 for
+        # profile B if the wall-time budget is tight.
+        return {
+            "short": False,
+            "warmup_max": int(os.environ.get("BENCH_DETAIL_WARMUP_MAX", 1)),
+            "warmup_budget": float(os.environ.get("BENCH_DETAIL_WARMUP_BUDGET_S", 0.1)),
+            "min_iters": int(os.environ.get("BENCH_DETAIL_MIN_ITERS", 5)),
+            "max_iters": int(os.environ.get("BENCH_DETAIL_MAX_ITERS", 10)),
+            "iter_budget": float(os.environ.get("BENCH_DETAIL_ITER_BUDGET_S", 0.3)),
         }
     return {
         "short": False,
@@ -140,14 +155,18 @@ def entry(
     st: dict,
     value: float | None = None,
     notes: str | None = None,
+    slug: str | None = None,
+    representative: bool = True,
 ) -> dict:
+    id_suffix = f"/{slug}" if slug else ""
     return {
-        "id": f"{measure}/{approach}/n{n}/{package}",
+        "id": f"{measure}/{approach}{id_suffix}/n{n}/{package}",
         "package": package,
         "language": language,
         "measure": measure,
         "approach": approach,
         "function": function,
+        "representative": representative,
         "params": params,
         "statistics": st,
         "value": value,
@@ -191,9 +210,26 @@ def write_fragment(
         "coverage": sorted({(b["measure"], b["approach"]) for b in benchmarks}),
     }
     out = results_dir() / f"{package}.json"
-    out.write_text(json.dumps({"meta": meta, "benchmarks": benchmarks}, indent=2))
+    out.write_text(json.dumps(_clean_nonfinite({"meta": meta, "benchmarks": benchmarks}), indent=2))
     print(f"wrote {len(benchmarks)} entries to {out}")
     return out
+
+
+def _clean_nonfinite(obj):
+    """Replace non-finite floats with None so the fragment is valid JSON.
+
+    ``json.dumps`` emits ``NaN``/``Infinity`` by default, which is not valid
+    JSON and makes the browser's ``JSON.parse`` throw.
+    """
+    import math
+
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _clean_nonfinite(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_nonfinite(v) for v in obj]
+    return obj
 
 
 def default_params(measure: str, approach: str, n: int) -> dict:

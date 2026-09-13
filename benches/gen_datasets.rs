@@ -120,7 +120,10 @@ fn main() -> std::io::Result<()> {
             }
         }
     }
-    let sizes = sizes();
+    let grid = utils::grid::load("rust");
+    // Generate every size any collector needs (the detailed superset).
+    let sizes = grid.detailed_sizes.clone();
+    let cross_sizes = grid.cross_sizes.clone();
     let mut entries = Vec::new();
 
     for &seed in &SEEDS {
@@ -219,7 +222,9 @@ fn main() -> std::io::Result<()> {
     let manifest = json!({
         "version": DATA_VERSION,
         "seeds": SEEDS,
-        "sizes": sizes,
+        "sizes": cross_sizes,
+        "cross_sizes": cross_sizes,
+        "detailed_sizes": sizes,
         "parameters": {
             "k": K,
             "bandwidth": BANDWIDTH,

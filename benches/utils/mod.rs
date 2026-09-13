@@ -6,6 +6,7 @@ use rand_distr::{Distribution, Normal, Uniform};
 
 pub mod data;
 pub mod datasets;
+pub mod grid;
 pub mod hardware;
 
 pub use data::*;
