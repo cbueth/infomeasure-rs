@@ -33,6 +33,31 @@ def sizes() -> tuple[list[int], list[int]]:
     return g["sizes"]["cross"], g["sizes"]["detailed"]
 
 
+def alphabet() -> dict:
+    """The alphabet-scaling family configuration."""
+    return _load()["alphabet"]
+
+
+def alphabet_states(measure: str, cfg: dict | None = None) -> list[int]:
+    """State counts to collect for a measure, capped by the memory guard."""
+    cfg = cfg or alphabet()
+    cap = cfg.get("caps", {}).get(measure, 0)
+    return [s for s in cfg["states"] if s <= cap]
+
+
+def alphabet_sizes(cfg: dict | None = None) -> list[int]:
+    """Sizes for the alphabet sweep (``BENCH_ALPHABET_SIZES``/``BENCH_SIZES``)."""
+    import os
+
+    cfg = cfg or alphabet()
+    raw = os.environ.get("BENCH_ALPHABET_SIZES") or os.environ.get("BENCH_SIZES")
+    if raw:
+        sizes = [int(s) for s in raw.split(",") if s.strip()]
+        if sizes:
+            return sizes
+    return list(cfg["sizes"])
+
+
 def _num_slug(v) -> str:
     return str(v).replace(".", "_")
 

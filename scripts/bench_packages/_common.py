@@ -64,8 +64,10 @@ def resuming() -> bool:
     return os.environ.get("BENCH_RESUME", "") in ("1", "true", "True")
 
 
-def existing_benchmarks(package: str, fingerprint: str | None = None) -> list[dict]:
-    """Benchmarks from an existing ``results/<package>.json`` fragment.
+def existing_benchmarks(
+    package: str, fingerprint: str | None = None, family: str | None = None
+) -> list[dict]:
+    """Benchmarks from an existing ``results/<package>[_<family>].json`` fragment.
 
     Used by resumable collectors: load the partial fragment, skip the entry ids
     it already contains, and rewrite it as new measures complete. When
@@ -75,7 +77,8 @@ def existing_benchmarks(package: str, fingerprint: str | None = None) -> list[di
     """
     import json
 
-    path = results_dir() / f"{package}.json"
+    name = f"{package}_{family}.json" if family else f"{package}.json"
+    path = results_dir() / name
     if not path.exists():
         return []
     try:
@@ -114,6 +117,13 @@ def load(measure: str, kind: str, seed: int, n: int) -> np.ndarray:
     dtype = "<i4" if kind == "discrete" else "<f8"
     path = data_dir() / f"{measure}_{kind}_s{seed}_n{n}.bin"
     arr = np.fromfile(path, dtype=dtype)
+    return arr.reshape(-1, COLS[measure])
+
+
+def load_alphabet(measure: str, states: int, seed: int, n: int) -> np.ndarray:
+    """Load one alphabet-family dataset as an (n, cols) int array."""
+    path = data_dir() / f"{measure}_discrete_b{states}_s{seed}_n{n}.bin"
+    arr = np.fromfile(path, dtype="<i4")
     return arr.reshape(-1, COLS[measure])
 
 
@@ -246,6 +256,7 @@ def write_fragment(
     extra: dict | None = None,
     limitations: str | None = None,
     fingerprint: str | None = None,
+    family: str | None = None,
 ) -> Path:
     import json
 
@@ -263,6 +274,7 @@ def write_fragment(
         "runtime": {
             "threads": 1,
             "adaptive": not cfg["short"],
+            "family": family,
             "warmup_max": cfg["warmup_max"],
             "warmup_budget_s": cfg["warmup_budget"],
             "min_iters": cfg["min_iters"],
@@ -273,7 +285,8 @@ def write_fragment(
         "packages": [pkg],
         "coverage": sorted({(b["measure"], b["approach"]) for b in benchmarks}),
     }
-    out = results_dir() / f"{package}.json"
+    name = f"{package}_{family}.json" if family else f"{package}.json"
+    out = results_dir() / name
     out.write_text(json.dumps(_clean_nonfinite({"meta": meta, "benchmarks": benchmarks}), indent=2))
     print(f"wrote {len(benchmarks)} entries to {out}")
     return out
