@@ -22,6 +22,33 @@ COLS = {"entropy": 1, "mi": 2, "te": 2, "cmi": 3, "cte": 3}
 MEASURES = ["entropy", "mi", "cmi", "te", "cte"]
 
 
+def silence_logging() -> None:
+    """Silence library logging so the timed region measures compute only.
+
+    infomeasure-python logs ANSB / Chao-Wang-Jost warnings through the stdlib
+    ``logging`` module on every call; the adaptive loop calls the estimator many
+    times, so those messages are formatted *inside* the timed call. They are
+    informational (the estimators still run) and dataset-independent, so
+    suppressing them is the fair fix rather than picking data that avoids the
+    warning. ``loguru`` is also muted defensively for any dependency that uses
+    it.
+    """
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore")
+    logging.disable(logging.CRITICAL)
+    try:
+        from loguru import logger as _loguru
+
+        _loguru.remove()
+    except Exception:  # noqa: BLE001 - loguru is optional
+        pass
+
+
+silence_logging()
+
+
 def data_dir() -> Path:
     return Path(os.environ.get("BENCH_DATA_DIR", "target/bench-data"))
 
