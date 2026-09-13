@@ -83,6 +83,16 @@
 //! - **Correlated data**: NSB
 //! - **Undersampled**: Chao-Shen, Chao-Wang-Jost, ANSB
 //!
+//! ## Performance
+//!
+//! Entropy is a single histogram, so there is no alphabet cross-product to
+//! scan: for the MLE average, prefer
+//! [`new_discrete_from_slice`](crate::estimators::entropy::Entropy::new_discrete_from_slice),
+//! which borrows the codes instead of taking an owned [`ndarray::Array1`]. The
+//! known-alphabet/global-only builder applies to the joint measures (MI, CMI,
+//! TE, CTE) — see
+//! [Performance Benchmarks](crate::guide::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//!
 //! See the [Estimator Selection Guide](crate::guide::estimator_selection) for detailed recommendations.
 //!
 //! ## See Also

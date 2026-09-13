@@ -62,6 +62,23 @@ fn bench_discrete_cmi(c: &mut Criterion) {
                 black_box(cmi.global_value())
             });
         });
+
+        // Known-alphabet, global-only builder (the collector path): borrows the
+        // columns and skips the alphabet scan and input retention.
+        let id = BenchmarkId::new("mle_alphabet", size);
+        group.bench_with_input(id, &size, |b, _| {
+            b.iter(|| {
+                black_box(
+                    MutualInformation::cmi_discrete_mle(
+                        &[x_arr.as_slice().unwrap(), y_arr.as_slice().unwrap()],
+                        z_arr.as_slice().unwrap(),
+                    )
+                    .with_alphabet(num_states as usize)
+                    .global_only()
+                    .global_value(),
+                )
+            });
+        });
     }
 
     group.finish();

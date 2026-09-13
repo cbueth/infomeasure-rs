@@ -130,6 +130,32 @@
 //! assert!(cte >= 0.0);
 //! ```
 //!
+//! ### Performance: dense direct CTE
+//!
+//! [`cte_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::cte_discrete_mle)
+//! is the timing-optimised counterpart of
+//! [`new_cte_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_cte_discrete_mle):
+//! it borrows the raw code columns, builds the history embeddings inline, skips
+//! the alphabet scan with `with_alphabet`, and drops the retained inputs with
+//! `global_only`. Because the discrete joint alphabet grows with the
+//! conditioning history, it falls back to the generic estimator beyond the
+//! internal dense cap. See
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//!
+//! ```rust
+//! use infomeasure::estimators::entropy::GlobalValue;
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//!
+//! let source = [0, 1, 0, 1, 0, 1, 0, 1];
+//! let dest = [0, 0, 1, 0, 1, 0, 1, 0];
+//! let cond = [0, 0, 0, 1, 0, 1, 1, 1];
+//! let cte = TransferEntropy::cte_discrete_mle(&source, &dest, &cond, 1, 1, 1, 1)
+//!     .with_alphabet(2)
+//!     .global_only()
+//!     .global_value();
+//! assert!(cte.is_finite());
+//! ```
+//!
 //! ### Practical Example: Conditioning on Common Driver
 //!
 //! In this example, $Z$ drives both $X$ and $Y$. We measure TE from $X$ to $Y$ (which may

@@ -138,6 +138,27 @@
 //! ).global_value();
 //! assert!(te >= 0.0); // TE is always non-negative
 //! ```
+//! ### Performance: dense direct TE
+//! [`te_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::te_discrete_mle)
+//! is the timing-optimised counterpart of
+//! [`new_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_mle):
+//! it borrows the raw code columns, builds the history embeddings inline, skips
+//! the alphabet scan with `with_alphabet`, and drops the retained inputs with
+//! `global_only`. It falls back to the generic estimator for large joint
+//! alphabets. See
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//! ```rust
+//! use infomeasure::estimators::entropy::GlobalValue;
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//!
+//! let source = [0, 1, 0, 1, 0, 1, 0, 1];
+//! let dest = [0, 0, 1, 0, 1, 0, 1, 0];
+//! let te = TransferEntropy::te_discrete_mle(&source, &dest, 1, 1, 1)
+//!     .with_alphabet(2)
+//!     .global_only()
+//!     .global_value();
+//! assert!(te.is_finite());
+//! ```
 //! ## See Also
 //! - [Mutual Information](super::mutual_information) — TE is CMI on histories
 //! - [Conditional MI](super::cond_mi) — General CMI

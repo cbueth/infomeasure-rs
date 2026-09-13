@@ -156,6 +156,28 @@
 //! let local_mean = mi_local.mean().unwrap();
 //! assert_abs_diff_eq!(mi_global, local_mean, epsilon = 1e-10);
 //! ```
+//! ### Performance: dense direct MI
+//! [`new_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_discrete_mle)
+//! infers the alphabet and keeps the inputs for local values. When the alphabet
+//! is known and only the average is needed,
+//! [`mi_discrete_mle`](crate::estimators::mutual_information::MutualInformation::mi_discrete_mle)
+//! is a timing-optimised alternative: it borrows the raw code columns, skips the
+//! alphabet scan with `with_alphabet`, and drops the retained inputs with
+//! `global_only`. It falls back to the generic estimator for large joint
+//! alphabets, so values are unchanged. See
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//! ```rust
+//! use infomeasure::estimators::entropy::GlobalValue;
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//!
+//! let x = [0, 0, 1, 1, 0, 1, 0, 1];
+//! let y = [0, 1, 0, 1, 1, 0, 1, 0];
+//! let mi = MutualInformation::mi_discrete_mle(&[&x, &y])
+//!     .with_alphabet(2)
+//!     .global_only()
+//!     .global_value();
+//! assert!(mi >= 0.0);
+//! ```
 //! ## Choosing an Estimator
 //! - **Discrete data** (categorical, counts): Use discrete estimators. For large samples
 //!   ($N > 1000$), MLE is often sufficient. For small samples, use bias-corrected
