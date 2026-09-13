@@ -99,6 +99,10 @@ Policy by trigger:
 | push to `pages` (registry.json) | collect only the **changed** packages; if no fragments exist yet, collect all |
 | bi-weekly cron | check upstream versions; open a `pages` PR if anything moved |
 
+The collector source is cloned from `main` for tag/cron/pages events; a
+**manual** run uses the selected branch instead, so the workflow can be tested
+on a PR branch before it is merged.
+
 ### Required secrets (Woodpecker → repository → Settings → Secrets)
 
 - **`PAGES_TOKEN`** — a Codeberg access token used to clone/push the `pages`

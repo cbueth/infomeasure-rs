@@ -49,7 +49,13 @@ steps:
     commands:
       - rm -rf pages src
       - git clone --depth 2 --branch pages "https://oauth2:$PAGES_TOKEN@codeberg.org/cbueth/infomeasure-rs.git" pages
-      - if [ -n "$CI_COMMIT_TAG" ]; then REF="$CI_COMMIT_TAG"; else REF="main"; fi
+      - |
+        REF="main"
+        if [ -n "$CI_COMMIT_TAG" ]; then
+          REF="$CI_COMMIT_TAG"
+        elif [ "$CI_PIPELINE_EVENT" = "manual" ] && [ "$CI_COMMIT_BRANCH" != "pages" ]; then
+          REF="$CI_COMMIT_BRANCH"
+        fi
       - git clone --depth 1 --branch "$REF" https://codeberg.org/cbueth/infomeasure-rs.git src
 
   - name: plan
