@@ -40,6 +40,10 @@ table { width: 100%; border-collapse: collapse; font-size: 11px; }
 th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #eee; }
 th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
 td.num { text-align: right; font-family: monospace; font-size: 10px; }
+th.num { text-align: right; }
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { background: #eef1f5; }
+th.sortable.sorted { color: #0d6efd; }
 tr:hover { background: #f8f9fa; }
 .na { color: #bbb; font-style: italic; }
 .scbtn { display:inline-flex; border:1px solid #ddd; border-radius:3px; cursor:pointer; overflow:hidden; font-size:11px; line-height:1; }

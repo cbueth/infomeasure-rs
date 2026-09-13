@@ -379,6 +379,39 @@ function renderCross() {
   fillCrossTable(groups);
   syncHash();
 }
+function cmpVal(a, b, c) {
+  if (c.num) {
+    const ax = a[c.key], bx = b[c.key];
+    const an = ax == null || ax === '' ? null : Number(ax);
+    const bn = bx == null || bx === '' ? null : Number(bx);
+    if (an != null && bn != null && !Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
+    if (an == null && bn == null) return 0;
+    if (an == null || Number.isNaN(an)) return 1;
+    if (bn == null || Number.isNaN(bn)) return -1;
+  }
+  const as = String(a[c.key] ?? ''), bs = String(b[c.key] ?? '');
+  return as < bs ? -1 : as > bs ? 1 : 0;
+}
+function mountSortableTable(head, body, rows, cols, rowHtml) {
+  let col = -1, dir = 1;
+  const draw = () => {
+    head.innerHTML = cols.map((c, i) => {
+      const active = i === col;
+      const arrow = active ? (dir > 0 ? ' ▲' : ' ▼') : '';
+      return `<th class="${c.num ? 'num ' : ''}sortable${active ? ' sorted' : ''}" data-col="${i}">${esc(c.label)}${arrow}</th>`;
+    }).join('');
+    body.innerHTML = rows.map(rowHtml).join('');
+    head.querySelectorAll('th').forEach((th) => {
+      th.onclick = () => {
+        const i = Number(th.dataset.col);
+        if (i === col) dir = -dir; else { col = i; dir = 1; }
+        rows.sort((a, b) => cmpVal(a, b, cols[i]) * dir);
+        draw();
+      };
+    });
+  };
+  draw();
+}
 function fillCrossTable(groups) {
   const head = document.getElementById('c-tableHead'), body = document.getElementById('c-tableBody');
   const rows = [];
@@ -387,11 +420,18 @@ function fillCrossTable(groups) {
     rows.push({ pkg: g.id, lang: e.language, ver: fragmentVersion(CAT.data[g.id]), x: p.x, mean: p.y,
       std: CROSS.relative ? p._err : stdOf(e), ci: st.ci_lower != null ? `${fmt(st.ci_lower)} – ${fmt(st.ci_upper)}` : '-', samples: samplesOf(e) });
   }
-  head.innerHTML = ['Package', 'Language', 'Version', 'n', CROSS.relative ? 'Ratio' : 'Mean', CROSS.relative ? '±ratio' : 'Std Dev', '95% CI', 'Iters'].map((c) => `<th>${c}</th>`).join('');
-  body.innerHTML = rows.map((r) => `<tr><td>${esc(r.pkg)}</td><td>${esc(r.lang)}</td><td>${esc(r.ver)}</td><td class="num">${r.x}</td>` +
+  const cols = [
+    { label: 'Package', key: 'pkg' }, { label: 'Language', key: 'lang' }, { label: 'Version', key: 'ver' },
+    { label: 'n', key: 'x', num: true },
+    { label: CROSS.relative ? 'Ratio' : 'Mean', key: 'mean', num: true },
+    { label: CROSS.relative ? '±ratio' : 'Std Dev', key: 'std', num: true },
+    { label: '95% CI', key: 'ci', num: true }, { label: 'Iters', key: 'samples', num: true },
+  ];
+  mountSortableTable(head, body, rows, cols, (r) =>
+    `<tr><td>${esc(r.pkg)}</td><td>${esc(r.lang)}</td><td>${esc(r.ver)}</td><td class="num">${r.x}</td>` +
     `<td class="num">${CROSS.relative ? r.mean.toFixed(3) + '×' : fmt(r.mean)}</td>` +
     `<td class="num">${r.std == null ? '-' : (CROSS.relative ? r.std.toFixed(3) : fmt(r.std))}</td>` +
-    `<td class="num">${esc(r.ci)}</td><td class="num">${r.samples ?? '-'}</td></tr>`).join('');
+    `<td class="num">${esc(r.ci)}</td><td class="num">${r.samples ?? '-'}</td></tr>`);
 }
 
 // ==================================================================
@@ -403,11 +443,8 @@ const DLANG_COLORS = {
   rust: { discrete: '#377eb8', kernel: '#4daf4a', kl: '#984ea3', ordinal: '#a65628', renyi: '#e41a1c', tsallis: '#ff7f00' },
   python: { discrete: '#ff7f00', kernel: '#e41a1c', kl: '#f781bf', ordinal: '#d4a017', renyi: '#a65628', tsallis: '#377eb8' },
 };
-const LINE_STYLES = { discrete: [], kernel: [6, 3], kl: [2, 2], ordinal: [1, 3, 1, 3], renyi: [4, 2], tsallis: [2, 4] };
-const METHOD_DASH = { mle: [], ansb: [1, 1], bayes: [3, 1], bonachela: [4, 2], chao_shen: [2, 2], chao_wang_jost: [1, 2], grassberger: [3, 2], miller_madow: [4, 1], nsb: [1, 3], shrink: [2, 3], zhang: [3, 3] };
 const DISCRETE_COLORS = { mle: '#1f78b4', miller_madow: '#e31a1c', grassberger: '#33a02c', nsb: '#ff7f00', ansb: '#6a3d9a', chao_shen: '#b15928', chao_wang_jost: '#fb9a99', shrink: '#a6cee3', bayes: '#b2df8a', bonachela: '#fdbf6f', zhang: '#cab2d6' };
 const KL_COLORS = { KSG: '#984ea3', KL: '#c77dd6', 'KL-cheb': '#6a3d9a', 'KL-k': '#b15928' };
-const KL_DASH = { KSG: [], KL: [6, 3], 'KL-cheb': [2, 2], 'KL-k': [1, 3] };
 // Overview stays uncluttered: one estimator per family; Rényi/Tsallis and the
 // extra KL variants live in their own tabs.
 const OVERVIEW_APPROACHES = ['discrete', 'kernel', 'kl', 'ordinal'];
@@ -513,11 +550,8 @@ function detailColor(g) {
   return (DLANG_COLORS[g.lang] || {})[g.dapp] || '#999';
 }
 function detailDash(g) {
-  const py = g.lang === 'python';
-  if (DETAIL.view === 'overview') return py ? [4, 3] : [];
-  if (g.dapp === 'discrete') { const md = METHOD_DASH[g.method] || []; return py ? (md.length ? md.concat([2, 2]) : [4, 3]) : md; }
-  if (g.dapp === 'kl') { const bd = KL_DASH[g.sub] || []; return py ? (bd.length ? bd.concat([2, 2]) : [4, 3]) : bd; }
-  return LINE_STYLES[g.dapp] || [];
+  // Language encoding is the same on every detail tab: python dashed, rust solid.
+  return g.lang === 'python' ? [4, 3] : [];
 }
 function renderDetail() {
   const view = DETAIL.view, cfg = DAPP_CFG[view] || DAPP_CFG.overview;
@@ -598,10 +632,16 @@ function fillDetailTable(groups) {
     const e = p.e;
     rows.push({ lang: e.language, app: e.dapp + (e.sub ? ' ' + e.sub : ''), id: e.id, x: p.x, mean: p.y, std: stdOf(e), samples: samplesOf(e), value: e.value });
   }
-  head.innerHTML = ['Language', 'Approach', 'Benchmark', DETAIL.x === 'n' ? 'size' : DETAIL.x, 'Mean', 'Std Dev', 'Iters', 'Value'].map((c) => `<th>${c}</th>`).join('');
-  body.innerHTML = rows.map((r) => `<tr><td>${esc(r.lang)}</td><td>${esc(r.app)}</td><td>${esc(r.id)}</td>` +
+  const cols = [
+    { label: 'Language', key: 'lang' }, { label: 'Approach', key: 'app' }, { label: 'Benchmark', key: 'id' },
+    { label: DETAIL.x === 'n' ? 'size' : DETAIL.x, key: 'x', num: true },
+    { label: 'Mean', key: 'mean', num: true }, { label: 'Std Dev', key: 'std', num: true },
+    { label: 'Iters', key: 'samples', num: true }, { label: 'Value', key: 'value', num: true },
+  ];
+  mountSortableTable(head, body, rows, cols, (r) =>
+    `<tr><td>${esc(r.lang)}</td><td>${esc(r.app)}</td><td>${esc(r.id)}</td>` +
     `<td class="num">${r.x}</td><td class="num">${fmt(r.mean)}</td><td class="num">${r.std == null ? '-' : fmt(r.std)}</td>` +
-    `<td class="num">${r.samples ?? '-'}</td><td class="num">${r.value == null ? '-' : Number(r.value).toFixed(4)}</td></tr>`).join('');
+    `<td class="num">${r.samples ?? '-'}</td><td class="num">${r.value == null ? '-' : Number(r.value).toFixed(4)}</td></tr>`);
 }
 
 // ======================= shared chart helpers =======================
