@@ -126,7 +126,7 @@ steps:
       - mkdir -p /build/target/bench-data/results
       - cp /build/pages/data/*.json /build/target/bench-data/results/ 2>/dev/null || true
       - cd /build/src
-      - BENCH_DATA_DIR=/build/target/bench-data BENCH_PACKAGES="$PACKAGES" bash scripts/bench_packages/run_all.sh
+      - BENCH_COMMIT="$(git -C /build/src rev-parse HEAD 2>/dev/null || true)" BENCH_DATA_DIR=/build/target/bench-data BENCH_PACKAGES="$PACKAGES" BENCH_RESUME=1 bash scripts/bench_packages/run_all.sh
       - RESULTS_DIR=/build/target/bench-data/results PAGES_DIR=/build/pages bash scripts/bench_packages/publish_fragments.sh
 
   - name: registry-pr

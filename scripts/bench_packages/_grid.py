@@ -20,6 +20,13 @@ def _load() -> dict:
     return json.loads(_GRID_PATH.read_text())
 
 
+def source_hash() -> str:
+    """Stable hash of the grid definition, for resumable-run invalidation."""
+    import hashlib
+
+    return hashlib.sha256(_GRID_PATH.read_bytes()).hexdigest()[:16]
+
+
 def sizes() -> tuple[list[int], list[int]]:
     """Return ``(cross_sizes, detailed_sizes)``."""
     g = _load()

@@ -59,6 +59,41 @@ def results_dir() -> Path:
     return d
 
 
+def resuming() -> bool:
+    """Whether this run should keep and skip an existing fragment."""
+    return os.environ.get("BENCH_RESUME", "") in ("1", "true", "True")
+
+
+def existing_benchmarks(package: str, fingerprint: str | None = None) -> list[dict]:
+    """Benchmarks from an existing ``results/<package>.json`` fragment.
+
+    Used by resumable collectors: load the partial fragment, skip the entry ids
+    it already contains, and rewrite it as new measures complete. When
+    ``fingerprint`` is given, the fragment is only reused if its stored
+    fingerprint matches — so a package-version, grid or config change starts a
+    fresh collection instead of silently keeping stale entries.
+    """
+    import json
+
+    path = results_dir() / f"{package}.json"
+    if not path.exists():
+        return []
+    try:
+        obj = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return []
+    if fingerprint is not None:
+        got = obj.get("meta", {}).get("fingerprint")
+        if got != fingerprint:
+            print(
+                f"resume: {package} fingerprint changed ({got!r} != {fingerprint!r}); "
+                "starting fresh"
+            )
+            return []
+    benchmarks = obj.get("benchmarks", [])
+    return benchmarks if isinstance(benchmarks, list) else []
+
+
 def read_manifest() -> dict:
     import json
 
@@ -210,6 +245,7 @@ def write_fragment(
     cfg: dict,
     extra: dict | None = None,
     limitations: str | None = None,
+    fingerprint: str | None = None,
 ) -> Path:
     import json
 
@@ -222,6 +258,7 @@ def write_fragment(
     meta = {
         "schema": 2,
         "run_id": f"fragment_{int(time.time())}",
+        "fingerprint": fingerprint,
         "hardware": None,
         "runtime": {
             "threads": 1,

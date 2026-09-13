@@ -42,7 +42,10 @@ selected() {
 if [ -n "$PACKAGES" ] && [ "$PACKAGES" != "all" ]; then
   export BENCH_KEEP_RESULTS="${BENCH_KEEP_RESULTS:-1}"
 fi
-if [ "${BENCH_KEEP_RESULTS:-0}" != "1" ]; then
+# BENCH_RESUME=1 keeps existing fragments so collectors skip finished entries
+# and a cancelled run can be resumed.
+export BENCH_RESUME="${BENCH_RESUME:-0}"
+if [ "${BENCH_KEEP_RESULTS:-0}" != "1" ] && [ "$BENCH_RESUME" != "1" ]; then
   rm -f "$BENCH_DATA_DIR"/results/*.json
 fi
 mkdir -p "$BENCH_DATA_DIR/results"

@@ -130,6 +130,16 @@ fn usizes(v: &Value) -> Vec<usize> {
         .collect()
 }
 
+/// Stable hash of the grid definition. Included in a collector's fingerprint so
+/// that changing the grid invalidates a resumable partial fragment.
+pub fn source_hash() -> u64 {
+    use std::hash::{Hash, Hasher};
+
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    include_str!("../detailed_grid.json").hash(&mut h);
+    h.finish()
+}
+
 pub fn load(lang: &str) -> Grid {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/benches/detailed_grid.json");
     let text = std::fs::read_to_string(path).expect("read detailed_grid.json");

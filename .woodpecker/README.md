@@ -112,6 +112,22 @@ The collector source is cloned from `main` for tag/cron events; a **manual** run
 uses the selected branch instead, so the workflow can be tested on a PR branch
 before it is merged.
 
+### Long, resumable runs
+
+The full detailed grid is expensive — the CPU Gaussian kernel is O(N²), so the
+large sizes dominate — and the shared Codeberg CI can drop the agent connection
+(woodpecker#6803; the runner already sets `WOODPECKER_KEEPALIVE_TIME=30s` and
+`WOODPECKER_RETRY_TIMEOUT=10m` as the upstream workaround). Two mitigations:
+
+- The project **Timeout** (Web UI → repository → Settings → Timeout) accepts at
+  most **120 minutes**; a full run can approach that.
+- Collections are **resumable**. `collect-and-publish` passes
+  `BENCH_RESUME=1`, so the collectors load an existing fragment, skip entries it
+  already contains, and rewrite it after every measure. Restarting the failed
+  step therefore continues instead of starting over, and a partial run still
+  leaves a usable fragment. For a clean full run, delete
+  `target/bench-data/results/` first (or unset `BENCH_RESUME`).
+
 ### Required secrets (Woodpecker → repository → Settings → Secrets)
 
 - **`PAGES_TOKEN`** — a Codeberg access token used to clone/push the `pages`

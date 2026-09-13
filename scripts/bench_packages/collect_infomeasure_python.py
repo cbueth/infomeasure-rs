@@ -22,8 +22,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _grid  # noqa: E402
 from _common import (  # noqa: E402
     entry,
+    existing_benchmarks,
     load,
     read_manifest,
+    resuming,
     stats,
     time_call,
     timing_config,
@@ -91,6 +93,23 @@ def build_fn(measure: str, v: dict, cols):
     raise ValueError(measure)
 
 
+def fingerprint(version: str, *cfgs: dict) -> str:
+    """Fingerprint of everything that makes a measurement valid.
+
+    A resumable fragment is only reused when its fingerprint matches, so a
+    package-version, grid or timing-config change forces a fresh collection.
+    """
+    import hashlib
+
+    h = hashlib.sha256()
+    h.update(version.encode())
+    h.update(os.environ.get("BENCH_COMMIT", "").encode())
+    h.update(_grid.source_hash().encode())
+    for cfg in cfgs:
+        h.update(repr(sorted(cfg.items())).encode())
+    return h.hexdigest()[:16]
+
+
 def main() -> int:
     cross_cfg = timing_config()
     detail_cfg = timing_config(detail_only=True)
@@ -101,15 +120,40 @@ def main() -> int:
         if parsed:
             cross_sizes = detailed_sizes = parsed
     seeds_all = read_manifest()["seeds"]
-    benchmarks: list[dict] = []
+    version = getattr(im, "__version__", "unknown")
+    fp = fingerprint(version, cross_cfg, detail_cfg)
+    benchmarks: list[dict] = (
+        existing_benchmarks("infomeasure-python", fp) if resuming() else []
+    )
+    done = {b.get("id") for b in benchmarks}
+    if benchmarks:
+        print(f"resume: {len(benchmarks)} existing entries kept")
 
     cross_set = set(cross_sizes)
+    current_measure = None
     for v in _grid.variants("python"):
         measure = v["measure"]
         approach = v["approach"]
         kind = "discrete" if approach == "discrete" else "continuous"
 
+        # Flush at every measure boundary so a cancelled run keeps progress.
+        if measure != current_measure:
+            if benchmarks:
+                write_fragment(
+                    "infomeasure-python",
+                    "python",
+                    version,
+                    benchmarks,
+                    seeds_all,
+                    cross_cfg,
+                    fingerprint=fp,
+                )
+            current_measure = measure
+
         for n in detailed_sizes:
+            eid = f"{measure}/{approach}/{v['slug']}/n{n}/infomeasure-python"
+            if eid in done:
+                continue
             # Representative entries: a representative variant at a cross size.
             # All seeds + standard adaptive budget; everything else one seed +
             # the tight detailed budget.
@@ -145,14 +189,16 @@ def main() -> int:
                     representative=is_rep,
                 )
             )
+            done.add(eid)
 
     write_fragment(
         "infomeasure-python",
         "python",
-        getattr(im, "__version__", "unknown"),
+        version,
         benchmarks,
         seeds_all,
         cross_cfg,
+        fingerprint=fp,
     )
     return 0
 

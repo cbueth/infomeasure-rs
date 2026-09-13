@@ -18,6 +18,9 @@
 //!   BENCH_OUT          output JSON (default `<data>/results/infomeasure-rs.json`)
 //!   BENCH_SHORT=1      warm-up 1 + up to 3 iterations (local iteration)
 //!   BENCH_WARMUP / BENCH_ITERATIONS   explicit overrides
+//!   BENCH_RESUME=1     keep an existing BENCH_OUT and skip entries already in
+//!                      it, flushing after each measure so a cancelled run can
+//!                      be resumed
 
 #![allow(unused_imports)]
 
@@ -27,6 +30,7 @@ use infomeasure::estimators::mutual_information::MutualInformation;
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
 use ndarray::Array1;
 use serde_json::{Value, json};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -34,7 +38,7 @@ mod utils;
 
 use utils::datasets::*;
 use utils::grid::{Grid, Variant};
-use utils::hardware::detect_hardware;
+use utils::hardware::{HardwareInfo, detect_hardware};
 
 /// Pre-loaded dataset columns (file I/O happens outside the timed region).
 enum Loaded {
@@ -404,6 +408,89 @@ fn epoch_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Fingerprint of everything that makes a measurement valid: package version,
+/// source commit, grid definition, timing budgets and the machine. A resumable
+/// fragment is only reused when its fingerprint matches the current run, so a
+/// package bump (or a code/grid/config change) forces a fresh collection.
+fn fingerprint(hardware: &HardwareInfo) -> String {
+    use std::hash::{Hash, Hasher};
+
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    env!("CARGO_PKG_VERSION").hash(&mut h);
+    option_env!("GIT_COMMIT").unwrap_or("").hash(&mut h);
+    std::env::var("BENCH_COMMIT")
+        .unwrap_or_default()
+        .hash(&mut h);
+    hardware.cpu_model.hash(&mut h);
+    utils::grid::source_hash().hash(&mut h);
+    for cfg in [rounds_config(false), rounds_config(true)] {
+        cfg.warmup_max.hash(&mut h);
+        cfg.warmup_budget.to_bits().hash(&mut h);
+        cfg.min_iters.hash(&mut h);
+        cfg.max_iters.hash(&mut h);
+        cfg.iter_budget.to_bits().hash(&mut h);
+    }
+    format!("{:016x}", h.finish())
+}
+
+/// Serialise the current fragment to `out`. Called after each measure so a
+/// cancelled run leaves a usable, resumable fragment behind.
+fn write_fragment(
+    out: &Path,
+    benchmarks: &[Value],
+    hardware: &HardwareInfo,
+    run_id: &str,
+    fingerprint: &str,
+) {
+    let output = json!({
+        "meta": {
+            "schema": 2,
+            "generated": epoch_secs(),
+            "run_id": run_id,
+            "fingerprint": fingerprint,
+            "hardware": {
+                "cpu": hardware.cpu_model.clone(),
+                "cores": hardware.cpu_cores,
+                "memory_gb": hardware.memory_gb,
+                "os": hardware.os.clone(),
+                "gpu": Value::Null,
+            },
+            "runtime": {
+                "threads": 1,
+                "adaptive": true,
+                "representative": {
+                    "warmup_max": rounds_config(false).warmup_max,
+                    "warmup_budget_s": rounds_config(false).warmup_budget,
+                    "min_iters": rounds_config(false).min_iters,
+                    "max_iters": rounds_config(false).max_iters,
+                    "iter_budget_s": rounds_config(false).iter_budget,
+                },
+                "detailed": {
+                    "warmup_max": rounds_config(true).warmup_max,
+                    "warmup_budget_s": rounds_config(true).warmup_budget,
+                    "min_iters": rounds_config(true).min_iters,
+                    "max_iters": rounds_config(true).max_iters,
+                    "iter_budget_s": rounds_config(true).iter_budget,
+                },
+            },
+            "seeds": SEEDS,
+            "packages": [{
+                "id": "infomeasure-rs",
+                "language": "rust",
+                "version": env!("CARGO_PKG_VERSION"),
+                "commit": option_env!("GIT_COMMIT").unwrap_or(""),
+                "released": option_env!("GIT_RELEASED").unwrap_or(""),
+            }],
+        },
+        "benchmarks": benchmarks,
+    });
+
+    if let Some(parent) = out.parent() {
+        std::fs::create_dir_all(parent).expect("create output dir");
+    }
+    std::fs::write(out, serde_json::to_string_pretty(&output).unwrap()).expect("write output");
+}
+
 fn main() {
     let dir = data_dir();
     let out = std::env::var("BENCH_OUT")
@@ -424,12 +511,62 @@ fn main() {
         }
         Err(_) => (grid.cross_sizes.clone(), grid.detailed_sizes.clone()),
     };
-    let mut benchmarks = Vec::new();
+    let hardware = detect_hardware();
+    let run_id = format!("infomeasure-rs_{}", epoch_secs());
+    let fingerprint = fingerprint(&hardware);
+
+    let resume = std::env::var("BENCH_RESUME")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let mut benchmarks: Vec<Value> = Vec::new();
+    let mut done: HashSet<String> = HashSet::new();
+    if resume
+        && let Ok(text) = std::fs::read_to_string(&out)
+        && let Ok(obj) = serde_json::from_str::<Value>(&text)
+    {
+        let stored = obj
+            .get("meta")
+            .and_then(|m| m.get("fingerprint"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if stored == fingerprint {
+            if let Some(arr) = obj.get("benchmarks").and_then(Value::as_array) {
+                for b in arr {
+                    if let Some(id) = b.get("id").and_then(Value::as_str) {
+                        done.insert(id.to_string());
+                    }
+                    benchmarks.push(b.clone());
+                }
+            }
+            println!("resume: {} existing entries kept", benchmarks.len());
+        } else {
+            println!("resume: fingerprint changed ({stored:?} != {fingerprint:?}); starting fresh");
+        }
+    }
+
     let mut cross_rounds = None;
     let mut detail_rounds = None;
+    let mut current_measure = String::new();
 
     for v in &grid.variants {
+        // Flush at every measure boundary so a cancelled run keeps progress.
+        if v.measure != current_measure {
+            if !benchmarks.is_empty() {
+                write_fragment(&out, &benchmarks, &hardware, &run_id, &fingerprint);
+            }
+            current_measure = v.measure.clone();
+        }
         for &n in &detailed_sizes {
+            let id = format!(
+                "{}/{}/{}/n{}/infomeasure-rs",
+                v.measure,
+                v.approach,
+                v.slug(),
+                n
+            );
+            if done.contains(&id) {
+                continue;
+            }
             // Representative entries: a representative variant at a cross size.
             // They use all seeds + the standard adaptive budget; every other
             // entry uses one seed + the tight detailed budget.
@@ -489,16 +626,8 @@ fn main() {
                 if is_rep { "  [cross]" } else { "" }
             );
 
-            let id = format!(
-                "{}/{}/{}/n{}/{}",
-                v.measure,
-                v.approach,
-                v.slug(),
-                n,
-                "infomeasure-rs"
-            );
             benchmarks.push(json!({
-                "id": id,
+                "id": id.clone(),
                 "package": "infomeasure-rs",
                 "language": "rust",
                 "measure": v.measure,
@@ -509,59 +638,10 @@ fn main() {
                 "statistics": st,
                 "value": value,
             }));
+            done.insert(id);
         }
     }
 
-    let hardware = detect_hardware();
-    let output = json!({
-        "meta": {
-            "schema": 2,
-            "generated": epoch_secs(),
-            "run_id": format!("infomeasure-rs_{}", epoch_secs()),
-            "hardware": {
-                "cpu": hardware.cpu_model,
-                "cores": hardware.cpu_cores,
-                "memory_gb": hardware.memory_gb,
-                "os": hardware.os,
-                "gpu": Value::Null,
-            },
-            "runtime": {
-                "threads": 1,
-                "adaptive": true,
-                "representative": {
-                    "warmup_max": rounds_config(false).warmup_max,
-                    "warmup_budget_s": rounds_config(false).warmup_budget,
-                    "min_iters": rounds_config(false).min_iters,
-                    "max_iters": rounds_config(false).max_iters,
-                    "iter_budget_s": rounds_config(false).iter_budget,
-                },
-                "detailed": {
-                    "warmup_max": rounds_config(true).warmup_max,
-                    "warmup_budget_s": rounds_config(true).warmup_budget,
-                    "min_iters": rounds_config(true).min_iters,
-                    "max_iters": rounds_config(true).max_iters,
-                    "iter_budget_s": rounds_config(true).iter_budget,
-                },
-            },
-            "seeds": SEEDS,
-            "packages": [{
-                "id": "infomeasure-rs",
-                "language": "rust",
-                "version": env!("CARGO_PKG_VERSION"),
-                "commit": option_env!("GIT_COMMIT").unwrap_or(""),
-                "released": option_env!("GIT_RELEASED").unwrap_or(""),
-            }],
-        },
-        "benchmarks": benchmarks,
-    });
-
-    if let Some(parent) = out.parent() {
-        std::fs::create_dir_all(parent).expect("create output dir");
-    }
-    std::fs::write(&out, serde_json::to_string_pretty(&output).unwrap()).expect("write output");
-    println!(
-        "wrote {} entries to {}",
-        output["benchmarks"].as_array().unwrap().len(),
-        out.display()
-    );
+    write_fragment(&out, &benchmarks, &hardware, &run_id, &fingerprint);
+    println!("wrote {} entries to {}", benchmarks.len(), out.display());
 }
