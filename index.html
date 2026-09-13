@@ -474,6 +474,9 @@ function buildDetailEntries() {
   for (const id of ['infomeasure-rs', 'infomeasure-python']) {
     const frag = CAT.data[id]; if (!frag) continue;
     for (const e of frag.benchmarks || []) {
+      // NSB is only valid on undersampled data and returns no value here
+      // (both implementations); exclude it from the detailed view.
+      if (e.params && e.params.method === 'nsb') continue;
       DETAIL.entries.push({ ...e, package: id, language: e.language, dapp: detailApproach(e), sub: subApproach(e) });
     }
   }
