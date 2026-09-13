@@ -9,6 +9,7 @@ when:
   - event: manual
   - event: cron
     branch: main
+    cron: docker-*
     path: [.docker/Dockerfile, tests/validation_crate/requirements.txt]
 
 matrix:

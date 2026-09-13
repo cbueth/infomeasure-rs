@@ -4,18 +4,23 @@
 
 # Cross-package benchmark collection and publishing.
 #
+# Single workflow on `main` (Option B). Woodpecker reads the config from the
+# triggering branch, so this file must NOT be mirrored to `pages`; the `pages`
+# branch only carries `registry.json`, the viewer and the data fragments.
+#
 # Stages (sequential steps in one workflow):
-#   checkout   clone `pages` (registry + existing fragments) and the source
-#   plan       check upstream versions and decide what this run does
-#   sync-pins  expand registry.json into .pins/ for the image build
-#   image      build/publish codeberg.org/cbueth/infomeasure-rs:bench (kaniko)
-#   collect    run the collectors in :bench, then push fragments to `pages`
+#   checkout     clone `pages` (registry + existing fragments) and the source
+#   plan         check upstream versions and decide what this run does
+#   sync-pins    expand registry.json into .pins/ for the image build
+#   image        build/publish codeberg.org/cbueth/infomeasure-rs:bench (kaniko)
+#   collect      run the collectors in :bench, then push fragments to `pages`
 #   registry-pr  open a registry-update PR against `pages` (cron only)
 #
-# Triggers: release tag, manual, bi-weekly cron (on `pages`, so it does not
-# fire the toolchain image cron on `main`), and a push to `pages` that changes
-# registry.json (i.e. a merged registry PR -> collect just those packages).
-# A push to `main` touching .docker/** only rebuilds the :bench image.
+# Triggers:
+#   manual            full collection, publish
+#   release tag       full collection, publish
+#   cron (bench-*)    registry check -> PR, or collect packages whose pins moved
+#   push main .docker rebuild the :bench image only
 # Nothing is ever pushed to `main`.
 workspace:
   base: /build
@@ -29,10 +34,8 @@ when:
   - event: manual
   - event: tag
   - event: cron
-    branch: pages
-  - event: push
-    branch: pages
-    path: [registry.json]
+    branch: main
+    cron: bench-*
   - event: push
     branch: main
     path: [.docker/**]
@@ -48,35 +51,48 @@ steps:
         from_secret: PAGES_TOKEN
     commands:
       - rm -rf pages src
-      - git clone --depth 2 --branch pages "https://oauth2:$PAGES_TOKEN@codeberg.org/cbueth/infomeasure-rs.git" pages
+      - git clone --branch pages "https://oauth2:$PAGES_TOKEN@codeberg.org/cbueth/infomeasure-rs.git" pages
       - |
         REF="main"
         if [ -n "$CI_COMMIT_TAG" ]; then
           REF="$CI_COMMIT_TAG"
-        elif [ "$CI_PIPELINE_EVENT" = "manual" ] && [ "$CI_COMMIT_BRANCH" != "pages" ]; then
+        elif [ "$CI_PIPELINE_EVENT" = "manual" ] && [ -n "$CI_COMMIT_BRANCH" ]; then
           REF="$CI_COMMIT_BRANCH"
         fi
       - git clone --depth 1 --branch "$REF" https://codeberg.org/cbueth/infomeasure-rs.git src
+      - |
+        if [ ! -f src/scripts/bench_packages/run_all.sh ]; then
+          echo "ERROR: collector scripts not found on '$REF'."
+          exit 1
+        fi
 
   - name: plan
     image: python:3.12-alpine
     commands:
       - apk add --no-cache git >/dev/null 2>&1 || true
-      - |
-        if [ "$CI_PIPELINE_EVENT" = "cron" ]; then
-          python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --write --report versions.json --changed-out changed.txt || true
-        else
-          python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --report versions.json --changed-out changed.txt || true
-        fi
+      - python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --report versions.json --changed-out changed.txt || true
       - BENCH_CRON_BIWEEKLY=1 python3 src/scripts/bench_packages/ci_plan.py | tee plan.env
 
   - name: sync-pins
     image: python:3.12-alpine
+    when:
+      - event: [manual, tag, cron]
+      - event: push
+        branch: main
+        path: [.docker/**]
     commands:
-      - python3 src/scripts/bench_packages/sync_pins.py --registry pages/registry.json --out .pins
+      # Build context is the workspace root (the kaniko plugin's default), so
+      # stage the Dockerfile dir and the derived pins there.
+      - python3 src/scripts/bench_packages/sync_pins.py --registry pages/registry.json --out /build/.pins
+      - mkdir -p /build/.docker && cp -r /build/src/.docker/. /build/.docker/
 
   - name: image
     image: woodpeckerci/plugin-kaniko
+    when:
+      - event: [manual, tag, cron]
+      - event: push
+        branch: main
+        path: [.docker/**]
     settings:
       dockerfile: .docker/Dockerfile.bench
       repo: *repo
@@ -86,41 +102,41 @@ steps:
       password:
         from_secret: CODEBERG_PACKAGES_TOKEN
       single-snapshot: true
-      # Registry-backed layer cache so rebuilds are incremental.
+      # Registry-backed layer cache so rebuilds are incremental. The plugin
+      # prefixes the registry, so this must NOT include codeberg.org.
       cache: true
-      cache_repo: codeberg.org/cbueth/infomeasure-rs-cache
-    when:
-      - event: [manual, tag]
-      - event: push
-        branch: pages
-      - event: push
-        branch: main
-        path: [.docker/**]
+      cache_repo: cbueth/infomeasure-rs-cache
 
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
     environment:
       PAGES_TOKEN:
         from_secret: PAGES_TOKEN
+    when:
+      - event: [manual, tag, cron]
     commands:
-      - set -a; . plan.env; set +a
+      - cd /build
+      - . /build/plan.env
+      - |
+        if [ "$ACTION" != "collect" ]; then
+          echo "plan: no collection for this event (ACTION=$ACTION); skipping"
+          exit 0
+        fi
+      - echo "plan ACTION=$ACTION PACKAGES=${PACKAGES:-all} MODE=$MODE"
       - mkdir -p /build/target/bench-data/results
       - cp /build/pages/data/*.json /build/target/bench-data/results/ 2>/dev/null || true
       - cd /build/src
       - BENCH_DATA_DIR=/build/target/bench-data BENCH_PACKAGES="$PACKAGES" bash scripts/bench_packages/run_all.sh
       - RESULTS_DIR=/build/target/bench-data/results PAGES_DIR=/build/pages bash scripts/bench_packages/publish_fragments.sh
-    when:
-      - event: [manual, tag]
-      - event: push
-        branch: pages
 
   - name: registry-pr
     image: python:3.12-alpine
     environment:
       GITEA_TOKEN:
         from_secret: PAGES_TOKEN
-    commands:
-      - apk add --no-cache git >/dev/null 2>&1 || true
-      - python3 src/scripts/bench_packages/open_pages_pr.py
     when:
       - event: cron
+    commands:
+      - apk add --no-cache git >/dev/null 2>&1 || true
+      - python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --write --report versions.json --changed-out changed.txt || true
+      - python3 src/scripts/bench_packages/open_pages_pr.py

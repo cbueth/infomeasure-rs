@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import sys
 from collections import Counter
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as dist_version
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -31,6 +33,15 @@ import dit  # noqa: E402
 
 APPROACH = "discrete"
 MEASURES = ["entropy", "mi"]
+
+
+def installed_version() -> str:
+    # dit.__version__ is stale (reports 1.5 for the 2.2 release); the
+    # distribution metadata matches the pinned package version.
+    try:
+        return dist_version("dit")
+    except PackageNotFoundError:
+        return getattr(dit, "__version__", "unknown")
 
 
 def distribution(rows):
@@ -93,7 +104,7 @@ def main() -> int:
     write_fragment(
         "dit",
         "python",
-        "1.5",
+        installed_version(),
         benchmarks,
         seeds,
         cfg,

@@ -72,23 +72,24 @@ Both pipelines trigger on:
 ## Cross-package benchmark pipeline (`.woodpecker/bench-packages.yml`)
 
 Collects the runtime benchmark data and publishes it to the `pages` branch. It
-runs on the self-hosted GPU testbed and never touches `main`.
+runs on the self-hosted GPU testbed and never touches `main`. The workflow and
+all collector code live on `main` only; `pages` carries `registry.json`, the
+viewer and `data/`.
 
 Stages (sequential steps in one workflow):
 
-1. **checkout** – clones `pages` (registry + existing fragments) and the source.
+1. **checkout** – clones `pages` (registry + existing fragments) and the source
+   (`main`, or the triggering branch on a manual run).
 2. **plan** – `check_versions.py` compares the pins to upstream; `ci_plan.py`
-   decides the action (`collect` / `open-pr` / `none`).
-3. **sync-pins** – expands `pages/registry.json` into `.pins/`.
+   decides the action (`collect` / `open-pr` / `none`) and writes `plan.env`.
+3. **sync-pins** – expands `pages/registry.json` into `.pins/` for the image.
 4. **image** – builds/publishes `codeberg.org/cbueth/infomeasure-rs:bench` with
-   kaniko (registry-backed layer cache in
-   `codeberg.org/cbueth/infomeasure-rs-cache`; skipped on cron runs). Rebuilt on
-   manual/tag, on a `pages` registry change, and on a push to `main` touching
-   `.docker/**`.
+   kaniko (registry-backed layer cache in `cbueth/infomeasure-rs-cache`; the
+   plugin prepends the registry, so the setting omits `codeberg.org/`).
 5. **collect-and-publish** – runs the collectors inside `:bench`, then pushes the
    changed fragments to `pages`.
-6. **registry-pr** – opens a PR against `pages` when a new upstream version is
-   found (cron only).
+6. **registry-pr** – writes and opens the registry bump PR against `pages`
+   (cron only).
 
 Policy by trigger:
 
@@ -96,12 +97,20 @@ Policy by trigger:
 | --- | --- |
 | manual | collect **all** packages, publish |
 | release tag | collect **all** packages, publish |
-| push to `pages` (registry.json) | collect only the **changed** packages; if no fragments exist yet, collect all |
-| bi-weekly cron | check upstream versions; open a `pages` PR if anything moved |
+| cron `bench-*` | if upstream moved, open a `pages` registry PR; otherwise collect the packages whose published fragment is missing or pinned to a different version |
+| push to `main` (`.docker/**`) | rebuild/publish `:bench` only |
 
-The collector source is cloned from `main` for tag/cron/pages events; a
-**manual** run uses the selected branch instead, so the workflow can be tested
-on a PR branch before it is merged.
+There is **no** workflow copy on `pages` (single-workflow Option B): Woodpecker
+reads `.woodpecker/` from the branch that triggers, so a manual/tag/`bench-*`
+cron run on `main` uses this file. Consequently a `push to pages` triggers
+nothing — a merged registry PR is picked up by the next `bench-*` cron via the
+staleness check (`pages/data` fragment version vs `registry.json`), which delays
+collection by up to one cron interval. Fragments are published directly to
+`pages`; nothing is pushed to `main`.
+
+The collector source is cloned from `main` for tag/cron events; a **manual** run
+uses the selected branch instead, so the workflow can be tested on a PR branch
+before it is merged.
 
 ### Required secrets (Woodpecker → repository → Settings → Secrets)
 
@@ -118,19 +127,21 @@ If the `:bench` image is private, add Codeberg registry credentials under
 
 ### Cron jobs (Woodpecker → repository → Settings → Cron)
 
-- Docker toolchain image: move the existing weekly build to **`0 2 * * 2`**
-  (Tuesdays 02:00) on branch **`main`**.
-- Benchmark registry check: add **`0 3 * * 2`** (Tuesdays 03:00) on branch
-  **`pages`**. It runs on `pages` on purpose so it does not also fire the
-  toolchain-image cron that lives on `main` (Woodpecker cron events trigger
-  every workflow whose `when` matches the branch). The pipeline gates itself to
-  every second ISO week (`BENCH_CRON_BIWEEKLY=1`), so it effectively runs
-  bi-weekly.
+Both crons run on branch **`main`** and are separated by their **name**, which
+the workflow `when` blocks match with a glob (`cron: bench-*` / `cron: docker-*`)
+so they do not fire each other:
+
+- Docker toolchain image: name the cron **`docker-*`** (e.g. `docker-weekly`).
+- Benchmark run: name the cron **`bench-*`** (e.g. `bench-biweekly`). The
+  pipeline gates itself to every second ISO week (`BENCH_CRON_BIWEEKLY=1`), so
+  it effectively runs bi-weekly. On an "off" week it does nothing.
 
 ### Fragment contract
 
 Fragments are schema-v2 JSON written by `scripts/bench_packages/*` collectors;
-`merge_results.py` stamps the run's hardware into every fragment. The site
+`merge_results.py` stamps the run's hardware into every fragment, and each
+fragment records the installed package version in `meta.packages`. The site
 reads `pages/data/<package>.json` (missing files simply render as “not
-collected”). Publishing from a development machine is intentionally not done:
-numbers are only comparable when collected on the CI runner.
+collected”), and `ci_plan.py` uses the same version to decide staleness.
+Publishing from a development machine is intentionally not done: numbers are
+only comparable when collected on the CI runner.

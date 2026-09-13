@@ -11,63 +11,89 @@ Inputs (environment, set by Woodpecker): ``CI_PIPELINE_EVENT``,
 Outputs ``plan.env`` with:
     ACTION     collect | open-pr | none
     PACKAGES   all | comma-separated ids
-    MODE       full | selective | none
+    MODE       full | selective | registry-pr | none
 
-Policy:
+Policy (single workflow on ``main``):
     manual / tag        -> collect everything
-    push to pages       -> collect the packages whose pins changed (or all if
-                           no fragments exist yet)
-    cron                -> open a registry-update PR if upstream moved
+    cron                -> open a registry PR if upstream moved, otherwise
+                           collect the packages whose published fragment is
+                           missing or pinned to a different version
+    push (main)         -> nothing (the image step handles ``.docker/**``)
 """
 
 from __future__ import annotations
 
 import json
 import os
-import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 PAGES = Path("pages")
 REGISTRY = PAGES / "registry.json"
+DATA = PAGES / "data"
 
 
-def _ids(registry: dict) -> dict[str, str]:
-    return {p["id"]: p.get("version") for p in registry.get("packages", [])}
+def published_versions() -> dict[str, str | None]:
+    """Map package id -> version recorded in its published fragment.
+
+    Fragments live on ``pages`` as ``data/<id>.json`` and are the *result* of
+    the last collection, so a mismatch against ``registry.json`` means the pin
+    moved (a merged registry PR) and the package needs re-collecting.
+    """
+    versions: dict[str, str | None] = {}
+    if not DATA.is_dir():
+        return versions
+    for frag in DATA.glob("*.json"):
+        try:
+            obj = json.loads(frag.read_text())
+        except json.JSONDecodeError:
+            continue
+        for pkg in obj.get("meta", {}).get("packages", []):
+            pid = pkg.get("id")
+            if pid:
+                versions[pid] = pkg.get("version")
+    return versions
 
 
-def changed_via_git() -> list[str]:
-    """Packages whose pinned version changed in the pages push."""
+def stale_packages() -> list[str]:
+    """Registry packages whose published fragment is missing or out of date."""
     try:
-        prev = subprocess.check_output(
-            ["git", "-C", str(PAGES), "show", "HEAD~1:registry.json"],
-            text=True,
-        )
-        old = _ids(json.loads(prev))
-    except (subprocess.CalledProcessError, json.JSONDecodeError, FileNotFoundError):
+        registry = json.loads(REGISTRY.read_text())
+    except (OSError, json.JSONDecodeError):
         return []
-    new = _ids(json.loads(REGISTRY.read_text()))
-    return sorted(pid for pid in set(old) | set(new) if old.get(pid) != new.get(pid))
+    published = published_versions()
+    return sorted(
+        pkg["id"]
+        for pkg in registry.get("packages", [])
+        if published.get(pkg["id"]) != pkg.get("version")
+    )
+
+
+def _write(action: str, packages: str, mode: str) -> int:
+    lines = [f"ACTION={action}", f"PACKAGES={packages}", f"MODE={mode}"]
+    Path("plan.env").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    return 0
 
 
 def main() -> int:
     event = os.environ.get("CI_PIPELINE_EVENT", "")
-    branch = os.environ.get("CI_COMMIT_BRANCH", "")
     tag = os.environ.get("CI_COMMIT_TAG", "")
 
     action, packages, mode = "none", "", "none"
 
     if event == "cron":
-        # Optional bi-weekly gate: the Woodpecker cron fires weekly, but the
-        # registry check only runs on even ISO weeks when BENCH_CRON_BIWEEKLY=1.
+        # Bi-weekly gate: the Woodpecker cron fires weekly, but the registry
+        # check only acts on even ISO weeks when BENCH_CRON_BIWEEKLY=1.
         if os.environ.get("BENCH_CRON_BIWEEKLY") == "1":
             week = int(datetime.now(timezone.utc).strftime("%V"))
             if week % 2 != 0:
-                Path("plan.env").write_text("ACTION=none\nPACKAGES=\nMODE=none\n")
-                print("ACTION=none (bi-weekly: off week)")
-                return 0
+                print("bi-weekly: off week", file=sys.stderr)
+                return _write("none", "", "none")
+
+        changes: list[str] = []
         report_path = Path("versions.json")
-        changes = []
         if report_path.exists():
             try:
                 changes = json.loads(report_path.read_text()).get("collectible_ids", [])
@@ -75,21 +101,17 @@ def main() -> int:
                 changes = []
         if changes:
             action, packages, mode = "open-pr", ",".join(changes), "registry-pr"
-    elif event == "push" and branch == "pages":
-        action = "collect"
-        data = PAGES / "data"
-        have_data = data.is_dir() and any(data.glob("*.json"))
-        changed = changed_via_git()
-        packages = ",".join(changed) if (have_data and changed) else "all"
-        mode = "selective" if packages != "all" else "full"
+        else:
+            stale = stale_packages()
+            if stale:
+                have_data = DATA.is_dir() and any(DATA.glob("*.json"))
+                action = "collect"
+                packages = ",".join(stale)
+                mode = "selective" if have_data else "full"
     elif event in ("manual", "tag") or tag:
         action, packages, mode = "collect", "all", "full"
 
-    lines = [f"ACTION={action}", f"PACKAGES={packages}", f"MODE={mode}"]
-    Path("plan.env").write_text("\n".join(lines) + "\n")
-    for line in lines:
-        print(line)
-    return 0
+    return _write(action, packages, mode)
 
 
 if __name__ == "__main__":
