@@ -251,7 +251,7 @@ impl GlobalValue for NsbEntropy {
 
         // Avoid singularity at beta=0 by starting slightly above 0.
         let a = 1e-8;
-        let (den, num) = adaptive_gk15_dual(&integrand, a, upper, self.tol, MAX_SUBDIVISIONS);
+        let (den, num) = adaptive_gk15_dual(&integrand, a, upper, self.tol, MAX_INTERVALS);
 
         if den == 0.0 || !den.is_finite() {
             return f64::NAN;
@@ -260,11 +260,13 @@ impl GlobalValue for NsbEntropy {
     }
 }
 
-/// Maximum recursion depth for the adaptive integrator. This is a *depth* bound,
-/// so the worst-case interval count is `2^MAX_SUBDIVISIONS`. It must stay small:
-/// near the β→0 singularity the integrand is steep and the error estimate never
-/// converges, so without a tight cap the bisection would explode exponentially.
-const MAX_SUBDIVISIONS: usize = 12;
+/// Maximum number of subintervals the global adaptive integrator will create.
+/// The recursion used to bisect every interval whose *local* error estimate
+/// exceeded the level tolerance, which over-refined the flat regions and hit
+/// `2^12` intervals near the β→0 singularity. The global scheme splits the
+/// single worst interval until the summed error is below the tolerance or this
+/// cap is reached, matching what `dqags`/`scipy.quad` do with `limit`.
+const MAX_INTERVALS: usize = 500;
 
 /// Abscissae, Kronrod weights and embedded Gauss weights of the 15-point
 /// Gauss–Kronrod rule (QUADPACK `dqk15`). Only the positive abscissae are given;
@@ -354,27 +356,51 @@ fn gk15_dual<F: Fn(f64) -> (f64, f64)>(f: &F, a: f64, b: f64) -> ((f64, f64), (f
     ((res_den, res_num), (err_den, err_num))
 }
 
-/// Adaptive Gauss–Kronrod 15 integration of a two-component integrand by
-/// recursive bisection until both error estimates are below `tol` or
-/// `max_depth` subdivisions are reached. Returns `(den, num)`.
+/// Global adaptive Gauss–Kronrod 15 integration of a two-component integrand.
+///
+/// Keeps a set of subintervals and repeatedly bisects the one with the largest
+/// error estimate until the summed error is below `tol` or `limit` intervals
+/// exist, then returns the summed `(den, num)` integrals. This is the `dqags`
+/// strategy (minus extrapolation): it spends evaluations only where the error
+/// is, whereas the previous per-level recursion over-refined flat regions and
+/// saturated at `2^12` intervals against the β→0 singularity.
 fn adaptive_gk15_dual<F: Fn(f64) -> (f64, f64)>(
     f: &F,
     a: f64,
     b: f64,
     tol: f64,
-    max_depth: usize,
+    limit: usize,
 ) -> (f64, f64) {
-    if max_depth == 0 {
-        return gk15_dual(f, a, b).0;
+    // (a, b, res_den, res_num, err_den, err_num)
+    let ((den, num), (err_den, err_num)) = gk15_dual(f, a, b);
+    let mut intervals = vec![(a, b, den, num, err_den, err_num)];
+    let (mut total_den, mut total_num) = (den, num);
+    let mut total_err = err_den.max(err_num);
+
+    while intervals.len() < limit && total_err > tol {
+        let idx = intervals
+            .iter()
+            .enumerate()
+            .max_by(|(_, x), (_, y)| {
+                x.4.max(x.5)
+                    .partial_cmp(&y.4.max(y.5))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i)
+            .expect("non-empty");
+        let (ia, ib, iden, inum, _, _) = intervals.swap_remove(idx);
+        total_den -= iden;
+        total_num -= inum;
+        let mid = 0.5 * (ia + ib);
+        let ((ld, ln), (led, len)) = gk15_dual(f, ia, mid);
+        let ((rd, rn), (red, ren)) = gk15_dual(f, mid, ib);
+        intervals.push((ia, mid, ld, ln, led, len));
+        intervals.push((mid, ib, rd, rn, red, ren));
+        total_den += ld + rd;
+        total_num += ln + rn;
+        total_err = intervals.iter().map(|it| it.4.max(it.5)).sum();
     }
-    let c = 0.5 * (a + b);
-    let ((whole_den, whole_num), (err_den, err_num)) = gk15_dual(f, a, b);
-    if err_den < tol && err_num < tol {
-        return (whole_den, whole_num);
-    }
-    let (dl, nl) = adaptive_gk15_dual(f, a, c, tol * 0.5, max_depth - 1);
-    let (dr, nr) = adaptive_gk15_dual(f, c, b, tol * 0.5, max_depth - 1);
-    (dl + dr, nl + nr)
+    (total_den, total_num)
 }
 
 impl LocalValues for NsbEntropy {
