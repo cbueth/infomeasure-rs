@@ -356,35 +356,6 @@ where
     reduce_views_compact(&views)
 }
 
-/// Build a [`DiscreteDataset`] from dense codes plus their per-code counts,
-/// skipping the usual recount pass. `dense_counts[i]` is the frequency of
-/// code `i`; the alphabet is exactly `0..dense_counts.len()`.
-pub(crate) fn dataset_from_dense_codes(
-    codes: Array1<i32>,
-    dense_counts: &[usize],
-) -> DiscreteDataset {
-    let n: usize = dense_counts.iter().sum();
-    let k = dense_counts.len();
-    let n_f = n as f64;
-    let mut counts_map = FxHashMap::with_capacity_and_hasher(k, Default::default());
-    let mut dist = FxHashMap::with_capacity_and_hasher(k, Default::default());
-    for (i, &cnt) in dense_counts.iter().enumerate() {
-        if cnt == 0 {
-            continue;
-        }
-        counts_map.insert(i as i32, cnt);
-        dist.insert(i as i32, cnt as f64 / n_f);
-    }
-    DiscreteDataset {
-        data: codes,
-        counts: counts_map,
-        n,
-        k,
-        dist,
-        has_data: true,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
