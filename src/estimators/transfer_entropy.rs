@@ -73,7 +73,7 @@
 //! and input dimensionalities you provide.
 
 use crate::estimators::approaches::discrete::{
-    DiscreteConditionalTransferEntropy, DiscreteTransferEntropy,
+    DenseCmiBuilder, DiscreteConditionalTransferEntropy, DiscreteTransferEntropy,
 };
 use ndarray::{Array1, Array2, Axis};
 
@@ -685,6 +685,34 @@ impl TransferEntropy {
         )
     }
 
+    /// Timing-optimised builder for the dense direct discrete-MLE transfer
+    /// entropy `T(X -> Y) = I(X_past; Y_t | Y_past)`.
+    ///
+    /// Borrows the raw code columns; see [`DenseCmiBuilder`], which also
+    /// documents the two terminals.
+    ///
+    /// ```rust
+    /// use infomeasure::estimators::entropy::GlobalValue;
+    /// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+    ///
+    /// let x = [0, 1, 0, 1, 1, 0, 1, 0];
+    /// let y = [0, 0, 1, 1, 0, 1, 0, 1];
+    /// let te = TransferEntropy::te_discrete_mle(&x, &y, 1, 1, 1)
+    ///     .with_alphabet(2)
+    ///     .global_only()
+    ///     .global_value();
+    /// assert!(te.is_finite());
+    /// ```
+    pub fn te_discrete_mle<'a>(
+        source: &'a [i32],
+        destination: &'a [i32],
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        step_size: usize,
+    ) -> DenseCmiBuilder<'a> {
+        DenseCmiBuilder::from_te(source, destination, src_hist_len, dest_hist_len, step_size)
+    }
+
     /// Create a Kernel-based transfer entropy estimator.
     pub fn new_kernel(
         source: &Array1<f64>,
@@ -1005,6 +1033,46 @@ impl TransferEntropy {
         step_size: usize,
     ) -> DiscreteConditionalTransferEntropy<DiscreteEntropy> {
         DiscreteConditionalTransferEntropy::new_mle(
+            source,
+            destination,
+            condition,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+        )
+    }
+
+    /// Timing-optimised builder for the dense direct discrete-MLE conditional
+    /// transfer entropy `T(X -> Y | Z) = I(X_past; Y_t | Y_past, Z_past)`.
+    ///
+    /// Borrows the raw code columns; see [`DenseCmiBuilder`], which also
+    /// documents the two terminals.
+    ///
+    /// ```rust
+    /// use infomeasure::estimators::entropy::GlobalValue;
+    /// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+    ///
+    /// let x = [0, 1, 0, 1, 1, 0, 1, 0];
+    /// let y = [0, 0, 1, 1, 0, 1, 0, 1];
+    /// let z = [0, 0, 1, 1, 0, 0, 1, 1];
+    /// let cte = TransferEntropy::cte_discrete_mle(&x, &y, &z, 1, 1, 1, 1)
+    ///     .with_alphabet(2)
+    ///     .global_only()
+    ///     .global_value();
+    /// assert!(cte.is_finite());
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn cte_discrete_mle<'a>(
+        source: &'a [i32],
+        destination: &'a [i32],
+        condition: &'a [i32],
+        src_hist_len: usize,
+        dest_hist_len: usize,
+        cond_hist_len: usize,
+        step_size: usize,
+    ) -> DenseCmiBuilder<'a> {
+        DenseCmiBuilder::from_cte(
             source,
             destination,
             condition,

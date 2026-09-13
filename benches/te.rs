@@ -69,6 +69,26 @@ fn bench_discrete_te(c: &mut Criterion) {
                 black_box(te.global_value())
             });
         });
+
+        // Known-alphabet, global-only builder (the collector path): borrows the
+        // columns and skips the alphabet scan and input retention.
+        let id = BenchmarkId::new("mle_alphabet", size);
+        group.bench_with_input(id, &size, |b, _| {
+            b.iter(|| {
+                black_box(
+                    TransferEntropy::te_discrete_mle(
+                        source_arr.as_slice().unwrap(),
+                        target_arr.as_slice().unwrap(),
+                        1,
+                        1,
+                        1,
+                    )
+                    .with_alphabet(num_states as usize)
+                    .global_only()
+                    .global_value(),
+                )
+            });
+        });
     }
 
     group.finish();

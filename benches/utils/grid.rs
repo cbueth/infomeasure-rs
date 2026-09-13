@@ -49,16 +49,25 @@ impl Variant {
         }
     }
 
-    /// Function name shown on the page (infomeasure-rs API symbol).
+    /// Function name shown on the page (infomeasure-rs API symbol). Mirrors the
+    /// constructor the collector actually calls for this variant.
     pub fn function(&self) -> String {
         let m = self.api_measure();
         match self.approach.as_str() {
             "discrete" => {
                 let method = self.method.as_deref().unwrap_or("mle");
-                if method == "mle" {
-                    format!("{m}::new_discrete_mle")
-                } else {
-                    format!("{m}::new_discrete_{method}")
+                let mle = method == "mle";
+                match self.measure.as_str() {
+                    "entropy" if mle => "Entropy::new_discrete_from_slice".into(),
+                    "entropy" => format!("Entropy::new_{method}"),
+                    "cmi" if mle => "MutualInformation::cmi_discrete_mle".into(),
+                    "cmi" => format!("MutualInformation::new_cmi_discrete_{method}"),
+                    "te" if mle => "TransferEntropy::te_discrete_mle".into(),
+                    "te" => format!("TransferEntropy::new_discrete_{method}"),
+                    "cte" if mle => "TransferEntropy::cte_discrete_mle".into(),
+                    "cte" => format!("TransferEntropy::new_cte_discrete_{method}"),
+                    "mi" if mle => "MutualInformation::mi_discrete_mle".into(),
+                    _ => format!("{m}::new_discrete_{method}"),
                 }
             }
             "kernel" => format!("{m}::new_kernel_with_type"),

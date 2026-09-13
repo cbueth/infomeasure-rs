@@ -101,6 +101,13 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 }
             }
             "mi" => {
+                if method == "mle" {
+                    // Borrowed, known-alphabet, global-only: no input clones.
+                    return MutualInformation::mi_discrete_mle(&[&cols[0], &cols[1]])
+                        .with_alphabet(NUM_STATES_DISCRETE as usize)
+                        .global_only()
+                        .global_value();
+                }
                 let s = [a(0), a(1)];
                 match method {
                     "miller_madow" => {
@@ -121,6 +128,13 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 }
             }
             "cmi" => {
+                if method == "mle" {
+                    // Borrowed, known-alphabet, global-only: no input clones.
+                    return MutualInformation::cmi_discrete_mle(&[&cols[0], &cols[1]], &cols[2])
+                        .with_alphabet(NUM_STATES_DISCRETE as usize)
+                        .global_only()
+                        .global_value();
+                }
                 let z = a(2);
                 let s = [a(0), a(1)];
                 match method {
@@ -148,6 +162,12 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 }
             }
             "te" => {
+                if method == "mle" {
+                    return TransferEntropy::te_discrete_mle(&cols[0], &cols[1], 1, 1, 1)
+                        .with_alphabet(NUM_STATES_TE as usize)
+                        .global_only()
+                        .global_value();
+                }
                 let (x, y) = (a(0), a(1));
                 match method {
                     "miller_madow" => {
@@ -176,6 +196,14 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 }
             }
             "cte" => {
+                if method == "mle" {
+                    return TransferEntropy::cte_discrete_mle(
+                        &cols[0], &cols[1], &cols[2], 1, 1, 1, 1,
+                    )
+                    .with_alphabet(NUM_STATES_TE as usize)
+                    .global_only()
+                    .global_value();
+                }
                 let (x, y, z) = (a(0), a(1), a(2));
                 match method {
                     "miller_madow" => {

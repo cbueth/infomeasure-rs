@@ -825,4 +825,52 @@ mod mle_fusion_tests {
             "l={l} k={k} tau={tau}: {legacy} vs {fused}"
         );
     }
+
+    /// The dense direct path must reproduce the generic local values too, not
+    /// just the average.
+    #[test]
+    fn fused_mle_te_local_matches_generic() {
+        use crate::estimators::traits::OptionalLocalValues;
+
+        let source = codes(37, 6, 5);
+        let dest = codes(37, 6, 17);
+        let legacy = DiscreteTransferEntropy::new(&source, &dest, 2, 2, 1, DiscreteEntropy::new)
+            .local_values_opt()
+            .unwrap();
+        let fused = DiscreteTransferEntropy::new_mle(&source, &dest, 2, 2, 1)
+            .local_values_opt()
+            .unwrap();
+        assert_eq!(legacy.len(), fused.len());
+        for (a, b) in legacy.iter().zip(fused.iter()) {
+            assert!((a - b).abs() <= 1e-12 * a.abs().max(1.0), "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn fused_mle_cte_local_matches_generic() {
+        use crate::estimators::traits::OptionalLocalValues;
+
+        let source = codes(31, 5, 21);
+        let dest = codes(31, 5, 22);
+        let cond = codes(31, 4, 23);
+        let legacy = DiscreteConditionalTransferEntropy::new(
+            &source,
+            &dest,
+            &cond,
+            2,
+            2,
+            2,
+            1,
+            DiscreteEntropy::new,
+        )
+        .local_values_opt()
+        .unwrap();
+        let fused = DiscreteConditionalTransferEntropy::new_mle(&source, &dest, &cond, 2, 2, 2, 1)
+            .local_values_opt()
+            .unwrap();
+        assert_eq!(legacy.len(), fused.len());
+        for (a, b) in legacy.iter().zip(fused.iter()) {
+            assert!((a - b).abs() <= 1e-12 * a.abs().max(1.0), "{a} vs {b}");
+        }
+    }
 }

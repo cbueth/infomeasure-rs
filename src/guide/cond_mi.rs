@@ -69,6 +69,28 @@
 //! let cmi = MutualInformation::new_cmi_discrete_mle(&[x, y], &z).global_value();
 //! assert!(cmi >= 0.0); // Should be 0 or very small if truly independent
 //! ```
+//! ### Performance: dense direct CMI
+//! [`cmi_discrete_mle`](crate::estimators::mutual_information::MutualInformation::cmi_discrete_mle)
+//! is the timing-optimised counterpart of
+//! [`new_cmi_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_cmi_discrete_mle):
+//! it borrows the raw code columns, skips the alphabet scan with `with_alphabet`,
+//! and drops the retained inputs with `global_only`, falling back to the generic
+//! estimator for large joint alphabets. Remember that the discrete CMI joint
+//! alphabet is the product of all variable and conditioning states. See
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//! ```rust
+//! use infomeasure::estimators::entropy::GlobalValue;
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//!
+//! let x = [0, 0, 1, 1, 0, 1, 0, 1];
+//! let y = [0, 1, 0, 1, 1, 0, 1, 0];
+//! let z = [0, 0, 1, 1, 0, 0, 1, 1];
+//! let cmi = MutualInformation::cmi_discrete_mle(&[&x, &y], &z)
+//!     .with_alphabet(2)
+//!     .global_only()
+//!     .global_value();
+//! assert!(cmi >= 0.0);
+//! ```
 //! ## See Also
 //! - [Estimator Usage Guide](super::estimator_usage) — Base MI
 //! - [Conditional Transfer Entropy Guide](super::cond_te) — TE with conditioning
