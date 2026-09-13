@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Cross-package benchmark collection and publishing.
+#
+# Stages (sequential steps in one workflow):
+#   checkout   clone `pages` (registry + existing fragments) and the source
+#   plan       check upstream versions and decide what this run does
+#   sync-pins  expand registry.json into .pins/ for the image build
+#   image      build/publish codeberg.org/cbueth/infomeasure-rs:bench (kaniko)
+#   collect    run the collectors in :bench, then push fragments to `pages`
+#   registry-pr  open a registry-update PR against `pages` (cron only)
+#
+# Triggers: release tag, manual, bi-weekly cron, and a push to `pages` that
+# changes registry.json (i.e. a merged registry PR -> collect just those
+# packages). Nothing is ever pushed to `main`.
+workspace:
+  base: /build
+  path: .
+
+labels:
+  provider: self-hosted
+  type: gpu
+
+when:
+  - event: manual
+  - event: tag
+  - event: cron
+    branch: main
+  - event: push
+    branch: pages
+    path: [registry.json]
+
+variables:
+  - &repo "cbueth/infomeasure-rs"
+
+steps:
+  - name: checkout
+    image: alpine/git
+    environment:
+      PAGES_TOKEN:
+        from_secret: PAGES_TOKEN
+    commands:
+      - rm -rf pages src
+      - git clone --depth 2 --branch pages "https://oauth2:$PAGES_TOKEN@codeberg.org/cbueth/infomeasure-rs.git" pages
+      - if [ -n "$CI_COMMIT_TAG" ]; then REF="$CI_COMMIT_TAG"; else REF="main"; fi
+      - git clone --depth 1 --branch "$REF" https://codeberg.org/cbueth/infomeasure-rs.git src
+
+  - name: plan
+    image: python:3.12-alpine
+    commands:
+      - apk add --no-cache git >/dev/null 2>&1 || true
+      - |
+        if [ "$CI_PIPELINE_EVENT" = "cron" ]; then
+          python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --write --report versions.json --changed-out changed.txt || true
+        else
+          python3 src/scripts/bench_packages/check_versions.py --registry pages/registry.json --report versions.json --changed-out changed.txt || true
+        fi
+      - BENCH_CRON_BIWEEKLY=1 python3 src/scripts/bench_packages/ci_plan.py | tee plan.env
+
+  - name: sync-pins
+    image: python:3.12-alpine
+    commands:
+      - python3 src/scripts/bench_packages/sync_pins.py --registry pages/registry.json --out .pins
+
+  - name: image
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      dockerfile: .docker/Dockerfile.bench
+      repo: *repo
+      registry: codeberg.org
+      tags: bench
+      username: cbueth
+      password:
+        from_secret: CODEBERG_PACKAGES_TOKEN
+      single-snapshot: true
+    when:
+      - event: [manual, tag]
+      - event: push
+        branch: pages
+
+  - name: collect-and-publish
+    image: codeberg.org/cbueth/infomeasure-rs:bench
+    environment:
+      PAGES_TOKEN:
+        from_secret: PAGES_TOKEN
+    commands:
+      - set -a; . plan.env; set +a
+      - mkdir -p /build/target/bench-data/results
+      - cp /build/pages/data/*.json /build/target/bench-data/results/ 2>/dev/null || true
+      - cd /build/src
+      - BENCH_DATA_DIR=/build/target/bench-data BENCH_PACKAGES="$PACKAGES" bash scripts/bench_packages/run_all.sh
+      - RESULTS_DIR=/build/target/bench-data/results PAGES_DIR=/build/pages bash scripts/bench_packages/publish_fragments.sh
+    when:
+      - event: [manual, tag]
+      - event: push
+        branch: pages
+
+  - name: registry-pr
+    image: python:3.12-alpine
+    environment:
+      GITEA_TOKEN:
+        from_secret: PAGES_TOKEN
+    commands:
+      - apk add --no-cache git >/dev/null 2>&1 || true
+      - python3 src/scripts/bench_packages/open_pages_pr.py
+    when:
+      - event: cron
