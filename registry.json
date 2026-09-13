@@ -43,6 +43,7 @@
       "id": "infomeasure-rs",
       "language": "rust",
       "ecosystem": "crates",
+      "distribution": "infomeasure",
       "collector": "benches/collect_cross_package.rs",
       "version": "0.4.0",
       "policy": "auto",
