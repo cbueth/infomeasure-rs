@@ -58,19 +58,44 @@ fn discrete_series(rng: &mut SmallRng, n: usize, states: i32) -> Vec<i32> {
     (0..n).map(|_| rng.gen_range(0..states)).collect()
 }
 
-// Target follows the source with lag 1 (5-state), mirroring the existing TE benches.
-fn discrete_te(rng: &mut SmallRng, n: usize) -> (Vec<i32>, Vec<i32>) {
-    let source = discrete_series(rng, n, NUM_STATES_TE);
+// Target follows the source with lag 1, mirroring the existing TE benches.
+fn discrete_te(rng: &mut SmallRng, n: usize, states: i32) -> (Vec<i32>, Vec<i32>) {
+    let source = discrete_series(rng, n, states);
     let mut target = Vec::with_capacity(n);
     target.push(source[0]);
     for i in 1..n {
         target.push(if source[i - 1] == source[i] {
             source[i]
         } else {
-            rng.gen_range(0..NUM_STATES_TE)
+            rng.gen_range(0..states)
         });
     }
     (source, target)
+}
+
+/// Discrete columns for one alphabet-family measure at a given state count.
+fn alphabet_cols(rng: &mut SmallRng, n: usize, measure: &str, states: i32) -> Vec<Vec<i32>> {
+    match measure {
+        "entropy" => vec![discrete_series(rng, n, states)],
+        "mi" => vec![
+            discrete_series(rng, n, states),
+            discrete_series(rng, n, states),
+        ],
+        "cmi" => vec![
+            discrete_series(rng, n, states),
+            discrete_series(rng, n, states),
+            discrete_series(rng, n, states),
+        ],
+        "te" => {
+            let (src, tgt) = discrete_te(rng, n, states);
+            vec![src, tgt]
+        }
+        "cte" => {
+            let (src, tgt) = discrete_te(rng, n, states);
+            vec![src, tgt, discrete_series(rng, n, states)]
+        }
+        _ => panic!("unknown alphabet measure {measure}"),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -162,9 +187,9 @@ fn main() -> std::io::Result<()> {
                     discrete_series(&mut rng, n, NUM_STATES_DISCRETE),
                 ],
             )?;
-            let (te_src, te_tgt) = discrete_te(&mut rng, n);
+            let (te_src, te_tgt) = discrete_te(&mut rng, n, NUM_STATES_TE);
             emit_i32(&dir, &mut entries, "te", seed, n, &[te_src, te_tgt])?;
-            let (cte_src, cte_tgt) = discrete_te(&mut rng, n);
+            let (cte_src, cte_tgt) = discrete_te(&mut rng, n, NUM_STATES_TE);
             emit_i32(
                 &dir,
                 &mut entries,
@@ -219,6 +244,29 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    // Alphabet-scaling family: discrete MLE datasets across state counts.
+    let ab = utils::grid::alphabet();
+    let mut alphabet_entries = Vec::new();
+    for measure in ALPHABET_MEASURES {
+        for &states in &ab.states_for(measure) {
+            for &seed in &SEEDS {
+                for &n in &ab.sizes {
+                    let mut rng = SmallRng::seed_from_u64(seed);
+                    let cols = alphabet_cols(&mut rng, n, measure, states as i32);
+                    let id = alphabet_dataset_id(measure, states as i32, seed, n);
+                    write_i32(&dataset_path(&dir, &id), &interleave_i32(&cols))?;
+                    alphabet_entries.push(json!({
+                        "id": id, "measure": measure, "kind": "discrete",
+                        "states": states, "dtype": "i32le", "shape": [n, cols.len()],
+                        "seed": seed, "file": format!("{id}.bin")
+                    }));
+                }
+            }
+        }
+    }
+
+    let alphabet_entry_count = alphabet_entries.len();
+
     let manifest = json!({
         "version": DATA_VERSION,
         "seeds": SEEDS,
@@ -236,13 +284,21 @@ fn main() -> std::io::Result<()> {
             "num_states_te": NUM_STATES_TE,
         },
         "datasets": entries,
+        "alphabet": {
+            "method": ab.method,
+            "states": ab.states,
+            "sizes": ab.sizes,
+            "caps": ab.caps,
+            "budget_s": ab.budget_s,
+            "datasets": alphabet_entries,
+        },
     });
     let mut f = File::create(dir.join("manifest.json"))?;
     f.write_all(serde_json::to_string_pretty(&manifest).unwrap().as_bytes())?;
 
     println!(
         "wrote {} dataset files + manifest.json to {}",
-        entries.len(),
+        entries.len() + alphabet_entry_count,
         dir.display()
     );
     Ok(())

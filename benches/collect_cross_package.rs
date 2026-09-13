@@ -490,6 +490,7 @@ fn fingerprint(hardware: &HardwareInfo) -> String {
     std::env::var("BENCH_COMMIT")
         .unwrap_or_default()
         .hash(&mut h);
+    utils::datasets::DATA_VERSION.hash(&mut h);
     hardware.cpu_model.hash(&mut h);
     utils::grid::source_hash().hash(&mut h);
     for cfg in [rounds_config(false), rounds_config(true)] {

@@ -4,6 +4,14 @@
     "cross": [100, 400, 1600, 6400, 12500],
     "detailed": [100, 200, 400, 800, 1600, 3200, 6400, 12500]
   },
+  "alphabet": {
+    "_comment": "Alphabet-scaling family: discrete MLE timed across state counts at the cross sizes. `caps` bound each measure's largest state count (the dense table is base^d, d=3 for mi/cmi/te and 4 for cte), so nothing is attempted that could exhaust memory. `budget_s` is the per-cell mean above which larger N is skipped for that (measure, states).",
+    "method": "mle",
+    "states": [5, 10, 25, 50, 200],
+    "sizes": [100, 400, 1600, 6400, 12500],
+    "caps": { "entropy": 200, "mi": 200, "cmi": 200, "te": 200, "cte": 50 },
+    "budget_s": 2.0
+  },
   "values": {
     "method": ["mle", "grassberger", "miller_madow", "ansb", "chao_shen", "chao_wang_jost", "shrink", "bayes", "bonachela", "zhang"],
     "k": [4, 5],

@@ -18,13 +18,16 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
-pub const DATA_VERSION: u32 = 1;
+pub const DATA_VERSION: u32 = 2;
 
 /// Fixed dataset seeds (randomly generated for this project, not hand-picked).
 pub const SEEDS: [u64; 4] = [610418971, 2086847849, 627358495, 1501472984];
 
 pub const NUM_STATES_DISCRETE: i32 = 10;
 pub const NUM_STATES_TE: i32 = 5;
+
+/// Discrete measures covered by the alphabet-scaling family.
+pub const ALPHABET_MEASURES: [&str; 5] = ["entropy", "mi", "cmi", "te", "cte"];
 pub const K: usize = 4;
 pub const BANDWIDTH: f64 = 0.5;
 pub const NOISE_LEVEL: f64 = 1e-10;
@@ -54,6 +57,12 @@ pub fn data_dir() -> PathBuf {
 
 pub fn dataset_id(measure: &str, kind: &str, seed: u64, n: usize) -> String {
     format!("{measure}_{kind}_s{seed}_n{n}")
+}
+
+/// Dataset id for the alphabet-scaling family, matching the cross-package
+/// collectors (`scripts/bench_packages/*` and `JidtCollector.java`).
+pub fn alphabet_dataset_id(measure: &str, states: i32, seed: u64, n: usize) -> String {
+    format!("{measure}_discrete_b{states}_s{seed}_n{n}")
 }
 
 pub fn dataset_path(dir: &Path, id: &str) -> PathBuf {

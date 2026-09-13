@@ -17,12 +17,26 @@ labels:
   type: gpu
 
 when:
+  # Normal code/benchmark changes on the active branches. PRs coming from the
+  # release-plz branch are excluded here and handled by the next clause.
   - event: [push, pull_request]
     branch: [main, develop]
     path:
       - Cargo.toml
       - Cargo.lock
       - src/**
+      - benches/**
+      - .woodpecker/**
+    evaluate: 'CI_COMMIT_SOURCE_BRANCH != "next-release/main"'
+  # Release-plz PRs (source branch next-release/main) only touch release
+  # artifacts (CHANGELOG.md, CITATION.cff, Cargo.toml, README.md, src/lib.rs).
+  # Run the benchmark suite only if something benchmark-relevant changed; a
+  # pure version bump is skipped (it already ran on main).
+  - event: pull_request
+    branch: [main, develop]
+    evaluate: 'CI_COMMIT_SOURCE_BRANCH == "next-release/main"'
+    path:
+      - Cargo.lock
       - benches/**
       - .woodpecker/**
   - event: manual

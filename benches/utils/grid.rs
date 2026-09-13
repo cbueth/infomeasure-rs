@@ -149,6 +149,48 @@ pub fn source_hash() -> u64 {
     h.finish()
 }
 
+/// Configuration of the alphabet-scaling family (discrete MLE across state
+/// counts), read from `detailed_grid.json`.
+pub struct AlphabetConfig {
+    pub method: String,
+    pub states: Vec<usize>,
+    pub sizes: Vec<usize>,
+    /// Largest state count attempted per measure (memory guard for base^d).
+    pub caps: BTreeMap<String, usize>,
+    /// Per-cell mean (seconds) above which larger N is skipped.
+    pub budget_s: f64,
+}
+
+impl AlphabetConfig {
+    /// States to collect for a measure, capped by the memory guard.
+    pub fn states_for(&self, measure: &str) -> Vec<usize> {
+        let cap = self.caps.get(measure).copied().unwrap_or(0);
+        self.states.iter().copied().filter(|&s| s <= cap).collect()
+    }
+}
+
+pub fn alphabet() -> AlphabetConfig {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/benches/detailed_grid.json");
+    let text = std::fs::read_to_string(path).expect("read detailed_grid.json");
+    let root: Value = serde_json::from_str(&text).expect("parse detailed_grid.json");
+    let a = &root["alphabet"];
+    let caps = a["caps"]
+        .as_object()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| v.as_u64().map(|x| (k.clone(), x as usize)))
+                .collect()
+        })
+        .unwrap_or_default();
+    AlphabetConfig {
+        method: a["method"].as_str().unwrap_or("mle").to_string(),
+        states: usizes(&a["states"]),
+        sizes: usizes(&a["sizes"]),
+        caps,
+        budget_s: a["budget_s"].as_f64().unwrap_or(2.0),
+    }
+}
+
 pub fn load(lang: &str) -> Grid {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/benches/detailed_grid.json");
     let text = std::fs::read_to_string(path).expect("read detailed_grid.json");

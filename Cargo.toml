@@ -141,3 +141,7 @@ harness = false
 [[bench]]
 name = "collect_cross_package"
 harness = false
+
+[[bench]]
+name = "collect_alphabet"
+harness = false
