@@ -3,612 +3,677 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Infomeasure Benchmark Viewer</title>
+<title>Infomeasure Benchmarks</title>
 <link rel="icon" href="https://raw.githubusercontent.com/cbueth/infomeasure/main/docs/_static/im_icon_transparent-200x200.png">
+<link rel="stylesheet" href="./assets/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 16px; color: #333; }
-.container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-.header { padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-.header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.header h1 { font-size: 16px; font-weight: 600; }
-.hw-badge { font-size: 11px; color: #666; background: #f0f0f0; padding: 3px 8px; border-radius: 10px; }
-.nav-links { display: flex; align-items: center; gap: 6px; }
-.nav-links a { font-size: 11px; color: #666; text-decoration: none; padding: 3px 10px; border: 1px solid #ddd; border-radius: 3px; background: #fff; }
-.nav-links a:hover { background: #f0f0f0; }
-.header-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.gpu-btn { padding:3px 10px; font-size:11px; border:1px solid #ddd; border-radius:3px; background:#fff; cursor:pointer; }
-.gpu-btn:hover { background:#f0f0f0; }
-.gpu-btn.active { background:#d4edda; color:#155724; border-color:#82b785; }
-.gpu-btn.active:hover { background:#c3e0c5; }
-.view-tabs { display: flex; border-bottom: 1px solid #ddd; padding: 0 20px; background: #fafafa; }
-.view-tab { padding: 8px 14px; font-size: 12px; border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; cursor: pointer; margin-right: 2px; margin-bottom: -1px; background: transparent; color: #666; font-weight: 500; }
-.view-tab:hover { background: #f0f0f0; }
-.view-tab.active { background: #fff; border-color: #ddd; color: #333; font-weight: 600; }
-.measure-bar { padding: 8px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.measure-bar .ml { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; margin-right: 4px; }
-.mtab { padding: 3px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; }
-.mtab:hover { background: #f0f0f0; }
-.mtab.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-.ms { width: 1px; height: 20px; background: #ddd; margin: 0 6px; }
-.ctrl-bar { padding: 6px 20px; border-bottom: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
-.ctrl-bar .cl { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; margin-right: 2px; }
-.chk { display: flex; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
-.chk:hover { background: #f5f5f5; }
-.chk input { accent-color: #0d6efd; margin: 0; }
-select { padding: 3px 6px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; background: #fff; }
-.tbtn { padding: 3px 10px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; }
-.tbtn:hover { background: #f0f0f0; }
-.tbtn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-.chart-wrap { padding: 12px 20px; }
-.chart-wrap canvas { width: 100% !important; height: 400px !important; }
-.info-bar { padding: 4px 20px; font-size: 11px; color: #888; border-bottom: 1px solid #eee; display: flex; gap: 12px; }
-.table-wrap { padding: 0 20px 12px; overflow-x: auto; max-height: 250px; overflow-y: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #eee; }
-th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
-td.num { text-align: right; font-family: monospace; font-size: 10px; }
-tr:hover { background: #f8f9fa; }
-@media (prefers-color-scheme: dark) {
-  body { background: #1a1a1a; color: #ccc; }
-  .container { background: #2d2d2d; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
-  .header { border-bottom-color: #444; }
-  .header h1 { color: #eee; }
-  .hw-badge { background: #444; color: #aaa; }
-  .nav-links a { border-color: #555; background: #333; color: #ccc; }
-  .nav-links a:hover { background: #444; }
-  .gpu-btn { border-color:#555; background:#333; color:#ccc; }
-  .gpu-btn:hover { background:#444; }
-  .gpu-btn.active { background:#1a3a2c; color:#7fc1a0; border-color:#2a5a3c; }
-  .gpu-btn.active:hover { background:#1e4632; }
-  .view-tabs { border-bottom-color: #444; background: #262626; }
-  .view-tab { color: #999; }
-  .view-tab:hover { background: #333; }
-  .view-tab.active { background: #2d2d2d; border-color: #444; color: #eee; }
-  .measure-bar { border-bottom-color: #444; }
-  .measure-bar .ml { color: #777; }
-  .mtab { border-color: #555; background: #333; color: #ccc; }
-  .mtab:hover { background: #444; }
-  .mtab.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-  .ms { background: #444; }
-  .ctrl-bar { border-bottom-color: #444; }
-  .ctrl-bar .cl { color: #777; }
-  .chk:hover { background: #333; }
-  select { border-color: #555; background: #333; color: #ccc; }
-  .info-bar { border-bottom-color: #444; color: #777; }
-  th, td { border-bottom-color: #444; color: #ccc; }
-  th { background: #333; color: #eee; }
-  tr:hover { background: #333; }
-  .chk input { accent-color: #4d9aff; }
-  #chart { filter: brightness(.9) contrast(1.1); }
-}
-</style>
 </head>
 <body>
 <div class="container">
+
   <div class="header">
     <div class="header-row">
-      <h1>Infomeasure Benchmarks</h1>
+      <a class="logo-link" href="https://codeberg.org/cbueth/infomeasure-rs" target="_blank" rel="noopener">
+        <img class="logo" src="https://raw.githubusercontent.com/cbueth/infomeasure/main/docs/_static/im_icon_transparent-200x200.png" alt="infomeasure">
+      </a>
+      <h1>Benchmarks</h1>
+      <span class="mode-switch">
+        <button class="tbtn mode-btn" data-mode="cross">Cross-package</button>
+        <button class="tbtn mode-btn" data-mode="detail">infomeasure detailed</button>
+      </span>
       <span class="header-right">
         <span class="nav-links">
           <a href="https://codeberg.org/cbueth/infomeasure-rs" target="_blank" rel="noopener">Repository</a>
           <a href="https://crates.io/crates/infomeasure" target="_blank" rel="noopener">crates.io</a>
           <a href="https://docs.rs/infomeasure" target="_blank" rel="noopener">docs.rs</a>
         </span>
+        <span class="hw-badge" id="hwBadge">&hellip;</span>
+        <span class="hw-badge" id="verBadge">packages &hellip;</span>
         <button class="tbtn" id="shareBtn">Share</button>
         <span style="font-size:11px;color:#999" id="dataInfo"></span>
       </span>
     </div>
-    <div class="header-row">
-      <span class="hw-badge" id="hwBadge">…</span>
-      <span class="hw-badge" id="rustBadge">Rust ?</span>
-      <span class="hw-badge" id="pyBadge">Python ?</span>
+  </div>
+
+  <!-- ================= Cross-package view ================= -->
+  <div id="crossUI">
+    <div class="view-tabs" id="c-appTabs"></div>
+    <div class="measure-bar" id="c-measureBar"></div>
+    <div class="ctrl-bar" id="c-ctrlBar"></div>
+    <div class="info-bar">
+      <span class="section-nav">
+        <span class="sn-arrow">&#8595; scroll for details:</span>
+        <a href="#cov" data-scroll="cov">Coverage</a>
+        <a href="#packages" data-scroll="packages">Packages</a>
+        <a href="#excluded" data-scroll="excluded">Excluded</a>
+        <a href="#methodology" data-scroll="methodology">Methodology</a>
+      </span>
+      <span class="info-stats">
+        <span id="c-entryCount"></span><span id="c-lineCount"></span>
+        <span id="c-subtitle" style="font-style:italic"></span>
+      </span>
+    </div>
+    <div class="chart-wrap"><canvas id="c-chart"></canvas></div>
+    <button class="table-toggle" id="c-tableToggle" aria-expanded="false"><span class="caret">&#9656;</span> Show benchmark table (exact numbers)</button>
+    <div class="table-wrap" id="c-tableWrap" style="display:none">
+      <table><thead><tr id="c-tableHead"></tr></thead><tbody id="c-tableBody"></tbody></table>
+    </div>
+
+    <div class="section" id="cov">
+      <h2>Coverage</h2>
+      <p>Approach availability for the selected measure (<span id="covMeasure">-</span>).
+        A green check means the data is available, a yellow cell lists the measures that the
+        package supports with that approach instead, and a red cross means the approach is not
+        offered at all. Full details per package are in the "Packages" section below.</p>
+      <div id="coverageTable"></div>
+    </div>
+
+    <div class="section" id="packages">
+      <h2>Packages</h2>
+      <div class="pkg-overview" id="pkgOverview"></div>
+    </div>
+
+    <div class="section" id="excluded">
+      <h2>Excluded packages</h2>
+      <p>Considered for the comparison but not benchmarked, with the reason:</p>
+      <ul id="excludedList"></ul>
+    </div>
+
+    <div class="section" id="methodology">
+      <h2>Methodology &amp; fairness</h2>
+      <p>Every implementation is timed on the same pre-generated, byte-identical datasets, so no
+        per-language random number generator can influence the comparison. Only the estimator call
+        itself is measured, which means that reading the data from disk happens before the timer
+        starts and is therefore excluded from the result. Each run discards warm-up calls and then
+        records several timed repetitions, and the mean and standard deviation are pooled across
+        seeds so that the error bars are meaningful. The representative variants use four seeds
+        together with a per-seed time budget, while the remaining parameter sweeps use a single seed.</p>
+      <p>To keep the comparison fair, the runtimes are pinned to a single thread everywhere. On the
+        Java side JIDT is configured with <code>NUM_THREADS=1</code>, and the numerical libraries in
+        the other languages are restricted through <code>OMP_NUM_THREADS=1</code>,
+        <code>OPENBLAS_NUM_THREADS=1</code>, <code>MKL_NUM_THREADS=1</code>,
+        <code>NUMEXPR_NUM_THREADS=1</code>, <code>RAYON_NUM_THREADS=1</code> and
+        <code>VECLIB_MAXIMUM_THREADS=1</code>. The Python implementations additionally run with
+        <code>workers=1</code>. All packages use the same seeds, the same input sizes and the same
+        estimator parameters, and only CPU numbers are shown here.</p>
+      <p><strong>On this page, "discrete" refers to the maximum-likelihood (MLE) estimator only.</strong>
+        The full detailed comparison covers all bias-corrected estimators, ordinal patterns, several
+        kernel bandwidths, the KL and KSG families, and the Rényi and Tsallis entropies across
+        parameter scalings, and it is available in the detailed view.</p>
+      <p><button class="tbtn to-detail">Go to the infomeasure detailed view &#8594;</button></p>
     </div>
   </div>
-  <div class="view-tabs" id="viewTabs"></div>
-  <div class="measure-bar" id="measureBar"></div>
-  <div class="ctrl-bar" id="ctrlBar"></div>
-  <div class="info-bar">
-    <span id="entryCount"></span>
-    <span id="lineCount"></span>
-    <span id="chartSubtitle" style="font-style:italic"></span>
-  </div>
-  <div class="chart-wrap"><canvas id="chart"></canvas></div>
-  <div class="table-wrap">
-    <table id="dataTable"><thead><tr id="tableHead"></tr></thead><tbody id="tableBody"></tbody></table>
+
+  <!-- ================= Detailed infomeasure view ================= -->
+  <div id="detailUI" style="display:none">
+    <div class="view-tabs" id="d-viewTabs"></div>
+    <div class="measure-bar" id="d-measureBar"></div>
+    <div class="ctrl-bar" id="d-ctrlBar"></div>
+    <div class="info-bar">
+      <span id="d-entryCount"></span><span id="d-lineCount"></span>
+      <span id="d-subtitle" style="font-style:italic"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="d-chart"></canvas></div>
+    <div class="table-wrap">
+      <table><thead><tr id="d-tableHead"></tr></thead><tbody id="d-tableBody"></tbody></table>
+    </div>
+    <div class="section">
+      <p>These are the detailed infomeasure-native numbers (Rust vs Python) across every estimator
+        family. Representative variants (discrete MLE, kernel bw=0.5, kNN k=4) use 4 seeds; the
+        remaining parameter sweeps use one seed.</p>
+      <p>Want to compare infomeasure against the other packages?
+        <button class="tbtn to-cross">Go to the cross-package comparison &#8594;</button></p>
+    </div>
   </div>
 </div>
 
-<style>
-.tbtn { padding:3px 10px; font-size:11px; border:1px solid #ddd; border-radius:3px; background:#fff; cursor:pointer; }
-.tbtn:hover { background:#f0f0f0; }
-.tbtn.active { background:#0d6efd; color:#fff; border-color:#0d6efd; }
-/* Scale toggle: two-part pill */
-.scbtn { display:inline-flex; border:1px solid #ddd; border-radius:3px; cursor:pointer; overflow:hidden; font-size:11px; line-height:1; }
-.scbtn .sopt { padding:3px 6px; background:#fff; color:#888; }
-.scbtn .sopt.on { background:#0d6efd; color:#fff; font-weight:600; }
-.scbtn .sdiv { padding:3px 0; background:#fff; color:#ccc; font-size:9px; }
-@media (prefers-color-scheme: dark) {
-  .tbtn { background:#333; color:#ccc; border-color:#555; }
-  .tbtn:hover { background:#444; }
-  .tbtn.active { background:#0d6efd; color:#fff; border-color:#0d6efd; }
-  .scbtn { border-color:#555; }
-  .scbtn .sopt { background:#333; color:#888; }
-  .scbtn .sopt.on { background:#0d6efd; color:#fff; }
-  .scbtn .sdiv { background:#333; color:#666; }
-}
-</style>
+<script src="./assets/viewer.js"></script>
 <script>
-const APPROACHES = ['discrete','kernel','kl','ordinal','renyi','tsallis'];
-const MEASURE_ORDER = ['entropy','mi','cmi','te','cte'];
-const APP_COLORS = { discrete:'#377eb8', kernel:'#4daf4a', kl:'#984ea3', ordinal:'#a65628', renyi:'#e41a1c', tsallis:'#ff7f00' };
-const LANG_COLORS = {
-  rust:   { discrete:'#377eb8', kernel:'#4daf4a', kl:'#984ea3', ordinal:'#a65628', renyi:'#e41a1c', tsallis:'#ff7f00' },
-  python: { discrete:'#ff7f00', kernel:'#e41a1c', kl:'#f781bf', ordinal:'#d4a017', renyi:'#a65628', tsallis:'#377eb8' },
-};
-const LINE_STYLES = { discrete:[], kernel:[6,3], kl:[2,2], ordinal:[1,3,1,3], renyi:[4,2], tsallis:[2,4] };
-const METHOD_DASH = { mle:[], ansb:[1,1], bayes:[3,1], bonachela:[4,2], chao_shen:[2,2], chao_wang_jost:[1,2], grassberger:[3,2], miller_madow:[4,1], nsb:[1,3], shrink:[2,3], zhang:[3,3] };
-// Discrete tab: same color per method for both Rust and Python; differentiated by line style
-const DISCRETE_COLORS = {
-  mle:'#1f78b4', miller_madow:'#e31a1c', grassberger:'#33a02c', nsb:'#ff7f00',
-  ansb:'#6a3d9a', chao_shen:'#b15928', chao_wang_jost:'#fb9a99',
-  shrink:'#a6cee3', bayes:'#b2df8a', bonachela:'#fdbf6f', zhang:'#cab2d6',
-};
-const APP_LABEL = { discrete:'Discrete', kernel:'Kernel', kl:'KL/KSG/kNN', ordinal:'Ordinal', renyi:'Renyi', tsallis:'Tsallis' };
+const {
+  MEASURE_ORDER, MEASURE_LABELS,
+  MAIN_APPROACHES, MAIN_APPROACH_LABELS,
+  DETAIL_APPROACHES, DETAIL_APPROACH_LABELS,
+  packageColor, makeColorMap, fmt, esc, loadCatalog,
+  fragmentVersion, fragmentCollected,
+  meanOf, stdOf, isRepresentative, mainApproach, detailApproach, limitsOf, samplesOf,
+} = window.IMV;
 
-// Per-approach control config
-const APP_CFG = {
-  overview: { xDflt:'size', fltr:[], hide:['k','bandwidth','order','delay','dims','method','alpha','q'] },
-  discrete: { xDflt:'size', fltr:['method'], hide:['k','bandwidth','order','delay','kernel_type','dims'] },
-  kernel:   { xDflt:'size', fltr:['bandwidth','kernel_type'], hide:['k','order','delay','method','dims'] },
-  kl:       { xDflt:'size', fltr:['k'], hide:['bandwidth','order','delay','kernel_type','method','dims'] },
-  ordinal:  { xDflt:'size', fltr:['order'], hide:['bandwidth','k','delay','kernel_type','method','dims'] },
-  renyi:    { xDflt:'size', fltr:['k','alpha'], hide:['bandwidth','order','delay','dims','kernel_type','method'] },
-  tsallis:  { xDflt:'size', fltr:['k','q'], hide:['bandwidth','order','delay','dims','kernel_type','method'] },
-};
+if (typeof ChartZoom !== 'undefined') Chart.register(ChartZoom);
 
-let allData = [], chart = null, currentView = 'overview', gpuMode = true;
-let sortCol = '', sortAsc = true;
-
-function fmt(v) {
-  if (v == null) return '-';
-  if (v >= 1) return v.toFixed(3)+'s';
-  if (v >= 1e-3) return (v*1e3).toFixed(1)+'ms';
-  if (v >= 1e-6) return (v*1e6).toFixed(0)+'\u00b5s';
-  return (v*1e9).toFixed(0)+'ns';
-}
-
-// ---- Data ----
-function loadData(gpu) {
-  const file = gpu ? './benchmark_data_gpu.json' : './benchmark_data.json';
-  return fetch(file).then(r => r.json()).then(json => {
-    allData = json.benchmarks || [];
-    updateBadges(json.meta);
-    document.getElementById('dataInfo').textContent = `${allData.length} benchmarks`;
-  }).catch(e => {
-    document.getElementById('dataInfo').textContent = 'Error: ' + e.message;
-    throw e;
-  });
-}
-
-function updateBadges(meta) {
-  const hw = (meta && meta.hardware) || {};
-  const ver = (meta && meta.versions) || {};
-  document.getElementById('hwBadge').textContent = `${hw.cpu||'?'} \u00b7 ${hw.cores||'?'}c \u00b7 ${hw.memory||'?'}`;
-  const g = document.getElementById('gpuBadge');
-  if (g) { g.className = 'gpu-btn' + (gpuMode ? ' active' : ''); g.textContent = gpuMode ? 'gpu \u2713' : 'gpu'; }
-  const rustVer = ver.infomeasure_rust || '?';
-  const rustcVer = (ver.rustc || '?').replace(/^rustc\s+/i, '');
-  const feat = gpuMode ? ' --features gpu' : '';
-  document.getElementById('rustBadge').textContent = `infomeasure ${rustVer}${feat} @ rustc ${rustcVer}`;
-  const pyVer = ver.infomeasure_python || '?';
-  const pyLangVer = (ver.python || '?').replace(/^Python\s+/i, '');
-  document.getElementById('pyBadge').textContent = `infomeasure ${pyVer} @ Python ${pyLangVer}`;
-}
-
-function toggleGpu() {
-  if (!allData.length) return;
-  const prevHash = getStateHash();
-  gpuMode = !gpuMode;
-  location.hash = prevHash;
-  loadData(gpuMode).then(() => { initUI(); });
-}
-
-// Initialize GPU mode from URL hash
-const initParams = new URLSearchParams(location.hash.slice(1));
-if (initParams.get('g') === '1') gpuMode = true;
-
-loadData(gpuMode).then(() => { initUI(); });
-
-// ---- UI setup (one-shot) ----
-function initUI() {
-  if (typeof ChartZoom !== 'undefined') Chart.register(ChartZoom);
-  // View tabs
-  const views = ['overview', ...APPROACHES.filter(a => allData.some(b => b.approach === a))];
-  const vt = document.getElementById('viewTabs');
-  vt.innerHTML = views.map(v => `<button class="view-tab${v==='overview'?' active':''}" data-view="${v}">${v==='overview'?'Overview':APP_LABEL[v]||v}</button>`).join('');
-  vt.onclick = e => {
-    const b = e.target.closest('.view-tab');
-    if (!b || b.classList.contains('active')) return;
-    vt.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
-    b.classList.add('active');
-    currentView = b.dataset.view;
-    rebuildUI();
-    renderChart();
-    history.replaceState(null, '', '#' + getStateHash());
-  };
-
-  // Measure bar: delegate click/change
-  const mb = document.getElementById('measureBar');
-  mb.onclick = e => {
-    const b = e.target.closest('.mtab, .gpu-btn');
-    if (!b) return;
-    if (b.classList.contains('gpu-btn')) { toggleGpu(); return; }
-    mb.querySelectorAll('.mtab').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    renderChart();
-    history.replaceState(null, '', '#' + getStateHash());
-  };
-  mb.onchange = e => {
-    if (e.target.matches('.chk input, select')) { renderChart(); history.replaceState(null, '', '#' + getStateHash()); }
-  };
-
-  // Ctrl bar: delegate events
-  document.getElementById('ctrlBar').onclick = e => {
-    const b = e.target.closest('.scbtn, .tbtn');
-    if (!b) return;
-    if (b.id === 'resetZoomBtn') {
-      if (chart && typeof chart.resetZoom === 'function') chart.resetZoom();
-      return;
-    }
-    // Scale toggle: switch active class between sopt children
-    if (b.classList.contains('scbtn')) {
-      b.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on'));
-      renderChart();
-      history.replaceState(null, '', '#' + getStateHash());
-    }
-  };
-  document.getElementById('ctrlBar').onchange = e => {
-    if (e.target.matches('select, .chk input')) { renderChart(); history.replaceState(null, '', '#' + getStateHash()); }
-  };
-
-  // Share button
-  document.getElementById('shareBtn').onclick = () => {
-    const state = getStateHash();
-    const url = location.origin + location.pathname + '#' + state;
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = document.getElementById('shareBtn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Share'; }, 1500);
-    }).catch(() => {
-      history.replaceState(null, '', '#' + state);
-      const btn = document.getElementById('shareBtn');
-      btn.textContent = 'In URL!';
-      setTimeout(() => { btn.textContent = 'Share'; }, 1500);
+const errorBars = {
+  id: 'errorBars',
+  afterDatasetsDraw(c) {
+    const { ctx } = c;
+    c.data.datasets.forEach((ds, di) => {
+      const meta = c.getDatasetMeta(di);
+      if (meta.hidden) return;
+      ctx.save(); ctx.strokeStyle = ds.borderColor; ctx.lineWidth = 1.5;
+      meta.data.forEach((pt, i) => {
+        const raw = ds.data[i]; if (!raw || !raw._err) return;
+        // Follow the point's animated y (Chart animates points, not our overlay).
+        const yZero = c.scales.y.getPixelForValue(raw.y);
+        const yTop = pt.y + (c.scales.y.getPixelForValue(raw.y + raw._err) - yZero);
+        const yBot = pt.y + (c.scales.y.getPixelForValue(raw.y - raw._err) - yZero);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, yTop);
+        ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, yBot);
+        ctx.moveTo(pt.x - 3, yTop); ctx.lineTo(pt.x + 3, yTop);
+        ctx.moveTo(pt.x - 3, yBot); ctx.lineTo(pt.x + 3, yBot);
+        ctx.stroke();
+      });
+      ctx.restore();
     });
+  },
+};
+
+let CAT = null, REP = {}, PCOL = {}, MODE = 'cross', RESTORE = {};
+let crossChart = null, detailChart = null;
+
+// ======================= shared load =======================
+async function boot() {
+  CAT = await loadCatalog();
+  REP = {};
+  for (const [id, frag] of Object.entries(CAT.data)) {
+    REP[id] = (frag.benchmarks || []).filter((e) => isRepresentative(e) && mainApproach(e));
+  }
+  buildDetailEntries();
+
+  PCOL = makeColorMap(CAT.packages.map((p) => p.id));
+  DETAIL.apps = {};
+  detailViews().filter((v) => v !== 'overview').forEach((a) => { DETAIL.apps[a] = true; });
+  // Apply URL-hash selections (detail languages/approaches).
+  if (RESTORE.detailLangs) { DETAIL.langs.rust = RESTORE.detailLangs.includes('rust'); DETAIL.langs.python = RESTORE.detailLangs.includes('python'); }
+  if (RESTORE.detailApps) Object.keys(DETAIL.apps).forEach((a) => { DETAIL.apps[a] = RESTORE.detailApps.includes(a); });
+  document.querySelectorAll('[data-scroll]').forEach((a) => {
+    a.onclick = (e) => { e.preventDefault(); const t = document.getElementById(a.dataset.scroll); if (t) t.scrollIntoView({ behavior: 'smooth' }); };
+  });
+  document.querySelectorAll('.to-cross').forEach((b) => { b.onclick = () => setMode('cross'); });
+
+  // Fixed CI runner specification (no dynamic hardware detection on the page).
+  const hwBadge = document.getElementById('hwBadge');
+  hwBadge.textContent = 'Intel i7-8750H · 12c · 16GB';
+  hwBadge.title = 'Benchmarked on the CI runner (cb-nix-laptop, x86_64)';
+  const imrs = CAT.data['infomeasure-rs'], impy = CAT.data['infomeasure-python'];
+  document.getElementById('verBadge').textContent =
+    `infomeasure-rs ${imrs ? fragmentVersion(imrs) : '?'} · infomeasure-python ${impy ? fragmentVersion(impy) : '?'}`;
+  document.getElementById('dataInfo').textContent = '';
+
+  const tt = document.getElementById('c-tableToggle');
+  tt.onclick = () => {
+    const w = document.getElementById('c-tableWrap');
+    const open = w.style.display !== 'none';
+    w.style.display = open ? 'none' : '';
+    tt.setAttribute('aria-expanded', String(!open));
+    tt.innerHTML = `<span class="caret">&#9656;</span> ${open ? 'Show' : 'Hide'} benchmark table (exact numbers)`;
   };
 
-  // Restore state from URL hash
-  const hash = location.hash.slice(1);
-  if (hash) restoreStateHash(hash);
-
-  // Keep the active view tab in sync with the restored/current view
-  if (!views.includes(currentView)) currentView = 'overview';
-  vt.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === currentView));
-
-  rebuildUI();
-
-  // Apply restored state from URL hash
-  if (_pendingRestore) {
-    const r = _pendingRestore;
-    if (r.measure) {
-      const mt = document.querySelector(`#measureBar .mtab[data-measure="${r.measure}"]`);
-      if (mt) { document.querySelectorAll('#measureBar .mtab').forEach(x => x.classList.remove('active')); mt.classList.add('active'); }
-    }
-    if (r.xAxis) { const xs = document.getElementById('xSel'); if (xs) xs.value = r.xAxis; }
-    if (r.hasLy && !r.logY) { document.getElementById('scaleYBtn')?.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on')); }
-    if (r.hasLx && !r.logX) { document.getElementById('scaleXBtn')?.querySelectorAll('.sopt').forEach(o => o.classList.toggle('on')); }
-    for (const lang of r.langs) { const cb = document.querySelector(`[data-lang="${lang}"]`); if (cb) cb.checked = true; }
-    const unchecked = ['rust','python'].filter(l => !r.langs.includes(l));
-    for (const lang of unchecked) { const cb = document.querySelector(`[data-lang="${lang}"]`); if (cb) cb.checked = false; }
-    for (const app of r.apps) { const cb = document.querySelector(`[data-approach="${app}"]`); if (cb) cb.checked = true; }
-    for (const [k, v] of Object.entries(r.fltrs)) { const sel = document.querySelector(`.fltr[data-key="${k}"]`); if (sel) sel.value = v; }
-    _pendingRestore = null;
-  }
-
-  renderChart();
+  // Header version badges only; the cross view has its own control bars.
+  buildCrossUI();
+  buildDetailUI();
+  setMode((new URLSearchParams(location.hash.slice(1)).get('mode') === 'detail') ? 'detail' : 'cross', true);
 }
 
-function rebuildUI() {
-  const view = currentView;
-  const cfg = APP_CFG[view] || APP_CFG.overview;
-  const apps = view === 'overview' ? APPROACHES.filter(a => allData.some(b => b.approach === a)) : [view];
-  const measures = [...new Set(allData.filter(b => apps.includes(b.approach)).map(b => b.measure))]
-    .sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
-  const prevMeasure = document.querySelector('#measureBar .mtab.active')?.dataset?.measure;
-  const dfltMeas = (prevMeasure && measures.includes(prevMeasure) ? prevMeasure : null)
-    || measures.find(m => allData.some(b => b.measure===m && apps.includes(b.approach) && b.language==='rust'))
-    || measures[0] || 'entropy';
-  const rustChk = document.getElementById('langRust')?.checked;
-  const pythonChk = document.getElementById('langPython')?.checked;
-  const appChkState = {};
-  document.querySelectorAll('[data-approach]').forEach(cb => { appChkState[cb.dataset.approach] = cb.checked; });
-  // When entering a per-approach tab, force that approach to be checked
-  if (view !== 'overview') appChkState[view] = true;
+function setMode(m, skipHash) {
+  MODE = m;
+  document.getElementById('crossUI').style.display = m === 'cross' ? '' : 'none';
+  document.getElementById('detailUI').style.display = m === 'detail' ? '' : 'none';
+  document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
+  if (m === 'cross') { if (detailChart) { detailChart.destroy(); detailChart = null; } renderCross(); }
+  else { if (crossChart) { crossChart.destroy(); crossChart = null; } renderDetail(); }
+  if (!skipHash) history.replaceState(null, '', '#' + hashOf());
+}
 
-  // Measure bar
-  const mb = document.getElementById('measureBar');
+document.querySelectorAll('.mode-btn').forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
+document.querySelectorAll('.to-detail').forEach((a) => { a.onclick = (e) => { e.preventDefault(); setMode('detail'); }; });
+
+// ==================================================================
+// ======================= CROSS-PACKAGE ============================
+// ==================================================================
+const CROSS = { measure: 'entropy', approach: 'discrete', langs: {}, logY: true, logX: true, relative: false };
+
+function measuresAvailable() {
+  const s = new Set(); Object.values(REP).forEach((b) => b.forEach((e) => s.add(e.measure)));
+  return [...s].sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
+}
+function crossEntries(measure, approach) {
+  const map = {};
+  for (const [id, b] of Object.entries(REP)) {
+    const list = b.filter((e) => e.measure === measure && mainApproach(e) === approach);
+    if (list.length) map[id] = list;
+  }
+  return map;
+}
+function buildCrossUI() {
+  CAT.packages.forEach((p) => { CROSS.langs[p.id] = true; });
+  if (RESTORE.crossOff) RESTORE.crossOff.forEach((id) => { if (id in CROSS.langs) CROSS.langs[id] = false; });
+  const ms = measuresAvailable(); if (!ms.includes(CROSS.measure)) CROSS.measure = ms[0] || 'entropy';
+  // Approach tabs.
+  const cells = new Set(); Object.values(REP).forEach((b) => b.forEach((e) => cells.add(`${e.measure}|${mainApproach(e)}`)));
+  const apps = MAIN_APPROACHES.filter((a) => [...cells].some((k) => k.endsWith('|' + a)));
+  const vt = document.getElementById('c-appTabs');
+  vt.innerHTML = apps.map((a) => `<button class="view-tab${a === CROSS.approach ? ' active' : ''}" data-app="${a}">${MAIN_APPROACH_LABELS[a]}</button>`).join('');
+  vt.onclick = (e) => { const b = e.target.closest('.view-tab'); if (!b) return; CROSS.approach = b.dataset.app; buildCrossUI(); renderCross(); };
+  buildCrossMeasureBar(); buildCrossCtrlBar(); buildStaticSections();
+}
+function buildCrossMeasureBar() {
+  const mb = document.getElementById('c-measureBar');
   mb.innerHTML = `<span class="ml">Measure</span>` +
-    measures.map(m => `<button class="mtab${m===dfltMeas?' active':''}" data-measure="${m}">${m.toUpperCase()}</button>`).join('') +
-    `<span class="ms"></span>` +
-    APPROACHES.map(a => (apps.includes(a) ? `<label class="chk" style="color:${view==='overview'?(APP_COLORS[a]||'#666'):(LANG_COLORS.rust[a]||'#666')}"><input type="checkbox" data-approach="${a}" ${appChkState[a]!==undefined?(appChkState[a]?'checked':''):'checked'} ${view!=='overview'?'disabled':''}> ${APP_LABEL[a]||a}</label>` : '')).join('') +
-    `<span class="ms"></span>` +
-    `<label class="chk"><input type="checkbox" id="langRust" data-lang="rust"${rustChk!==undefined?(rustChk?' checked':''):' checked'}> Rust</label>` +
-    `<label class="chk"><input type="checkbox" id="langPython" data-lang="python"${pythonChk!==undefined?(pythonChk?' checked':''):' checked'}> Python</label>` +
-    `<span class="ms"></span>` +
-    `<span class="ml">Features</span>` +
-    `<button class="gpu-btn" id="gpuBadge" title="Toggle Rust --features gpu">gpu</button>`;
-  // Sync GPU button to current gpuMode
-  const gb = document.getElementById('gpuBadge');
-  if (gb) { gb.className = 'gpu-btn' + (gpuMode ? ' active' : ''); gb.textContent = gpuMode ? 'gpu \u2713' : 'gpu'; }
+    measuresAvailable().map((m) => `<button class="mtab${m === CROSS.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
+    `<span class="ms"></span><span class="ml">Packages</span>` +
+    CAT.packages.map((p) => {
+      const has = REP[p.id] && REP[p.id].some((e) => e.measure === CROSS.measure && mainApproach(e) === CROSS.approach);
+      const lim = limitsOf(p, CAT.data[p.id]);
+      const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
+      return `<label class="chk" title="${esc(lim || '')}" style="${style}"><input type="checkbox" data-pkg="${p.id}"${CROSS.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
+    }).join('');
+  mb.onclick = (e) => { const b = e.target.closest('.mtab'); if (!b) return; CROSS.measure = b.dataset.measure; buildCrossMeasureBar(); renderCross(); };
+  mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { CROSS.langs[e.target.dataset.pkg] = e.target.checked; renderCross(); } };
+}
+function buildCrossCtrlBar() {
+  const cb = document.getElementById('c-ctrlBar');
+  cb.innerHTML =
+    `<span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button>` +
+    `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="c-scaleXBtn"><span class="sopt${CROSS.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logX ? '' : ' on'}">Lin</span></button>` +
+    `<label class="chk" style="margin-left:6px"><input type="checkbox" id="c-relChk"${CROSS.relative ? ' checked' : ''}> relative to infomeasure-rs</label>` +
+    `<button class="tbtn" id="c-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
+  cb.onclick = (e) => {
+    if (e.target.closest('#c-scaleYBtn')) { CROSS.logY = !CROSS.logY; buildCrossCtrlBar(); renderCross(); }
+    else if (e.target.closest('#c-scaleXBtn')) { CROSS.logX = !CROSS.logX; buildCrossCtrlBar(); renderCross(); }
+    else if (e.target.closest('#c-resetZoom')) { crossChart && crossChart.resetZoom && crossChart.resetZoom(); }
+  };
+  cb.onchange = (e) => { if (e.target.id === 'c-relChk') { CROSS.relative = e.target.checked; renderCross(); } };
+}
+function pkgSort(a, b) {
+  const rank = (id) => (id === 'infomeasure-rs' ? 0 : id === 'infomeasure-python' ? 1 : 2);
+  const ra = rank(a.id), rb = rank(b.id);
+  if (ra !== rb) return ra - rb;
+  return (b.released || '').localeCompare(a.released || '');
+}
+function buildStaticSections() {
+  const ordered = [...CAT.packages].sort(pkgSort);
+  document.getElementById('pkgOverview').innerHTML = ordered.map((p) => {
+    const frag = CAT.data[p.id]; const cls = frag ? 'pill' : 'pill off';
+    const version = frag ? fragmentVersion(frag) : (p.version || '?');
+    const collected = frag ? fragmentCollected(frag) : null;
+    const meta = [];
+    if (p.repo) meta.push(`<a href="${esc(p.repo)}" target="_blank" rel="noopener">repo</a>`);
+    if (p.docs) meta.push(`<a href="${esc(p.docs)}" target="_blank" rel="noopener">docs</a>`);
+    const date = p.released ? 'released ' + p.released : (collected ? 'collected ' + collected : (frag ? '' : 'not collected'));
+    meta.push(`<span class="released">${esc(date)}</span>`);
+    return `<div class="pkg-card"><div class="name">${esc(p.id)}<span class="${cls}">${esc(version)}</span></div>` +
+      `<div class="lang">${esc(p.language)}</div>` +
+      `<div class="lim">${esc(limitsOf(p, frag) || 'No limitations recorded.')}</div>` +
+      `<div class="links">${meta.join('')}</div></div>`;
+  }).join('');
+  document.getElementById('excludedList').innerHTML = CAT.excluded.map((x) => {
+    const l = [];
+    if (x.repo) l.push(`<a href="${esc(x.repo)}" target="_blank" rel="noopener">repo</a>`);
+    if (x.docs) l.push(`<a href="${esc(x.docs)}" target="_blank" rel="noopener">docs</a>`);
+    const links = l.length ? ` <span style="font-size:10px">[${l.join(' · ')}]</span>` : '';
+    return `<li><strong>${esc(x.id)}</strong> (${esc(x.language || '')})${links}: ${esc(x.reason)}</li>`;
+  }).join('');
+}
+const SHORT_MEASURE = { entropy: 'H', mi: 'MI', cmi: 'CMI', te: 'TE', cte: 'CTE' };
+const COVERAGE_APPROACHES = ['discrete', 'ksg', 'kernel_box', 'kernel_gaussian', 'ordinal', 'renyi', 'tsallis'];
+const COVERAGE_LABELS = { discrete: 'Discrete', ksg: 'KSG / kNN', kernel_box: 'Kernel (box)', kernel_gaussian: 'Kernel (Gaussian)', ordinal: 'Ordinal', renyi: 'R\u00e9nyi', tsallis: 'Tsallis' };
+function covApproach(e) {
+  const a = e.approach;
+  if (a === 'kernel') {
+    const kt = e.params.kernel_type;
+    return kt === 'box' ? 'kernel_box' : (kt === 'gaussian' ? 'kernel_gaussian' : null);
+  }
+  return COVERAGE_APPROACHES.includes(a) ? a : null;
+}
+function buildCoverage() {
+  document.getElementById('covMeasure').textContent = MEASURE_LABELS[CROSS.measure] || CROSS.measure;
+  const rows = CAT.packages.map((p) => {
+    const all = (((CAT.data[p.id] || {}).benchmarks) || []).filter(covApproach);
+    const frag = CAT.data[p.id];
+    const tds = COVERAGE_APPROACHES.map((a) => {
+      const has = all.some((e) => e.measure === CROSS.measure && covApproach(e) === a);
+      if (has) return `<td class="cov-yes">&#10003;</td>`;
+      const others = [...new Set(all.filter((e) => covApproach(e) === a).map((e) => e.measure))]
+        .sort((x, y) => MEASURE_ORDER.indexOf(x) - MEASURE_ORDER.indexOf(y));
+      if (others.length) {
+        const acr = others.map((m) => SHORT_MEASURE[m] || m.toUpperCase()).join(', ');
+        return `<td class="cov-partial" title="This approach exists, but only for: ${esc(acr)}">${esc(acr)}</td>`;
+      }
+      return `<td class="cov-no" title="${esc(limitsOf(p, frag) || 'Not supported')}">&#10007;</td>`;
+    }).join('');
+    return `<tr><td>${esc(p.id)}</td>${tds}</tr>`;
+  }).join('');
+  document.getElementById('coverageTable').innerHTML =
+    `<table><thead><tr><th>Package</th>${COVERAGE_APPROACHES.map((a) => `<th style="text-align:center">${COVERAGE_LABELS[a]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>` +
+    `<p style="margin-top:6px;font-size:11px;color:#777">Legend: <span class="cov-yes">&#10003;</span> available &middot; ` +
+    `<span class="cov-partial">MI, TE</span> approach exists but only for those measures &middot; ` +
+    `<span class="cov-no">&#10007;</span> approach not provided.</p>`;
+}
+function renderCross() {
+  buildCoverage();
+  const byPkg = crossEntries(CROSS.measure, CROSS.approach);
+  const ids = Object.keys(byPkg).filter((id) => CROSS.langs[id]);
+  const rs = byPkg['infomeasure-rs']; const rsByX = {}; if (rs) rs.forEach((e) => { rsByX[e.params.n] = meanOf(e); });
+  const groups = ids.map((id) => {
+    const pts = byPkg[id].map((e) => {
+      const x = e.params.n; let y = meanOf(e); let err = stdOf(e);
+      if (CROSS.relative) { const base = rsByX[x]; if (base == null || !base) return null; y = y / base; err = err != null ? err / base : null; }
+      return { x, y, _err: err, e };
+    }).filter(Boolean).sort((a, b) => a.x - b.x);
+    return { id, pts };
+  }).filter((g) => g.pts.length);
+  document.getElementById('c-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
+  document.getElementById('c-lineCount').textContent = `${groups.length} packages`;
+  document.getElementById('c-subtitle').textContent = `${MEASURE_LABELS[CROSS.measure] || CROSS.measure} · ${MAIN_APPROACH_LABELS[CROSS.approach]}` + (CROSS.relative ? ' · relative to infomeasure-rs' : '');
+  if (crossChart) crossChart.destroy();
+  if (!groups.length) { crossChart = emptyChart('c-chart'); fillCrossTable([]); syncHash(); return; }
+  const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridCol = dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'; const tickCol = dm ? '#aaa' : '#666';
+  const ds = groups.map((g) => ({ label: g.id, data: g.pts.map((p) => ({ x: p.x, y: p.y, _err: p._err })),
+    borderColor: PCOL[g.id] || packageColor(g.id), backgroundColor: (PCOL[g.id] || packageColor(g.id)) + '22',
+    pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, tension: 0.15, fill: false, showLine: true }));
+  crossChart = new Chart(document.getElementById('c-chart').getContext('2d'), {
+    type: 'line', data: { datasets: ds }, plugins: [errorBars],
+    options: chartOptions('c-chart', { logY: CROSS.logY, logX: CROSS.logX, yTitle: CROSS.relative ? 'time / infomeasure-rs' : 'Time (s)', relative: CROSS.relative, dm, gridCol, tickCol }),
+  });
+  fillCrossTable(groups);
+  syncHash();
+}
+function fillCrossTable(groups) {
+  const head = document.getElementById('c-tableHead'), body = document.getElementById('c-tableBody');
+  const rows = [];
+  for (const g of groups) for (const p of g.pts) {
+    const e = p.e, st = e.statistics || {};
+    rows.push({ pkg: g.id, lang: e.language, ver: fragmentVersion(CAT.data[g.id]), x: p.x, mean: p.y,
+      std: CROSS.relative ? p._err : stdOf(e), ci: st.ci_lower != null ? `${fmt(st.ci_lower)} – ${fmt(st.ci_upper)}` : '-', samples: samplesOf(e) });
+  }
+  head.innerHTML = ['Package', 'Language', 'Version', 'n', CROSS.relative ? 'Ratio' : 'Mean', CROSS.relative ? '±ratio' : 'Std Dev', '95% CI', 'Iters'].map((c) => `<th>${c}</th>`).join('');
+  body.innerHTML = rows.map((r) => `<tr><td>${esc(r.pkg)}</td><td>${esc(r.lang)}</td><td>${esc(r.ver)}</td><td class="num">${r.x}</td>` +
+    `<td class="num">${CROSS.relative ? r.mean.toFixed(3) + '×' : fmt(r.mean)}</td>` +
+    `<td class="num">${r.std == null ? '-' : (CROSS.relative ? r.std.toFixed(3) : fmt(r.std))}</td>` +
+    `<td class="num">${esc(r.ci)}</td><td class="num">${r.samples ?? '-'}</td></tr>`).join('');
+}
 
-  // Control bar
-  const cb = document.getElementById('ctrlBar');
-  const xOpts = ['size','bandwidth','k','order','delay','dims','alpha','q'].filter(k => !cfg.hide.includes(k) && allData.some(b => apps.includes(b.approach) && b.params[k] != null));
-  let html = `<span class="cl">X</span><select id="xSel">` + xOpts.map(k => `<option value="${k}"${k===cfg.xDflt?' selected':''}>${k}</option>`).join('') + `</select>`;
-  html += `<span class="cl" style="margin-left:6px">Y</span><button class="scbtn" id="scaleYBtn"><span class="sopt on">Log</span><span class="sdiv">|</span><span class="sopt">Lin</span></button>`;
-  html += `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="scaleXBtn"><span class="sopt on">Log</span><span class="sdiv">|</span><span class="sopt">Lin</span></button>`;
-  html += `<button class="tbtn" id="resetZoomBtn" style="margin-left:4px">Reset Zoom</button>`;
+// ==================================================================
+// ======================= DETAILED INFOMEASURE =====================
+// ==================================================================
+const DETAIL = { entries: [], view: 'overview', measure: 'entropy', x: 'n', logY: true, logX: true, langs: { rust: true, python: true }, fltrs: {} };
+const DAPP_COLORS = { discrete: '#377eb8', kernel: '#4daf4a', kl: '#984ea3', ordinal: '#a65628', renyi: '#e41a1c', tsallis: '#ff7f00' };
+const DLANG_COLORS = {
+  rust: { discrete: '#377eb8', kernel: '#4daf4a', kl: '#984ea3', ordinal: '#a65628', renyi: '#e41a1c', tsallis: '#ff7f00' },
+  python: { discrete: '#ff7f00', kernel: '#e41a1c', kl: '#f781bf', ordinal: '#d4a017', renyi: '#a65628', tsallis: '#377eb8' },
+};
+const LINE_STYLES = { discrete: [], kernel: [6, 3], kl: [2, 2], ordinal: [1, 3, 1, 3], renyi: [4, 2], tsallis: [2, 4] };
+const METHOD_DASH = { mle: [], ansb: [1, 1], bayes: [3, 1], bonachela: [4, 2], chao_shen: [2, 2], chao_wang_jost: [1, 2], grassberger: [3, 2], miller_madow: [4, 1], nsb: [1, 3], shrink: [2, 3], zhang: [3, 3] };
+const DISCRETE_COLORS = { mle: '#1f78b4', miller_madow: '#e31a1c', grassberger: '#33a02c', nsb: '#ff7f00', ansb: '#6a3d9a', chao_shen: '#b15928', chao_wang_jost: '#fb9a99', shrink: '#a6cee3', bayes: '#b2df8a', bonachela: '#fdbf6f', zhang: '#cab2d6' };
+const KL_COLORS = { KSG: '#984ea3', KL: '#c77dd6', 'KL-cheb': '#6a3d9a', 'KL-k': '#b15928' };
+const KL_DASH = { KSG: [], KL: [6, 3], 'KL-cheb': [2, 2], 'KL-k': [1, 3] };
+// Overview stays uncluttered: one estimator per family; Rényi/Tsallis and the
+// extra KL variants live in their own tabs.
+const OVERVIEW_APPROACHES = ['discrete', 'kernel', 'kl', 'ordinal'];
+const DAPP_CFG = {
+  overview: { xDflt: 'n', fltr: [], hide: ['k', 'bandwidth', 'order', 'delay', 'dims', 'method', 'alpha', 'q', 'kernel_type'] },
+  discrete: { xDflt: 'n', fltr: ['method'], hide: ['k', 'bandwidth', 'order', 'delay', 'kernel_type', 'dims'] },
+  kernel: { xDflt: 'n', fltr: ['bandwidth', 'kernel_type'], hide: ['k', 'order', 'delay', 'method', 'dims'] },
+  kl: { xDflt: 'n', fltr: ['k'], hide: ['bandwidth', 'order', 'delay', 'kernel_type', 'method', 'dims'] },
+  ordinal: { xDflt: 'n', fltr: ['order'], hide: ['bandwidth', 'k', 'delay', 'kernel_type', 'method', 'dims'] },
+  renyi: { xDflt: 'n', fltr: ['k', 'alpha'], hide: ['bandwidth', 'order', 'delay', 'dims', 'kernel_type', 'method'] },
+  tsallis: { xDflt: 'n', fltr: ['k', 'q'], hide: ['bandwidth', 'order', 'delay', 'dims', 'kernel_type', 'method'] },
+};
 
-  for (const key of cfg.fltr) {
-    let vals = [...new Set(allData.filter(b => apps.includes(b.approach)).map(b => b.params[key]).filter(v => v != null))];
-    // Normalize kernel_type: strip bandwidth suffixes (e.g. "box_bw0_1" → "box")
-    if (key === 'kernel_type') {
-      vals = [...new Set(vals.map(v => String(v).split('_bw')[0].split('/')[0]))].filter(v => v === 'box' || v === 'gaussian');
+function subApproach(e) {
+  switch (e.approach) {
+    // For entropy, the kNN estimator *is* the Kozachenko–Leonenko one (no
+    // separate KSG), so label it KL rather than KSG.
+    case 'ksg': return e.measure === 'entropy' ? 'KL' : 'KSG';
+    case 'kl': return 'KL';
+    case 'kl_cheb': return 'KL-cheb';
+    case 'kl_k': return 'KL-k';
+    default: return '';
+  }
+}
+function buildDetailEntries() {
+  DETAIL.entries = [];
+  for (const id of ['infomeasure-rs', 'infomeasure-python']) {
+    const frag = CAT.data[id]; if (!frag) continue;
+    for (const e of frag.benchmarks || []) {
+      DETAIL.entries.push({ ...e, package: id, language: e.language, dapp: detailApproach(e), sub: subApproach(e) });
     }
-    vals.sort((a,b) => a-b);
+  }
+}
+function detailViews() {
+  const present = new Set(DETAIL.entries.map((e) => e.dapp));
+  return ['overview', ...DETAIL_APPROACHES.filter((a) => present.has(a))];
+}
+function buildDetailUI() {
+  const views = detailViews();
+  if (!views.includes(DETAIL.view)) DETAIL.view = 'overview';
+  const vt = document.getElementById('d-viewTabs');
+  vt.innerHTML = views.map((v) => `<button class="view-tab${v === DETAIL.view ? ' active' : ''}" data-view="${v}">${v === 'overview' ? 'Overview' : (DETAIL_APPROACH_LABELS[v] || v)}</button>`).join('');
+  vt.onclick = (e) => { const b = e.target.closest('.view-tab'); if (!b) return; DETAIL.view = b.dataset.view; buildDetailUI(); renderDetail(); };
+  buildDetailMeasureBar(); buildDetailCtrlBar();
+}
+function buildDetailMeasureBar() {
+  const view = DETAIL.view;
+  const present = detailViews().filter((v) => v !== 'overview');
+  const overviewPresent = present.filter((a) => OVERVIEW_APPROACHES.includes(a));
+  const apps = view === 'overview' ? overviewPresent.filter((a) => DETAIL.apps[a]) : [view];
+  const measures = [...new Set(DETAIL.entries.filter((e) => apps.includes(e.dapp)).map((e) => e.measure))]
+    .sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
+  if (!measures.includes(DETAIL.measure)) DETAIL.measure = measures[0] || 'entropy';
+  const mb = document.getElementById('d-measureBar');
+  const approachCtl = view === 'overview'
+    ? `<span class="ms"></span><span class="ml">Approaches</span>` +
+      overviewPresent.map((a) => `<label class="app-chk" style="color:${DAPP_COLORS[a]}"><input type="checkbox" data-dapp="${a}"${DETAIL.apps[a] ? ' checked' : ''}> ${DETAIL_APPROACH_LABELS[a]}</label>`).join('')
+    : `<span class="ms"></span><span class="ml">Approach</span><span class="app-tag" style="color:${DAPP_COLORS[view]}">${DETAIL_APPROACH_LABELS[view]}</span>`;
+  mb.innerHTML = `<span class="ml">Measure</span>` +
+    measures.map((m) => `<button class="mtab${m === DETAIL.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
+    `<span class="ms"></span>` +
+    ['rust', 'python'].map((l) => `<label class="chk"><input type="checkbox" data-dlang="${l}"${DETAIL.langs[l] ? ' checked' : ''}> ${l.charAt(0).toUpperCase() + l.slice(1)}</label>`).join('') +
+    approachCtl;
+  mb.onclick = (e) => { const b = e.target.closest('.mtab'); if (!b) return; DETAIL.measure = b.dataset.measure; buildDetailMeasureBar(); renderDetail(); };
+  mb.onchange = (e) => {
+    if (e.target.matches('[data-dlang]')) { DETAIL.langs[e.target.dataset.dlang] = e.target.checked; renderDetail(); }
+    else if (e.target.matches('[data-dapp]')) { DETAIL.apps[e.target.dataset.dapp] = e.target.checked; buildDetailMeasureBar(); renderDetail(); }
+  };
+}
+function buildDetailCtrlBar() {
+  const view = DETAIL.view, cfg = DAPP_CFG[view] || DAPP_CFG.overview;
+  const apps = view === 'overview' ? detailViews().filter((v) => v !== 'overview') : [view];
+  const cb = document.getElementById('d-ctrlBar');
+  const xOpts = ['n', 'bandwidth', 'k', 'order', 'delay', 'dims', 'alpha', 'q'].filter((k) => !cfg.hide.includes(k) && DETAIL.entries.some((e) => apps.includes(e.dapp) && e.params[k] != null));
+  if (!xOpts.includes(DETAIL.x)) DETAIL.x = xOpts.includes(cfg.xDflt) ? cfg.xDflt : (xOpts[0] || 'n');
+  let html = `<span class="cl">X</span><select id="d-xSel">` + xOpts.map((k) => `<option value="${k}"${k === DETAIL.x ? ' selected' : ''}>${k === 'n' ? 'size' : k}</option>`).join('') + `</select>`;
+  html += `<span class="cl" style="margin-left:6px">Y</span><button class="scbtn" id="d-scaleYBtn"><span class="sopt${DETAIL.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logY ? '' : ' on'}">Lin</span></button>`;
+  html += `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="d-scaleXBtn"><span class="sopt${DETAIL.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logX ? '' : ' on'}">Lin</span></button>`;
+  html += `<button class="tbtn" id="d-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
+  for (const key of cfg.fltr) {
+    let vals = [...new Set(DETAIL.entries.filter((e) => apps.includes(e.dapp)).map((e) => e.params[key]).filter((v) => v != null))];
+    vals.sort((a, b) => a - b);
     if (vals.length) {
-      html += `<span class="cl" style="margin-left:6px">${key}</span>`;
-      html += `<select class="fltr" data-key="${key}"><option value="">all</option>${vals.map(v => `<option value="${v}">${v}</option>`).join('')}</select>`;
+      html += `<span class="cl" style="margin-left:6px">${key === 'kernel_type' ? 'kernel' : key}</span>`;
+      html += `<select class="dfltr" data-key="${key}"><option value="">all</option>${vals.map((v) => `<option value="${v}">${v}</option>`).join('')}</select>`;
     }
   }
   cb.innerHTML = html;
-}
-
-// ---- State save/restore (URL hash) ----
-function getStateHash() {
-  const measure = (document.querySelector('#measureBar .mtab.active') || {}).dataset?.measure || '';
-  const langs = [...document.querySelectorAll('[data-lang]:checked')].map(cb => cb.dataset.lang);
-  const apps = [...document.querySelectorAll('[data-approach]:checked')].map(cb => cb.dataset.approach);
-  const xAxis = (document.getElementById('xSel') || {}).value || '';
-  const logY = document.getElementById('scaleYBtn')?.querySelector('.sopt.on')?.textContent === 'Log' ? '1' : '0';
-  const logX = document.getElementById('scaleXBtn')?.querySelector('.sopt.on')?.textContent === 'Log' ? '1' : '0';
-  const fltrs = {};
-  document.querySelectorAll('.fltr').forEach(s => { if (s.value) fltrs[s.dataset.key] = s.value; });
-  const params = new URLSearchParams();
-  params.set('v', currentView);
-  if (measure) params.set('m', measure);
-  if (xAxis) params.set('x', xAxis);
-  params.set('ly', logY);
-  params.set('lx', logX);
-  if (langs.length) params.set('lg', langs.join(','));
-  if (apps.length) params.set('ap', apps.join(','));
-  if (Object.keys(fltrs).length) params.set('f', JSON.stringify(fltrs));
-  if (gpuMode) params.set('g', '1');
-  return params.toString();
-}
-
-function restoreStateHash(hash) {
-  const params = new URLSearchParams(hash);
-  if (params.get('v')) currentView = params.get('v');
-  // Measure, langs, apps, filters are restored after rebuildUI via _pendingRestore
-  _pendingRestore = {
-    measure: params.get('m'),
-    xAxis: params.get('x'),
-    logY: params.get('ly') === '1',
-    logX: params.get('lx') === '1',
-    hasLy: params.has('ly'),
-    hasLx: params.has('lx'),
-    langs: params.get('lg')?.split(',').filter(Boolean) || [],
-    apps: params.get('ap')?.split(',').filter(Boolean) || [],
-    fltrs: (() => { try { return JSON.parse(params.get('f') || '{}'); } catch { return {}; } })(),
+  cb.onchange = (e) => {
+    if (e.target.id === 'd-xSel') { DETAIL.x = e.target.value; renderDetail(); }
+    else if (e.target.matches('.dfltr')) { renderDetail(); }
+  };
+  cb.onclick = (e) => {
+    if (e.target.closest('#d-scaleYBtn')) { DETAIL.logY = !DETAIL.logY; buildDetailCtrlBar(); renderDetail(); }
+    else if (e.target.closest('#d-scaleXBtn')) { DETAIL.logX = !DETAIL.logX; buildDetailCtrlBar(); renderDetail(); }
+    else if (e.target.closest('#d-resetZoom')) { detailChart && detailChart.resetZoom && detailChart.resetZoom(); }
   };
 }
+function detailColor(g) {
+  if (DETAIL.view === 'overview') return DAPP_COLORS[g.dapp] || '#999';
+  if (g.dapp === 'discrete' && g.method && DISCRETE_COLORS[g.method]) return DISCRETE_COLORS[g.method];
+  if (g.dapp === 'kl' && g.sub) return KL_COLORS[g.sub] || '#984ea3';
+  return (DLANG_COLORS[g.lang] || {})[g.dapp] || '#999';
+}
+function detailDash(g) {
+  const py = g.lang === 'python';
+  if (DETAIL.view === 'overview') return py ? [4, 3] : [];
+  if (g.dapp === 'discrete') { const md = METHOD_DASH[g.method] || []; return py ? (md.length ? md.concat([2, 2]) : [4, 3]) : md; }
+  if (g.dapp === 'kl') { const bd = KL_DASH[g.sub] || []; return py ? (bd.length ? bd.concat([2, 2]) : [4, 3]) : bd; }
+  return LINE_STYLES[g.dapp] || [];
+}
+function renderDetail() {
+  const view = DETAIL.view, cfg = DAPP_CFG[view] || DAPP_CFG.overview;
+  const present = detailViews().filter((v) => v !== 'overview');
+  const apps = view === 'overview' ? present.filter((a) => OVERVIEW_APPROACHES.includes(a) && DETAIL.apps[a]) : [view];
+  const fltrs = {}; document.querySelectorAll('.dfltr').forEach((s) => { if (s.value) fltrs[s.dataset.key] = s.value; });
+  const langs = Object.entries(DETAIL.langs).filter(([, v]) => v).map(([k]) => k);
+  let entries = DETAIL.entries.filter((e) => e.measure === DETAIL.measure && apps.includes(e.dapp) && langs.includes(e.language));
+  for (const [k, v] of Object.entries(fltrs)) entries = entries.filter((e) => String(e.params[k]) === v);
 
-let _pendingRestore = null;
-
-// ---- Chart ----
-function renderChart() {
-  const view = currentView, cfg = APP_CFG[view] || APP_CFG.overview;
-  const apps = view === 'overview' ? APPROACHES.filter(a => allData.some(b => b.approach === a)) : [view];
-
-  const measure = (document.querySelector('#measureBar .mtab.active') || {}).dataset?.measure || 'entropy';
-  const langs = [...document.querySelectorAll('[data-lang]:checked')].map(cb => cb.dataset.lang);
-  const selApps = [...document.querySelectorAll('[data-approach]:checked')].map(cb => cb.dataset.approach).filter(a => apps.includes(a));
-  const xAxis = (document.getElementById('xSel') || {}).value || 'size';
-  const logY = document.getElementById('scaleYBtn')?.querySelector('.sopt.on')?.textContent === 'Log';
-  const logX = document.getElementById('scaleXBtn')?.querySelector('.sopt.on')?.textContent === 'Log';
-
-  // Param filters
-  const fltrs = {};
-  document.querySelectorAll('.fltr').forEach(s => { if (s.value) fltrs[s.dataset.key] = s.value; });
-
-  let entries = allData.filter(b => b.measure === measure && selApps.includes(b.approach) && langs.includes(b.language));
-  for (const [k, v] of Object.entries(fltrs)) entries = entries.filter(b => String(b.params[k]) === v);
-
-  // Overview: one line per approach, sensible defaults
   if (view === 'overview') {
-    const defs = {
-      kernel:   { key:'bandwidth', val:'0.5' },
-      kl:       { key:'k', val:'3' },
-      ordinal:  { key:'order', val:'3', extra:{key:'delay', val:'0'} },
-      renyi:    { key:'k', val:'3', extra:{key:'alpha', val:'0.5'} },
-      tsallis:  { key:'k', val:'3', extra:{key:'q', val:'0.5'} },
-    };
-    entries = entries.filter(e => {
-      if (e.approach === 'discrete' && e.params.method && e.params.method !== 'mle') return false;
-      if (e.approach === 'kl' && e.group.includes('ksg')) {
-        const hasKl = entries.some(x => x !== e && x.language === e.language && x.approach === 'kl' && x.measure === e.measure && x.params.k === e.params.k && x.group.includes('kl'));
-        if (hasKl) return false;
+    // Uncluttered: discrete MLE, one kernel (bw=0.5), one kNN/KL series per
+    // language, ordinal. Rényi/Tsallis and the KL variants live in their tabs.
+    const defs = { kernel: { key: 'bandwidth', val: '0.5' }, ordinal: { key: 'order', val: '3' } };
+    const langsWithKl = new Set(entries.filter((e) => e.dapp === 'kl' && e.approach === 'kl').map((e) => e.language));
+    entries = entries.filter((e) => {
+      if (e.dapp === 'discrete') return e.params.method === 'mle';
+      if (e.dapp === 'kl') {
+        if (String(e.params.k) !== '4') return false;
+        if (e.approach !== 'kl' && e.approach !== 'ksg') return false;
+        if (e.approach === 'ksg' && langsWithKl.has(e.language)) return false; // prefer KL
+        return true;
       }
-      const d = defs[e.approach];
-      if (!d) return true;
+      if (e.dapp === 'renyi' || e.dapp === 'tsallis') return false;
+      const d = defs[e.dapp]; if (!d) return true;
       if (e.params[d.key] != null && String(e.params[d.key]) !== d.val) return false;
-      if (d.extra && e.params[d.extra.key] != null && String(e.params[d.extra.key]) !== d.extra.val) return false;
       return true;
     });
   }
-
-  // Group
+  // Group by language + visible params (excluding x).
   const groups = {};
   for (const e of entries) {
     const parts = [];
     for (const key of Object.keys(e.params)) {
-      if (key === xAxis || cfg.hide.includes(key) || e.params[key] == null) continue;
+      if (key === DETAIL.x || cfg.hide.includes(key) || e.params[key] == null) continue;
       parts.push(`${key}=${e.params[key]}`);
     }
-    const langLabel = e.language.charAt(0).toUpperCase() + e.language.slice(1);
-    let appLabel = APP_LABEL[e.approach] || e.approach;
-    if (e.approach === 'kl' && e.group) {
-      appLabel = e.group.includes('ksg') ? 'KSG' : 'KL';
-    }
+    const appLabel = DETAIL_APPROACH_LABELS[e.dapp] || e.dapp;
+    const sub = (e.dapp === 'kl' && e.sub) ? ` ${e.sub}` : '';
     const show = [];
-    if (e.params.method && e.approach !== 'kl') show.push(e.params.method);
+    if (e.params.method && e.dapp !== 'kl') show.push(e.params.method);
     if (e.params.kernel_type) show.push(e.params.kernel_type);
-    for (const p of parts) {
-      const k = p.split('=')[0];
-      if (k === 'kernel_type' || k === 'method') continue;
-      show.push(p);
-    }
+    for (const p of parts) { const k = p.split('=')[0]; if (k === 'kernel_type' || k === 'method') continue; show.push(p); }
     const suff = show.length ? ` (${show.join(', ')})` : '';
-    const label = `${langLabel} ${appLabel}${suff}`;
-    if (!groups[label]) groups[label] = { lang: e.language, app: e.approach, label, pts: [] };
-    const xv = e.params[xAxis];
-    if (xv != null) groups[label].pts.push({ x: Number(xv), y: e.statistics.mean, yerr: e.statistics.stddev, ciLo: e.statistics.ci_lower, ciHi: e.statistics.ci_upper, e });
+    const label = `${e.language.charAt(0).toUpperCase() + e.language.slice(1)} ${appLabel}${sub}${suff}`;
+    if (!groups[label]) groups[label] = { lang: e.language, dapp: e.dapp, sub: e.sub, method: e.params.method, label, pts: [] };
+    const xv = e.params[DETAIL.x];
+    if (xv != null) groups[label].pts.push({ x: Number(xv), y: meanOf(e), _err: stdOf(e), e });
   }
-
-  const glist = Object.values(groups).filter(g => g.pts.length >= 2);
-  glist.forEach(g => g.pts.sort((a,b) => a.x - b.x));
-
-  document.getElementById('entryCount').textContent = `${glist.reduce((s,g) => s+g.pts.length,0)} points`;
-  document.getElementById('lineCount').textContent = `${glist.length} lines`;
-
-  // Chart subtitle: describe active filters
-  const subParts = [measure.toUpperCase()];
-  if (view !== 'overview') subParts.push(APP_LABEL[view] || view);
-  const activeFltrs = Object.entries(fltrs).map(([k,v]) => `${k}=${v}`);
-  if (activeFltrs.length) subParts.push(activeFltrs.join(' · '));
-  if (xAxis !== 'size') subParts.push(`x=${xAxis}`);
-  const langsLabel = langs.length === 2 ? 'Rust+Python' : langs.length === 1 ? langs[0] : 'none';
-  subParts.push(langsLabel);
-  document.getElementById('chartSubtitle').textContent = subParts.join(' · ');
-
-  // Datasets
-  const ds = [];
-  for (let gi = 0; gi < glist.length; gi++) {
-    const g = glist[gi];
-    const method = g.pts[0]?.e?.params?.method || '';
-    let col, dash;
-    if (view === 'overview') {
-      // Overview: same color per approach for both languages; line style differentiates language
-      col = APP_COLORS[g.app] || '#999';
-      // Kernel: shade by kernel_type (gaussian=base green, box=lighter)
-      if (g.app === 'kernel') {
-        const kt = g.pts[0]?.e?.params?.kernel_type;
-        if (kt === 'box') col = '#8fbc8f';
-      }
-      dash = g.lang === 'python' ? [4, 3] : [];
-    } else if (g.app === 'discrete' && method && DISCRETE_COLORS[method]) {
-      // Discrete tab: distinct color per method; Rust/ Python by line style
-      col = DISCRETE_COLORS[method];
-      const md = METHOD_DASH[method] || [];
-      dash = g.lang === 'python' ? (md.length ? md.concat([2, 2]) : [4, 3]) : md;
-    } else {
-      // Per-approach tabs: different color per language
-      col = LANG_COLORS[g.lang]?.[g.app] || '#999';
-      dash = LINE_STYLES[g.app] || [];
-    }
-    const mainData = g.pts.map(p => ({x:p.x, y:p.y, _std: p.yerr}));
-
-    ds.push({
-      label: g.label,
-      data: mainData,
-      borderColor: col,
-      backgroundColor: col + '33',
-      borderDash: dash,
-      tension: 0.15,
-      fill: false,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      borderWidth: 2,
-      showLine: true,
-    });
-  }
-
-  // No data
-  if (!glist.length) {
-    if (chart) chart.destroy();
-    const ctx = document.getElementById('chart').getContext('2d');
-    chart = new Chart(ctx, { type:'scatter', data:{datasets:[]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{enabled:false}}, scales:{x:{grid:{display:false},ticks:{display:false}}, y:{grid:{display:false},ticks:{display:false}}}, layout:{padding:{top:40}}}, plugins:[{id:'nd', afterDraw(c){const {ctx,chartArea}=c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='14px sans-serif'; ctx.fillStyle='#999'; ctx.fillText('No data for current filters', chartArea.left+chartArea.width/2, chartArea.top+chartArea.height/2); ctx.restore();}}] });
-    fillTable([]);
-    return;
-  }
-
-  if (chart) chart.destroy();
+  const glist = Object.values(groups).filter((g) => g.pts.length >= 2);
+  glist.forEach((g) => g.pts.sort((a, b) => a.x - b.x));
+  document.getElementById('d-entryCount').textContent = `${glist.reduce((s, g) => s + g.pts.length, 0)} points`;
+  document.getElementById('d-lineCount').textContent = `${glist.length} lines`;
+  const subParts = [MEASURE_LABELS[DETAIL.measure] || DETAIL.measure];
+  if (view !== 'overview') subParts.push(DETAIL_APPROACH_LABELS[view] || view);
+  const af = Object.entries(fltrs).map(([k, v]) => `${k}=${v}`); if (af.length) subParts.push(af.join(' · '));
+  if (DETAIL.x !== 'n') subParts.push(`x=${DETAIL.x}`);
+  subParts.push(langs.join('+') || 'none');
+  document.getElementById('d-subtitle').textContent = subParts.join(' · ');
+  if (detailChart) detailChart.destroy();
+  if (!glist.length) { detailChart = emptyChart('d-chart'); fillDetailTable([]); syncHash(); return; }
   const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const gridCol = dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-  const tickCol = dm ? '#aaa' : '#666';
-  const chartOpts = {
-    responsive:true, maintainAspectRatio:false,
-    interaction:{mode:'nearest', intersect:false},
-    scales:{
-      x:{ type:logX?'logarithmic':'linear', title:{display:true, text:xAxis, font:{weight:'bold'}, color:tickCol}, grid:{color:gridCol}, ticks:{color:tickCol} },
-      y:{ type:logY?'logarithmic':'linear', title:{display:true, text:'Time (s)', font:{weight:'bold'}, color:tickCol}, grid:{color:gridCol}, ticks:{callback:v=>fmt(v), color:tickCol} },
-    },
-    color: dm ? '#ccc' : '#333',
-    plugins:{
-      legend:{ position:'bottom', labels:{ filter:i => ds[i.datasetIndex] && ds[i.datasetIndex].pointRadius > 0, font:{size:10}, boxWidth:14, padding:6 } },
-      tooltip:{ callbacks:{ label:ctx => { const s = ctx.raw._std ? ' \u00b1 ' + fmt(ctx.raw._std) : ''; return ctx.dataset.label + ': ' + fmt(ctx.raw.y) + s; } } },
-      zoom:{ zoom:{ wheel:{enabled:false}, drag:{enabled:true, backgroundColor:'rgba(13,110,253,0.1)', borderColor:'#0d6efd', borderWidth:1}, pinch:{enabled:true}, mode:'xy' }, pan:{ enabled:true, mode:'xy' } },
-    },
-  };
-  chart = new Chart(document.getElementById('chart').getContext('2d'), {
-    type:'line', data:{datasets:ds},
-    options: chartOpts,
+  const gridCol = dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'; const tickCol = dm ? '#aaa' : '#666';
+  const ds = glist.map((g) => ({ label: g.label, data: g.pts.map((p) => ({ x: p.x, y: p.y, _err: p._err })),
+    borderColor: detailColor(g), backgroundColor: detailColor(g) + '22', borderDash: detailDash(g),
+    tension: 0.15, fill: false, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, showLine: true }));
+  detailChart = new Chart(document.getElementById('d-chart').getContext('2d'), {
+    type: 'line', data: { datasets: ds }, plugins: [errorBars],
+    options: chartOptions('d-chart', { logY: DETAIL.logY, logX: DETAIL.logX, yTitle: 'Time (s)', relative: false, dm, gridCol, tickCol }),
   });
-
-  fillTable(glist);
+  fillDetailTable(glist);
+  syncHash();
 }
-
-function fillTable(groups) {
-  const xLabel = (document.getElementById('xSel')||{}).value || 'size';
-  const head = document.getElementById('tableHead'), body = document.getElementById('tableBody');
+function fillDetailTable(groups) {
+  const head = document.getElementById('d-tableHead'), body = document.getElementById('d-tableBody');
   const rows = [];
-  for (const g of groups) for (const p of g.pts) rows.push({ lang: g.lang, app: g.app, id: p.e.id, x: p.x, mean: p.y, std: p.yerr });
-  const cols = ['Language','Approach','Benchmark',xLabel,'Mean','Std Dev'];
-  const keys = ['lang','app','id','x','mean','std'];
-  head.innerHTML = cols.map((c, i) => `<th data-key="${keys[i]}" style="cursor:pointer;user-select:none">${c}${sortCol===keys[i]?(sortAsc?' &#9650;':' &#9660;'):''}</th>`).join('');
-  const sCol = sortCol, sAsc = sortAsc;
-  rows.sort((a, b) => {
-    let va = a[sCol] || '', vb = b[sCol] || '';
-    if (typeof va === 'string') va = va.toLowerCase();
-    if (typeof vb === 'string') vb = vb.toLowerCase();
-    if (va < vb) return sAsc ? -1 : 1;
-    if (va > vb) return sAsc ? 1 : -1;
-    return 0;
-  });
-  body.innerHTML = rows.map(r => `<tr><td>${r.lang}</td><td>${r.app}</td><td>${r.id}</td><td class="num">${r.x}</td><td class="num">${fmt(r.mean)}</td><td class="num">${fmt(r.std)}</td></tr>`).join('');
-  head.onclick = e => {
-    const th = e.target.closest('th');
-    if (!th || !th.dataset.key) return;
-    const key = th.dataset.key;
-    if (sortCol === key) sortAsc = !sortAsc;
-    else { sortCol = key; sortAsc = true; }
-    fillTable(groups);
+  for (const g of groups) for (const p of g.pts) {
+    const e = p.e;
+    rows.push({ lang: e.language, app: e.dapp + (e.sub ? ' ' + e.sub : ''), id: e.id, x: p.x, mean: p.y, std: stdOf(e), samples: samplesOf(e), value: e.value });
+  }
+  head.innerHTML = ['Language', 'Approach', 'Benchmark', DETAIL.x === 'n' ? 'size' : DETAIL.x, 'Mean', 'Std Dev', 'Iters', 'Value'].map((c) => `<th>${c}</th>`).join('');
+  body.innerHTML = rows.map((r) => `<tr><td>${esc(r.lang)}</td><td>${esc(r.app)}</td><td>${esc(r.id)}</td>` +
+    `<td class="num">${r.x}</td><td class="num">${fmt(r.mean)}</td><td class="num">${r.std == null ? '-' : fmt(r.std)}</td>` +
+    `<td class="num">${r.samples ?? '-'}</td><td class="num">${r.value == null ? '-' : Number(r.value).toFixed(4)}</td></tr>`).join('');
+}
+
+// ======================= shared chart helpers =======================
+function chartOptions(id, o) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false },
+    scales: {
+      x: { type: o.logX ? 'logarithmic' : 'linear', title: { display: true, text: 'n', font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { color: o.tickCol } },
+      y: { type: o.logY ? 'logarithmic' : 'linear', title: { display: true, text: o.yTitle, font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { callback: (v) => o.relative ? v : fmt(v), color: o.tickCol } },
+    },
+    color: o.dm ? '#ccc' : '#333',
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 14, padding: 6 } },
+      tooltip: { callbacks: { label: (c) => {
+        const s = c.raw._err ? ' ± ' + (o.relative ? c.raw._err.toFixed(3) : fmt(c.raw._err)) : '';
+        const y = o.relative ? c.raw.y.toFixed(3) + '×' : fmt(c.raw.y);
+        return c.dataset.label + ': ' + y + s;
+      } } },
+      zoom: { zoom: { wheel: { enabled: false }, drag: { enabled: true, backgroundColor: 'rgba(13,110,253,0.1)', borderColor: '#0d6efd', borderWidth: 1 }, pinch: { enabled: true }, mode: 'xy' }, pan: { enabled: true, mode: 'xy' } },
+    },
   };
 }
+function emptyChart(id) {
+  return new Chart(document.getElementById(id).getContext('2d'), {
+    type: 'scatter', data: { datasets: [] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } },
+  });
+}
+
+// ======================= hash + share =======================
+function hashOf() {
+  const p = new URLSearchParams();
+  p.set('mode', MODE);
+  if (MODE === 'cross') {
+    p.set('v', CROSS.approach); p.set('m', CROSS.measure);
+    p.set('ly', CROSS.logY ? '1' : '0'); p.set('lx', CROSS.logX ? '1' : '0'); p.set('r', CROSS.relative ? '1' : '0');
+    const off = Object.entries(CROSS.langs).filter(([, v]) => !v).map(([k]) => k);
+    if (off.length) p.set('off', off.join(','));
+  } else {
+    p.set('dv', DETAIL.view); p.set('dm', DETAIL.measure); p.set('dx', DETAIL.x);
+    p.set('dly', DETAIL.logY ? '1' : '0'); p.set('dlx', DETAIL.logX ? '1' : '0');
+    p.set('dl', Object.entries(DETAIL.langs).filter(([, v]) => v).map(([k]) => k).join(','));
+    const da = Object.entries(DETAIL.apps || {}).filter(([, v]) => v).map(([k]) => k);
+    if (da.length) p.set('da', da.join(','));
+  }
+  return p.toString();
+}
+function syncHash() { history.replaceState(null, '', '#' + hashOf()); }
+document.getElementById('shareBtn').onclick = () => {
+  const url = location.origin + location.pathname + '#' + hashOf();
+  navigator.clipboard.writeText(url).then(() => { const b = document.getElementById('shareBtn'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Share', 1500); }).catch(() => { location.hash = hashOf(); });
+};
+(function restore() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get('mode')) MODE = p.get('mode');
+  if (p.get('v') && MAIN_APPROACHES.includes(p.get('v'))) CROSS.approach = p.get('v');
+  if (p.get('m')) CROSS.measure = p.get('m');
+  if (p.has('ly')) CROSS.logY = p.get('ly') === '1';
+  if (p.has('lx')) CROSS.logX = p.get('lx') === '1';
+  if (p.get('r') === '1') CROSS.relative = true;
+  if (p.get('dv')) DETAIL.view = p.get('dv');
+  if (p.get('dm')) DETAIL.measure = p.get('dm');
+  if (p.get('dx')) DETAIL.x = p.get('dx');
+  if (p.has('dly')) DETAIL.logY = p.get('dly') === '1';
+  if (p.has('dlx')) DETAIL.logX = p.get('dlx') === '1';
+  if (p.get('off')) RESTORE.crossOff = p.get('off').split(',').filter(Boolean);
+  if (p.has('dl')) RESTORE.detailLangs = p.get('dl').split(',').filter(Boolean);
+  if (p.get('da')) RESTORE.detailApps = p.get('da').split(',').filter(Boolean);
+})();
+
+boot().catch((e) => { document.getElementById('dataInfo').textContent = 'Error: ' + e.message; });
 </script>
 </body>
 </html>
