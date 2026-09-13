@@ -1,11 +1,11 @@
 {
-  "_comment": "Single source of truth for the detailed infomeasure benchmark grid. Consumed by benches/utils/grid.rs (infomeasure-rs) and scripts/bench_packages/_grid.py (infomeasure-python). Axis names map to estimator parameters; `cross` selects the representative subset used for the cross-package comparison page; `langs` restricts a variant to specific infomeasure packages.",
+  "_comment": "Single source of truth for the detailed infomeasure benchmark grid. Consumed by benches/utils/grid.rs (infomeasure-rs) and scripts/bench_packages/_grid.py (infomeasure-python). Axis names map to estimator parameters; `cross` selects the representative subset used for the cross-package comparison page; `langs` restricts a variant to specific infomeasure packages. NSB is intentionally absent from `method`: it is only defined in the undersampled regime and returns NaN (in both infomeasure-rs and infomeasure-python) on these non-undersampled datasets, so it cannot be compared here.",
   "sizes": {
     "cross": [100, 400, 1600, 6400, 12500],
     "detailed": [100, 200, 400, 800, 1600, 3200, 6400, 12500]
   },
   "values": {
-    "method": ["mle", "grassberger", "nsb", "miller_madow", "ansb", "chao_shen", "chao_wang_jost", "shrink", "bayes", "bonachela", "zhang"],
+    "method": ["mle", "grassberger", "miller_madow", "ansb", "chao_shen", "chao_wang_jost", "shrink", "bayes", "bonachela", "zhang"],
     "k": [4, 5],
     "kl_k": [1, 10],
     "bandwidth": [0.3, 0.5, 1.0, 1.5],
