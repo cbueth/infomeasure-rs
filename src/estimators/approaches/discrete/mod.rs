@@ -55,6 +55,8 @@ pub mod mle_gpu;
 
 mod dense_cmi;
 
+pub use dense_cmi::{DenseCmiBuilder, DenseCmiGlobal};
+
 pub mod ansb;
 pub mod bayes;
 pub mod bonachela;

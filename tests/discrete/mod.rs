@@ -13,6 +13,7 @@ mod chao_shen_parity;
 mod chao_shen_sanity;
 mod chao_wang_jost_parity;
 mod chao_wang_jost_sanity;
+mod dense_builder;
 mod discrete_batch_sanity;
 mod discrete_entropy_test;
 mod discrete_gpu_smoke;

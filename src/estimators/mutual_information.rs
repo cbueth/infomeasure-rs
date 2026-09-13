@@ -69,7 +69,7 @@ use crate::estimators::approaches::discrete::nsb::NsbEntropy;
 use crate::estimators::approaches::discrete::shrink::ShrinkEntropy;
 use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
 use crate::estimators::approaches::discrete::{
-    DiscreteConditionalMutualInformation, DiscreteMutualInformation,
+    DenseCmiBuilder, DiscreteConditionalMutualInformation, DiscreteMutualInformation,
 };
 use ndarray::{Array1, Array2, Axis};
 
@@ -772,6 +772,31 @@ impl MutualInformation {
         cond: &Array1<i32>,
     ) -> DiscreteConditionalMutualInformation<DiscreteEntropy> {
         DiscreteConditionalMutualInformation::new_mle(series, cond)
+    }
+
+    /// Timing-optimised builder for the dense direct discrete-MLE conditional
+    /// mutual information.
+    ///
+    /// Unlike [`new_cmi_discrete_mle`](Self::new_cmi_discrete_mle) this borrows
+    /// the raw code columns (no clones) and lets the caller declare the alphabet
+    /// and drop the retained inputs. Both terminals fall back to the generic
+    /// estimator when the joint alphabet is too large.
+    ///
+    /// ```rust
+    /// use infomeasure::estimators::entropy::GlobalValue;
+    /// use infomeasure::estimators::mutual_information::MutualInformation;
+    ///
+    /// let x = [0, 0, 1, 1, 0, 1, 0, 1];
+    /// let y = [0, 1, 0, 1, 1, 0, 1, 0];
+    /// let z = [0, 0, 1, 1, 0, 0, 1, 1];
+    /// let cmi = MutualInformation::cmi_discrete_mle(&[&x, &y], &z)
+    ///     .with_alphabet(2)
+    ///     .global_only()
+    ///     .global_value();
+    /// assert!(cmi >= 0.0);
+    /// ```
+    pub fn cmi_discrete_mle<'a>(series: &[&'a [i32]], cond: &'a [i32]) -> DenseCmiBuilder<'a> {
+        DenseCmiBuilder::new(series, cond)
     }
 
     /// Create a Miller-Madow bias-corrected discrete conditional mutual information estimator.
