@@ -105,12 +105,12 @@ steps:
       username: cbueth
       password:
         from_secret: CODEBERG_PACKAGES_TOKEN
-      single-snapshot: true
-      # Registry layer cache disabled: Codeberg's registry garbage-collects
-      # untagged cache blobs, which leaves kaniko's cache index pointing at
-      # missing blobs and the final push fails with BLOB_UNKNOWN. Rebuilds are
-      # slower but reliable; re-enable only after recreating the cache repo.
-      cache: false
+      single-snapshot: false
+      # Registry-backed layer cache: the base layers rarely change, so caching
+      # keeps the slow Julia/R/pip stages incremental. The push failure was a
+      # single huge snapshot blob (BLOB_UNKNOWN), not the cache.
+      cache: true
+      cache_repo: cbueth/infomeasure-rs-cache
 
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
