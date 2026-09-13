@@ -213,3 +213,125 @@ fn cmi_conditionally_independent_is_zero() {
         .global_value();
     assert!(cmi.abs() < 0.05, "cmi={cmi}");
 }
+
+/// MI: declared alphabet and global-only terminal agree with the generic
+/// constructor, for bivariate and multivariate variants.
+#[rstest]
+fn mi_builder_global_matches_generic(#[values(2, 5, 10)] states: i32) {
+    let x = codes(400, states, 71);
+    let y = codes(400, states, 72);
+    let w = codes(400, states, 73);
+
+    let generic_xy =
+        MutualInformation::new_discrete_mle(&[Array1::from(x.clone()), Array1::from(y.clone())])
+            .global_value();
+    let builder_xy = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states as usize)
+        .global_only()
+        .global_value();
+    assert_close(generic_xy, builder_xy, "mi xy");
+
+    let generic_xyw = MutualInformation::new_discrete_mle(&[
+        Array1::from(x.clone()),
+        Array1::from(y.clone()),
+        Array1::from(w.clone()),
+    ])
+    .global_value();
+    let builder_xyw = MutualInformation::mi_discrete_mle(&[&x, &y, &w])
+        .with_alphabet(states as usize)
+        .global_only()
+        .global_value();
+    assert_close(generic_xyw, builder_xyw, "mi xyw");
+
+    let inferred = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .global_only()
+        .global_value();
+    assert_close(generic_xy, inferred, "mi inferred");
+}
+
+/// MI: the local-capable terminal reproduces the generic local values.
+#[test]
+fn mi_builder_build_matches_generic_local() {
+    let states = 4i32;
+    let x = codes(300, states, 81);
+    let y = codes(300, states, 82);
+
+    let generic =
+        MutualInformation::new_discrete_mle(&[Array1::from(x.clone()), Array1::from(y.clone())]);
+    let generic_local = generic.local_values();
+
+    let built = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states as usize)
+        .build();
+    assert_close(generic.global_value(), built.global_value(), "mi global");
+    let built_local = built.local_values();
+    assert_eq!(generic_local.len(), built_local.len());
+    for (a, b) in generic_local.iter().zip(built_local.iter()) {
+        assert_relative_eq!(a, b, epsilon = 1e-12, max_relative = 1e-10);
+    }
+}
+
+/// MI: the global-only terminal refuses local values and matches the local
+/// terminal's average.
+#[test]
+fn mi_global_only_refuses_local_values() {
+    let x = codes(50, 3, 91);
+    let y = codes(50, 3, 92);
+    let global = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(3)
+        .global_only();
+    assert!(!global.supports_local());
+    assert!(global.local_values_opt().is_err());
+    assert_close(
+        global.global_value(),
+        MutualInformation::mi_discrete_mle(&[&x, &y])
+            .with_alphabet(3)
+            .build()
+            .global_value(),
+        "mi global-only vs local",
+    );
+}
+
+/// MI: beyond the dense cap the builder falls back to the generic estimator.
+#[test]
+fn mi_builder_falls_back_beyond_cap() {
+    let states = 2048usize;
+    let x = codes(300, 16, 93); // only 16 used states, but declared alphabet is huge
+    let y = codes(300, 16, 94);
+
+    // With a declared alphabet far above the cap, both terminals must fall back
+    // and agree with the generic value.
+    let global = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states)
+        .global_only();
+    assert!(!global.supports_local());
+
+    let inferred = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .global_only()
+        .global_value();
+    let built = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states)
+        .build()
+        .global_value();
+    // Fallback computes the same reduced-code MI as the inferred dense path.
+    assert_close(inferred, built, "mi fallback");
+}
+
+/// Sanity: independent MI is (near) zero, self-MI equals the entropy.
+#[test]
+fn mi_independent_is_zero_and_self_is_entropy() {
+    let x = codes(500, 5, 95);
+    let y = codes(500, 5, 96);
+    let mi = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(5)
+        .global_only()
+        .global_value();
+    assert!(mi.abs() < 0.05, "mi={mi}");
+
+    let self_mi = MutualInformation::mi_discrete_mle(&[&x, &x])
+        .with_alphabet(5)
+        .global_only()
+        .global_value();
+    let h = infomeasure::estimators::entropy::Entropy::new_discrete_from_slice(&x).global_value();
+    assert_close(self_mi, h, "I(x;x)=H(x)");
+}

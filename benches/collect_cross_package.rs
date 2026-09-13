@@ -101,6 +101,13 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 }
             }
             "mi" => {
+                if method == "mle" {
+                    // Borrowed, known-alphabet, global-only: no input clones.
+                    return MutualInformation::mi_discrete_mle(&[&cols[0], &cols[1]])
+                        .with_alphabet(NUM_STATES_DISCRETE as usize)
+                        .global_only()
+                        .global_value();
+                }
                 let s = [a(0), a(1)];
                 match method {
                     "miller_madow" => {

@@ -69,7 +69,8 @@ use crate::estimators::approaches::discrete::nsb::NsbEntropy;
 use crate::estimators::approaches::discrete::shrink::ShrinkEntropy;
 use crate::estimators::approaches::discrete::zhang::ZhangEntropy;
 use crate::estimators::approaches::discrete::{
-    DenseCmiBuilder, DiscreteConditionalMutualInformation, DiscreteMutualInformation,
+    DenseCmiBuilder, DenseMiBuilder, DiscreteConditionalMutualInformation,
+    DiscreteMutualInformation,
 };
 use ndarray::{Array1, Array2, Axis};
 
@@ -712,7 +713,29 @@ pub struct MutualInformation;
 impl MutualInformation {
     /// Create a Maximum-Likelihood (Shannon) discrete mutual information estimator.
     pub fn new_discrete_mle(series: &[Array1<i32>]) -> DiscreteMutualInformation<DiscreteEntropy> {
-        DiscreteMutualInformation::new(series, DiscreteEntropy::new)
+        DiscreteMutualInformation::new_mle(series)
+    }
+
+    /// Timing-optimised builder for the dense direct discrete-MLE mutual
+    /// information.
+    ///
+    /// Borrows the raw code columns (no clones); see [`DenseMiBuilder`] for the
+    /// known-alphabet and global-only terminals.
+    ///
+    /// ```rust
+    /// use infomeasure::estimators::entropy::GlobalValue;
+    /// use infomeasure::estimators::mutual_information::MutualInformation;
+    ///
+    /// let x = [0, 0, 1, 1, 0, 1, 0, 1];
+    /// let y = [0, 1, 0, 1, 1, 0, 1, 0];
+    /// let mi = MutualInformation::mi_discrete_mle(&[&x, &y])
+    ///     .with_alphabet(2)
+    ///     .global_only()
+    ///     .global_value();
+    /// assert!(mi >= 0.0);
+    /// ```
+    pub fn mi_discrete_mle<'a>(series: &[&'a [i32]]) -> DenseMiBuilder<'a> {
+        DenseMiBuilder::new(series)
     }
 
     /// Create a Kernel-based mutual information estimator.

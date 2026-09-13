@@ -54,8 +54,10 @@ pub mod discrete_utils;
 pub mod mle_gpu;
 
 mod dense_cmi;
+mod dense_mi;
 
 pub use dense_cmi::{DenseCmiBuilder, DenseCmiGlobal};
+pub use dense_mi::{DenseMiBuilder, DenseMiGlobal};
 
 pub mod ansb;
 pub mod bayes;
@@ -73,6 +75,7 @@ pub mod zhang;
 pub mod discrete_batch;
 
 use crate::estimators::approaches::discrete::dense_cmi::DenseCmi;
+use crate::estimators::approaches::discrete::dense_mi::DenseMi;
 use crate::estimators::approaches::discrete::discrete_utils::{
     reduce_joint_space_compact, reduce_views_compact,
 };
@@ -91,8 +94,14 @@ use ndarray::{Array1, ArrayView1};
 ///
 /// This estimator can wrap any discrete entropy estimator.
 pub struct DiscreteMutualInformation<E> {
-    marginals: Vec<E>,
-    joint: E,
+    inner: MiInner<E>,
+}
+
+/// Backing representation: generic per-space entropy estimators, or the dense
+/// direct counts used by the MLE fast path.
+enum MiInner<E> {
+    Spaces { marginals: Vec<E>, joint: E },
+    Dense(Box<DenseMi>),
 }
 
 impl<E> DiscreteMutualInformation<E> {
@@ -103,47 +112,91 @@ impl<E> DiscreteMutualInformation<E> {
         let marginals = series.iter().cloned().map(constructor.clone()).collect();
         let joint_codes = reduce_joint_space_compact(series);
         let joint = constructor(joint_codes);
-        Self { marginals, joint }
+        Self {
+            inner: MiInner::Spaces { marginals, joint },
+        }
+    }
+
+    /// Wrap a dense direct state as the estimator.
+    pub(crate) fn from_dense(dense: DenseMi) -> Self {
+        Self {
+            inner: MiInner::Dense(Box::new(dense)),
+        }
+    }
+}
+
+impl DiscreteMutualInformation<crate::estimators::approaches::discrete::mle::DiscreteEntropy> {
+    /// Fused MLE construction: dense direct counts when the joint alphabet is
+    /// small, else the generic entropy-summation estimator.
+    pub(crate) fn new_mle(series: &[Array1<i32>]) -> Self {
+        let views: Vec<ArrayView1<i32>> = series.iter().map(|s| s.view()).collect();
+        if let Some(dense) = DenseMi::new(&views) {
+            return Self::from_dense(dense);
+        }
+        Self::new(
+            series,
+            crate::estimators::approaches::discrete::mle::DiscreteEntropy::new,
+        )
     }
 }
 
 impl<E: GlobalValue> GlobalValue for DiscreteMutualInformation<E> {
     fn global_value(&self) -> f64 {
-        let h_marginals: f64 = self.marginals.iter().map(|m| m.global_value()).sum();
-        let h_joint = self.joint.global_value();
-        // I(X1; ...; Xn) = sum H(Xi) - H(X1, ..., Xn)
-        h_marginals - h_joint
+        match &self.inner {
+            MiInner::Dense(dense) => dense.global_value(),
+            MiInner::Spaces { marginals, joint } => {
+                let h_marginals: f64 = marginals.iter().map(|m| m.global_value()).sum();
+                // I(X1; ...; Xn) = sum H(Xi) - H(X1, ..., Xn)
+                h_marginals - joint.global_value()
+            }
+        }
     }
 }
 
 impl<E: LocalValues> LocalValues for DiscreteMutualInformation<E> {
     fn local_values(&self) -> Array1<f64> {
-        let mut res = Array1::zeros(self.joint.local_values().len());
-        for m in &self.marginals {
-            res += &m.local_values();
+        match &self.inner {
+            MiInner::Dense(dense) => dense.local_values(),
+            MiInner::Spaces { marginals, joint } => {
+                let mut res = Array1::zeros(joint.local_values().len());
+                for m in marginals {
+                    res += &m.local_values();
+                }
+                res -= &joint.local_values();
+                res
+            }
         }
-        res -= &self.joint.local_values();
-        res
     }
 }
 
 impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteMutualInformation<E> {
     fn supports_local(&self) -> bool {
-        self.joint.supports_local() && self.marginals.iter().all(|m| m.supports_local())
+        match &self.inner {
+            MiInner::Dense(_) => true,
+            MiInner::Spaces { marginals, joint } => {
+                joint.supports_local() && marginals.iter().all(|m| m.supports_local())
+            }
+        }
     }
 
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
-        if !self.supports_local() {
-            return Err("One or more underlying entropy estimators do not support local values.");
+        match &self.inner {
+            MiInner::Dense(dense) => Ok(dense.local_values()),
+            MiInner::Spaces { marginals, joint } => {
+                if !self.supports_local() {
+                    return Err(
+                        "One or more underlying entropy estimators do not support local values.",
+                    );
+                }
+                let mut res = marginals[0].local_values_opt()?;
+                for m in &marginals[1..] {
+                    res += &m.local_values_opt()?;
+                }
+                res -= &joint.local_values_opt()?;
+                // i(x,y) = h(x) + h(y) - h(x,y)
+                Ok(res)
+            }
         }
-
-        let mut res = self.marginals[0].local_values_opt()?;
-        for m in &self.marginals[1..] {
-            res += &m.local_values_opt()?;
-        }
-        res -= &self.joint.local_values_opt()?;
-        // i(x,y) = h(x) + h(y) - h(x,y)
-        Ok(res)
     }
 }
 
