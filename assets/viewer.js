@@ -74,13 +74,19 @@ async function fetchJSON(url) {
 }
 
 // Load the package catalog (registry.json) and every available fragment.
+// Also fetch the optional alphabet-scaling family (`<id>_alphabet.json`).
 async function loadCatalog() {
   const reg = (await fetchJSON('./registry.json')) || { packages: [], excluded: [] };
   const packages = reg.packages || [];
   const fragments = await Promise.all(packages.map((p) => fetchJSON(`./data/${p.id}.json`)));
+  const alphabetFrags = await Promise.all(packages.map((p) => fetchJSON(`./data/${p.id}_alphabet.json`)));
   const data = {};
-  packages.forEach((p, i) => { if (fragments[i]) data[p.id] = fragments[i]; });
-  return { registry: reg, packages, excluded: reg.excluded || [], data };
+  const alphabet = {};
+  packages.forEach((p, i) => {
+    if (fragments[i]) data[p.id] = fragments[i];
+    if (alphabetFrags[i]) alphabet[p.id] = alphabetFrags[i];
+  });
+  return { registry: reg, packages, excluded: reg.excluded || [], data, alphabet };
 }
 
 function fragmentPackages(frag) {

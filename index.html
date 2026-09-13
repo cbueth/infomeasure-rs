@@ -21,6 +21,7 @@
       <span class="mode-switch">
         <button class="tbtn mode-btn" data-mode="cross">Cross-package</button>
         <button class="tbtn mode-btn" data-mode="detail">infomeasure detailed</button>
+        <button class="tbtn mode-btn" data-mode="alpha">Alphabet scaling</button>
       </span>
       <span class="header-right">
         <span class="nav-links">
@@ -126,6 +127,23 @@
         <button class="tbtn to-cross">Go to the cross-package comparison &#8594;</button></p>
     </div>
   </div>
+
+  <!-- ================= Alphabet scaling view ================= -->
+  <div id="alphaUI" style="display:none">
+    <div class="measure-bar" id="a-measureBar"></div>
+    <div class="ctrl-bar" id="a-ctrlBar"></div>
+    <div class="info-bar">
+      <span id="a-entryCount"></span><span id="a-lineCount"></span>
+      <span id="a-subtitle" style="font-style:italic"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="a-chart"></canvas></div>
+    <div class="section">
+      <p>Discrete MLE runtime as the alphabet (number of states) grows, at a fixed sample size
+        <span id="a-nNote">N</span>. A line ends where a package stops scaling: its dense table hit
+        the memory cap, or a size exceeded the time budget and larger N was skipped. Packages without
+        a known-alphabet discrete API infer it internally, as in the cross-package view.</p>
+    </div>
+  </div>
 </div>
 
 <script src="./assets/viewer.js"></script>
@@ -168,7 +186,8 @@ const errorBars = {
 };
 
 let CAT = null, REP = {}, PCOL = {}, MODE = 'cross', RESTORE = {};
-let crossChart = null, detailChart = null;
+let crossChart = null, detailChart = null, alphaChart = null;
+const ALPHA = { measure: 'entropy', n: null, langs: {}, logY: true, logX: true };
 
 // ======================= shared load =======================
 async function boot() {
@@ -211,16 +230,30 @@ async function boot() {
   // Header version badges only; the cross view has its own control bars.
   buildCrossUI();
   buildDetailUI();
-  setMode((new URLSearchParams(location.hash.slice(1)).get('mode') === 'detail') ? 'detail' : 'cross', true);
+  buildAlphaUI();
+  const modeParam = new URLSearchParams(location.hash.slice(1)).get('mode');
+  setMode(['detail', 'alpha'].includes(modeParam) ? modeParam : 'cross', true);
 }
 
 function setMode(m, skipHash) {
   MODE = m;
   document.getElementById('crossUI').style.display = m === 'cross' ? '' : 'none';
   document.getElementById('detailUI').style.display = m === 'detail' ? '' : 'none';
+  document.getElementById('alphaUI').style.display = m === 'alpha' ? '' : 'none';
   document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
-  if (m === 'cross') { if (detailChart) { detailChart.destroy(); detailChart = null; } renderCross(); }
-  else { if (crossChart) { crossChart.destroy(); crossChart = null; } renderDetail(); }
+  if (m === 'cross') {
+    if (detailChart) { detailChart.destroy(); detailChart = null; }
+    if (alphaChart) { alphaChart.destroy(); alphaChart = null; }
+    renderCross();
+  } else if (m === 'detail') {
+    if (crossChart) { crossChart.destroy(); crossChart = null; }
+    if (alphaChart) { alphaChart.destroy(); alphaChart = null; }
+    renderDetail();
+  } else {
+    if (crossChart) { crossChart.destroy(); crossChart = null; }
+    if (detailChart) { detailChart.destroy(); detailChart = null; }
+    renderAlpha();
+  }
   if (!skipHash) history.replaceState(null, '', '#' + hashOf());
 }
 
@@ -432,6 +465,91 @@ function fillCrossTable(groups) {
     `<td class="num">${CROSS.relative ? r.mean.toFixed(3) + '×' : fmt(r.mean)}</td>` +
     `<td class="num">${r.std == null ? '-' : (CROSS.relative ? r.std.toFixed(3) : fmt(r.std))}</td>` +
     `<td class="num">${esc(r.ci)}</td><td class="num">${r.samples ?? '-'}</td></tr>`);
+}
+
+// ==================================================================
+// ======================= ALPHABET SCALING =========================
+// ==================================================================
+function alphaAvailableMeasures() {
+  const s = new Set();
+  Object.values(CAT.alphabet || {}).forEach((frag) =>
+    (frag.benchmarks || []).forEach((e) => s.add(e.measure)));
+  return [...s].sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
+}
+function alphaSizes(measure) {
+  const s = new Set();
+  Object.values(CAT.alphabet || {}).forEach((frag) =>
+    (frag.benchmarks || []).forEach((e) => { if (e.measure === measure) s.add(e.params.n); }));
+  return [...s].sort((a, b) => a - b);
+}
+function buildAlphaUI() {
+  CAT.packages.forEach((p) => { ALPHA.langs[p.id] = true; });
+  if (RESTORE.alphaOff) RESTORE.alphaOff.forEach((id) => { if (id in ALPHA.langs) ALPHA.langs[id] = false; });
+  const ms = alphaAvailableMeasures();
+  if (!ms.length) return;
+  if (!ms.includes(ALPHA.measure)) ALPHA.measure = ms[0];
+  const sizes = alphaSizes(ALPHA.measure);
+  if (ALPHA.n == null || !sizes.includes(ALPHA.n)) ALPHA.n = sizes[sizes.length - 1] ?? null;
+  const mb = document.getElementById('a-measureBar');
+  mb.innerHTML = `<span class="ml">Measure</span>` +
+    ms.map((m) => `<button class="mtab${m === ALPHA.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
+    `<span class="ms"></span><span class="ml">N</span>` +
+    sizes.map((n) => `<button class="mtab${n === ALPHA.n ? ' active' : ''}" data-n="${n}">${n}</button>`).join('') +
+    `<span class="ms"></span><span class="ml">Packages</span>` +
+    CAT.packages.map((p) => {
+      const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.n === ALPHA.n);
+      const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
+      return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
+    }).join('');
+  mb.onclick = (e) => {
+    const b = e.target.closest('.mtab'); if (!b) return;
+    if (b.dataset.measure) ALPHA.measure = b.dataset.measure;
+    if (b.dataset.n) ALPHA.n = Number(b.dataset.n);
+    buildAlphaUI(); renderAlpha();
+  };
+  mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { ALPHA.langs[e.target.dataset.pkg] = e.target.checked; renderAlpha(); } };
+  const cb = document.getElementById('a-ctrlBar');
+  cb.innerHTML =
+    `<span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button>` +
+    `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="a-scaleXBtn"><span class="sopt${ALPHA.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logX ? '' : ' on'}">Lin</span></button>` +
+    `<button class="tbtn" id="a-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
+  cb.onclick = (e) => {
+    if (e.target.closest('#a-scaleYBtn')) { ALPHA.logY = !ALPHA.logY; buildAlphaUI(); renderAlpha(); }
+    else if (e.target.closest('#a-scaleXBtn')) { ALPHA.logX = !ALPHA.logX; buildAlphaUI(); renderAlpha(); }
+    else if (e.target.closest('#a-resetZoom')) { alphaChart && alphaChart.resetZoom && alphaChart.resetZoom(); }
+  };
+}
+function renderAlpha() {
+  const measure = ALPHA.measure, N = ALPHA.n;
+  const byPkg = {};
+  for (const [id, frag] of Object.entries(CAT.alphabet || {})) {
+    const list = (frag.benchmarks || []).filter((e) => e.measure === measure && e.params.n === N && e.params.states != null);
+    if (list.length) byPkg[id] = list;
+  }
+  const ids = Object.keys(byPkg).filter((id) => ALPHA.langs[id]);
+  const groups = ids.map((id) => ({
+    id,
+    pts: byPkg[id].map((e) => ({ x: e.params.states, y: meanOf(e), _err: stdOf(e), e }))
+      .sort((a, b) => a.x - b.x),
+  })).filter((g) => g.pts.length);
+  document.getElementById('a-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
+  document.getElementById('a-lineCount').textContent = `${groups.length} packages`;
+  document.getElementById('a-subtitle').textContent = `${MEASURE_LABELS[measure] || measure} · discrete MLE · N=${N}`;
+  const note = document.getElementById('a-nNote'); if (note) note.textContent = `N = ${N}`;
+  if (alphaChart) alphaChart.destroy();
+  if (!groups.length) { alphaChart = emptyChart('a-chart'); syncHash(); return; }
+  const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridCol = dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'; const tickCol = dm ? '#aaa' : '#666';
+  const ds = groups.map((g) => ({
+    label: g.id, data: g.pts.map((p) => ({ x: p.x, y: p.y, _err: p._err })),
+    borderColor: PCOL[g.id] || packageColor(g.id), backgroundColor: (PCOL[g.id] || packageColor(g.id)) + '22',
+    pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, tension: 0.15, fill: false, showLine: true,
+  }));
+  alphaChart = new Chart(document.getElementById('a-chart').getContext('2d'), {
+    type: 'line', data: { datasets: ds }, plugins: [errorBars],
+    options: chartOptions('a-chart', { logY: ALPHA.logY, logX: ALPHA.logX, xTitle: 'alphabet (states)', yTitle: 'Time (s)', dm, gridCol, tickCol }),
+  });
+  syncHash();
 }
 
 // ==================================================================
@@ -653,7 +771,7 @@ function chartOptions(id, o) {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode: 'nearest', intersect: false },
     scales: {
-      x: { type: o.logX ? 'logarithmic' : 'linear', title: { display: true, text: 'n', font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { color: o.tickCol } },
+      x: { type: o.logX ? 'logarithmic' : 'linear', title: { display: true, text: o.xTitle || 'n', font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { color: o.tickCol } },
       y: { type: o.logY ? 'logarithmic' : 'linear', title: { display: true, text: o.yTitle, font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { callback: (v) => o.relative ? v : fmt(v), color: o.tickCol } },
     },
     color: o.dm ? '#ccc' : '#333',
@@ -684,6 +802,12 @@ function hashOf() {
     p.set('ly', CROSS.logY ? '1' : '0'); p.set('lx', CROSS.logX ? '1' : '0'); p.set('r', CROSS.relative ? '1' : '0');
     const off = Object.entries(CROSS.langs).filter(([, v]) => !v).map(([k]) => k);
     if (off.length) p.set('off', off.join(','));
+  } else if (MODE === 'alpha') {
+    p.set('am', ALPHA.measure);
+    if (ALPHA.n != null) p.set('an', ALPHA.n);
+    p.set('aly', ALPHA.logY ? '1' : '0'); p.set('alx', ALPHA.logX ? '1' : '0');
+    const off = Object.entries(ALPHA.langs).filter(([, v]) => !v).map(([k]) => k);
+    if (off.length) p.set('aoff', off.join(','));
   } else {
     p.set('dv', DETAIL.view); p.set('dm', DETAIL.measure); p.set('dx', DETAIL.x);
     p.set('dly', DETAIL.logY ? '1' : '0'); p.set('dlx', DETAIL.logX ? '1' : '0');
@@ -712,6 +836,11 @@ document.getElementById('shareBtn').onclick = () => {
   if (p.has('dly')) DETAIL.logY = p.get('dly') === '1';
   if (p.has('dlx')) DETAIL.logX = p.get('dlx') === '1';
   if (p.get('off')) RESTORE.crossOff = p.get('off').split(',').filter(Boolean);
+  if (p.get('am')) ALPHA.measure = p.get('am');
+  if (p.get('an')) ALPHA.n = Number(p.get('an'));
+  if (p.has('aly')) ALPHA.logY = p.get('aly') === '1';
+  if (p.has('alx')) ALPHA.logX = p.get('alx') === '1';
+  if (p.get('aoff')) RESTORE.alphaOff = p.get('aoff').split(',').filter(Boolean);
   if (p.has('dl')) RESTORE.detailLangs = p.get('dl').split(',').filter(Boolean);
   if (p.get('da')) RESTORE.detailApps = p.get('da').split(',').filter(Boolean);
 })();
