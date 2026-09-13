@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.1) - 2026-09-13
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### ⚡ Performance
+
+- perf(discrete): close the JIDT gap on the discrete estimators [[#79](https://codeberg.org/cbueth/infomeasure-rs/pulls/79)]
+
 ## [0.4.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.0) - 2026-09-11
 
 ### ❤️ Thanks to all contributors! ❤️
