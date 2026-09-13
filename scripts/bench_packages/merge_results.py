@@ -25,21 +25,22 @@ EXCLUDED = [
         "id": "idtxl",
         "language": "python",
         "category": "framework",
+        "repo": "https://github.com/pwollstadt/IDTxl",
+        "docs": "https://pwollstadt.github.io/IDTxl/html/index.html",
         "reason": (
-            "Network-inference / effective-connectivity framework (greedy "
-            "multivariate/bivariate TE, MI, AIS, PID, surrogate significance), "
-            "not a single-estimator library. Its CPU estimators delegate to "
-            "JIDT; the only independent implementation is a GPU-only OpenCL "
-            "KSG. Revisit in the GPU phase / as a framework comparison."
+            "A network-inference / effective-connectivity framework rather than "
+            "a single-estimator library. Its CPU estimators delegate to JIDT, "
+            "and its only independent implementation is a GPU-only OpenCL KSG "
+            "estimator."
         ),
     },
     {
         "id": "npeet",
         "language": "python",
+        "repo": "https://github.com/gregversteeg/NPEET",
         "reason": (
-            "Dropped 2026-09-12: unmaintained since 2022 and not in the "
-            "paper's package survey; the KSG axis is covered by JIDT, "
-            "infomeasure and Syntropy."
+            "Unmaintained since 2022. Its KSG estimator is already covered by "
+            "JIDT, infomeasure and Syntropy."
         ),
     },
     {
@@ -83,8 +84,10 @@ def main() -> int:
     coverage: set[tuple[str, str]] = set()
     meta: dict = {}
     runtime: dict | None = None
+    loaded: list[tuple[Path, dict]] = []
     for f in fragments:
         obj = json.loads(f.read_text())
+        loaded.append((f, obj))
         m = obj.get("meta", {})
         meta = meta or {
             k: v
@@ -102,6 +105,16 @@ def main() -> int:
             benchmarks.append(b)
             coverage.add((b["measure"], b["approach"]))
         print(f"  {f.name}: {len(obj.get('benchmarks', []))} entries")
+
+    # Stamp the run's hardware into every fragment that lacks it, so all
+    # fragments from one collection agree on the machine (pages read fragments,
+    # not this merged file).
+    hw = meta.get("hardware")
+    if hw:
+        for f, obj in loaded:
+            if not obj.get("meta", {}).get("hardware"):
+                obj.setdefault("meta", {})["hardware"] = hw
+                f.write_text(json.dumps(obj, indent=2))
 
     benchmarks.sort(key=lambda b: (b["measure"], b["approach"], b["params"]["n"], b["package"]))
     if runtime:
