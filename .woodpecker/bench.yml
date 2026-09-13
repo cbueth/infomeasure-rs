@@ -6,9 +6,12 @@ workspace:
   base: /build
   path: .
 
-# All benches run on the fixed box (laptop, GTX 1060). Runs are recorded on the
-# `self-hosted-gpu` testbed so Bencher NEVER thresholds them against the old VPS
-# (`self-hosted`) numbers — different testbed = no cross-hardware comparison.
+# All benches run on the fixed box (laptop, GTX 1060). The testbed name encodes
+# the environment's pinned CPU clock, so Bencher never thresholds one environment
+# against another: the old VPS (`self-hosted`) and the earlier turbo-happy GPU
+# box (`self-hosted-gpu`) stay separate from the current TLP-pinned one
+# (`no_turbo=1`, 2.2 GHz base). Different testbed = no cross-environment
+# comparison. See `.woodpecker/README.md` for the power policy.
 labels:
   provider: self-hosted
   type: gpu
@@ -75,7 +78,7 @@ steps:
             --start-point "$CI_COMMIT_TARGET_BRANCH" \
             --start-point-clone-thresholds \
             --start-point-reset \
-            --testbed self-hosted-gpu \
+            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo" \
             --error-on-alert \
             cargo bench --features gpu $BENCH_ARGS -- $CRIT_FLAGS
         else
@@ -84,7 +87,7 @@ steps:
             --project infomeasure-rs \
             --branch "$CI_COMMIT_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
-            --testbed self-hosted-gpu \
+            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo" \
             --threshold-measure latency \
             --threshold-test t_test \
             --threshold-min-sample-size 10 \

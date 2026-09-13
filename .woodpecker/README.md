@@ -43,6 +43,26 @@ Runs on the dedicated self-hosted GPU runner (`labels: provider=self-hosted, typ
 2. **Test**: Run unit tests with appropriate features
 3. **Python Validation**: Run validation tests with micromamba environment
 
+### Benchmark Pipeline (`.woodpecker/bench.yml`)
+Runs Criterion benchmarks on the self-hosted GPU runner and reports to
+[Bencher](https://bencher.dev/perf/infomeasure-rs): a PR comment on pull
+requests, and the threshold baseline on `main`.
+
+- **Testbed = environment.** Bencher keys comparisons and thresholds on
+  (branch, testbed, measure), so `--testbed` names the machine's power state.
+  Changing the environment means changing the testbed, which starts a fresh
+  baseline instead of comparing/prompting across environments. Current testbed:
+  `self-hosted-gpu i7-8750H base 2.2GHz no-turbo` (earlier `self-hosted-gpu`
+  and VPS `self-hosted` runs stay as separate history).
+- **Pinned CPU clock.** The runner uses TLP as the sole power manager
+  (`power-profiles-daemon` off), `CPU_BOOST_ON_AC = 0`, and
+  `CPU_MIN_PERF_ON_AC = CPU_MAX_PERF_ON_AC = 53` — the base-clock boundary for
+  the i7-8750H (2.2 GHz base / 4.1 GHz turbo) — for a fixed, throttling-free
+  clock. The dGPU is not capped (driver ≥530 dropped laptop power/clock
+  control) and does not get hot enough to trigger the loud fan step here.
+- **Alerts fail PRs** (`--error-on-alert`); if the clock or hardware changes,
+  bump the testbed name so the old thresholds are not applied.
+
 ## Python Integration
 
 The test pipeline installs micromamba before running tests:
