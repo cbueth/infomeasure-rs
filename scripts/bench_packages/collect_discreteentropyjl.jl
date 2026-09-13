@@ -22,6 +22,15 @@ data_dir = get_arg("--data-dir", get(ENV, "BENCH_DATA_DIR", "target/bench-data")
 out = get_arg("--out", joinpath(data_dir, "results", "discreteentropyjl.json"))
 sizes = parse.(Int, split(get_arg("--sizes", "100,400"), ","))
 seeds = parse.(Int, split(get_arg("--seeds", ""), ","))
+family = get_arg("--family", "main")
+states = parse.(Int, split(get_arg("--states", "5,10,25,50,200"), ","))
+budget = parse(Float64, get_arg("--budget", "2.0"))
+caps = Dict{String,Int}()
+for pair in split(get_arg("--caps", "entropy:200,mi:200"), ",")
+    kv = split(pair, ":")
+    length(kv) == 2 && (caps[String(kv[1])] = parse(Int, kv[2]))
+end
+cap_for(m) = get(caps, m, 0)
 short = get(ENV, "BENCH_SHORT", "0") in ("1", "true", "True")
 if short
     warmup_max = 1; warmup_budget = 0.0; min_iters = 1; max_iters = 3; iter_budget = 0.0
@@ -119,7 +128,103 @@ function benchmark(name, measure, sizes, seeds, data_dir)
             "notes" => nothing,
         ))
     end
+function time_fn(f)
+    w0 = time_ns(); w = 0
+    while true
+        f(); w += 1
+        w >= warmup_max && break
+        warmup_budget > 0 && (time_ns() - w0) / 1e9 >= warmup_budget && break
+    end
+    times = Float64[]; value = 0.0
+    t0 = time_ns(); k = 0
+    while true
+        s = time_ns(); value = f(); push!(times, (time_ns() - s) / 1e9); k += 1
+        k >= max_iters && break
+        k >= min_iters && iter_budget > 0 && (time_ns() - t0) / 1e9 >= iter_budget && break
+    end
+    times, value
+end
+
+function params_alphabet(states, n)
+    p = params(n)
+    p["states"] = states
+    p["method"] = "mle"
+    p
+end
+
+function benchmark_alphabet(measure, states_list, sizes, seeds, data_dir, budget)
+    results = Dict[]
+    for states in states_list
+        stopped = false
+        for n in sizes
+            stopped && break
+            times = Float64[]
+            value = 0.0
+            for seed in seeds
+                if measure == "entropy"
+                    x = col(read_i32(joinpath(data_dir, "entropy_discrete_b$(states)_s$(seed)_n$(n).bin")), n, 1, 0)
+                    f = () -> to_bits(estimate_h(from_data(x, Samples), MaximumLikelihood))
+                else
+                    flat = read_i32(joinpath(data_dir, "mi_discrete_b$(states)_s$(seed)_n$(n).bin"))
+                    x = col(flat, n, 2, 0)
+                    y = col(flat, n, 2, 1)
+                    B = maximum(y) + 1
+                    xy = x .* B .+ y
+                    f = () -> to_bits(
+                        mutual_information(
+                            from_data(x, Samples), from_data(y, Samples),
+                            from_data(xy, Samples), MaximumLikelihood,
+                        ),
+                    )
+                end
+                t, v = time_fn(f)
+                append!(times, t)
+                value = v
+            end
+            st = stats_dict(times)
+            @printf("  %7s b%-4d n=%-6d %9.3f ms\n", measure, states, n, st["mean"] * 1e3)
+            push!(results, Dict(
+                "id" => "$(measure)/discrete/mle/b$(states)/n$(n)/discreteentropyjl",
+                "package" => "discreteentropyjl", "language" => "julia",
+                "measure" => measure, "approach" => "discrete",
+                "function" => measure == "entropy" ? "estimate_h(..., MaximumLikelihood)" :
+                              "mutual_information(..., MaximumLikelihood)",
+                "representative" => true,
+                "params" => params_alphabet(states, n),
+                "statistics" => st, "value" => value, "notes" => nothing,
+            ))
+            if st["mean"] > budget
+                @printf("  -> b%d n=%d exceeded %ss; skipping larger N\n", states, n, budget)
+                stopped = true
+            end
+        end
+    end
     results
+end
+
+if family == "alphabet"
+    alphabet_out = get_arg("--out", joinpath(data_dir, "results", "discreteentropyjl_alphabet.json"))
+    benches = vcat(
+        benchmark_alphabet("entropy", filter(s -> s <= cap_for("entropy"), states), sizes, seeds, data_dir, budget),
+        benchmark_alphabet("mi", filter(s -> s <= cap_for("mi"), states), sizes, seeds, data_dir, budget),
+    )
+    ameta = Dict(
+        "schema" => 2, "run_id" => "fragment_discreteentropyjl_alphabet", "hardware" => nothing,
+        "runtime" => Dict("threads" => 1, "adaptive" => !short, "family" => "alphabet", "budget_s" => budget),
+        "seeds" => seeds,
+        "packages" => [Dict(
+            "id" => "discreteentropyjl", "language" => "julia",
+            "version" => string(pkgversion(DiscreteEntropy)),
+            "limitations" => "MLE only, discrete entropy/MI. No CMI/TE.",
+        )],
+        "coverage" => [["entropy", "discrete"], ["mi", "discrete"]],
+    )
+    mkpath(dirname(alphabet_out))
+    open(alphabet_out, "w") do io
+        JSON.print(io, Dict("meta" => ameta, "benchmarks" => benches), 2)
+    end
+    println("wrote $(length(benches)) entries to $(alphabet_out)")
+    exit(0)
 end
 
 benchmarks = vcat(

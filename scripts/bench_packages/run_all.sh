@@ -124,6 +124,20 @@ if selected jidt; then
     --data-dir "$BENCH_DATA_DIR" --states "$AB_STATES" --sizes "$AB_SIZES" \
     --caps "$AB_CAPS" --budget "$AB_BUDGET" --seeds "$SEEDS" $SHORT_FLAG
 fi
+if selected discreteentropyjl; then
+  echo "=== DiscreteEntropy.jl (alphabet) ==="
+  julia "$SCRIPT_DIR/collect_discreteentropyjl.jl" \
+    --data-dir "$BENCH_DATA_DIR" --family alphabet \
+    --states "$AB_STATES" --sizes "$AB_SIZES" --caps "$AB_CAPS" \
+    --budget "$AB_BUDGET" --seeds "$SEEDS" || echo "alphabet: DiscreteEntropy.jl skipped"
+fi
+if selected rtransferentropy; then
+  echo "=== RTransferEntropy (alphabet) ==="
+  Rscript "$SCRIPT_DIR/collect_rtransferentropy.R" \
+    --data-dir "$BENCH_DATA_DIR" --family alphabet \
+    --states "$AB_STATES" --sizes "$AB_SIZES" --caps "$AB_CAPS" \
+    --budget "$AB_BUDGET" --seeds "$SEEDS" || echo "alphabet: RTransferEntropy skipped"
+fi
 
 echo "=== merge ==="
 "$PY" "$SCRIPT_DIR/merge_results.py"
