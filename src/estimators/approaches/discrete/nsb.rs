@@ -7,7 +7,23 @@ use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
 use ndarray::{Array1, Array2};
+use rustc_hash::FxHashMap;
 use statrs::function::gamma::{digamma, ln_gamma};
+
+/// Group the observed counts by value: `(count, multiplicity)` sorted by count.
+///
+/// `neg_log_rho` and `bayes_expectation` only ever use counts through `f(n_i)`,
+/// so summing over distinct values instead of all K patterns is exact and much
+/// cheaper for large joint alphabets (D ≈ O(√N) vs K ≈ N).
+fn count_histogram(counts: impl Iterator<Item = usize>) -> Vec<(usize, usize)> {
+    let mut map: FxHashMap<usize, usize> = FxHashMap::default();
+    for c in counts {
+        *map.entry(c).or_insert(0) += 1;
+    }
+    let mut hist: Vec<(usize, usize)> = map.into_iter().collect();
+    hist.sort_unstable();
+    hist
+}
 
 /// NSB (Nemenman–Shafee–Bialek) entropy estimator for discrete data (natural log base).
 ///
@@ -36,31 +52,31 @@ pub struct NsbEntropy {
     dataset: DiscreteDataset,
     k_override: Option<usize>,
     tol: f64,
+    /// `(count, multiplicity)` over the observed counts; see [`count_histogram`].
+    hist: Vec<(usize, usize)>,
 }
 
 impl NsbEntropy {
     pub fn new(data: Array1<i32>, k_override: Option<usize>) -> Self {
         let dataset = DiscreteDataset::from_data(data);
+        let hist = count_histogram(dataset.counts.values().copied());
         Self {
             dataset,
             k_override,
             tol: 1e-9,
+            hist,
         }
     }
 
-    fn counts_vec(&self) -> Vec<usize> {
-        self.dataset.counts.values().cloned().collect()
-    }
-
-    fn neg_log_rho(&self, beta: f64, k: usize, n: usize, counts: &[usize]) -> f64 {
+    fn neg_log_rho(&self, beta: f64, k: usize, n: usize) -> f64 {
         let kappa = (k as f64) * beta;
         // -(ln Γ(κ) - ln Γ(N+κ))
         let mut result = -(ln_gamma(kappa) - ln_gamma(n as f64 + kappa));
-        // -Σ n_i * (ln Γ(n_i + β) - ln Γ(β))
+        // -Σ n_i * (ln Γ(n_i + β) - ln Γ(β)), grouped by distinct count value.
         let ln_g_beta = ln_gamma(beta);
         let mut sum_terms = 0.0_f64;
-        for &ci in counts {
-            sum_terms += (ci as f64) * (ln_gamma(ci as f64 + beta) - ln_g_beta);
+        for &(c, m) in &self.hist {
+            sum_terms += (m as f64) * (c as f64) * (ln_gamma(c as f64 + beta) - ln_g_beta);
         }
         result -= sum_terms;
         result
@@ -72,13 +88,14 @@ impl NsbEntropy {
         (k as f64) * trigamma(1.0 + kb) - trigamma(1.0 + beta)
     }
 
-    fn bayes_expectation(&self, beta: f64, counts: &[usize]) -> f64 {
-        // E[H] = ψ(Σα_i + 1) - (1/Σα_i) Σ(α_i ψ(α_i + 1)), where α_i = n_i + β
-        let total_alpha = (self.dataset.n as f64) + (counts.len() as f64) * beta;
+    fn bayes_expectation(&self, beta: f64) -> f64 {
+        // E[H] = ψ(Σα_i + 1) - (1/Σα_i) Σ(α_i ψ(α_i + 1)), where α_i = n_i + β.
+        // Σ runs over the observed patterns (grouped by count value).
+        let total_alpha = (self.dataset.n as f64) + (self.dataset.k as f64) * beta;
         let mut sum_term = 0.0_f64;
-        for &ci in counts {
-            let ai = (ci as f64) + beta;
-            sum_term += ai * digamma(ai + 1.0);
+        for &(c, m) in &self.hist {
+            let ai = (c as f64) + beta;
+            sum_term += (m as f64) * ai * digamma(ai + 1.0);
         }
         digamma(total_alpha + 1.0) - (sum_term / total_alpha)
     }
@@ -193,8 +210,7 @@ impl NsbEntropy {
     fn find_l0(&self, k: usize, n: usize) -> f64 {
         let extremum_k0 = self.find_extremum_k0(k, n);
         let extremum_beta = extremum_k0 / (k as f64);
-        let counts = self.counts_vec();
-        self.neg_log_rho(extremum_beta, k, n, &counts)
+        self.neg_log_rho(extremum_beta, k, n)
     }
 }
 
@@ -206,7 +222,6 @@ impl GlobalValue for NsbEntropy {
         if n == 0 || k == 0 {
             return f64::NAN;
         }
-        let counts = self.counts_vec();
         let coincidences = (n as i64) - (k as i64);
         // If coincidences <= 0, NSB is still defined as long as k > 0 and n > 0.
         // However, Python returns NaN for coincidences == 0 in some cases, but not others.
@@ -226,17 +241,17 @@ impl GlobalValue for NsbEntropy {
         }
 
         let l0 = self.find_l0(k, n);
-        let neg_log_rho = |beta: f64| self.neg_log_rho(beta, k, n, &counts);
-        let dxi = |beta: f64| self.dxi(beta, k);
-        let bayes = |beta: f64| self.bayes_expectation(beta, &counts);
-
-        let f_num = |beta: f64| ((-(neg_log_rho(beta)) + l0).exp()) * dxi(beta) * bayes(beta);
-        let f_den = |beta: f64| ((-(neg_log_rho(beta)) + l0).exp()) * dxi(beta);
+        // Numerator and denominator share `exp(-ρ+l0)·dξ`, so integrate both in a
+        // single adaptive pass: each node evaluates `neg_log_rho`/`dxi` once and
+        // the numerator additionally multiplies by the Bayes mean.
+        let integrand = |beta: f64| {
+            let common = ((-(self.neg_log_rho(beta, k, n)) + l0).exp()) * self.dxi(beta, k);
+            (common, common * self.bayes_expectation(beta))
+        };
 
         // Avoid singularity at beta=0 by starting slightly above 0.
         let a = 1e-8;
-        let num = adaptive_gk15(&f_num, a, upper, self.tol, MAX_SUBDIVISIONS);
-        let den = adaptive_gk15(&f_den, a, upper, self.tol, MAX_SUBDIVISIONS);
+        let (den, num) = adaptive_gk15_dual(&integrand, a, upper, self.tol, MAX_INTERVALS);
 
         if den == 0.0 || !den.is_finite() {
             return f64::NAN;
@@ -245,11 +260,13 @@ impl GlobalValue for NsbEntropy {
     }
 }
 
-/// Maximum recursion depth for the adaptive integrator. This is a *depth* bound,
-/// so the worst-case interval count is `2^MAX_SUBDIVISIONS`. It must stay small:
-/// near the β→0 singularity the integrand is steep and the error estimate never
-/// converges, so without a tight cap the bisection would explode exponentially.
-const MAX_SUBDIVISIONS: usize = 12;
+/// Maximum number of subintervals the global adaptive integrator will create.
+/// The recursion used to bisect every interval whose *local* error estimate
+/// exceeded the level tolerance, which over-refined the flat regions and hit
+/// `2^12` intervals near the β→0 singularity. The global scheme splits the
+/// single worst interval until the summed error is below the tolerance or this
+/// cap is reached, matching what `dqags`/`scipy.quad` do with `limit`.
+const MAX_INTERVALS: usize = 500;
 
 /// Abscissae, Kronrod weights and embedded Gauss weights of the 15-point
 /// Gauss–Kronrod rule (QUADPACK `dqk15`). Only the positive abscissae are given;
@@ -287,25 +304,36 @@ const WG: [f64; 4] = [
     0.417_959_183_673_469_4,
 ];
 
-/// Evaluate a single 15-point Gauss–Kronrod interval, returning `(integral, err)`
-/// where `err` is the difference between the 15- and 7-point estimates (this is
-/// the `dqk15` error estimate, before the `resasc` correction).
-fn gk15<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64) -> (f64, f64) {
+/// Evaluate a single 15-point Gauss–Kronrod interval for a two-component
+/// integrand, returning `((integral_den, integral_num), (err_den, err_num))`.
+///
+/// The numerator and denominator of the NSB estimate share the same nodes, so
+/// evaluating both here halves the `neg_log_rho`/`dxi` work compared with two
+/// independent integrations.
+#[allow(clippy::type_complexity)]
+fn gk15_dual<F: Fn(f64) -> (f64, f64)>(f: &F, a: f64, b: f64) -> ((f64, f64), (f64, f64)) {
     let center = 0.5 * (a + b);
     let half = 0.5 * (b - a);
 
-    let fc = f(center);
-    let mut res_k = fc * WGK[7]; // centre uses wgk(8)
-    let mut res_g = fc * WG[3]; // centre uses wg(4)
+    let (c_den, c_num) = f(center);
+    let mut rk_den = c_den * WGK[7]; // centre uses wgk(8)
+    let mut rg_den = c_den * WG[3]; // centre uses wg(4)
+    let mut rk_num = c_num * WGK[7];
+    let mut rg_num = c_num * WG[3];
 
     // dqk15 loop 1: the odd-indexed abscissae XGK[1], XGK[3], XGK[5] carry both
     // Gauss weights WG[0..2] and Kronrod weights WGK[1], WGK[3], WGK[5].
     for (j, &wg) in WG.iter().take(3).enumerate() {
         let node = 2 * j + 1;
         let absc = half * XGK[node];
-        let fsum = f(center - absc) + f(center + absc);
-        res_g += wg * fsum;
-        res_k += WGK[node] * fsum;
+        let (ld, ln) = f(center - absc);
+        let (rd, rn) = f(center + absc);
+        let fs_den = ld + rd;
+        let fs_num = ln + rn;
+        rg_den += wg * fs_den;
+        rk_den += WGK[node] * fs_den;
+        rg_num += wg * fs_num;
+        rk_num += WGK[node] * fs_num;
     }
 
     // dqk15 loop 2: the even-indexed abscissae XGK[0], XGK[2], XGK[4], XGK[6]
@@ -313,28 +341,66 @@ fn gk15<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64) -> (f64, f64) {
     for (j, &wgk) in WGK.iter().take(7).step_by(2).enumerate() {
         let node = 2 * j;
         let absc = half * XGK[node];
-        let fsum = f(center - absc) + f(center + absc);
-        res_k += wgk * fsum;
+        let (ld, ln) = f(center - absc);
+        let (rd, rn) = f(center + absc);
+        let fs_den = ld + rd;
+        let fs_num = ln + rn;
+        rk_den += wgk * fs_den;
+        rk_num += wgk * fs_num;
     }
 
-    let result = res_k * half;
-    let abserr = (res_k - res_g).abs() * half;
-    (result, abserr)
+    let res_den = rk_den * half;
+    let err_den = (rk_den - rg_den).abs() * half;
+    let res_num = rk_num * half;
+    let err_num = (rk_num - rg_num).abs() * half;
+    ((res_den, res_num), (err_den, err_num))
 }
 
-/// Adaptive Gauss–Kronrod 15 integration by recursive bisection until the error
-/// estimate is below `tol` or `max_depth` subdivisions are reached.
-fn adaptive_gk15<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, tol: f64, max_depth: usize) -> f64 {
-    if max_depth == 0 {
-        return gk15(f, a, b).0;
+/// Global adaptive Gauss–Kronrod 15 integration of a two-component integrand.
+///
+/// Keeps a set of subintervals and repeatedly bisects the one with the largest
+/// error estimate until the summed error is below `tol` or `limit` intervals
+/// exist, then returns the summed `(den, num)` integrals. This is the `dqags`
+/// strategy (minus extrapolation): it spends evaluations only where the error
+/// is, whereas the previous per-level recursion over-refined flat regions and
+/// saturated at `2^12` intervals against the β→0 singularity.
+fn adaptive_gk15_dual<F: Fn(f64) -> (f64, f64)>(
+    f: &F,
+    a: f64,
+    b: f64,
+    tol: f64,
+    limit: usize,
+) -> (f64, f64) {
+    // (a, b, res_den, res_num, err_den, err_num)
+    let ((den, num), (err_den, err_num)) = gk15_dual(f, a, b);
+    let mut intervals = vec![(a, b, den, num, err_den, err_num)];
+    let (mut total_den, mut total_num) = (den, num);
+    let mut total_err = err_den.max(err_num);
+
+    while intervals.len() < limit && total_err > tol {
+        let idx = intervals
+            .iter()
+            .enumerate()
+            .max_by(|(_, x), (_, y)| {
+                x.4.max(x.5)
+                    .partial_cmp(&y.4.max(y.5))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i)
+            .expect("non-empty");
+        let (ia, ib, iden, inum, _, _) = intervals.swap_remove(idx);
+        total_den -= iden;
+        total_num -= inum;
+        let mid = 0.5 * (ia + ib);
+        let ((ld, ln), (led, len)) = gk15_dual(f, ia, mid);
+        let ((rd, rn), (red, ren)) = gk15_dual(f, mid, ib);
+        intervals.push((ia, mid, ld, ln, led, len));
+        intervals.push((mid, ib, rd, rn, red, ren));
+        total_den += ld + rd;
+        total_num += ln + rn;
+        total_err = intervals.iter().map(|it| it.4.max(it.5)).sum();
     }
-    let c = 0.5 * (a + b);
-    let (whole, whole_err) = gk15(f, a, b);
-    if whole_err < tol {
-        return whole;
-    }
-    adaptive_gk15(f, a, c, tol * 0.5, max_depth - 1)
-        + adaptive_gk15(f, c, b, tol * 0.5, max_depth - 1)
+    (total_den, total_num)
 }
 
 impl LocalValues for NsbEntropy {
