@@ -237,6 +237,28 @@ fn count_dense_flat(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) 
     let cond_range = plan.cond_range;
     let cond_joint_stride = plan.var_joint_stride[plan.n_series];
 
+    // Two-variable CMI/TE/CTE: the dominant shape. Hoist the two series slices
+    // and unroll their loop; the condition group is short (1-2 columns).
+    if plan.n_series == 2 {
+        let (c0, m0) = series[0];
+        let (c1, m1) = series[1];
+        let (s0, s1) = (var_stride[0], var_stride[1]);
+        let (o0, o1) = (marginal_off[0], marginal_off[1]);
+        for t in 0..plan.n {
+            let mut cond_code = 0usize;
+            for &(col, mn, st) in &cond_cols {
+                cond_code += (col[t] - mn) as usize * st;
+            }
+            let x = (c0[t] - m0) as usize;
+            let y = (c1[t] - m1) as usize;
+            joint[cond_code * cond_joint_stride + x * s0 + y * s1] += 1;
+            marginal[o0 + x * cond_range + cond_code] += 1;
+            marginal[o1 + y * cond_range + cond_code] += 1;
+            cond[cond_code] += 1;
+        }
+        return finish_counts(joint, marginal, cond, plan);
+    }
+
     for t in 0..plan.n {
         let mut cond_code = 0usize;
         for &(col, mn, st) in &cond_cols {
@@ -291,20 +313,58 @@ fn finish_counts(
     plan: &DensePlan,
 ) -> DenseCounts {
     let n_minus_1 = (plan.n_series as f64) - 1.0;
+    // Logs of the count tables are reused across every joint cell that touches
+    // them; computing them inline dominated the sum for small alphabets.
+    let marginal_ln: Vec<f64> = marginal
+        .iter()
+        .map(|&c| if c > 0 { (c as f64).ln() } else { 0.0 })
+        .collect();
+    let cond_ln: Vec<f64> = cond
+        .iter()
+        .map(|&c| if c > 0 { (c as f64).ln() } else { 0.0 })
+        .collect();
     let mut sum = 0.0_f64;
-    for (jidx, &jc_u) in joint.iter().enumerate() {
-        if jc_u == 0 {
-            continue;
+
+    if plan.n_series == 2 {
+        // Decode the joint layout with nested loops instead of per-cell
+        // integer division/modulo.
+        let (r0, r1) = (plan.var_range[0], plan.var_range[1]);
+        let (o0, o1) = (plan.marginal_off[0], plan.marginal_off[1]);
+        let cond_range = plan.cond_range;
+        let cond_joint_stride = plan.var_joint_stride[2];
+        for cc in 0..cond_range {
+            if cond[cc] == 0 {
+                continue;
+            }
+            let cln = cond_ln[cc];
+            let jbase = cc * cond_joint_stride;
+            for x in 0..r0 {
+                let mxl = marginal_ln[o0 + x * cond_range + cc];
+                for y in 0..r1 {
+                    let jc = joint[jbase + x + y * r0];
+                    if jc == 0 {
+                        continue;
+                    }
+                    let local = (jc as f64).ln() + n_minus_1 * cln
+                        - mxl
+                        - marginal_ln[o1 + y * cond_range + cc];
+                    sum += jc as f64 * local;
+                }
+            }
         }
-        let cond_code = (jidx / plan.var_joint_stride[plan.n_series]) % plan.cond_range;
-        let mut denom = 0.0;
-        for i in 0..plan.n_series {
-            let code = (jidx / plan.var_joint_stride[i]) % plan.var_range[i];
-            denom +=
-                (marginal[plan.marginal_off[i] + code * plan.cond_range + cond_code] as f64).ln();
+    } else {
+        for (jidx, &jc_u) in joint.iter().enumerate() {
+            if jc_u == 0 {
+                continue;
+            }
+            let cond_code = (jidx / plan.var_joint_stride[plan.n_series]) % plan.cond_range;
+            let mut denom = 0.0;
+            for i in 0..plan.n_series {
+                let code = (jidx / plan.var_joint_stride[i]) % plan.var_range[i];
+                denom += marginal_ln[plan.marginal_off[i] + code * plan.cond_range + cond_code];
+            }
+            sum += jc_u as f64 * ((jc_u as f64).ln() + n_minus_1 * cond_ln[cond_code] - denom);
         }
-        let local = (jc_u as f64).ln() + n_minus_1 * (cond[cond_code] as f64).ln() - denom;
-        sum += jc_u as f64 * local;
     }
 
     DenseCounts {

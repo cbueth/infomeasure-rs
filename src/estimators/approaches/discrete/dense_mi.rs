@@ -116,14 +116,30 @@ struct DenseMiCounts {
 fn count_mi(cols: &[&[i32]], plan: &DenseMiPlan) -> DenseMiCounts {
     let mut joint = vec![0u32; plan.joint_len];
     let mut marginal = vec![0u32; plan.marginal_len];
-    for t in 0..plan.n {
-        let mut jidx = 0usize;
-        for i in 0..plan.n_vars {
-            let code = (cols[i][t] - plan.col_min[i]) as usize;
-            jidx += code * plan.var_joint_stride[i];
-            marginal[plan.marginal_off[i] + code] += 1;
+
+    // Bivariate MI: the dominant shape. Hoist both slices and unroll the loop.
+    if plan.n_vars == 2 {
+        let (c0, c1) = (cols[0], cols[1]);
+        let (m0, m1) = (plan.col_min[0], plan.col_min[1]);
+        let (o0, o1) = (plan.marginal_off[0], plan.marginal_off[1]);
+        let s1 = plan.var_joint_stride[1];
+        for t in 0..plan.n {
+            let x = (c0[t] - m0) as usize;
+            let y = (c1[t] - m1) as usize;
+            joint[x + y * s1] += 1;
+            marginal[o0 + x] += 1;
+            marginal[o1 + y] += 1;
         }
-        joint[jidx] += 1;
+    } else {
+        for t in 0..plan.n {
+            let mut jidx = 0usize;
+            for i in 0..plan.n_vars {
+                let code = (cols[i][t] - plan.col_min[i]) as usize;
+                jidx += code * plan.var_joint_stride[i];
+                marginal[plan.marginal_off[i] + code] += 1;
+            }
+            joint[jidx] += 1;
+        }
     }
 
     let n = plan.n as f64;
