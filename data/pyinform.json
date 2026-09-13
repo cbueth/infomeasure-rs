@@ -1,0 +1,888 @@
+{
+  "meta": {
+    "schema": 2,
+    "run_id": "fragment_1789297106",
+    "fingerprint": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "runtime": {
+      "threads": 1,
+      "adaptive": true,
+      "warmup_max": 3,
+      "warmup_budget_s": 0.4,
+      "min_iters": 3,
+      "max_iters": 10,
+      "iter_budget_s": 1.5
+    },
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ],
+    "packages": [
+      {
+        "id": "pyinform",
+        "language": "python",
+        "version": "0.2.0",
+        "base": 2,
+        "library": "inform (C)",
+        "limitations": "Discrete only; result in bits; TE/CTE history k=1. Entropy/MI/CMI build the empirical distribution(s) inside the timed call (CMI via shannon.conditional_mutual_info). No continuous/KSG/kernel."
+      }
+    ],
+    "coverage": [
+      [
+        "cmi",
+        "discrete"
+      ],
+      [
+        "cte",
+        "discrete"
+      ],
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ],
+      [
+        "te",
+        "discrete"
+      ]
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "entropy/discrete/n100/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyinform.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 6.5281750721624124e-06,
+        "stddev": 5.825276466958801e-07,
+        "min": 5.980000423733145e-06,
+        "max": 8.659997547511011e-06,
+        "median": 6.358000973705202e-06,
+        "samples": 40,
+        "ci_lower": 6.347647884131882e-06,
+        "ci_upper": 6.708702260192943e-06
+      },
+      "value": 3.276299786294656,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "entropy/discrete/n400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyinform.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 7.618625386385247e-06,
+        "stddev": 4.314447095774793e-06,
+        "min": 6.391994247678667e-06,
+        "max": 3.368799661984667e-05,
+        "median": 6.656002369709313e-06,
+        "samples": 40,
+        "ci_lower": 6.281564379024444e-06,
+        "ci_upper": 8.95568639374605e-06
+      },
+      "value": 3.3123696281945567,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "entropy/discrete/n1600/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyinform.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 8.509774670528713e-06,
+        "stddev": 1.7328300066176818e-06,
+        "min": 7.404996722470969e-06,
+        "max": 1.5639998309779912e-05,
+        "median": 7.840502803446725e-06,
+        "samples": 40,
+        "ci_lower": 7.972765087886655e-06,
+        "ci_upper": 9.046784253170771e-06
+      },
+      "value": 3.316259806971081,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "entropy/discrete/n6400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyinform.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 1.4341025052999613e-05,
+        "stddev": 1.5234722890681356e-06,
+        "min": 1.348299701930955e-05,
+        "max": 1.9860999600496143e-05,
+        "median": 1.3791002857033163e-05,
+        "samples": 40,
+        "ci_lower": 1.386889609921025e-05,
+        "ci_upper": 1.4813154006788976e-05
+      },
+      "value": 3.320482299543896,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "entropy/discrete/n12500/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyinform.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.1441149510792456e-05,
+        "stddev": 1.7038447769654542e-06,
+        "min": 2.0380997739266604e-05,
+        "max": 2.8611997549887747e-05,
+        "median": 2.089549889205955e-05,
+        "samples": 40,
+        "ci_lower": 2.0913122543882398e-05,
+        "ci_upper": 2.1969176477702514e-05
+      },
+      "value": 3.321259242827524,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "mi/discrete/n100/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyinform.mutual_info",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.346307483094279e-05,
+        "stddev": 1.478071427373995e-06,
+        "min": 2.204500196967274e-05,
+        "max": 2.872099867090583e-05,
+        "median": 2.2856500436319038e-05,
+        "samples": 40,
+        "ci_lower": 2.300501574996083e-05,
+        "ci_upper": 2.392113391192475e-05
+      },
+      "value": 0.6192372087336975,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyinform.mutual_info",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 4.0721450386627114e-05,
+        "stddev": 2.774014526312224e-06,
+        "min": 3.847599873552099e-05,
+        "max": 5.142900045029819e-05,
+        "median": 3.955500142183155e-05,
+        "samples": 40,
+        "ci_lower": 3.9861774378404225e-05,
+        "ci_upper": 4.1581126394850004e-05
+      },
+      "value": 0.15804089690400014,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n1600/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyinform.mutual_info",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00010369825013185618,
+        "stddev": 3.0294811106387038e-06,
+        "min": 9.988399688154459e-05,
+        "max": 0.00011329400149406865,
+        "median": 0.0001029385020956397,
+        "samples": 40,
+        "ci_lower": 0.00010275940420892485,
+        "ci_upper": 0.00010463709605478752
+      },
+      "value": 0.03085043292185352,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n6400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyinform.mutual_info",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.000352031524926133,
+        "stddev": 7.923566266049258e-06,
+        "min": 0.0003396739994059317,
+        "max": 0.000375659998098854,
+        "median": 0.00035045600088778883,
+        "samples": 40,
+        "ci_lower": 0.00034957598630011783,
+        "ci_upper": 0.00035448706355214815
+      },
+      "value": 0.00786930418373366,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n12500/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyinform.mutual_info",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.000663723299294361,
+        "stddev": 1.0411659667115997e-05,
+        "min": 0.0006493920009233989,
+        "max": 0.000690945002133958,
+        "median": 0.0006613400000787806,
+        "samples": 40,
+        "ci_lower": 0.0006604966925348424,
+        "ci_upper": 0.0006669499060538795
+      },
+      "value": 0.004759596335909055,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n100/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyinform.shannon.conditional_mutual_info",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 8.346302438440034e-05,
+        "stddev": 6.010689231691736e-06,
+        "min": 7.93879953562282e-05,
+        "max": 0.00010988099529640749,
+        "median": 8.171399895218201e-05,
+        "samples": 40,
+        "ci_lower": 8.160029249300019e-05,
+        "ci_upper": 8.532575627580049e-05
+      },
+      "value": 1.7747776924707948,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "cmi/discrete/n400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyinform.shannon.conditional_mutual_info",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 9.183829988614888e-05,
+        "stddev": 2.4554221889009346e-06,
+        "min": 8.80290026543662e-05,
+        "max": 9.97239985736087e-05,
+        "median": 9.134749780059792e-05,
+        "samples": 40,
+        "ci_lower": 9.107735666619305e-05,
+        "ci_upper": 9.259924310610472e-05
+      },
+      "value": 1.426722227671592,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "cmi/discrete/n1600/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyinform.shannon.conditional_mutual_info",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00010864885043702089,
+        "stddev": 4.420859422992292e-06,
+        "min": 0.00010247699538012967,
+        "max": 0.00011892800102941692,
+        "median": 0.00010766500054160133,
+        "samples": 40,
+        "ci_lower": 0.00010727881190779769,
+        "ci_upper": 0.00011001888896624408
+      },
+      "value": 0.44007796758381756,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "cmi/discrete/n6400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyinform.shannon.conditional_mutual_info",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00015295527518901508,
+        "stddev": 5.93274140121913e-06,
+        "min": 0.00014681999891763553,
+        "max": 0.00017008599388645962,
+        "median": 0.0001513540009909775,
+        "samples": 40,
+        "ci_lower": 0.0001511166995805452,
+        "ci_upper": 0.00015479385079748495
+      },
+      "value": 0.09238794159584884,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "cmi/discrete/n12500/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyinform.shannon.conditional_mutual_info",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00021211154926277233,
+        "stddev": 3.4898804938713784e-05,
+        "min": 0.00020144200243521482,
+        "max": 0.00042025499715236947,
+        "median": 0.00020455150297493674,
+        "samples": 40,
+        "ci_lower": 0.00020129629756279402,
+        "ci_upper": 0.00022292680096275063
+      },
+      "value": 0.05087712730194305,
+      "notes": "Empirical distribution(s) built inside the timed call."
+    },
+    {
+      "id": "te/discrete/n100/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "te",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.1086125525471288e-05,
+        "stddev": 9.738217665327427e-07,
+        "min": 2.032599877566099e-05,
+        "max": 2.6390000130049884e-05,
+        "median": 2.088949622702785e-05,
+        "samples": 40,
+        "ci_lower": 2.078433503337665e-05,
+        "ci_upper": 2.1387916017565925e-05
+      },
+      "value": 0.7033704727119569,
+      "notes": null
+    },
+    {
+      "id": "te/discrete/n400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "te",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 3.785502431128407e-05,
+        "stddev": 1.0796492123598198e-06,
+        "min": 3.685300180222839e-05,
+        "max": 4.340000305091962e-05,
+        "median": 3.764699795283377e-05,
+        "samples": 40,
+        "ci_lower": 3.752043755394781e-05,
+        "ci_upper": 3.818961106862032e-05
+      },
+      "value": 0.19177774447737198,
+      "notes": null
+    },
+    {
+      "id": "te/discrete/n1600/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "te",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00010256730020046234,
+        "stddev": 2.4028983035664844e-06,
+        "min": 9.813700307859108e-05,
+        "max": 0.00010977700003422797,
+        "median": 0.00010241250129183754,
+        "samples": 40,
+        "ci_lower": 0.00010182263430120992,
+        "ci_upper": 0.00010331196609971477
+      },
+      "value": 0.16898484701527416,
+      "notes": null
+    },
+    {
+      "id": "te/discrete/n6400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "te",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00035561007462092675,
+        "stddev": 6.998974451296599e-06,
+        "min": 0.00034205200063297525,
+        "max": 0.0003775000004679896,
+        "median": 0.00035514499541022815,
+        "samples": 40,
+        "ci_lower": 0.0003534410699668872,
+        "ci_upper": 0.00035777907927496633
+      },
+      "value": 0.09381813169624939,
+      "notes": null
+    },
+    {
+      "id": "te/discrete/n12500/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "te",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0006755290001819958,
+        "stddev": 1.2409687232257632e-05,
+        "min": 0.0006522269977722317,
+        "max": 0.000720468997315038,
+        "median": 0.0006775289984943811,
+        "samples": 40,
+        "ci_lower": 0.0006716831982649798,
+        "ci_upper": 0.0006793748020990118
+      },
+      "value": 0.10151274547107011,
+      "notes": null
+    },
+    {
+      "id": "cte/discrete/n100/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cte",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.8782325534848498e-05,
+        "stddev": 1.1885727315460754e-06,
+        "min": 2.7715002943295985e-05,
+        "max": 3.5158001992385834e-05,
+        "median": 2.853250043699518e-05,
+        "samples": 40,
+        "ci_lower": 2.841398302919606e-05,
+        "ci_upper": 2.9150668040500936e-05
+      },
+      "value": 0.840076947989372,
+      "notes": null
+    },
+    {
+      "id": "cte/discrete/n400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cte",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 5.543432416743599e-05,
+        "stddev": 1.7027165303371217e-06,
+        "min": 5.369899736251682e-05,
+        "max": 6.0846999986097217e-05,
+        "median": 5.489949762704782e-05,
+        "samples": 40,
+        "ci_lower": 5.4906646847778505e-05,
+        "ci_upper": 5.596200148709347e-05
+      },
+      "value": 0.8036508790383493,
+      "notes": null
+    },
+    {
+      "id": "cte/discrete/n1600/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cte",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00015179027504927945,
+        "stddev": 2.8545253651471478e-06,
+        "min": 0.00014771999849472195,
+        "max": 0.00015924600302241743,
+        "median": 0.00015124050332815386,
+        "samples": 40,
+        "ci_lower": 0.00015090564847360574,
+        "ci_upper": 0.00015267490162495316
+      },
+      "value": 0.29652888809317707,
+      "notes": null
+    },
+    {
+      "id": "cte/discrete/n6400/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cte",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0005222069748924696,
+        "stddev": 6.086012272014316e-06,
+        "min": 0.0005098160036141053,
+        "max": 0.0005418609944172204,
+        "median": 0.0005217489997448865,
+        "samples": 40,
+        "ci_lower": 0.0005203209001490341,
+        "ci_upper": 0.0005240930496359051
+      },
+      "value": 0.1323035893508038,
+      "notes": null
+    },
+    {
+      "id": "cte/discrete/n12500/pyinform",
+      "package": "pyinform",
+      "language": "python",
+      "measure": "cte",
+      "approach": "discrete",
+      "function": "pyinform.transfer_entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 1,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0009946718504579622,
+        "stddev": 1.5845275866376832e-05,
+        "min": 0.0009617790055926889,
+        "max": 0.0010321480003767647,
+        "median": 0.0009947899998223875,
+        "samples": 40,
+        "ci_lower": 0.0009897613485926003,
+        "ci_upper": 0.000999582352323324
+      },
+      "value": 0.12265150017546014,
+      "notes": null
+    }
+  ]
+}

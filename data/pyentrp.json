@@ -1,0 +1,211 @@
+{
+  "meta": {
+    "schema": 2,
+    "run_id": "fragment_1789297112",
+    "fingerprint": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "runtime": {
+      "threads": 1,
+      "adaptive": true,
+      "warmup_max": 3,
+      "warmup_budget_s": 0.4,
+      "min_iters": 3,
+      "max_iters": 10,
+      "iter_budget_s": 1.5
+    },
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ],
+    "packages": [
+      {
+        "id": "pyentrp",
+        "language": "python",
+        "version": "2.1.0",
+        "base": 2,
+        "limitations": "Entropy only: plug-in MLE over unique-value frequencies, base 2. No MI/CMI/TE; sample/permutation/multiscale entropy are out of scope."
+      }
+    ],
+    "coverage": [
+      [
+        "entropy",
+        "discrete"
+      ]
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "entropy/discrete/n100/pyentrp",
+      "package": "pyentrp",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyentrp.shannon_entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 1.903790052892873e-05,
+        "stddev": 1.1495100757710005e-06,
+        "min": 1.8077997083310038e-05,
+        "max": 2.3701002646703273e-05,
+        "median": 1.8694998288992792e-05,
+        "samples": 40,
+        "ci_lower": 1.868166366571932e-05,
+        "ci_upper": 1.939413739213814e-05
+      },
+      "value": 3.2762997862946563,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n400/pyentrp",
+      "package": "pyentrp",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyentrp.shannon_entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.074842486763373e-05,
+        "stddev": 1.6783610000022951e-06,
+        "min": 1.964900002349168e-05,
+        "max": 2.909999602707103e-05,
+        "median": 2.023650085902773e-05,
+        "samples": 40,
+        "ci_lower": 2.0228295405025226e-05,
+        "ci_upper": 2.126855433024223e-05
+      },
+      "value": 3.3123696281945567,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n1600/pyentrp",
+      "package": "pyentrp",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyentrp.shannon_entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.509200021449942e-05,
+        "stddev": 1.0456109386127363e-06,
+        "min": 2.4116998247336596e-05,
+        "max": 2.907700400101021e-05,
+        "median": 2.4796499928925186e-05,
+        "samples": 40,
+        "ci_lower": 2.4767962027483953e-05,
+        "ci_upper": 2.541603840151489e-05
+      },
+      "value": 3.316259806971081,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n6400/pyentrp",
+      "package": "pyentrp",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyentrp.shannon_entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 2.9574199834314642e-05,
+        "stddev": 1.6935496944396883e-06,
+        "min": 2.8226997528690845e-05,
+        "max": 3.77589967683889e-05,
+        "median": 2.908999886130914e-05,
+        "samples": 40,
+        "ci_lower": 2.9049363346533703e-05,
+        "ci_upper": 3.009903632209558e-05
+      },
+      "value": 3.320482299543896,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n12500/pyentrp",
+      "package": "pyentrp",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyentrp.shannon_entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 3.75138000890729e-05,
+        "stddev": 2.2218979756364138e-06,
+        "min": 3.603300137910992e-05,
+        "max": 4.916300531476736e-05,
+        "median": 3.6961500882171094e-05,
+        "samples": 40,
+        "ci_lower": 3.682522677258312e-05,
+        "ci_upper": 3.820237340556268e-05
+      },
+      "value": 3.321259242827524,
+      "notes": null
+    }
+  ]
+}

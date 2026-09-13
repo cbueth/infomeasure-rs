@@ -1,0 +1,549 @@
+{
+  "meta": {
+    "schema": 2,
+    "run_id": "fragment_1789297149",
+    "fingerprint": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "runtime": {
+      "threads": 1,
+      "adaptive": true,
+      "warmup_max": 3,
+      "warmup_budget_s": 0.4,
+      "min_iters": 3,
+      "max_iters": 10,
+      "iter_budget_s": 1.5
+    },
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ],
+    "packages": [
+      {
+        "id": "syntropy",
+        "language": "python",
+        "version": "0.0.2",
+        "base": "nats",
+        "limitations": "Only the sample-based KNN (Kraskov) family is compared: differential entropy/MI/CMI, k=4, nats. No transfer entropy. Its discrete (distribution-input), Gaussian (covariance-input), neural and mixed families and its PID/higher-order/temporal measures are out of scope."
+      }
+    ],
+    "coverage": [
+      [
+        "cmi",
+        "ksg"
+      ],
+      [
+        "entropy",
+        "ksg"
+      ],
+      [
+        "mi",
+        "ksg"
+      ]
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "entropy/ksg/n100/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "ksg",
+      "function": "syntropy.knn.differential_entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0001221303742568125,
+        "stddev": 3.2698787739636548e-06,
+        "min": 0.00011812099546659738,
+        "max": 0.0001300529984291643,
+        "median": 0.00012107550355722196,
+        "samples": 40,
+        "ci_lower": 0.00012111702832617283,
+        "ci_upper": 0.00012314372018745217
+      },
+      "value": 1.4847495102332697,
+      "notes": null
+    },
+    {
+      "id": "entropy/ksg/n400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "ksg",
+      "function": "syntropy.knn.differential_entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0003053078000448295,
+        "stddev": 3.435228328668331e-06,
+        "min": 0.0002986649997183122,
+        "max": 0.0003121269983239472,
+        "median": 0.00030534899997292086,
+        "samples": 40,
+        "ci_lower": 0.0003042432117562996,
+        "ci_upper": 0.00030637238833335935
+      },
+      "value": 1.429924332619447,
+      "notes": null
+    },
+    {
+      "id": "entropy/ksg/n1600/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "ksg",
+      "function": "syntropy.knn.differential_entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.001075461225809704,
+        "stddev": 2.258901994580437e-06,
+        "min": 0.0010711720024119131,
+        "max": 0.00108013600402046,
+        "median": 0.0010755380026239436,
+        "samples": 40,
+        "ci_lower": 0.0010747611848289347,
+        "ci_upper": 0.0010761612667904734
+      },
+      "value": 1.4150441146512172,
+      "notes": null
+    },
+    {
+      "id": "entropy/ksg/n6400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "ksg",
+      "function": "syntropy.knn.differential_entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0044007193248035035,
+        "stddev": 1.1719418100127786e-05,
+        "min": 0.004383859995868988,
+        "max": 0.0044607529998756945,
+        "median": 0.0043992460014123935,
+        "samples": 40,
+        "ci_lower": 0.004397087439506779,
+        "ci_upper": 0.004404351210100228
+      },
+      "value": 1.3979747026702392,
+      "notes": null
+    },
+    {
+      "id": "entropy/ksg/n12500/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "ksg",
+      "function": "syntropy.knn.differential_entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.009029593049126561,
+        "stddev": 4.832649162836209e-05,
+        "min": 0.008986718996311538,
+        "max": 0.009204103997035418,
+        "median": 0.009012251495732926,
+        "samples": 40,
+        "ci_lower": 0.009014616514209234,
+        "ci_upper": 0.009044569584043888
+      },
+      "value": 1.4275649919653657,
+      "notes": null
+    },
+    {
+      "id": "mi/ksg/n100/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "mi",
+      "approach": "ksg",
+      "function": "syntropy.knn.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0014995641246059676,
+        "stddev": 8.267426432948193e-06,
+        "min": 0.0014842710006632842,
+        "max": 0.0015327229993999936,
+        "median": 0.0014990105009928811,
+        "samples": 40,
+        "ci_lower": 0.0014970020226101998,
+        "ci_upper": 0.0015021262266017353
+      },
+      "value": 0.14058140855885642,
+      "notes": null
+    },
+    {
+      "id": "mi/ksg/n400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "mi",
+      "approach": "ksg",
+      "function": "syntropy.knn.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.005620031774742529,
+        "stddev": 5.888605548809622e-05,
+        "min": 0.005560919998970348,
+        "max": 0.005876830997294746,
+        "median": 0.00560547350323759,
+        "samples": 40,
+        "ci_lower": 0.005601782797081516,
+        "ci_upper": 0.005638280752403542
+      },
+      "value": 0.20404334695925896,
+      "notes": null
+    },
+    {
+      "id": "mi/ksg/n1600/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "mi",
+      "approach": "ksg",
+      "function": "syntropy.knn.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.02279928275020211,
+        "stddev": 0.00013150157470665308,
+        "min": 0.022469758994702715,
+        "max": 0.023032110002532136,
+        "median": 0.02278452899918193,
+        "samples": 40,
+        "ci_lower": 0.02275852998998887,
+        "ci_upper": 0.022840035510415347
+      },
+      "value": 0.12182074381677196,
+      "notes": null
+    },
+    {
+      "id": "mi/ksg/n6400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "mi",
+      "approach": "ksg",
+      "function": "syntropy.knn.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.09648557797499961,
+        "stddev": 0.0004342474900771113,
+        "min": 0.09550501399644418,
+        "max": 0.0973451190002379,
+        "median": 0.09649321349934326,
+        "samples": 40,
+        "ci_lower": 0.09635100328358782,
+        "ci_upper": 0.0966201526664114
+      },
+      "value": 0.15612364469299775,
+      "notes": null
+    },
+    {
+      "id": "mi/ksg/n12500/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "mi",
+      "approach": "ksg",
+      "function": "syntropy.knn.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.1956292272814153,
+        "stddev": 0.0008127677720862627,
+        "min": 0.1942662660003407,
+        "max": 0.19724325500283157,
+        "median": 0.1954875350020302,
+        "samples": 32,
+        "ci_lower": 0.19534761761586097,
+        "ci_upper": 0.19591083694696962
+      },
+      "value": 0.14691446186209056,
+      "notes": null
+    },
+    {
+      "id": "cmi/ksg/n100/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "ksg",
+      "function": "syntropy.knn.conditional_mutual_information",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.002485899424391391,
+        "stddev": 1.7080917193307993e-05,
+        "min": 0.0024613770001451485,
+        "max": 0.002568844996858388,
+        "median": 0.0024864619990694337,
+        "samples": 40,
+        "ci_lower": 0.002480605993311544,
+        "ci_upper": 0.0024911928554712383
+      },
+      "value": 0.21672965639001138,
+      "notes": null
+    },
+    {
+      "id": "cmi/ksg/n400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "ksg",
+      "function": "syntropy.knn.conditional_mutual_information",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.010011195099286852,
+        "stddev": 4.55943194454758e-05,
+        "min": 0.009939376999682281,
+        "max": 0.010194096001214348,
+        "median": 0.010001094997278415,
+        "samples": 40,
+        "ci_lower": 0.009997065273301176,
+        "ci_upper": 0.010025324925272527
+      },
+      "value": 0.14008798563013822,
+      "notes": null
+    },
+    {
+      "id": "cmi/ksg/n1600/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "ksg",
+      "function": "syntropy.knn.conditional_mutual_information",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0435087547502917,
+        "stddev": 0.00023024050607516053,
+        "min": 0.04308070399565622,
+        "max": 0.044663130000117235,
+        "median": 0.04349766700397595,
+        "samples": 40,
+        "ci_lower": 0.04343740247822662,
+        "ci_upper": 0.04358010702235678
+      },
+      "value": 0.1303505273332498,
+      "notes": null
+    },
+    {
+      "id": "cmi/ksg/n6400/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "ksg",
+      "function": "syntropy.knn.conditional_mutual_information",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.1969468063120985,
+        "stddev": 0.002192424410602493,
+        "min": 0.19463899299444165,
+        "max": 0.20394379799836315,
+        "median": 0.19635731149537605,
+        "samples": 32,
+        "ci_lower": 0.19618717000979027,
+        "ci_upper": 0.1977064426144067
+      },
+      "value": 0.14035203746796093,
+      "notes": null
+    },
+    {
+      "id": "cmi/ksg/n12500/syntropy",
+      "package": "syntropy",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "ksg",
+      "function": "syntropy.knn.conditional_mutual_information",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": 4,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": null,
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.41015694899761,
+        "stddev": 0.003749264119412121,
+        "min": 0.40656272399792215,
+        "max": 0.4224046660019667,
+        "median": 0.40895670399913797,
+        "samples": 16,
+        "ci_lower": 0.4083198095790981,
+        "ci_upper": 0.41199408841612195
+      },
+      "value": 0.144904495012024,
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,368 @@
+{
+  "benchmarks": [
+    {
+      "approach": "discrete",
+      "function": "estimate_h(..., MaximumLikelihood)",
+      "id": "entropy/discrete/n100/discreteentropyjl",
+      "language": "julia",
+      "measure": "entropy",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 4.988778866546955e-06,
+        "ci_upper": 5.969321133453046e-06,
+        "max": 1.5142e-05,
+        "mean": 5.4790500000000005e-06,
+        "median": 5.2215e-06,
+        "min": 4.912e-06,
+        "samples": 40,
+        "stddev": 1.5820137272897899e-06
+      },
+      "value": 3.2762997862946572
+    },
+    {
+      "approach": "discrete",
+      "function": "estimate_h(..., MaximumLikelihood)",
+      "id": "entropy/discrete/n400/discreteentropyjl",
+      "language": "julia",
+      "measure": "entropy",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 1.870145184556372e-05,
+        "ci_upper": 1.9301198154436277e-05,
+        "max": 2.2603e-05,
+        "mean": 1.9001325e-05,
+        "median": 1.9010999999999998e-05,
+        "min": 1.773e-05,
+        "samples": 40,
+        "stddev": 9.676348746510873e-07
+      },
+      "value": 3.3123696281945563
+    },
+    {
+      "approach": "discrete",
+      "function": "estimate_h(..., MaximumLikelihood)",
+      "id": "entropy/discrete/n1600/discreteentropyjl",
+      "language": "julia",
+      "measure": "entropy",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 7.239933753928456e-05,
+        "ci_upper": 7.638246246071542e-05,
+        "max": 0.000108258,
+        "mean": 7.439089999999999e-05,
+        "median": 7.44405e-05,
+        "min": 6.943e-05,
+        "samples": 40,
+        "stddev": 6.426401508520764e-06
+      },
+      "value": 3.3162598069710807
+    },
+    {
+      "approach": "discrete",
+      "function": "estimate_h(..., MaximumLikelihood)",
+      "id": "entropy/discrete/n6400/discreteentropyjl",
+      "language": "julia",
+      "measure": "entropy",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 0.00028420345912787517,
+        "ci_upper": 0.0002932687408721249,
+        "max": 0.000313204,
+        "mean": 0.00028873610000000003,
+        "median": 0.0002963375,
+        "min": 0.000270018,
+        "samples": 40,
+        "stddev": 1.4625988746414943e-05
+      },
+      "value": 3.3204822995438965
+    },
+    {
+      "approach": "discrete",
+      "function": "estimate_h(..., MaximumLikelihood)",
+      "id": "entropy/discrete/n12500/discreteentropyjl",
+      "language": "julia",
+      "measure": "entropy",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 0.0005778460904506487,
+        "ci_upper": 0.0005956256095493512,
+        "max": 0.000624915,
+        "mean": 0.00058673585,
+        "median": 0.0005801985,
+        "min": 0.000528676,
+        "samples": 40,
+        "stddev": 2.86856000277366e-05
+      },
+      "value": 3.3212592428275234
+    },
+    {
+      "approach": "discrete",
+      "function": "mutual_information(..., MaximumLikelihood)",
+      "id": "mi/discrete/n100/discreteentropyjl",
+      "language": "julia",
+      "measure": "mi",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 1.722614561606532e-05,
+        "ci_upper": 1.757095438393468e-05,
+        "max": 1.927e-05,
+        "mean": 1.739855e-05,
+        "median": 1.7294500000000002e-05,
+        "min": 1.6412e-05,
+        "samples": 40,
+        "stddev": 5.5631686921606e-07
+      },
+      "value": 0.6192372087337057
+    },
+    {
+      "approach": "discrete",
+      "function": "mutual_information(..., MaximumLikelihood)",
+      "id": "mi/discrete/n400/discreteentropyjl",
+      "language": "julia",
+      "measure": "mi",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 6.106670120254843e-05,
+        "ci_upper": 6.775979879745159e-05,
+        "max": 0.000115076,
+        "mean": 6.441325000000001e-05,
+        "median": 6.1326e-05,
+        "min": 5.9508e-05,
+        "samples": 40,
+        "stddev": 1.0798690306984167e-05
+      },
+      "value": 0.15804089690399967
+    },
+    {
+      "approach": "discrete",
+      "function": "mutual_information(..., MaximumLikelihood)",
+      "id": "mi/discrete/n1600/discreteentropyjl",
+      "language": "julia",
+      "measure": "mi",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 0.00024402396204229422,
+        "ci_upper": 0.0002482977379577057,
+        "max": 0.000262693,
+        "mean": 0.00024616084999999995,
+        "median": 0.00024555,
+        "min": 0.000236585,
+        "samples": 40,
+        "stddev": 6.895339847893555e-06
+      },
+      "value": 0.030850432921851138
+    },
+    {
+      "approach": "discrete",
+      "function": "mutual_information(..., MaximumLikelihood)",
+      "id": "mi/discrete/n6400/discreteentropyjl",
+      "language": "julia",
+      "measure": "mi",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 0.0009868994066295404,
+        "ci_upper": 0.0010017210933704597,
+        "max": 0.001077686,
+        "mean": 0.00099431025,
+        "median": 0.000986014,
+        "min": 0.000972032,
+        "samples": 40,
+        "stddev": 2.391341268715434e-05
+      },
+      "value": 0.007869304183735933
+    },
+    {
+      "approach": "discrete",
+      "function": "mutual_information(..., MaximumLikelihood)",
+      "id": "mi/discrete/n12500/discreteentropyjl",
+      "language": "julia",
+      "measure": "mi",
+      "notes": null,
+      "package": "discreteentropyjl",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": 1,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "statistics": {
+        "ci_lower": 0.0019046252901333512,
+        "ci_upper": 0.0019314693598666496,
+        "max": 0.001996303,
+        "mean": 0.0019180473250000004,
+        "median": 0.0019109485,
+        "min": 0.001857135,
+        "samples": 40,
+        "stddev": 4.331040919674047e-05
+      },
+      "value": 0.004759596335904132
+    }
+  ],
+  "meta": {
+    "coverage": [
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ]
+    ],
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "packages": [
+      {
+        "id": "discreteentropyjl",
+        "language": "julia",
+        "limitations": "MLE only, discrete entropy/MI. No CMI/TE, no continuous/KSG/kernel. Bias-corrected discrete estimators are intentionally not benchmarked here.",
+        "version": "0.2.1"
+      }
+    ],
+    "run_id": "fragment_discreteentropyjl",
+    "runtime": {
+      "adaptive": true,
+      "iter_budget_s": 1.5,
+      "max_iters": 10,
+      "min_iters": 3,
+      "threads": 1,
+      "warmup_budget_s": 0.4,
+      "warmup_max": 3
+    },
+    "schema": 2,
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ]
+  }
+}

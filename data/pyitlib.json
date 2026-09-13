@@ -1,0 +1,549 @@
+{
+  "meta": {
+    "schema": 2,
+    "run_id": "fragment_1789297111",
+    "fingerprint": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "runtime": {
+      "threads": 1,
+      "adaptive": true,
+      "warmup_max": 3,
+      "warmup_budget_s": 0.4,
+      "min_iters": 3,
+      "max_iters": 10,
+      "iter_budget_s": 1.5
+    },
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ],
+    "packages": [
+      {
+        "id": "pyitlib",
+        "language": "python",
+        "version": "0.3.1",
+        "base": 2,
+        "limitations": "Discrete only (entropy/MI/CMI); no transfer entropy. Base 2."
+      }
+    ],
+    "coverage": [
+      [
+        "cmi",
+        "discrete"
+      ],
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ]
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "entropy/discrete/n100/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyitlib.entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0003024339752300875,
+        "stddev": 7.385901446125567e-06,
+        "min": 0.0002952089998871088,
+        "max": 0.0003342159980093129,
+        "median": 0.0002990175016748253,
+        "samples": 40,
+        "ci_lower": 0.00030014506065804524,
+        "ci_upper": 0.00030472288980212976
+      },
+      "value": 3.2762997862946563,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyitlib.entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00035771457532973727,
+        "stddev": 3.7184285001997963e-06,
+        "min": 0.0003524409985402599,
+        "max": 0.0003644579992396757,
+        "median": 0.00035592900167102925,
+        "samples": 40,
+        "ci_lower": 0.00035656222239878,
+        "ci_upper": 0.00035886692826069455
+      },
+      "value": 3.3123696281945567,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n1600/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyitlib.entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0005644804494295385,
+        "stddev": 4.108095538129422e-06,
+        "min": 0.000557333005417604,
+        "max": 0.0005712309939553961,
+        "median": 0.0005649755039485171,
+        "samples": 40,
+        "ci_lower": 0.0005632073374324243,
+        "ci_upper": 0.0005657535614266528
+      },
+      "value": 3.316259806971081,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n6400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyitlib.entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0013492702744770213,
+        "stddev": 8.769565359275226e-06,
+        "min": 0.0013373219990171492,
+        "max": 0.0013886439992347732,
+        "median": 0.0013472700011334382,
+        "samples": 40,
+        "ci_lower": 0.001346552558015769,
+        "ci_upper": 0.0013519879909382735
+      },
+      "value": 3.320482299543896,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n12500/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "pyitlib.entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0023367581252387026,
+        "stddev": 1.5918741657062142e-05,
+        "min": 0.0023105099971871823,
+        "max": 0.0024041280048550107,
+        "median": 0.002331851497729076,
+        "samples": 40,
+        "ci_lower": 0.002331824856088931,
+        "ci_upper": 0.0023416913943884745
+      },
+      "value": 3.321259242827524,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n100/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.001241932774792076,
+        "stddev": 5.084354497201348e-06,
+        "min": 0.0012299250010983087,
+        "max": 0.001250467001227662,
+        "median": 0.0012420775019563735,
+        "samples": 40,
+        "ci_lower": 0.0012403571170090742,
+        "ci_upper": 0.001243508432575078
+      },
+      "value": 0.6192372087337041,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0014860180248433608,
+        "stddev": 8.675538055231325e-06,
+        "min": 0.0014719480022904463,
+        "max": 0.0015289879956981167,
+        "median": 0.0014860099981888197,
+        "samples": 40,
+        "ci_lower": 0.001483329447745525,
+        "ci_upper": 0.0014887066019411968
+      },
+      "value": 0.15804089690399836,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n1600/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.002329416700376896,
+        "stddev": 1.2284260477709754e-05,
+        "min": 0.0023182349978014827,
+        "max": 0.0023981949998415075,
+        "median": 0.002327849499124568,
+        "samples": 40,
+        "ci_lower": 0.0023256097686138216,
+        "ci_upper": 0.0023332236321399707
+      },
+      "value": 0.03085043292185219,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n6400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.005533271699641773,
+        "stddev": 1.603170146723355e-05,
+        "min": 0.005506552995939273,
+        "max": 0.005580147997534368,
+        "median": 0.005529267004021676,
+        "samples": 40,
+        "ci_lower": 0.005528303423884149,
+        "ci_upper": 0.005538239975399396
+      },
+      "value": 0.007869304183735881,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n12500/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00958723972489679,
+        "stddev": 2.4949899261431407e-05,
+        "min": 0.00954251900111558,
+        "max": 0.00965798100514803,
+        "median": 0.00958748400080367,
+        "samples": 40,
+        "ci_lower": 0.009579507671009117,
+        "ci_upper": 0.009594971778784461
+      },
+      "value": 0.004759596335906835,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n100/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual_conditional",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0019727836253878193,
+        "stddev": 1.2499919462069694e-05,
+        "min": 0.0019599220031523146,
+        "max": 0.002042004998656921,
+        "median": 0.001972633501281962,
+        "samples": 40,
+        "ci_lower": 0.001968909860213076,
+        "ci_upper": 0.0019766573905625625
+      },
+      "value": 1.7747776924707996,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual_conditional",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0023951158253112228,
+        "stddev": 9.380818806793144e-06,
+        "min": 0.002380720994551666,
+        "max": 0.0024328490035259165,
+        "median": 0.0023941960025695153,
+        "samples": 40,
+        "ci_lower": 0.0023922086794440356,
+        "ci_upper": 0.00239802297117841
+      },
+      "value": 1.426722227671601,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n1600/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual_conditional",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0038850287501190905,
+        "stddev": 1.0274512866355613e-05,
+        "min": 0.0038642149957013316,
+        "max": 0.003923611999198329,
+        "median": 0.003884730500431033,
+        "samples": 40,
+        "ci_lower": 0.0038818446455934643,
+        "ci_upper": 0.003888212854644717
+      },
+      "value": 0.44007796758385,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n6400/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual_conditional",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.00943730247545318,
+        "stddev": 2.0855479373642316e-05,
+        "min": 0.009395500004757196,
+        "max": 0.00948839799821144,
+        "median": 0.009432626004127087,
+        "samples": 40,
+        "ci_lower": 0.009430839295434673,
+        "ci_upper": 0.009443765655471687
+      },
+      "value": 0.09238794159587904,
+      "notes": null
+    },
+    {
+      "id": "cmi/discrete/n12500/pyitlib",
+      "package": "pyitlib",
+      "language": "python",
+      "measure": "cmi",
+      "approach": "discrete",
+      "function": "pyitlib.information_mutual_conditional",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.016550409450064762,
+        "stddev": 0.00027876430378590423,
+        "min": 0.016445727000245824,
+        "max": 0.018254014001286123,
+        "median": 0.016504723000252852,
+        "samples": 40,
+        "ci_lower": 0.016464019497293935,
+        "ci_upper": 0.01663679940283559
+      },
+      "value": 0.05087712730191818,
+      "notes": null
+    }
+  ]
+}

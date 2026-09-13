@@ -1,0 +1,380 @@
+{
+  "meta": {
+    "schema": 2,
+    "run_id": "fragment_1789297152",
+    "fingerprint": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.494010925292969,
+      "os": "Linux"
+    },
+    "runtime": {
+      "threads": 1,
+      "adaptive": true,
+      "warmup_max": 3,
+      "warmup_budget_s": 0.4,
+      "min_iters": 3,
+      "max_iters": 10,
+      "iter_budget_s": 1.5
+    },
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ],
+    "packages": [
+      {
+        "id": "dit",
+        "language": "python",
+        "version": "2.2",
+        "base": 2,
+        "limitations": "Discrete only; this version exposes entropy and MI (no conditional MI, no transfer entropy). Base 2."
+      }
+    ],
+    "coverage": [
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ]
+    ]
+  },
+  "benchmarks": [
+    {
+      "id": "entropy/discrete/n100/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "dit.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0006966904753426207,
+        "stddev": 2.9323711074415007e-05,
+        "min": 0.0006793260035919957,
+        "max": 0.0008676169964019209,
+        "median": 0.0006917210012034047,
+        "samples": 40,
+        "ci_lower": 0.0006876029631311229,
+        "ci_upper": 0.0007057779875541184
+      },
+      "value": 3.2762997862946563,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n400/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "dit.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0007033199251964106,
+        "stddev": 6.220804705473072e-06,
+        "min": 0.0006888110001455061,
+        "max": 0.0007167380026658066,
+        "median": 0.0007021185010671616,
+        "samples": 40,
+        "ci_lower": 0.0007013920778450686,
+        "ci_upper": 0.0007052477725477525
+      },
+      "value": 3.3123696281945567,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n1600/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "dit.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0007371903504463262,
+        "stddev": 8.040475547889982e-06,
+        "min": 0.0007253200019476935,
+        "max": 0.0007686890021432191,
+        "median": 0.0007374029992206488,
+        "samples": 40,
+        "ci_lower": 0.0007346985812585084,
+        "ci_upper": 0.000739682119634144
+      },
+      "value": 3.316259806971081,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n6400/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "dit.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0009007274256873643,
+        "stddev": 8.99299575224254e-06,
+        "min": 0.0008894069978850894,
+        "max": 0.0009487190036452375,
+        "median": 0.0008995185016829055,
+        "samples": 40,
+        "ci_lower": 0.0008979404674299644,
+        "ci_upper": 0.0009035143839447642
+      },
+      "value": 3.320482299543896,
+      "notes": null
+    },
+    {
+      "id": "entropy/discrete/n12500/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "entropy",
+      "approach": "discrete",
+      "function": "dit.shannon.entropy",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.001139317475099233,
+        "stddev": 2.509852031456121e-05,
+        "min": 0.0011067049999837764,
+        "max": 0.0011734940053429455,
+        "median": 0.0011410229999455623,
+        "samples": 40,
+        "ci_lower": 0.001131539363070019,
+        "ci_upper": 0.0011470955871284469
+      },
+      "value": 3.321259242827524,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n100/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "dit.shannon.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 100,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.0035408343997914925,
+        "stddev": 0.00030604683886547283,
+        "min": 0.003305891004856676,
+        "max": 0.004902116001176182,
+        "median": 0.003411936999327736,
+        "samples": 40,
+        "ci_lower": 0.003445989501803568,
+        "ci_upper": 0.003635679297779417
+      },
+      "value": 0.6192372087337032,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n400/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "dit.shannon.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.004870619924986386,
+        "stddev": 0.00013862800428759338,
+        "min": 0.004672574999858625,
+        "max": 0.005275726005493198,
+        "median": 0.0048427184992760886,
+        "samples": 40,
+        "ci_lower": 0.004827658661365212,
+        "ci_upper": 0.0049135811886075595
+      },
+      "value": 0.15804089690399792,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n1600/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "dit.shannon.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 1600,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.005076509624814207,
+        "stddev": 0.00024351610965220907,
+        "min": 0.0049503789996379055,
+        "max": 0.00639501899422612,
+        "median": 0.005011592496884987,
+        "samples": 40,
+        "ci_lower": 0.0050010432005766665,
+        "ci_upper": 0.005151976049051748
+      },
+      "value": 0.0308504329218513,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n6400/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "dit.shannon.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 6400,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.005321918174922757,
+        "stddev": 3.4906600685830565e-05,
+        "min": 0.005252572002063971,
+        "max": 0.005414227001892868,
+        "median": 0.005315539998264285,
+        "samples": 40,
+        "ci_lower": 0.005311100507295718,
+        "ci_upper": 0.005332735842549796
+      },
+      "value": 0.007869304183735437,
+      "notes": null
+    },
+    {
+      "id": "mi/discrete/n12500/dit",
+      "package": "dit",
+      "language": "python",
+      "measure": "mi",
+      "approach": "discrete",
+      "function": "dit.shannon.mutual_information",
+      "representative": true,
+      "params": {
+        "n": 12500,
+        "k": null,
+        "bandwidth": null,
+        "order": null,
+        "delay": 1,
+        "alpha": null,
+        "q": null,
+        "dims": 1,
+        "method": "mle",
+        "kernel_type": null
+      },
+      "statistics": {
+        "mean": 0.005686812749809178,
+        "stddev": 4.073300322684887e-05,
+        "min": 0.0056104420000337996,
+        "max": 0.005793673000880517,
+        "median": 0.0056795720010995865,
+        "samples": 40,
+        "ci_lower": 0.005674189461327866,
+        "ci_upper": 0.005699436038290489
+      },
+      "value": 0.004759596335906835,
+      "notes": null
+    }
+  ]
+}
