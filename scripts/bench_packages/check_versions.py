@@ -78,7 +78,10 @@ def latest_pypi(pkg: dict) -> tuple[str | None, str | None]:
 
 
 def latest_crates(pkg: dict) -> tuple[str | None, str | None]:
-    data = _get_json(f"https://crates.io/api/v1/crates/{pkg['id']}")
+    # The registry `id` is an internal slug; the crates.io name may differ
+    # (e.g. id "infomeasure-rs" -> crate "infomeasure").
+    name = pkg.get("distribution", pkg["id"])
+    data = _get_json(f"https://crates.io/api/v1/crates/{name}")
     if not data:
         return None, None
     version = data.get("crate", {}).get("max_stable_version") or data.get("crate", {}).get("max_version")
