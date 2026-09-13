@@ -69,8 +69,8 @@ pub mod zhang;
 pub mod discrete_batch;
 
 use crate::estimators::approaches::discrete::discrete_utils::{
-    dataset_from_dense_codes, reduce_joint_space_compact, reduce_views_compact,
-    reduce_views_compact_counted,
+    dataset_from_dense_codes, joint_marginal_counts, reduce_joint_space_compact,
+    reduce_views_compact, reduce_views_compact_counted,
 };
 use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::traits::{
@@ -78,6 +78,35 @@ use crate::estimators::traits::{
     OptionalLocalValues,
 };
 use ndarray::{Array1, ArrayView1};
+
+/// Build the MLE entropy spaces for `projections` of `all_cols`.
+///
+/// Counts the joint once and marginalises when the full alphabet is small
+/// enough ([`joint_marginal_counts`]); otherwise falls back to counting each
+/// projection independently. Both paths assign compact first-occurrence codes,
+/// so the resulting estimators are interchangeable.
+fn mle_spaces_from_projections(
+    all_cols: &[ArrayView1<i32>],
+    projections: &[Vec<usize>],
+) -> Vec<crate::estimators::approaches::discrete::mle::DiscreteEntropy> {
+    use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+
+    let spaces = joint_marginal_counts(all_cols, projections).unwrap_or_else(|| {
+        projections
+            .iter()
+            .map(|p| {
+                let cols: Vec<ArrayView1<i32>> = p.iter().map(|&d| all_cols[d]).collect();
+                reduce_views_compact_counted(&cols)
+            })
+            .collect()
+    });
+    spaces
+        .into_iter()
+        .map(|(codes, counts)| DiscreteEntropy {
+            dataset: dataset_from_dense_codes(codes, &counts),
+        })
+        .collect()
+}
 
 /// Discrete Mutual Information estimator using the entropy-summation formula.
 ///
@@ -206,6 +235,32 @@ impl<E> DiscreteConditionalMutualInformation<E> {
     }
 }
 
+impl
+    DiscreteConditionalMutualInformation<
+        crate::estimators::approaches::discrete::mle::DiscreteEntropy,
+    >
+{
+    /// Fused MLE construction: one joint pass over (series..., cond) with each
+    /// entropy term derived by marginalisation. Numerics identical to
+    /// [`DiscreteConditionalMutualInformation::new`] with an MLE constructor up
+    /// to floating-point summation order.
+    pub(crate) fn new_mle(series: &[Array1<i32>], cond: &Array1<i32>) -> Self {
+        let mut all_cols: Vec<ArrayView1<i32>> = series.iter().map(|s| s.view()).collect();
+        let cond_idx = all_cols.len();
+        all_cols.push(cond.view());
+
+        let mut projections: Vec<Vec<usize>> =
+            (0..series.len()).map(|i| vec![i, cond_idx]).collect();
+        projections.push((0..all_cols.len()).collect());
+        projections.push(vec![cond_idx]);
+
+        let mut spaces = mle_spaces_from_projections(&all_cols, &projections);
+        let cond_only = spaces.pop().expect("condition space");
+        let joint_cond = spaces.pop().expect("joint space");
+        Self::from_prebuilt(spaces, joint_cond, cond_only)
+    }
+}
+
 impl<E: GlobalValue> GlobalValue for DiscreteConditionalMutualInformation<E> {
     fn global_value(&self) -> f64 {
         let n = self.marginal_conds.len() as f64;
@@ -316,44 +371,31 @@ impl DiscreteTransferEntropy<crate::estimators::approaches::discrete::mle::Discr
         dest_hist_len: usize,
         step_size: usize,
     ) -> Self {
-        use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
         use crate::estimators::utils::te_slicing::te_embedding_views;
 
         let views = te_embedding_views(source, destination, src_hist_len, dest_hist_len, step_size);
 
-        // Spaces mirror the generic pipeline exactly:
-        // I(X_past ; Y_t | Y_past) with series [X_past, Y_t], condition Y_past.
-        let m_xp_yp = {
-            let mut cols: Vec<_> = views.src_past_cols.clone();
-            cols.extend(views.dest_past_cols.iter().copied());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
-        let m_yt_yp = {
-            let mut cols: Vec<_> = std::iter::once(views.dest_future).collect();
-            cols.extend(views.dest_past_cols.iter().copied());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
-        let h_all = {
-            let mut cols: Vec<_> = views.src_past_cols.clone();
-            cols.push(views.dest_future);
-            cols.extend(views.dest_past_cols.iter().copied());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
-        let h_yp = {
-            let (codes, counts) = reduce_views_compact_counted(&views.dest_past_cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
+        // All four spaces are marginals of one joint over
+        // (X_past, Y_t, Y_past): count it once and derive the rest.
+        let mut all_cols: Vec<ArrayView1<i32>> = views.src_past_cols.clone();
+        let y_future = all_cols.len();
+        all_cols.push(views.dest_future);
+        let dest_past_start = all_cols.len();
+        all_cols.extend(views.dest_past_cols.iter().copied());
+
+        let src_past: Vec<usize> = (0..y_future).collect();
+        let dest_past: Vec<usize> = (dest_past_start..all_cols.len()).collect();
+        let mut xp_yp = src_past.clone();
+        xp_yp.extend_from_slice(&dest_past);
+        let mut yt_yp = vec![y_future];
+        yt_yp.extend_from_slice(&dest_past);
+        let all: Vec<usize> = (0..all_cols.len()).collect();
+
+        let mut spaces = mle_spaces_from_projections(&all_cols, &[xp_yp, yt_yp, all, dest_past]);
+        let h_yp = spaces.pop().expect("condition space");
+        let h_all = spaces.pop().expect("joint space");
+        let m_yt_yp = spaces.pop().expect("Y_t,Y_past space");
+        let m_xp_yp = spaces.pop().expect("X_past,Y_past space");
 
         Self {
             inner: DiscreteConditionalMutualInformation::from_prebuilt(
@@ -454,7 +496,6 @@ impl
         cond_hist_len: usize,
         step_size: usize,
     ) -> Self {
-        use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
         use crate::estimators::utils::te_slicing::cte_embedding_views;
 
         let views = cte_embedding_views(
@@ -467,43 +508,32 @@ impl
             step_size,
         );
 
-        // Joint conditioning space Z' = (Y_past, Z_past).
-        let (jc_codes, jc_counts) = {
-            let mut cols: Vec<_> = views.dest_past_cols.clone();
-            cols.extend(views.cond_past_cols.iter().copied());
-            reduce_views_compact_counted(&cols)
-        };
-        let z_prime = DiscreteEntropy {
-            dataset: dataset_from_dense_codes(jc_codes.clone(), &jc_counts),
-        };
+        // One joint over (X_past, Y_t, Y_past, Z_past); the conditioning space
+        // Z' = (Y_past, Z_past) and the three entropy terms are its marginals.
+        let mut all_cols: Vec<ArrayView1<i32>> = views.src_past_cols.clone();
+        let y_future = all_cols.len();
+        all_cols.push(views.dest_future);
+        let dest_past_start = all_cols.len();
+        all_cols.extend(views.dest_past_cols.iter().copied());
+        let cond_past_start = all_cols.len();
+        all_cols.extend(views.cond_past_cols.iter().copied());
 
-        let m_xp_zp = {
-            let mut cols: Vec<_> = views.src_past_cols.clone();
-            cols.push(jc_codes.view());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
-        let m_yt_zp = {
-            let mut cols: Vec<_> = std::iter::once(views.dest_future).collect();
-            cols.push(jc_codes.view());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
-        // Full joint over the *packed* condition codes, matching the generic
-        // pipeline's reduce([X_past, Y_t, Z']) exactly.
-        let h_all = {
-            let mut cols: Vec<_> = views.src_past_cols.clone();
-            cols.push(views.dest_future);
-            cols.push(jc_codes.view());
-            let (codes, counts) = reduce_views_compact_counted(&cols);
-            DiscreteEntropy {
-                dataset: dataset_from_dense_codes(codes, &counts),
-            }
-        };
+        let src_past: Vec<usize> = (0..y_future).collect();
+        let dest_past: Vec<usize> = (dest_past_start..cond_past_start).collect();
+        let cond_past: Vec<usize> = (cond_past_start..all_cols.len()).collect();
+        let mut zp = dest_past.clone();
+        zp.extend_from_slice(&cond_past);
+        let mut xp_zp = src_past.clone();
+        xp_zp.extend_from_slice(&zp);
+        let mut yt_zp = vec![y_future];
+        yt_zp.extend_from_slice(&zp);
+        let all: Vec<usize> = (0..all_cols.len()).collect();
+
+        let mut spaces = mle_spaces_from_projections(&all_cols, &[xp_zp, yt_zp, all, zp]);
+        let z_prime = spaces.pop().expect("condition space");
+        let h_all = spaces.pop().expect("joint space");
+        let m_yt_zp = spaces.pop().expect("Y_t,Z' space");
+        let m_xp_zp = spaces.pop().expect("X_past,Z' space");
 
         Self {
             inner: DiscreteConditionalMutualInformation::from_prebuilt(

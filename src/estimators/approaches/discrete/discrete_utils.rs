@@ -339,6 +339,117 @@ pub(crate) fn reduce_views_compact_counted(cols: &[ArrayView1<i32>]) -> (Array1<
     let codes = Array1::from(out);
     (codes, counts)
 }
+/// Largest dense full-joint table for single-pass marginalisation. Above this
+/// the joint is too large/sparse for the approach (the caller falls back to
+/// per-space counting).
+pub(crate) const JOINT_MARGINAL_CAP: u128 = 1 << 20;
+
+/// Count a joint over all `cols` in **one** pass and return each requested
+/// projection as compact `(codes, counts)`.
+///
+/// `projections[i]` lists the column indices of space `i` (ascending). Every
+/// space is produced by marginalising the same single pass instead of
+/// rescanning the data, which is the point of the fused MLE constructors: CMI,
+/// TE and CTE otherwise run four independent reduction+count passes per call.
+///
+/// Returns `None` when the full-joint alphabet exceeds [`JOINT_MARGINAL_CAP`];
+/// the caller then falls back to [`reduce_views_compact_counted`] per space.
+pub(crate) fn joint_marginal_counts(
+    cols: &[ArrayView1<i32>],
+    projections: &[Vec<usize>],
+) -> Option<Vec<(Array1<i32>, Vec<usize>)>> {
+    if cols.is_empty() {
+        return Some(Vec::new());
+    }
+    let len = cols[0].len();
+    for col in cols {
+        assert_eq!(
+            col.len(),
+            len,
+            "All code arrays must have the same length for joint reduction"
+        );
+    }
+    let m = cols.len();
+
+    let mut mins = vec![i32::MAX; m];
+    let mut maxs = vec![i32::MIN; m];
+    for (d, col) in cols.iter().enumerate() {
+        for &c in col.iter() {
+            if c < mins[d] {
+                mins[d] = c;
+            }
+            if c > maxs[d] {
+                maxs[d] = c;
+            }
+        }
+    }
+
+    let mut full_cap: u128 = 1;
+    for d in 0..m {
+        let range = (maxs[d] as i64 - mins[d] as i64 + 1) as u128;
+        full_cap = full_cap.checked_mul(range)?;
+        if full_cap > JOINT_MARGINAL_CAP {
+            return None;
+        }
+    }
+
+    let np = projections.len();
+    let mut pstrides: Vec<Vec<u64>> = Vec::with_capacity(np);
+    let mut slots: Vec<Vec<i32>> = Vec::with_capacity(np);
+    for p in projections {
+        let mut strides = Vec::with_capacity(p.len());
+        let mut acc: u64 = 1;
+        for &d in p {
+            strides.push(acc);
+            acc = acc.saturating_mul((maxs[d] as i64 - mins[d] as i64 + 1) as u64);
+        }
+        slots.push(vec![-1i32; acc as usize]);
+        pstrides.push(strides);
+    }
+
+    let mut out_codes: Vec<Vec<i32>> = projections
+        .iter()
+        .map(|_| Vec::with_capacity(len))
+        .collect();
+    let mut out_counts: Vec<Vec<usize>> = vec![Vec::new(); np];
+    let mut next: Vec<i32> = vec![0; np];
+    let mut digits = vec![0u64; m];
+
+    for (i, _) in cols[0].iter().enumerate() {
+        for d in 0..m {
+            digits[d] = (cols[d][i] - mins[d]) as u64;
+        }
+        for pi in 0..np {
+            let mut idx: usize = 0;
+            for (k, &d) in projections[pi].iter().enumerate() {
+                idx += (digits[d] * pstrides[pi][k]) as usize;
+            }
+            let s = slots[pi][idx];
+            let id = if s < 0 {
+                let v = next[pi];
+                next[pi] = v
+                    .checked_add(1)
+                    .expect("Too many unique joint patterns to fit into i32");
+                slots[pi][idx] = v;
+                out_counts[pi].push(0);
+                v
+            } else {
+                s
+            };
+            out_counts[pi][id as usize] += 1;
+            out_codes[pi].push(id);
+        }
+    }
+
+    Some(
+        out_codes
+            .into_iter()
+            .zip(out_counts)
+            .map(|(codes, counts)| (Array1::from(codes), counts))
+            .collect(),
+    )
+}
+
 /// Reduce a 2D array (samples x dimensions) into a single compact 1D code array.
 pub fn reduce_array2_compact(data: &Array2<i32>) -> Array1<i32> {
     let columns: Vec<Array1<i32>> = data.axis_iter(Axis(1)).map(|col| col.to_owned()).collect();
@@ -473,6 +584,35 @@ mod tests {
         assert_eq!(owned.counts, borrowed.counts);
         assert!(owned.has_data && !borrowed.has_data);
         assert_eq!(borrowed.map_probs().len(), 0);
+    }
+
+    #[test]
+    fn joint_marginal_matches_per_projection() {
+        // Marginalising one joint pass must give exactly the codes/counts that
+        // counting each projection independently would (same first-occurrence
+        // order), for every subset.
+        let a = Array1::from(vec![0, 1, 0, 1, 2, 0, 2, 1]);
+        let b = Array1::from(vec![1, 0, 1, 0, 1, 1, 0, 0]);
+        let c = Array1::from(vec![0, 0, 1, 1, 2, 2, 3, 3]);
+        let cols = [a.view(), b.view(), c.view()];
+        let projections = vec![vec![0, 1], vec![1, 2], vec![0, 1, 2], vec![2], vec![0]];
+        let got = joint_marginal_counts(&cols, &projections).expect("small joint");
+        for (p, (codes, counts)) in projections.iter().zip(got) {
+            let pc: Vec<ArrayView1<i32>> = p.iter().map(|&d| cols[d]).collect();
+            let (exp_codes, exp_counts) = reduce_views_compact_counted(&pc);
+            assert_eq!(codes, exp_codes, "codes for projection {p:?}");
+            assert_eq!(counts, exp_counts, "counts for projection {p:?}");
+        }
+    }
+
+    #[test]
+    fn joint_marginal_falls_back_when_too_large() {
+        // Full alphabet exceeds the cap -> None, caller falls back.
+        let a = Array1::from(vec![0, 40_000, 40_001]);
+        let b = Array1::from(vec![0, 40_000, 40_001]);
+        let c = Array1::from(vec![0, 40_000, 40_001]);
+        let cols = [a.view(), b.view(), c.view()];
+        assert!(joint_marginal_counts(&cols, &[vec![0, 1, 2]]).is_none());
     }
 
     #[test]

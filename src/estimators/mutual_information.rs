@@ -771,7 +771,7 @@ impl MutualInformation {
         series: &[Array1<i32>],
         cond: &Array1<i32>,
     ) -> DiscreteConditionalMutualInformation<DiscreteEntropy> {
-        DiscreteConditionalMutualInformation::new(series, cond, DiscreteEntropy::new)
+        DiscreteConditionalMutualInformation::new_mle(series, cond)
     }
 
     /// Create a Miller-Madow bias-corrected discrete conditional mutual information estimator.
