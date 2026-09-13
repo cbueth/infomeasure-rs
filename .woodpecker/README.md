@@ -181,3 +181,17 @@ reads `pages/data/<package>.json` (missing files simply render as “not
 collected”), and `ci_plan.py` uses the same version to decide staleness.
 Publishing from a development machine is intentionally not done: numbers are
 only comparable when collected on the CI runner.
+
+### Alphabet-scaling family
+
+Alongside the main fragments, the discrete collectors emit one
+alphabet-scaling fragment per package (`<pkg>_alphabet.json`): discrete MLE
+timed across state counts at the cross sizes. The configuration lives in
+`benches/detailed_grid.json` under `alphabet` (`states`, `sizes`, per-measure
+`caps`, `budget_s`). The per-measure caps are a memory guard for the dense
+tables (`entropy`/`mi`/`cmi`/`te` ≤ 200, `cte` ≤ 50, since its table is
+`base^4`); collection then walks N ascending and skips larger N once a cell's
+mean exceeds the budget. Datasets are
+`<measure>_discrete_b<states>_s<seed>_n<n>.bin` (`gen_datasets`, `DATA_VERSION`
+is part of the resume fingerprints). The site renders them in the "Alphabet
+scaling" view, and they are excluded from the merged `cross_package.json`.
