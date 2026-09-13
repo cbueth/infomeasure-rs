@@ -2,7 +2,6 @@
 
 use criterion::{criterion_group, criterion_main};
 use infomeasure::estimators::entropy::{Entropy, GlobalValue};
-use ndarray::Array1;
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -27,9 +26,8 @@ fn bench_entropy_small(c: &mut criterion::Criterion) {
             criterion::BenchmarkId::new("discrete", size),
             &size,
             |b, &s| {
-                let arr = Array1::from(data.clone());
                 b.iter(|| {
-                    let entropy = Entropy::new_discrete(arr.clone());
+                    let entropy = Entropy::new_discrete_from_slice(&data);
                     black_box(entropy.global_value())
                 });
             },

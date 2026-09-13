@@ -7,7 +7,8 @@ use rustc_hash::FxHashMap;
 
 /// Shared dataset and utilities for discrete (histogram-based) entropy estimators.
 pub struct DiscreteDataset {
-    /// Original integer data (1D)
+    /// Original integer data (1D). Empty when built from a borrowed slice
+    /// (see [`DiscreteDataset::from_borrowed`]).
     pub data: Array1<i32>,
     /// Counts per unique symbol
     pub counts: FxHashMap<i32, usize>,
@@ -17,6 +18,9 @@ pub struct DiscreteDataset {
     pub k: usize,
     /// Probability dictionary p(x) for each unique symbol
     pub dist: FxHashMap<i32, f64>,
+    /// Whether `data` holds the observations (local values available). False
+    /// for the borrowed, global-value-only constructor.
+    pub has_data: bool,
 }
 
 impl DiscreteDataset {
@@ -36,6 +40,7 @@ impl DiscreteDataset {
             n,
             k,
             dist,
+            has_data: true,
         }
     }
 
@@ -54,11 +59,43 @@ impl DiscreteDataset {
             n,
             k,
             dist,
+            has_data: true,
+        }
+    }
+
+    /// Build a global-value-only dataset from a **borrowed** slice, computing
+    /// the frequency counts without taking ownership of the observations.
+    ///
+    /// `data` is left empty and `has_data` is false, so [`map_probs`] and the
+    /// local-value paths are unavailable; this exists so a caller that already
+    /// owns the input can `Entropy::new_discrete_from_slice(...)` a pre-loaded
+    /// column without an N-copy per call.
+    ///
+    /// [`map_probs`]: Self::map_probs
+    pub fn from_borrowed(data: &[i32]) -> Self {
+        let n = data.len();
+        let counts = count_frequencies_slice(data);
+        let k = counts.len();
+        let n_f = n as f64;
+        let mut dist = FxHashMap::with_capacity_and_hasher(k, Default::default());
+        for (val, cnt) in counts.iter() {
+            dist.insert(*val, *cnt as f64 / n_f);
+        }
+        Self {
+            data: Array1::zeros(0),
+            counts,
+            n,
+            k,
+            dist,
+            has_data: false,
         }
     }
 
     /// Map each sample to its probability using the cached distribution dictionary
     pub fn map_probs(&self) -> Array1<f64> {
+        if !self.has_data {
+            return Array1::zeros(0);
+        }
         self.data.mapv(|v| self.dist[&v])
     }
 }
@@ -165,6 +202,10 @@ pub(crate) fn reduce_views_compact(cols: &[ArrayView1<i32>]) -> Array1<i32> {
 /// Same reduction as [`reduce_views_compact`], additionally emitting the
 /// frequency of every dense code in code order (`counts[code]`), so callers
 /// can build datasets without recounting.
+/// Largest dense joint table we build. Above this the joint space is too large
+/// (or too sparse) for direct indexing and the packed-key hash map is used.
+const DENSE_JOINT_CAP: u128 = 1 << 20;
+
 pub(crate) fn reduce_views_compact_counted(cols: &[ArrayView1<i32>]) -> (Array1<i32>, Vec<usize>) {
     if cols.is_empty() {
         return (Array1::zeros(0), Vec::new());
@@ -178,21 +219,76 @@ pub(crate) fn reduce_views_compact_counted(cols: &[ArrayView1<i32>]) -> (Array1<
         );
     }
     let k = cols.len();
+    if len == 0 {
+        return (Array1::zeros(0), Vec::new());
+    }
 
-    let mut min_code = i32::MAX;
-    let mut max_code = i32::MIN;
-    for col in cols.iter() {
+    // Per-column minima/ranges drive the dense mixed-radix path; the global
+    // min/max is kept for the hash-map fallbacks.
+    let mut mins = vec![i32::MAX; k];
+    let mut maxs = vec![i32::MIN; k];
+    for (d, col) in cols.iter().enumerate() {
         for &c in col.iter() {
-            min_code = min_code.min(c);
-            max_code = max_code.max(c);
+            if c < mins[d] {
+                mins[d] = c;
+            }
+            if c > maxs[d] {
+                maxs[d] = c;
+            }
         }
     }
+    let min_code = *mins.iter().min().expect("non-empty");
+    let max_code = *maxs.iter().max().expect("non-empty");
 
     let mut out: Vec<i32> = Vec::with_capacity(len);
     let mut counts: Vec<usize> = Vec::new();
-    if min_code == i32::MAX {
-        // All code arrays are empty. nothing to reduce.
-        return (Array1::from(out), Vec::new());
+
+    // Dense direct-index path: capacity = product of the per-column alphabet
+    // sizes. Taken only when the table is small *and* not wildly sparse relative
+    // to `len`; high-cardinality columns fall through to the hash map, which
+    // handles huge/empty joint spaces without an allocation blowup.
+    let mut capacity: u128 = 1;
+    for d in 0..k {
+        let range = (maxs[d] as i64 - mins[d] as i64 + 1) as u128;
+        capacity = match capacity.checked_mul(range) {
+            Some(c) if c <= DENSE_JOINT_CAP => c,
+            _ => {
+                capacity = 0;
+                break;
+            }
+        };
+    }
+    if capacity > 0 && capacity <= (16 * len as u128).max(4096) {
+        let cap = capacity as usize;
+        let mut stride = vec![0usize; k];
+        let mut acc: usize = 1;
+        for d in 0..k {
+            stride[d] = acc;
+            acc = acc.saturating_mul((maxs[d] as i64 - mins[d] as i64 + 1) as usize);
+        }
+        let mut slot: Vec<i32> = vec![-1; cap];
+        let mut next_id: i32 = 0;
+        for (i, _) in cols[0].iter().enumerate() {
+            let mut idx: usize = 0;
+            for (d, col) in cols.iter().enumerate() {
+                idx += (col[i] - mins[d]) as usize * stride[d];
+            }
+            let s = slot[idx];
+            let id = if s < 0 {
+                let v = next_id;
+                next_id = next_id
+                    .checked_add(1)
+                    .expect("Too many unique joint patterns to fit into i32");
+                slot[idx] = v;
+                counts.push(0);
+                v
+            } else {
+                s
+            };
+            counts[id as usize] += 1;
+            out.push(id);
+        }
+        return (Array1::from(out), counts);
     }
 
     let range = (max_code as i64 - min_code as i64) as u128;
@@ -285,6 +381,7 @@ pub(crate) fn dataset_from_dense_codes(
         n,
         k,
         dist,
+        has_data: true,
     }
 }
 
@@ -344,6 +441,38 @@ mod tests {
         let e = Array1::from(vec![0, i32::MAX, 0]);
         let result = reduce_joint_space_compact(&[a, b, c, d, e]);
         assert_eq!(result, Array1::from(vec![0, 1, 2]));
+    }
+
+    #[test]
+    fn dense_matches_hashed_joint_reduction() {
+        // Small alphabets take the dense direct-index path; scaling the codes by
+        // 10^6 blows the capacity guard and takes the packed-u128 hash map. Ids
+        // are assigned in first-occurrence order, so both must agree exactly.
+        let cols = [
+            Array1::from(vec![0, 1, 0, 1, 2, 0]),
+            Array1::from(vec![5, 5, 3, 5, 5, 3]),
+        ];
+        let scaled: Vec<Array1<i32>> = cols.iter().map(|c| c.mapv(|v| v * 1_000_000)).collect();
+        let dense =
+            reduce_views_compact_counted(&cols.iter().map(|c| c.view()).collect::<Vec<_>>());
+        let hashed =
+            reduce_views_compact_counted(&scaled.iter().map(|c| c.view()).collect::<Vec<_>>());
+        assert_eq!(dense.0, hashed.0);
+        assert_eq!(dense.1, hashed.1);
+        assert_eq!(dense.0, Array1::from(vec![0, 1, 2, 1, 3, 2]));
+        assert_eq!(dense.1, vec![1, 2, 2, 1]);
+    }
+
+    #[test]
+    fn borrowed_dataset_matches_owned_counts() {
+        let data = vec![0, 1, 2, 1, 0, 3, 3, 2, 1, 0];
+        let owned = DiscreteDataset::from_data(Array1::from(data.clone()));
+        let borrowed = DiscreteDataset::from_borrowed(&data);
+        assert_eq!(owned.n, borrowed.n);
+        assert_eq!(owned.k, borrowed.k);
+        assert_eq!(owned.counts, borrowed.counts);
+        assert!(owned.has_data && !borrowed.has_data);
+        assert_eq!(borrowed.map_probs().len(), 0);
     }
 
     #[test]

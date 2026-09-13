@@ -80,6 +80,11 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
         let a = |i: usize| Array1::from(cols[i].clone());
         return match measure {
             "entropy" => {
+                // MLE only needs the counts: borrow the pre-loaded column and
+                // skip the owned copy (global-value path).
+                if method == "mle" {
+                    return Entropy::new_discrete_from_slice(&cols[0]).global_value();
+                }
                 let x = a(0);
                 match method {
                     "miller_madow" => Entropy::new_miller_madow(x).global_value(),
@@ -355,6 +360,42 @@ fn env_f64(key: &str, default: f64) -> f64 {
         .unwrap_or(default)
 }
 
+fn csv_env(key: &str) -> Option<Vec<String>> {
+    std::env::var(key).ok().and_then(|raw| {
+        let list: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        (!list.is_empty()).then_some(list)
+    })
+}
+
+/// Optional env filters for fast, targeted local/runner comparisons:
+/// `BENCH_MEASURES`, `BENCH_APPROACHES`, `BENCH_METHODS`,
+/// `BENCH_REPRESENTATIVE_ONLY=1`. Unset means no filtering (full grid).
+fn filter_variants(mut grid: Grid) -> Grid {
+    let measures = csv_env("BENCH_MEASURES");
+    let approaches = csv_env("BENCH_APPROACHES");
+    let methods = csv_env("BENCH_METHODS");
+    let rep_only = std::env::var("BENCH_REPRESENTATIVE_ONLY")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let want = |list: &Option<Vec<String>>, v: &str| match list {
+        None => true,
+        Some(l) => l.iter().any(|x| x == v),
+    };
+    grid.variants.retain(|v| {
+        want(&measures, &v.measure)
+            && want(&approaches, &v.approach)
+            && methods
+                .as_ref()
+                .is_none_or(|l| l.iter().any(|m| Some(m.as_str()) == v.method.as_deref()))
+            && (!rep_only || v.cross)
+    });
+    grid
+}
+
 /// Round configuration. Representative variants use the standard adaptive
 /// budget; detailed-only variants use a tight budget so the full grid stays
 /// inside the per-package wall-time target.
@@ -497,7 +538,7 @@ fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|_| dir.join("results").join("infomeasure-rs.json"));
 
-    let grid: Grid = utils::grid::load("rust");
+    let grid: Grid = filter_variants(utils::grid::load("rust"));
     // Optional size override for fast local iteration (also forwarded by CI).
     let (cross_sizes, detailed_sizes) = match std::env::var("BENCH_SIZES") {
         Ok(s) => {

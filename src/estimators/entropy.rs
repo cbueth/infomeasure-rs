@@ -343,6 +343,13 @@ impl Entropy {
         DiscreteEntropy::new(data)
     }
 
+    /// Borrowed-input variant of [`Entropy::new_discrete`] for the global-value
+    /// path, avoiding an owned copy of the observations. Local values are
+    /// unavailable on the result.
+    pub fn new_discrete_from_slice(data: &[i32]) -> DiscreteEntropy {
+        DiscreteEntropy::from_slice(data)
+    }
+
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
     /// The Miller-Madow correction adds $(K-1)/(2N)$ to the MLE estimate:

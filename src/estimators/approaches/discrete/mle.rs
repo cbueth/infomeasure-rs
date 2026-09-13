@@ -37,6 +37,15 @@ impl DiscreteEntropy {
         Self { dataset }
     }
 
+    /// Global-value-only variant of [`DiscreteEntropy::new`] that borrows the
+    /// observations instead of taking ownership, avoiding an N-copy per call.
+    /// Local values are unavailable on the result.
+    pub fn from_slice(data: &[i32]) -> Self {
+        Self {
+            dataset: DiscreteDataset::from_borrowed(data),
+        }
+    }
+
     /// Build a vector of DiscreteEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>) -> Vec<Self> {
         #[cfg(feature = "gpu")]
@@ -127,9 +136,12 @@ impl JointEntropy for DiscreteEntropy {
 
 impl OptionalLocalValues for DiscreteEntropy {
     fn supports_local(&self) -> bool {
-        true
+        self.dataset.has_data
     }
     fn local_values_opt(&self) -> Result<Array1<f64>, &'static str> {
+        if !self.dataset.has_data {
+            return Err("local values need owned data; built from a borrowed slice");
+        }
         Ok(self.local_values())
     }
 }
