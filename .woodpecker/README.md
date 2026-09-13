@@ -81,7 +81,10 @@ Stages (sequential steps in one workflow):
    decides the action (`collect` / `open-pr` / `none`).
 3. **sync-pins** – expands `pages/registry.json` into `.pins/`.
 4. **image** – builds/publishes `codeberg.org/cbueth/infomeasure-rs:bench` with
-   kaniko (skipped on cron runs).
+   kaniko (registry-backed layer cache in
+   `codeberg.org/cbueth/infomeasure-rs-cache`; skipped on cron runs). Rebuilt on
+   manual/tag, on a `pages` registry change, and on a push to `main` touching
+   `.docker/**`.
 5. **collect-and-publish** – runs the collectors inside `:bench`, then pushes the
    changed fragments to `pages`.
 6. **registry-pr** – opens a PR against `pages` when a new upstream version is
@@ -112,10 +115,13 @@ If the `:bench` image is private, add Codeberg registry credentials under
 ### Cron jobs (Woodpecker → repository → Settings → Cron)
 
 - Docker toolchain image: move the existing weekly build to **`0 2 * * 2`**
-  (Tuesdays 02:00).
-- Benchmark registry check: add **`0 3 * * 2`** (Tuesdays 03:00). The pipeline
-  gates itself to every second ISO week (`BENCH_CRON_BIWEEKLY=1`), so it
-  effectively runs bi-weekly.
+  (Tuesdays 02:00) on branch **`main`**.
+- Benchmark registry check: add **`0 3 * * 2`** (Tuesdays 03:00) on branch
+  **`pages`**. It runs on `pages` on purpose so it does not also fire the
+  toolchain-image cron that lives on `main` (Woodpecker cron events trigger
+  every workflow whose `when` matches the branch). The pipeline gates itself to
+  every second ISO week (`BENCH_CRON_BIWEEKLY=1`), so it effectively runs
+  bi-weekly.
 
 ### Fragment contract
 

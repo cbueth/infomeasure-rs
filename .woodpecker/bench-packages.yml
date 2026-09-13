@@ -12,9 +12,11 @@
 #   collect    run the collectors in :bench, then push fragments to `pages`
 #   registry-pr  open a registry-update PR against `pages` (cron only)
 #
-# Triggers: release tag, manual, bi-weekly cron, and a push to `pages` that
-# changes registry.json (i.e. a merged registry PR -> collect just those
-# packages). Nothing is ever pushed to `main`.
+# Triggers: release tag, manual, bi-weekly cron (on `pages`, so it does not
+# fire the toolchain image cron on `main`), and a push to `pages` that changes
+# registry.json (i.e. a merged registry PR -> collect just those packages).
+# A push to `main` touching .docker/** only rebuilds the :bench image.
+# Nothing is ever pushed to `main`.
 workspace:
   base: /build
   path: .
@@ -27,10 +29,13 @@ when:
   - event: manual
   - event: tag
   - event: cron
-    branch: main
+    branch: pages
   - event: push
     branch: pages
     path: [registry.json]
+  - event: push
+    branch: main
+    path: [.docker/**]
 
 variables:
   - &repo "cbueth/infomeasure-rs"
@@ -75,10 +80,16 @@ steps:
       password:
         from_secret: CODEBERG_PACKAGES_TOKEN
       single-snapshot: true
+      # Registry-backed layer cache so rebuilds are incremental.
+      cache: true
+      cache_repo: codeberg.org/cbueth/infomeasure-rs-cache
     when:
       - event: [manual, tag]
       - event: push
         branch: pages
+      - event: push
+        branch: main
+        path: [.docker/**]
 
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
