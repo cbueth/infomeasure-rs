@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(discrete): dense direct discrete CMI/TE/CTE, multi-MI, and known-alphabet builder [[#83](https://codeberg.org/cbueth/infomeasure-rs/pulls/83)]
 - perf(nsb): count histogram, fused quadrature, global adaptive integrator [[#82](https://codeberg.org/cbueth/infomeasure-rs/pulls/82)]
 - perf(discrete): close the JIDT gap on the discrete estimators [[#79](https://codeberg.org/cbueth/infomeasure-rs/pulls/79)]
 
