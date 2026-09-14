@@ -137,16 +137,22 @@ before it is merged.
 The full detailed grid is expensive — the CPU Gaussian kernel is O(N²), so the
 large sizes dominate — and the shared Codeberg CI can drop the agent connection
 (woodpecker#6803; the runner already sets `WOODPECKER_KEEPALIVE_TIME=30s` and
-`WOODPECKER_RETRY_TIMEOUT=10m` as the upstream workaround). Two mitigations:
+`WOODPECKER_RETRY_TIMEOUT=10m` as the upstream workaround). Mitigations:
 
 - The project **Timeout** (Web UI → repository → Settings → Timeout) accepts at
   most **120 minutes**; a full run can approach that.
-- Collections are **resumable**. `collect-and-publish` passes
-  `BENCH_RESUME=1`, so the collectors load an existing fragment, skip entries it
-  already contains, and rewrite it after every measure. Restarting the failed
-  step therefore continues instead of starting over, and a partial run still
-  leaves a usable fragment. For a clean full run, delete
-  `target/bench-data/results/` first (or unset `BENCH_RESUME`).
+- Collectors are **non-fatal**: `run_all.sh` records a failure and keeps going
+  (so one broken script can't discard hours of work), then exits non-zero at the
+  end if anything failed. The step is red, but the data is published.
+- Fragments are **published incrementally**: `collect-and-publish` passes
+  `PAGES_DIR=/build/pages` and `run_all.sh` publishes after every package. The
+  first publish creates the `pages: refresh benchmark fragments` commit and
+  later ones **amend** it, so a run leaves a single commit.
+- Collections are **resumable** across runs: `collect-and-publish` passes
+  `BENCH_RESUME=1` and seeds `results/` from the published `pages/data/*.json`,
+  so a cancelled/timed-out run continues from the last publish instead of
+  starting over. For a clean full run, delete `target/bench-data/results/` first
+  (or unset `BENCH_RESUME`).
 
 ### Required secrets (Woodpecker → repository → Settings → Secrets)
 

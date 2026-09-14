@@ -128,6 +128,9 @@ function benchmark(name, measure, sizes, seeds, data_dir)
             "notes" => nothing,
         ))
     end
+    results
+end
+
 function time_fn(f)
     w0 = time_ns(); w = 0
     while true
