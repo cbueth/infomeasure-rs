@@ -34,6 +34,27 @@ fn bench_entropy_small(c: &mut criterion::Criterion) {
         );
     }
 
+    // Known-alphabet single-pass dense histogram (the collector path), at a
+    // small and a large base: a Bencher guard for the alphabet lever.
+    for &base in &[10i32, 200] {
+        for &size in &sizes {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let data: Vec<i32> = (0..size).map(|_| rng.gen_range(0..base)).collect();
+
+            group.bench_with_input(
+                criterion::BenchmarkId::new(format!("alphabet_b{base}"), size),
+                &size,
+                |b, _| {
+                    b.iter(|| {
+                        let entropy =
+                            Entropy::new_discrete_from_slice_with_alphabet(&data, base as usize);
+                        black_box(entropy.global_value())
+                    });
+                },
+            );
+        }
+    }
+
     group.finish();
 }
 

@@ -62,6 +62,13 @@ requests, and the threshold baseline on `main`.
   control) and does not get hot enough to trigger the loud fan step here.
 - **Alerts fail PRs** (`--error-on-alert`); if the clock or hardware changes,
   bump the testbed name so the old thresholds are not applied.
+- **Dense/sparse guards.** The discrete-MLE benches (`mi/te/cmi/cte`) keep their
+  default small base and add one large-alphabet point (`mle_b*` /
+  `mle_alphabet_b*`), so Bencher tracks the dense joint, the sparse hash joint
+  (`cmi`/`te` base 100, `cte` base 50) and MI's dense-table fallback (base 1500).
+  `entropy_discrete` adds the known-alphabet histogram lever
+  (`alphabet_b10`/`alphabet_b200`). Only the new `b*` ids start fresh Bencher
+  baselines; the existing ids are unchanged.
 
 ## Python Integration
 

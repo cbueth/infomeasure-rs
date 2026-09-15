@@ -37,40 +37,45 @@ fn bench_discrete_mi(c: &mut Criterion) {
     group.sample_size(10);
 
     let sizes = bench_sizes_extended();
-    let num_states = 10;
     let seed = 42u64;
+    // Small base = dense direct table; base^2 > 2^20 exercises the fallback to
+    // the generic entropy engine (not the dense-or-hash joint; MI has no hash
+    // joint). Kept to one extra base so Bencher tracks both shapes cheaply.
+    let states: [(i32, &str); 2] = [(10, ""), (1500, "_b1500")];
 
-    for &size in &sizes {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
-        let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
-        let x_arr = Array1::from(x);
-        let y_arr = Array1::from(y);
+    for &(num_states, suffix) in &states {
+        for &size in &sizes {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let x: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+            let y: Vec<i32> = (0..size).map(|_| rng.gen_range(0..num_states)).collect();
+            let x_arr = Array1::from(x);
+            let y_arr = Array1::from(y);
 
-        let id = BenchmarkId::new("mle", size);
-        group.bench_with_input(id, &size, |b, _| {
-            b.iter(|| {
-                let mi = MutualInformation::new_discrete_mle(&[x_arr.clone(), y_arr.clone()]);
-                black_box(mi.global_value())
+            let id = BenchmarkId::new(format!("mle{suffix}"), size);
+            group.bench_with_input(id, &size, |b, _| {
+                b.iter(|| {
+                    let mi = MutualInformation::new_discrete_mle(&[x_arr.clone(), y_arr.clone()]);
+                    black_box(mi.global_value())
+                });
             });
-        });
 
-        // Known-alphabet, global-only builder (the collector path): borrows the
-        // columns and skips the alphabet scan and input retention.
-        let id = BenchmarkId::new("mle_alphabet", size);
-        group.bench_with_input(id, &size, |b, _| {
-            b.iter(|| {
-                black_box(
-                    MutualInformation::mi_discrete_mle(&[
-                        x_arr.as_slice().unwrap(),
-                        y_arr.as_slice().unwrap(),
-                    ])
-                    .with_alphabet(num_states as usize)
-                    .global_only()
-                    .global_value(),
-                )
+            // Known-alphabet, global-only builder (the collector path): borrows
+            // the columns and skips the alphabet scan and input retention.
+            let id = BenchmarkId::new(format!("mle_alphabet{suffix}"), size);
+            group.bench_with_input(id, &size, |b, _| {
+                b.iter(|| {
+                    black_box(
+                        MutualInformation::mi_discrete_mle(&[
+                            x_arr.as_slice().unwrap(),
+                            y_arr.as_slice().unwrap(),
+                        ])
+                        .with_alphabet(num_states as usize)
+                        .global_only()
+                        .global_value(),
+                    )
+                });
             });
-        });
+        }
     }
 
     group.finish();
