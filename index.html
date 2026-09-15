@@ -141,10 +141,11 @@
       <p>Discrete MLE runtime vs sample size N at a fixed alphabet size (number of states,
         <span id="a-nNote">alphabet = …</span>). A line ends where that package stopped: its dense
         table hit the memory cap, or a size exceeded the time budget and larger N was skipped.
-        A <b>&#9656;</b> point on the infomeasure-rs line was computed by the generic sparse (hash-map)
-        engine rather than the dense direct table &mdash; infomeasure-rs switches above 2&#8304; joint
-        cells, so its cost scales with N instead of the alphabet, while JIDT's dense table is roughly
-        flat in N but grows with the alphabet.</p>
+        infomeasure-rs counts into a dense table sized <code>states<sup>2</sup></code> for MI,
+        <code>states<sup>3</sup></code> for CMI/TE and <code>states<sup>4</sup></code> for CTE; above
+        about 10<sup>6</sup> cells (2<sup>20</sup>) it switches to a hash-map engine, and those points
+        are marked <b>&#9650;</b>. There its cost grows with N rather than the alphabet, whereas JIDT
+        stays dense (roughly flat in N, but growing with the alphabet).</p>
     </div>
   </div>
 </div>
@@ -552,7 +553,7 @@ function renderAlpha() {
   document.getElementById('a-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
   document.getElementById('a-lineCount').textContent = `${groups.length} packages`;
   document.getElementById('a-subtitle').textContent =
-    `${MEASURE_LABELS[measure] || measure} · discrete MLE · alphabet ${states}` + (sparse ? ' · \u25ee = sparse engine' : '');
+    `${MEASURE_LABELS[measure] || measure} · discrete MLE · alphabet ${states}` + (sparse ? ' · \u25B2 = sparse engine' : '');
   const note = document.getElementById('a-nNote'); if (note) note.textContent = `alphabet = ${states}`;
   if (alphaChart) alphaChart.destroy();
   if (!groups.length) { alphaChart = emptyChart('a-chart'); syncHash(); return; }
@@ -562,7 +563,9 @@ function renderAlpha() {
     label: g.id, data: g.pts.map((p) => ({ x: p.x, y: p.y, _err: p._err })),
     borderColor: PCOL[g.id] || packageColor(g.id), backgroundColor: (PCOL[g.id] || packageColor(g.id)) + '22',
     pointStyle: g.pts.map((p) => (p.sparse ? 'triangle' : 'circle')),
-    pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, tension: 0.15, fill: false, showLine: true,
+    pointRadius: g.pts.map((p) => (p.sparse ? 8 : 5)),
+    pointHoverRadius: g.pts.map((p) => (p.sparse ? 10 : 7)),
+    borderWidth: 2, tension: 0.15, fill: false, showLine: true,
   }));
   alphaChart = new Chart(document.getElementById('a-chart').getContext('2d'), {
     type: 'line', data: { datasets: ds }, plugins: [errorBars],
