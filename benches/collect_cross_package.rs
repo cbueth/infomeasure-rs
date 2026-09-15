@@ -268,10 +268,6 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
             match v.approach.as_str() {
                 "ordinal" => Entropy::new_ordinal(x, order).global_value(),
                 "kernel" => Entropy::new_kernel_with_type(x, kt, bw).global_value(),
-                "kl_cheb" => Entropy::new_kl_1d(x, k, NOISE_LEVEL)
-                    .with_chebyshev(true)
-                    .global_value(),
-                "kl_k" => Entropy::new_kl_1d(x, k, NOISE_LEVEL).global_value(),
                 "renyi" => Entropy::new_renyi_1d(x, k, alpha, NOISE_LEVEL).global_value(),
                 "tsallis" => Entropy::new_tsallis_1d(x, k, q, NOISE_LEVEL).global_value(),
                 _ => Entropy::new_kl_1d(x, k, NOISE_LEVEL).global_value(),
@@ -284,7 +280,6 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                     MutualInformation::new_ordinal(&[x, y], order, 1, false).global_value()
                 }
                 "kernel" => MutualInformation::new_kernel_with_type(&[x, y], kt, bw).global_value(),
-                "kl" => MutualInformation::new_kl(&[x, y], k, NOISE_LEVEL).global_value(),
                 "renyi" => {
                     MutualInformation::new_renyi(&[x, y], k, alpha, NOISE_LEVEL).global_value()
                 }
@@ -303,7 +298,6 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 "kernel" => {
                     MutualInformation::new_cmi_kernel_with_type(&[x, y], &z, kt, bw).global_value()
                 }
-                "kl" => MutualInformation::new_cmi_kl(&[x, y], &z, k, NOISE_LEVEL).global_value(),
                 "renyi" => MutualInformation::new_cmi_renyi(&[x, y], &z, k, alpha, NOISE_LEVEL)
                     .global_value(),
                 "tsallis" => MutualInformation::new_cmi_tsallis(&[x, y], &z, k, q, NOISE_LEVEL)
@@ -334,7 +328,6 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                     TransferEntropy::new_cte_kernel_with_type(&x, &y, &z, 1, 1, 1, 1, kt, bw)
                         .global_value()
                 }
-                "kl" => TransferEntropy::new_cte_kl(&x, &y, &z, k, NOISE_LEVEL).global_value(),
                 "renyi" => {
                     TransferEntropy::new_cte_renyi(&x, &y, &z, k, alpha, NOISE_LEVEL).global_value()
                 }
