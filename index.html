@@ -406,8 +406,8 @@ function buildCrossPkgList() {
 function buildCrossCtrlBar() {
   const cb = document.getElementById('c-ctrlBar');
   cb.innerHTML =
-    `<span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button>` +
-    `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="c-scaleXBtn"><span class="sopt${CROSS.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logX ? '' : ' on'}">Lin</span></button>` +
+    `<span class="ctl"><span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button></span>` +
+    `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><button class="scbtn" id="c-scaleXBtn"><span class="sopt${CROSS.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logX ? '' : ' on'}">Lin</span></button></span>` +
     `<button class="tbtn" id="c-resetZoom" style="margin-left:6px">Reset Zoom</button>` +
     `<label class="chk" style="margin-left:6px"><input type="checkbox" id="c-relChk"${CROSS.relative ? ' checked' : ''}> relative to infomeasure-rs</label>`;
   cb.onclick = (e) => {
@@ -613,8 +613,8 @@ function buildAlphaUI() {
   buildAlphaPkgList();
   const cb = document.getElementById('a-ctrlBar');
   cb.innerHTML =
-    `<span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button>` +
-    `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="a-scaleXBtn"><span class="sopt${ALPHA.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logX ? '' : ' on'}">Lin</span></button>` +
+    `<span class="ctl"><span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button></span>` +
+    `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><button class="scbtn" id="a-scaleXBtn"><span class="sopt${ALPHA.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logX ? '' : ' on'}">Lin</span></button></span>` +
     `<button class="tbtn" id="a-resetZoom" style="margin-left:6px">Reset Zoom</button>`;
   cb.onclick = (e) => {
     if (e.target.closest('#a-scaleYBtn')) { ALPHA.logY = !ALPHA.logY; buildAlphaUI(); renderAlpha(); }
@@ -757,16 +757,16 @@ function buildDetailCtrlBar() {
   const cb = document.getElementById('d-ctrlBar');
   const xOpts = ['n', 'bandwidth', 'k', 'order', 'delay', 'dims', 'alpha', 'q'].filter((k) => !cfg.hide.includes(k) && DETAIL.entries.some((e) => apps.includes(e.dapp) && e.params[k] != null));
   if (!xOpts.includes(DETAIL.x)) DETAIL.x = xOpts.includes(cfg.xDflt) ? cfg.xDflt : (xOpts[0] || 'n');
-  let html = `<span class="cl">X</span><select id="d-xSel">` + xOpts.map((k) => `<option value="${k}"${k === DETAIL.x ? ' selected' : ''}>${k === 'n' ? 'size' : k}</option>`).join('') + `</select>`;
-  html += `<span class="cl" style="margin-left:6px">Y</span><button class="scbtn" id="d-scaleYBtn"><span class="sopt${DETAIL.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logY ? '' : ' on'}">Lin</span></button>`;
-  html += `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="d-scaleXBtn"><span class="sopt${DETAIL.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logX ? '' : ' on'}">Lin</span></button>`;
+  let html = `<span class="ctl"><span class="cl">X</span><select id="d-xSel">` + xOpts.map((k) => `<option value="${k}"${k === DETAIL.x ? ' selected' : ''}>${k === 'n' ? 'size' : k}</option>`).join('') + `</select></span>`;
+  html += `<span class="ctl" style="margin-left:6px"><span class="cl">Y</span><button class="scbtn" id="d-scaleYBtn"><span class="sopt${DETAIL.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logY ? '' : ' on'}">Lin</span></button></span>`;
+  html += `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><button class="scbtn" id="d-scaleXBtn"><span class="sopt${DETAIL.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logX ? '' : ' on'}">Lin</span></button></span>`;
   html += `<button class="tbtn" id="d-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
   for (const key of cfg.fltr) {
     let vals = [...new Set(DETAIL.entries.filter((e) => apps.includes(e.dapp)).map((e) => e.params[key]).filter((v) => v != null))];
     vals.sort((a, b) => a - b);
     if (vals.length) {
-      html += `<span class="cl" style="margin-left:6px">${key === 'kernel_type' ? 'kernel' : key}</span>`;
-      html += `<select class="dfltr" data-key="${key}"><option value="">all</option>${vals.map((v) => `<option value="${v}">${v}</option>`).join('')}</select>`;
+      html += `<span class="ctl" style="margin-left:6px"><span class="cl">${key === 'kernel_type' ? 'kernel' : key}</span>` +
+        `<select class="dfltr" data-key="${key}"><option value="">all</option>${vals.map((v) => `<option value="${v}">${v}</option>`).join('')}</select></span>`;
     }
   }
   cb.innerHTML = html;
