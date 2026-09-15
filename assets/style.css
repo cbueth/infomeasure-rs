@@ -34,6 +34,19 @@ select { padding: 3px 6px; font-size: 11px; border: 1px solid #ddd; border-radiu
 .tbtn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
 .chart-wrap { padding: 12px 20px; }
 .chart-wrap canvas { width: 100% !important; height: 400px !important; }
+
+/* Wide-screen layout: chart on the left, controls + packages in a right rail */
+.chart-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.chart-col { min-width: 0; }
+.side-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px 20px; }
+.side-block { border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; }
+.side-title { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px; }
+.side-panel .ctrl-bar { border-bottom: none; padding: 0; min-height: 0; }
+.pkg-list { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+@media (min-width: 1100px) {
+  .chart-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); align-items: start; }
+  .side-panel { border-left: 1px solid #eee; padding-left: 16px; }
+}
 .info-bar { padding: 4px 20px; font-size: 11px; color: #888; border-bottom: 1px solid #eee; display: flex; gap: 12px; flex-wrap: wrap; }
 .table-wrap { padding: 0 20px 12px; overflow-x: auto; max-height: 280px; overflow-y: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -164,4 +177,7 @@ tr:hover { background: #f8f9fa; }
   .cov-partial { background: #4a3f00; color: #ffd84d; }
   .pkg-card .links a { color: #6ea8fe; }
   .app-tag { border-color: #444; }
+  .side-block { border-color: #444; }
+  .side-title { color: #777; }
+  .side-panel { border-left-color: #444; }
 }

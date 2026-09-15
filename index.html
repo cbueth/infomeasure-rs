@@ -41,24 +41,37 @@
   <div id="crossUI">
     <div class="view-tabs" id="c-appTabs"></div>
     <div class="measure-bar" id="c-measureBar"></div>
-    <div class="ctrl-bar" id="c-ctrlBar"></div>
-    <div class="info-bar">
-      <span class="section-nav">
-        <span class="sn-arrow">&#8595; scroll for details:</span>
-        <a href="#cov" data-scroll="cov">Coverage</a>
-        <a href="#packages" data-scroll="packages">Packages</a>
-        <a href="#excluded" data-scroll="excluded">Excluded</a>
-        <a href="#methodology" data-scroll="methodology">Methodology</a>
-      </span>
-      <span class="info-stats">
-        <span id="c-entryCount"></span><span id="c-lineCount"></span>
-        <span id="c-subtitle" style="font-style:italic"></span>
-      </span>
-    </div>
-    <div class="chart-wrap"><canvas id="c-chart"></canvas></div>
-    <button class="table-toggle" id="c-tableToggle" aria-expanded="false"><span class="caret">&#9656;</span> Show benchmark table (exact numbers)</button>
-    <div class="table-wrap" id="c-tableWrap" style="display:none">
-      <table><thead><tr id="c-tableHead"></tr></thead><tbody id="c-tableBody"></tbody></table>
+    <div class="chart-layout">
+      <div class="chart-col">
+        <div class="info-bar">
+          <span class="section-nav">
+            <span class="sn-arrow">&#8595; scroll for details:</span>
+            <a href="#cov" data-scroll="cov">Coverage</a>
+            <a href="#packages" data-scroll="packages">Packages</a>
+            <a href="#excluded" data-scroll="excluded">Excluded</a>
+            <a href="#methodology" data-scroll="methodology">Methodology</a>
+          </span>
+          <span class="info-stats">
+            <span id="c-entryCount"></span><span id="c-lineCount"></span>
+            <span id="c-subtitle" style="font-style:italic"></span>
+          </span>
+        </div>
+        <div class="chart-wrap"><canvas id="c-chart"></canvas></div>
+        <button class="table-toggle" id="c-tableToggle" aria-expanded="false"><span class="caret">&#9656;</span> Show benchmark table (exact numbers)</button>
+        <div class="table-wrap" id="c-tableWrap" style="display:none">
+          <table><thead><tr id="c-tableHead"></tr></thead><tbody id="c-tableBody"></tbody></table>
+        </div>
+      </div>
+      <aside class="side-panel">
+        <div class="side-block">
+          <div class="side-title">Packages</div>
+          <div class="pkg-list" id="c-pkgList"></div>
+        </div>
+        <div class="side-block">
+          <div class="side-title">Display</div>
+          <div class="ctrl-bar" id="c-ctrlBar"></div>
+        </div>
+      </aside>
     </div>
 
     <div class="section" id="cov">
@@ -110,14 +123,23 @@
   <div id="detailUI" style="display:none">
     <div class="view-tabs" id="d-viewTabs"></div>
     <div class="measure-bar" id="d-measureBar"></div>
-    <div class="ctrl-bar" id="d-ctrlBar"></div>
-    <div class="info-bar">
-      <span id="d-entryCount"></span><span id="d-lineCount"></span>
-      <span id="d-subtitle" style="font-style:italic"></span>
-    </div>
-    <div class="chart-wrap"><canvas id="d-chart"></canvas></div>
-    <div class="table-wrap">
-      <table><thead><tr id="d-tableHead"></tr></thead><tbody id="d-tableBody"></tbody></table>
+    <div class="chart-layout">
+      <div class="chart-col">
+        <div class="info-bar">
+          <span id="d-entryCount"></span><span id="d-lineCount"></span>
+          <span id="d-subtitle" style="font-style:italic"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="d-chart"></canvas></div>
+        <div class="table-wrap">
+          <table><thead><tr id="d-tableHead"></tr></thead><tbody id="d-tableBody"></tbody></table>
+        </div>
+      </div>
+      <aside class="side-panel">
+        <div class="side-block">
+          <div class="side-title">Display</div>
+          <div class="ctrl-bar" id="d-ctrlBar"></div>
+        </div>
+      </aside>
     </div>
     <div class="section">
       <p>These are the detailed infomeasure-native numbers (Rust vs Python) across every estimator
@@ -131,12 +153,25 @@
   <!-- ================= Alphabet scaling view ================= -->
   <div id="alphaUI" style="display:none">
     <div class="measure-bar" id="a-measureBar"></div>
-    <div class="ctrl-bar" id="a-ctrlBar"></div>
-    <div class="info-bar">
-      <span id="a-entryCount"></span><span id="a-lineCount"></span>
-      <span id="a-subtitle" style="font-style:italic"></span>
+    <div class="chart-layout">
+      <div class="chart-col">
+        <div class="info-bar">
+          <span id="a-entryCount"></span><span id="a-lineCount"></span>
+          <span id="a-subtitle" style="font-style:italic"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="a-chart"></canvas></div>
+      </div>
+      <aside class="side-panel">
+        <div class="side-block">
+          <div class="side-title">Packages</div>
+          <div class="pkg-list" id="a-pkgList"></div>
+        </div>
+        <div class="side-block">
+          <div class="side-title">Alphabet &amp; scale</div>
+          <div class="ctrl-bar" id="a-ctrlBar"></div>
+        </div>
+      </aside>
     </div>
-    <div class="chart-wrap"><canvas id="a-chart"></canvas></div>
     <div class="section">
       <p>Discrete MLE runtime vs sample size N at a fixed alphabet size (number of states,
         <span id="a-nNote">alphabet = …</span>). A line ends where that package stopped: its dense
@@ -291,21 +326,23 @@ function buildCrossUI() {
   const vt = document.getElementById('c-appTabs');
   vt.innerHTML = apps.map((a) => `<button class="view-tab${a === CROSS.approach ? ' active' : ''}" data-app="${a}">${MAIN_APPROACH_LABELS[a]}</button>`).join('');
   vt.onclick = (e) => { const b = e.target.closest('.view-tab'); if (!b) return; CROSS.approach = b.dataset.app; buildCrossUI(); renderCross(); };
-  buildCrossMeasureBar(); buildCrossCtrlBar(); buildStaticSections();
+  buildCrossMeasureBar(); buildCrossPkgList(); buildCrossCtrlBar(); buildStaticSections();
 }
 function buildCrossMeasureBar() {
   const mb = document.getElementById('c-measureBar');
   mb.innerHTML = `<span class="ml">Measure</span>` +
-    measuresAvailable().map((m) => `<button class="mtab${m === CROSS.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
-    `<span class="ms"></span><span class="ml">Packages</span>` +
-    CAT.packages.map((p) => {
-      const has = REP[p.id] && REP[p.id].some((e) => e.measure === CROSS.measure && mainApproach(e) === CROSS.approach);
-      const lim = limitsOf(p, CAT.data[p.id]);
-      const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
-      return `<label class="chk" title="${esc(lim || '')}" style="${style}"><input type="checkbox" data-pkg="${p.id}"${CROSS.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
-    }).join('');
-  mb.onclick = (e) => { const b = e.target.closest('.mtab'); if (!b) return; CROSS.measure = b.dataset.measure; buildCrossMeasureBar(); renderCross(); };
-  mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { CROSS.langs[e.target.dataset.pkg] = e.target.checked; renderCross(); } };
+    measuresAvailable().map((m) => `<button class="mtab${m === CROSS.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('');
+  mb.onclick = (e) => { const b = e.target.closest('.mtab'); if (!b) return; CROSS.measure = b.dataset.measure; buildCrossMeasureBar(); buildCrossPkgList(); renderCross(); };
+}
+function buildCrossPkgList() {
+  const el = document.getElementById('c-pkgList');
+  el.innerHTML = CAT.packages.map((p) => {
+    const has = REP[p.id] && REP[p.id].some((e) => e.measure === CROSS.measure && mainApproach(e) === CROSS.approach);
+    const lim = limitsOf(p, CAT.data[p.id]);
+    const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
+    return `<label class="chk" title="${esc(lim || '')}" style="${style}"><input type="checkbox" data-pkg="${p.id}"${CROSS.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
+  }).join('');
+  el.onchange = (e) => { if (e.target.matches('[data-pkg]')) { CROSS.langs[e.target.dataset.pkg] = e.target.checked; renderCross(); } };
 }
 function buildCrossCtrlBar() {
   const cb = document.getElementById('c-ctrlBar');
@@ -508,19 +545,13 @@ function buildAlphaUI() {
   if (ALPHA.states == null || !states.includes(ALPHA.states)) ALPHA.states = states[states.length - 1] ?? null;
   const mb = document.getElementById('a-measureBar');
   mb.innerHTML = `<span class="ml">Measure</span>` +
-    ms.map((m) => `<button class="mtab${m === ALPHA.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
-    `<span class="ms"></span><span class="ml">Packages</span>` +
-    CAT.packages.map((p) => {
-      const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.states === ALPHA.states);
-      const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
-      return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
-    }).join('');
+    ms.map((m) => `<button class="mtab${m === ALPHA.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('');
   mb.onclick = (e) => {
     const b = e.target.closest('.mtab'); if (!b || !b.dataset.measure) return;
     ALPHA.measure = b.dataset.measure;
     buildAlphaUI(); renderAlpha();
   };
-  mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { ALPHA.langs[e.target.dataset.pkg] = e.target.checked; renderAlpha(); } };
+  buildAlphaPkgList();
   const cb = document.getElementById('a-ctrlBar');
   cb.innerHTML =
     `<span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button>` +
@@ -535,6 +566,15 @@ function buildAlphaUI() {
     else if (e.target.closest('#a-scaleXBtn')) { ALPHA.logX = !ALPHA.logX; buildAlphaUI(); renderAlpha(); }
     else if (e.target.closest('#a-resetZoom')) { alphaChart && alphaChart.resetZoom && alphaChart.resetZoom(); }
   };
+}
+function buildAlphaPkgList() {
+  const el = document.getElementById('a-pkgList');
+  el.innerHTML = CAT.packages.map((p) => {
+    const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.states === ALPHA.states);
+    const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
+    return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
+  }).join('');
+  el.onchange = (e) => { if (e.target.matches('[data-pkg]')) { ALPHA.langs[e.target.dataset.pkg] = e.target.checked; renderAlpha(); } };
 }
 function renderAlpha() {
   const measure = ALPHA.measure, states = ALPHA.states;
