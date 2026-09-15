@@ -115,12 +115,18 @@ steps:
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
     environment:
+      # The GPU overlay collector needs the same Vulkan/NVIDIA setup as the
+      # GPU test pipeline; `:bench` extends `:stable`, which carries the hook.
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
       PAGES_TOKEN:
         from_secret: PAGES_TOKEN
     when:
       - event: [manual, tag, cron]
     commands:
       - cd /build
+      - . /usr/local/bin/init-nvidia-vulkan.sh || true
+      - vulkaninfo --summary 2>/dev/null | grep -q DISCRETE_GPU && echo "GPU: discrete adapter available" || echo "GPU: none (overlay step will be recorded as failed)"
       - . /build/plan.env
       - |
         if [ "$ACTION" != "collect" ]; then

@@ -21,6 +21,10 @@
 //!   BENCH_RESUME=1     keep an existing BENCH_OUT and skip entries already in
 //!                      it, flushing after each measure so a cancelled run can
 //!                      be resumed
+//!   BENCH_GPU=1        collect the GPU overlay instead: only kernel variants at
+//!                      sizes above the dispatch gate, written to
+//!                      `<data>/results/infomeasure-rs_gpu.json`. Requires
+//!                      building with `--features gpu` and a usable adapter.
 
 #![allow(unused_imports)]
 
@@ -474,11 +478,45 @@ fn epoch_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Whether this run collects the GPU overlay (`BENCH_GPU=1`).
+fn gpu_mode() -> bool {
+    std::env::var("BENCH_GPU")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
+/// Effective dispatch gate for a kernel type: points below it stay on the CPU.
+/// Resolves to `usize::MAX` for a software or absent adapter, so nothing is
+/// eligible and the GPU overlay stays empty.
+#[cfg(feature = "gpu")]
+fn kernel_gate(kernel: &str) -> usize {
+    if kernel == "box" {
+        infomeasure::estimators::gpu::gpu_min_points_box()
+    } else {
+        infomeasure::estimators::gpu::gpu_min_points_gaussian()
+    }
+}
+
+/// GPU identity recorded in the fragment meta (adapter, gates, backend).
+#[cfg(feature = "gpu")]
+fn gpu_meta() -> Value {
+    let adapter = infomeasure::estimators::gpu::gpu_adapter_info();
+    json!({
+        "backend": adapter.map(|a| format!("{:?}", a.backend)),
+        "adapter": adapter.map(|a| a.name.clone()),
+        "device_type": adapter.map(|a| format!("{:?}", a.device_type)),
+        "min_points": {
+            "gaussian": infomeasure::estimators::gpu::gpu_min_points_gaussian(),
+            "box": infomeasure::estimators::gpu::gpu_min_points_box(),
+        },
+    })
+}
+
 /// Fingerprint of everything that makes a measurement valid: package version,
 /// source commit, grid definition, timing budgets and the machine. A resumable
 /// fragment is only reused when its fingerprint matches the current run, so a
-/// package bump (or a code/grid/config change) forces a fresh collection.
-fn fingerprint(hardware: &HardwareInfo) -> String {
+/// package bump (or a code/grid/config/GPU change) forces a fresh collection.
+fn fingerprint(hardware: &HardwareInfo, gpu: bool) -> String {
     use std::hash::{Hash, Hasher};
 
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -490,6 +528,15 @@ fn fingerprint(hardware: &HardwareInfo) -> String {
     utils::datasets::DATA_VERSION.hash(&mut h);
     hardware.cpu_model.hash(&mut h);
     utils::grid::source_hash().hash(&mut h);
+    gpu.hash(&mut h);
+    #[cfg(feature = "gpu")]
+    if gpu {
+        let adapter = infomeasure::estimators::gpu::gpu_adapter_info();
+        adapter.map(|a| a.name.clone()).hash(&mut h);
+        adapter.map(|a| format!("{:?}", a.device_type)).hash(&mut h);
+        infomeasure::estimators::gpu::gpu_min_points_gaussian().hash(&mut h);
+        infomeasure::estimators::gpu::gpu_min_points_box().hash(&mut h);
+    }
     for cfg in [rounds_config(false), rounds_config(true)] {
         cfg.warmup_max.hash(&mut h);
         cfg.warmup_budget.to_bits().hash(&mut h);
@@ -508,6 +555,8 @@ fn write_fragment(
     hardware: &HardwareInfo,
     run_id: &str,
     fingerprint: &str,
+    features: &str,
+    gpu: &Value,
 ) {
     let output = json!({
         "meta": {
@@ -515,12 +564,14 @@ fn write_fragment(
             "generated": epoch_secs(),
             "run_id": run_id,
             "fingerprint": fingerprint,
+            "features": features,
+            "gpu": gpu,
             "hardware": {
                 "cpu": hardware.cpu_model.clone(),
                 "cores": hardware.cpu_cores,
                 "memory_gb": hardware.memory_gb,
                 "os": hardware.os.clone(),
-                "gpu": Value::Null,
+                "gpu": gpu.get("adapter").cloned().unwrap_or(Value::Null),
             },
             "runtime": {
                 "threads": 1,
@@ -560,11 +611,31 @@ fn write_fragment(
 
 fn main() {
     let dir = data_dir();
+    let gpu = gpu_mode();
+    if gpu && !cfg!(feature = "gpu") {
+        eprintln!("BENCH_GPU=1 requires building the collector with --features gpu");
+        std::process::exit(2);
+    }
+    #[cfg(feature = "gpu")]
+    if gpu && infomeasure::estimators::gpu::gpu_adapter_info().is_none() {
+        eprintln!("BENCH_GPU=1 but no GPU adapter is available");
+        std::process::exit(2);
+    }
     let out = std::env::var("BENCH_OUT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| dir.join("results").join("infomeasure-rs.json"));
+        .unwrap_or_else(|_| {
+            dir.join("results").join(if gpu {
+                "infomeasure-rs_gpu.json"
+            } else {
+                "infomeasure-rs.json"
+            })
+        });
 
-    let grid: Grid = filter_variants(utils::grid::load("rust"));
+    let mut grid: Grid = filter_variants(utils::grid::load("rust"));
+    if gpu {
+        // Only kernel estimators have a GPU path.
+        grid.variants.retain(|v| v.approach == "kernel");
+    }
     // Optional size override for fast local iteration (also forwarded by CI).
     let (cross_sizes, detailed_sizes) = match std::env::var("BENCH_SIZES") {
         Ok(s) => {
@@ -579,8 +650,17 @@ fn main() {
         Err(_) => (grid.cross_sizes.clone(), grid.detailed_sizes.clone()),
     };
     let hardware = detect_hardware();
-    let run_id = format!("infomeasure-rs_{}", epoch_secs());
-    let fingerprint = fingerprint(&hardware);
+    let run_id = format!(
+        "infomeasure-rs{}_{}",
+        if gpu { "_gpu" } else { "" },
+        epoch_secs()
+    );
+    let fingerprint = fingerprint(&hardware, gpu);
+    let features = if gpu { "gpu" } else { "" };
+    #[cfg(feature = "gpu")]
+    let gpu_meta = if gpu { gpu_meta() } else { Value::Null };
+    #[cfg(not(feature = "gpu"))]
+    let gpu_meta = Value::Null;
 
     let resume = std::env::var("BENCH_RESUME")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
@@ -619,11 +699,27 @@ fn main() {
         // Flush at every measure boundary so a cancelled run keeps progress.
         if v.measure != current_measure {
             if !benchmarks.is_empty() {
-                write_fragment(&out, &benchmarks, &hardware, &run_id, &fingerprint);
+                write_fragment(
+                    &out,
+                    &benchmarks,
+                    &hardware,
+                    &run_id,
+                    &fingerprint,
+                    features,
+                    &gpu_meta,
+                );
             }
             current_measure = v.measure.clone();
         }
         for &n in &detailed_sizes {
+            if gpu {
+                #[cfg(feature = "gpu")]
+                {
+                    if n < kernel_gate(v.kernel.as_deref().unwrap_or("")) {
+                        continue;
+                    }
+                }
+            }
             let id = format!(
                 "{}/{}/{}/n{}/infomeasure-rs",
                 v.measure,
@@ -709,6 +805,14 @@ fn main() {
         }
     }
 
-    write_fragment(&out, &benchmarks, &hardware, &run_id, &fingerprint);
+    write_fragment(
+        &out,
+        &benchmarks,
+        &hardware,
+        &run_id,
+        &fingerprint,
+        features,
+        &gpu_meta,
+    );
     println!("wrote {} entries to {}", benchmarks.len(), out.display());
 }

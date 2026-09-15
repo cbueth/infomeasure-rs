@@ -10,8 +10,16 @@
 //! **<https://cbueth.codeberg.page/infomeasure-rs/>**
 //!
 //! The viewer includes scaling plots, per-approach parameter filters, log/linear
-//! axes, hardware context, GPU toggle, version badges, and a sortable data table
-//! with standard deviation per benchmark.
+//! axes, hardware context, a CPU/GPU toggle, version badges, and a sortable data
+//! table with standard deviation per benchmark.
+//!
+//! The GPU toggle is a **sparse overlay**: only the kernel estimators
+//! (E/MI/CMI/TE/CTE) run on the GPU, and only at sizes above the dispatch gate,
+//! so it changes the infomeasure-rs lines where a GPU number exists and leaves
+//! every other line (and every smaller size) on CPU. It therefore contrasts
+//! infomeasure-rs GPU against the CPU baseline rather than a GPU-vs-GPU run — no
+//! other profiled toolkit offers a comparable single-estimate GPU path (JIDT's
+//! CUDA path accelerates surrogate significance testing, not one estimate).
 //!
 //! ## Running Your Own Benchmarks
 //!
