@@ -210,3 +210,19 @@ is part of the resume fingerprints). The site renders them in the "Alphabet
 scaling" view, and they are excluded from the merged `cross_package.json`.
 Only genuine discrete-MLE packages are collected: `syntropy` (kNN/continuous)
 and `RTransferEntropy` (quantile-binned continuous) are excluded.
+
+### GPU overlay
+
+`infomeasure-rs` has GPU-accelerated kernel estimators (wgpu; Vulkan on the
+runner). Alongside the full CPU fragment, the Rust collector emits a sparse
+overlay, `infomeasure-rs_gpu.json`, containing only the kernel variants above
+the dispatch gate (Gaussian ≥500, box ≥2000 points — resolved from the
+detected adapter, so a software or absent adapter yields an empty overlay).
+`run_all.sh` runs it as `BENCH_GPU=1 … cargo bench --features gpu --bench
+collect_cross_package`; the CI `collect` step sources `init-nvidia-vulkan.sh`
+and sets the NVIDIA env (mirroring the GPU test pipeline). The overlay is
+excluded from `cross_package.json` and drives the site's CPU/GPU toggle, which
+uses a GPU entry where one exists and the CPU number everywhere else. So the
+toggle contrasts infomeasure-rs **GPU** against the CPU baseline rather than a
+GPU-vs-GPU run: JIDT's CUDA path accelerates surrogate significance testing (not
+a single estimate) and the other packages are CPU-only.

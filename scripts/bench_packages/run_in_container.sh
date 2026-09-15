@@ -9,7 +9,7 @@
 #   REPO=~/code/infomeasure-rs bash scripts/bench_packages/run_in_container.sh
 #
 # Optional env forwarded: BENCH_SIZES, BENCH_SHORT, BENCH_WARMUP,
-# BENCH_ITERATIONS, BENCH_DATA_DIR.
+# BENCH_ITERATIONS, BENCH_DATA_DIR, BENCH_GPU.
 set -euo pipefail
 
 REPO="${REPO:-$HOME/code/infomeasure-rs}"
@@ -21,14 +21,19 @@ args=(
   -e CARGO_TARGET_DIR=/work/target/cargo
   -e BENCH_DATA_DIR="${BENCH_DATA_DIR:-/work/target/bench-data}"
 )
+# The GPU overlay needs the host GPU inside the container (local equivalent of
+# the CI runner's NVIDIA env).
+if [ "${BENCH_GPU:-}" = "1" ]; then
+  args+=(--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e NVIDIA_VISIBLE_DEVICES=all)
+fi
 for var in BENCH_SIZES BENCH_SHORT BENCH_WARMUP_MAX BENCH_WARMUP_BUDGET_S \
            BENCH_MIN_ITERS BENCH_MAX_ITERS BENCH_ITER_BUDGET_S \
            BENCH_DETAIL_WARMUP_MAX BENCH_DETAIL_WARMUP_BUDGET_S \
            BENCH_DETAIL_MIN_ITERS BENCH_DETAIL_MAX_ITERS BENCH_DETAIL_ITER_BUDGET_S \
            BENCH_ALPHABET_SIZES BENCH_ALPHABET_PACKAGES BENCH_PACKAGES \
-           BENCH_RESUME BENCH_KEEP_RESULTS; do
+           BENCH_GPU BENCH_RESUME BENCH_KEEP_RESULTS; do
   if [ -n "${!var:-}" ]; then args+=(-e "$var=${!var}"); fi
 done
 
 exec docker run "${args[@]}" --entrypoint bash im-bench:dev -c \
-  'export PATH=/usr/local/cargo/bin:$PATH; bash scripts/bench_packages/run_all.sh'
+  'export PATH=/usr/local/cargo/bin:$PATH; [ -f /usr/local/bin/init-nvidia-vulkan.sh ] && . /usr/local/bin/init-nvidia-vulkan.sh || true; bash scripts/bench_packages/run_all.sh'

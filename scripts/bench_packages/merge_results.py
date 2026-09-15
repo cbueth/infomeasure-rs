@@ -75,9 +75,14 @@ def main() -> int:
     d = data_dir()
     rdir = d / "results"
     all_fragments = sorted(rdir.glob("*.json"))
-    # The alphabet family has its own viewer mode; keep it out of the merged
-    # cross_package.json (it is still published as a fragment).
-    fragments = [f for f in all_fragments if not f.stem.endswith("_alphabet")]
+    # The alphabet-scaling and GPU-overlay families have their own viewer modes;
+    # keep them out of the merged cross_package.json (still published as
+    # fragments).
+    fragments = [
+        f
+        for f in all_fragments
+        if not f.stem.endswith("_alphabet") and not f.stem.endswith("_gpu")
+    ]
     if not fragments:
         print(f"no fragments in {rdir}", file=sys.stderr)
         return 1

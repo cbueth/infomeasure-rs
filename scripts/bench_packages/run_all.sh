@@ -173,6 +173,14 @@ if selected infomeasure-rs; then
   step infomeasure-rs-alphabet cargo bench --bench collect_alphabet
   publish
 fi
+# Sparse GPU overlay: only the kernel variants above the dispatch gate, into
+# `infomeasure-rs_gpu.json`. Non-fatal, so a host without a usable adapter
+# records a failure and everything else still publishes.
+if selected infomeasure-rs; then
+  echo "=== infomeasure-rs (gpu) ==="
+  step infomeasure-rs-gpu env BENCH_GPU=1 cargo bench --features gpu --bench collect_cross_package
+  publish
+fi
 # One generic Python collector covers all Python providers; restrict it to the
 # selected package ids.
 if selected infomeasure-python || selected pyinform || selected pyitlib || selected pyentrp || selected dit; then
