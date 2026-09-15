@@ -92,14 +92,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.001,
-        "stddev": 0,
-        "min": 0.001,
+        "mean": 0.00085,
+        "stddev": 0.00036162028534,
+        "min": 0,
         "max": 0.001,
         "median": 0.001,
         "samples": 40,
-        "ci_lower": 0.001,
-        "ci_upper": 0.001
+        "ci_lower": 0.00073793271252,
+        "ci_upper": 0.00096206728748
       },
       "value": 0.0183248502919,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
@@ -124,14 +124,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.0017,
-        "stddev": 0.000516397779494,
+        "mean": 0.001625,
+        "stddev": 0.000540061724867,
         "min": 0.001,
         "max": 0.003,
         "median": 0.002,
         "samples": 40,
-        "ci_lower": 0.00153996667014,
-        "ci_upper": 0.00186003332986
+        "ci_lower": 0.00145763313749,
+        "ci_upper": 0.00179236686251
       },
       "value": 0.0330998485087,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
@@ -156,14 +156,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.00375,
-        "stddev": 0.000707106781187,
+        "mean": 0.00365,
+        "stddev": 0.000662164283589,
         "min": 0.003,
         "max": 0.006,
         "median": 0.004,
         "samples": 40,
-        "ci_lower": 0.00353086533821,
-        "ci_upper": 0.00396913466179
+        "ci_lower": 0.00344479316251,
+        "ci_upper": 0.00385520683749
       },
       "value": 0.0180070774893,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
