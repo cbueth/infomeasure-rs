@@ -508,8 +508,6 @@ function buildAlphaUI() {
   const mb = document.getElementById('a-measureBar');
   mb.innerHTML = `<span class="ml">Measure</span>` +
     ms.map((m) => `<button class="mtab${m === ALPHA.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
-    `<span class="ms"></span><span class="ml">Alphabet</span>` +
-    states.map((s) => `<button class="mtab${s === ALPHA.states ? ' active' : ''}" data-states="${s}">${s}</button>`).join('') +
     `<span class="ms"></span><span class="ml">Packages</span>` +
     CAT.packages.map((p) => {
       const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.states === ALPHA.states);
@@ -517,9 +515,8 @@ function buildAlphaUI() {
       return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
     }).join('');
   mb.onclick = (e) => {
-    const b = e.target.closest('.mtab'); if (!b) return;
-    if (b.dataset.measure) ALPHA.measure = b.dataset.measure;
-    if (b.dataset.states) ALPHA.states = Number(b.dataset.states);
+    const b = e.target.closest('.mtab'); if (!b || !b.dataset.measure) return;
+    ALPHA.measure = b.dataset.measure;
     buildAlphaUI(); renderAlpha();
   };
   mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { ALPHA.langs[e.target.dataset.pkg] = e.target.checked; renderAlpha(); } };
@@ -527,8 +524,12 @@ function buildAlphaUI() {
   cb.innerHTML =
     `<span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button>` +
     `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="a-scaleXBtn"><span class="sopt${ALPHA.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logX ? '' : ' on'}">Lin</span></button>` +
-    `<button class="tbtn" id="a-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
+    `<button class="tbtn" id="a-resetZoom" style="margin-left:4px">Reset Zoom</button>` +
+    `<span class="ms"></span><span class="ml">Alphabet</span>` +
+    states.map((s) => `<button class="mtab${s === ALPHA.states ? ' active' : ''}" data-states="${s}">${s}</button>`).join('');
   cb.onclick = (e) => {
+    const b = e.target.closest('.mtab');
+    if (b && b.dataset.states) { ALPHA.states = Number(b.dataset.states); buildAlphaUI(); renderAlpha(); return; }
     if (e.target.closest('#a-scaleYBtn')) { ALPHA.logY = !ALPHA.logY; buildAlphaUI(); renderAlpha(); }
     else if (e.target.closest('#a-scaleXBtn')) { ALPHA.logX = !ALPHA.logX; buildAlphaUI(); renderAlpha(); }
     else if (e.target.closest('#a-resetZoom')) { alphaChart && alphaChart.resetZoom && alphaChart.resetZoom(); }
