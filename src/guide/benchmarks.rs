@@ -50,12 +50,29 @@
 //! ## Dense Direct Paths and the Known-Alphabet Builder
 //!
 //! The discrete MLE estimators (`entropy`, `mutual_information`,
-//! `transfer_entropy`) use an internal *dense direct* path whenever the joint
+//! `transfer_entropy`) use an internal *direct* path whenever the marginal
 //! alphabet is small: each observation's mixed-radix code is built inline and
-//! the joint/marginal counts are filled by direct indexing, then the measure is
-//! summed over the cells. Above an internal cap of $2^{20}$ joint cells the
-//! estimator falls back to the generic entropy-summation engine, so wide
-//! alphabets and long histories do not regress.
+//! the joint/marginal counts are filled in a single pass, then the measure is
+//! summed directly.
+//!
+//! The joint table is the product of the variable alphabets ($base^d$) and can
+//! dominate the cost. It is stored in one of two ways, which **produce identical
+//! values** and differ only in speed:
+//!
+//! - a **dense** `Vec` — direct indexing — while the joint is small relative to
+//!   the number of samples (about 50 joint cells per observation, and never more
+//!   than $2^{20}$ cells). This is the fastest path for the common small-alphabet
+//!   case and the shapes covered by the Criterion suite.
+//! - a **hash map** keyed by the packed code otherwise: it stores only occupied
+//!   cells, so the cost grows with the number of observations $N$ rather than the
+//!   alphabet. This is what lets wide alphabets and long histories scale, where a
+//!   *dense* joint-count table over all $base^d$ combinations blows up in time
+//!   and memory.
+//!
+//! The choice is a deterministic, performance-only heuristic — there is no
+//! runtime timing or autotuning — so results are reproducible. The direct path
+//! is abandoned for the generic entropy-summation engine only when the *marginal*
+//! tables would be too large (memory bound for very wide alphabets).
 //!
 //! The public MLE constructors infer the alphabet with a min/max scan and retain
 //! the inputs so that [local values](crate::estimators::traits::LocalValues) can

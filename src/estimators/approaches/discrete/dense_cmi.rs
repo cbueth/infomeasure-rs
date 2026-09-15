@@ -2,20 +2,46 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Dense direct discrete CMI for small alphabets.
+//! Dense direct discrete CMI.
 //!
 //! The generic [`DiscreteConditionalMutualInformation`] builds one entropy
 //! estimator (with its count/distribution maps) per information space — for
-//! CMI that is four spaces and eight hash maps per call. When the joint
-//! alphabet is small (the common case: ≤10 states, short histories) the whole
-//! measure can instead be computed directly from dense count arrays in a single
-//! pass, exactly as JIDT's `ConditionalMutualInformationCalculatorDiscrete`
-//! does.
+//! CMI that is four spaces and eight hash maps per call. This module instead
+//! counts the joint, per-marginal and conditioning distributions in **one
+//! fused pass** and sums the measure directly.
 //!
 //! Each *variable* is a **group of raw integer columns** (a history embed when
 //! the history length is > 1); the group is mapped to a single mixed-radix code
-//! inline, so the embedding, the joint/marginal counting and the sum all happen
-//! in one pass — no separate history reductions or joint re-packing.
+//! inline, so the embedding, the counting and the sum all happen in one pass —
+//! no separate history reductions or joint re-packing.
+//!
+//! ## Joint storage: dense table vs. hash map
+//!
+//! The marginal and conditioning tables are always dense (they are small). The
+//! **joint** table is the product of all variable ranges (`base^d`) and can be
+//! far larger. Two representations are available; they produce **identical
+//! values** and differ only in cost:
+//!
+//! - **Dense** `Vec<u32>` — direct indexing, but time and memory grow with the
+//!   number of joint cells.
+//! - **Sparse** `FxHashMap<u64, u32>` — only occupied cells are stored, so cost
+//!   grows with the number of observations `N` rather than the alphabet, at the
+//!   price of hashing every sample.
+//!
+//! This is a **performance-only** heuristic; it never changes the result. The
+//! joint is counted densely while it is small relative to the data — at most
+//! [`DENSE_CMI_CELLS_PER_OBS`] cells *per observation*, and never more than
+//! [`DENSE_CMI_CAP`] cells in absolute terms — and otherwise as a hash map,
+//! which keeps the algorithm `O(N)`: a *dense* joint-count table instead scales
+//! with `base^d` (one cell per alphabet combination) and dominates for wide
+//! alphabets or long histories.
+//! The per-observation constant is an approximation measured on the project's
+//! benchmark machine; near the crossover the two paths cost about the same, so
+//! a different machine only shifts a decision whose either choice is within a
+//! small factor. The choice is **deterministic** (no runtime timing/autotuning),
+//! which keeps results reproducible. The direct path is abandoned for the
+//! generic estimator only when the *marginal* tables would be too large
+//! ([`MARGINAL_CAP`]).
 //!
 //! ## Timing-optimised builder
 //!
@@ -30,9 +56,6 @@
 //!   [`DenseCmiGlobal`], which does **not** implement [`LocalValues`], so a
 //!   local request cannot silently produce garbage.
 //!
-//! Both terminals fall back to the generic entropy-summation estimator when the
-//! joint alphabet exceeds the dense cap.
-//!
 //! [`DiscreteConditionalMutualInformation`]: super::DiscreteConditionalMutualInformation
 //! [`LocalValues`]: crate::estimators::traits::LocalValues
 
@@ -42,15 +65,25 @@ use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, OptionalLocalValues,
 };
 use ndarray::{Array1, ArrayView1};
+use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 
-/// Largest dense joint table built for the direct path. Above this the caller
-/// falls back to the generic entropy-summation estimator.
+/// Joint table size up to which a dense `Vec<u32>` is used; above it the joint
+/// is a hash map. The marginal/conditioning tables are always dense.
 const DENSE_CMI_CAP: u128 = 1 << 20;
 
-/// Size of the small stack buffer used to build variable codes without a heap
-/// allocation. Series with more variables than this are rare; they simply fall
-/// back to the generic engine (the plan refuses them).
+/// A dense joint is only scanned cell-by-cell while it is small relative to the
+/// number of observations. Measured crossover is ~50 joint cells per observation
+/// for both CMI and CTE, so above this the sparse hash joint is faster (and
+/// scales with `N` rather than the alphabet). Keep the hard `DENSE_CMI_CAP` as a
+/// memory bound too.
+const DENSE_CMI_CELLS_PER_OBS: u128 = 50;
+
+/// Total dense marginal + conditioning cells above which the direct path is
+/// abandoned for the generic estimator (bounds memory for huge alphabets).
+const MARGINAL_CAP: u128 = 1 << 25;
+
+/// Number of variables above which the direct path bails out.
 const MAX_DENSE_VARS: usize = 16;
 
 /// Number of observation rows for an embedding (mirrors `te_observations`).
@@ -94,7 +127,7 @@ fn future_col_cow(arr: &[i32], max_delay: usize, step: usize, n: usize) -> Cow<'
     }
 }
 
-/// Layout of a dense CMI over contiguous code columns.
+/// Layout of a direct CMI over contiguous code columns.
 ///
 /// `var_cols` holds one group of column indices per variable, with the
 /// conditioning group as the **last** entry (so `var_cols.len() - 1` is the
@@ -108,7 +141,9 @@ struct DensePlan {
     var_joint_stride: Vec<usize>,
     cond_range: usize,
     marginal_off: Vec<usize>,
+    /// Joint cells when dense; 0 when the joint is a hash map.
     joint_len: usize,
+    dense_joint: bool,
     marginal_len: usize,
 }
 
@@ -155,27 +190,36 @@ impl DensePlan {
             var_range[v] = range_total;
         }
 
-        let mut cap: u128 = 1;
+        // Joint size (product of all variable ranges); decide storage.
+        let mut joint_cells: u128 = 1;
         for &r in &var_range {
-            cap = cap.checked_mul(r as u128)?;
-            if cap > DENSE_CMI_CAP {
-                return None;
-            }
+            joint_cells = joint_cells.checked_mul(r as u128)?;
         }
-        let joint_len = cap as usize;
+        let dense_joint =
+            joint_cells <= DENSE_CMI_CAP && joint_cells <= DENSE_CMI_CELLS_PER_OBS * n as u128;
+        let joint_len = if dense_joint { joint_cells as usize } else { 0 };
+        // The sparse joint key packs the mixed-radix code into a u64.
+        if !dense_joint && joint_cells > u64::MAX as u128 {
+            return None;
+        }
 
         let mut var_joint_stride = vec![0usize; n_vars];
-        let mut acc = 1usize;
+        let mut acc: usize = 1;
         for v in 0..n_vars {
             var_joint_stride[v] = acc;
             acc = acc.saturating_mul(var_range[v]);
         }
         let cond_range = var_range[n_series];
+
+        // Marginals `(variable, condition)` stay dense; bound their memory.
         let mut marginal_off = Vec::with_capacity(n_series);
-        let mut marginal_len = 0usize;
+        let mut marginal_cells: u128 = 0;
         for &r in var_range.iter().take(n_series) {
-            marginal_off.push(marginal_len);
-            marginal_len += r * cond_range;
+            marginal_off.push(marginal_cells as usize);
+            marginal_cells += r as u128 * cond_range as u128;
+        }
+        if marginal_cells + cond_range as u128 > MARGINAL_CAP {
+            return None;
         }
 
         Some(Self {
@@ -188,36 +232,68 @@ impl DensePlan {
             cond_range,
             marginal_off,
             joint_len,
-            marginal_len,
+            dense_joint,
+            marginal_len: marginal_cells as usize,
         })
     }
 }
 
-/// Counts and average produced by [`count_dense`].
-struct DenseCounts {
-    joint: Vec<u32>,
-    marginal: Vec<u32>,
-    cond: Vec<u32>,
-    global: f64,
+/// Joint-count storage.
+enum Joint {
+    Dense(Vec<u32>),
+    Sparse(FxHashMap<u64, u32>),
 }
 
-/// Single fused pass over the observations: mixed-radix codes are computed
-/// inline and the joint, per-marginal and conditioning counts incremented
-/// directly (no hashing, no datasets), then the measure is summed over the
-/// dense joint cells.
-///
-/// The common case — every variable a single raw column, the condition one or
-/// more — uses a tighter loop that skips the per-group indirection.
-fn count_dense(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) -> DenseCounts {
-    let single_column_series = var_cols[..plan.n_series].iter().all(|g| g.len() == 1);
-    if single_column_series {
-        count_dense_flat(cols, var_cols, plan)
-    } else {
-        count_dense_grouped(cols, var_cols, plan)
+impl Joint {
+    #[inline]
+    fn get(&self, key: u64) -> u32 {
+        match self {
+            Joint::Dense(v) => v.get(key as usize).copied().unwrap_or(0),
+            Joint::Sparse(m) => m.get(&key).copied().unwrap_or(0),
+        }
     }
 }
 
-fn count_dense_flat(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) -> DenseCounts {
+/// Fused counting pass: each variable's mixed-radix code is computed inline and
+/// the joint, per-marginal and conditioning counts are incremented in one walk.
+/// The measure is summed within the same call (as in the pre-existing dense
+/// path) so the tables stay hot.
+///
+/// The joint is accumulated either in a dense table or in a hash map, chosen by
+/// [`DensePlan`]. The two are fully separate loops (see [`count_dense_flat`] and
+/// [`count_sparse_flat`]) so the dense path keeps its tight indexing.
+fn count(
+    cols: &[&[i32]],
+    var_cols: &[Vec<usize>],
+    plan: &DensePlan,
+) -> (Joint, Vec<u32>, Vec<u32>, f64) {
+    let flat = var_cols[..plan.n_series].iter().all(|g| g.len() == 1);
+    if plan.dense_joint {
+        let (joint, marginal, cond, global) = if flat {
+            count_dense_flat(cols, var_cols, plan)
+        } else {
+            count_dense_grouped(cols, var_cols, plan)
+        };
+        (Joint::Dense(joint), marginal, cond, global)
+    } else {
+        let (joint, marginal, cond, global) = if flat {
+            count_sparse_flat(cols, var_cols, plan)
+        } else {
+            count_sparse_grouped(cols, var_cols, plan)
+        };
+        (Joint::Sparse(joint), marginal, cond, global)
+    }
+}
+
+/// Dense single pass over the observations for the dominant shape: every series
+/// variable is a single raw column, the condition one or more. The joint,
+/// per-marginal and conditioning counts are incremented directly (no hashing,
+/// no datasets), then the measure is summed over the dense joint cells.
+fn count_dense_flat(
+    cols: &[&[i32]],
+    var_cols: &[Vec<usize>],
+    plan: &DensePlan,
+) -> (Vec<u32>, Vec<u32>, Vec<u32>, f64) {
     let mut joint = vec![0u32; plan.joint_len];
     let mut marginal = vec![0u32; plan.marginal_len];
     let mut cond = vec![0u32; plan.cond_range];
@@ -256,7 +332,8 @@ fn count_dense_flat(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) 
             marginal[o1 + y * cond_range + cond_code] += 1;
             cond[cond_code] += 1;
         }
-        return finish_counts(joint, marginal, cond, plan);
+        let global = finish_dense(plan, &marginal, &cond, &joint);
+        return (joint, marginal, cond, global);
     }
 
     for t in 0..plan.n {
@@ -274,11 +351,17 @@ fn count_dense_flat(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) 
         cond[cond_code] += 1;
     }
 
-    finish_counts(joint, marginal, cond, plan)
+    let global = finish_dense(plan, &marginal, &cond, &joint);
+    (joint, marginal, cond, global)
 }
 
+/// Dense single pass for grouped (embedded) series variables.
 #[allow(clippy::needless_range_loop)]
-fn count_dense_grouped(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePlan) -> DenseCounts {
+fn count_dense_grouped(
+    cols: &[&[i32]],
+    var_cols: &[Vec<usize>],
+    plan: &DensePlan,
+) -> (Vec<u32>, Vec<u32>, Vec<u32>, f64) {
     let mut joint = vec![0u32; plan.joint_len];
     let mut marginal = vec![0u32; plan.marginal_len];
     let mut cond = vec![0u32; plan.cond_range];
@@ -302,19 +385,116 @@ fn count_dense_grouped(cols: &[&[i32]], var_cols: &[Vec<usize>], plan: &DensePla
         cond[cond_code] += 1;
     }
 
-    finish_counts(joint, marginal, cond, plan)
+    let global = finish_dense(plan, &marginal, &cond, &joint);
+    (joint, marginal, cond, global)
 }
 
-/// Sum the measure over the dense joint cells.
-fn finish_counts(
-    joint: Vec<u32>,
-    marginal: Vec<u32>,
-    cond: Vec<u32>,
+/// Sparse single pass for the flat shape: the packed mixed-radix key is inserted
+/// into a hash map. Used when the joint is large relative to `N`.
+fn count_sparse_flat(
+    cols: &[&[i32]],
+    var_cols: &[Vec<usize>],
     plan: &DensePlan,
-) -> DenseCounts {
+) -> (FxHashMap<u64, u32>, Vec<u32>, Vec<u32>, f64) {
+    let mut joint: FxHashMap<u64, u32> = FxHashMap::default();
+    let mut marginal = vec![0u32; plan.marginal_len];
+    let mut cond = vec![0u32; plan.cond_range];
+
+    let series: Vec<(&[i32], i32)> = (0..plan.n_series)
+        .map(|i| {
+            let c = var_cols[i][0];
+            (cols[c], plan.col_min[c])
+        })
+        .collect();
+    let cond_cols: Vec<(&[i32], i32, usize)> = var_cols[plan.n_series]
+        .iter()
+        .map(|&c| (cols[c], plan.col_min[c], plan.col_stride[c]))
+        .collect();
+    let var_stride = &plan.var_joint_stride;
+    let marginal_off = &plan.marginal_off;
+    let cond_range = plan.cond_range;
+    let cond_joint_stride = plan.var_joint_stride[plan.n_series] as u64;
+
+    if plan.n_series == 2 {
+        let (c0, m0) = series[0];
+        let (c1, m1) = series[1];
+        let (s0, s1) = (var_stride[0] as u64, var_stride[1] as u64);
+        let (o0, o1) = (marginal_off[0], marginal_off[1]);
+        for t in 0..plan.n {
+            let mut cond_code = 0usize;
+            for &(col, mn, st) in &cond_cols {
+                cond_code += (col[t] - mn) as usize * st;
+            }
+            let x = (c0[t] - m0) as usize;
+            let y = (c1[t] - m1) as usize;
+            *joint
+                .entry(cond_code as u64 * cond_joint_stride + x as u64 * s0 + y as u64 * s1)
+                .or_insert(0) += 1;
+            marginal[o0 + x * cond_range + cond_code] += 1;
+            marginal[o1 + y * cond_range + cond_code] += 1;
+            cond[cond_code] += 1;
+        }
+        let global = finish_sparse(plan, &marginal, &cond, &joint);
+        return (joint, marginal, cond, global);
+    }
+
+    for t in 0..plan.n {
+        let mut cond_code = 0usize;
+        for &(col, mn, st) in &cond_cols {
+            cond_code += (col[t] - mn) as usize * st;
+        }
+        let mut key = cond_code as u64 * cond_joint_stride;
+        for (i, &(col, mn)) in series.iter().enumerate() {
+            let code = (col[t] - mn) as usize;
+            key += code as u64 * var_stride[i] as u64;
+            marginal[marginal_off[i] + code * cond_range + cond_code] += 1;
+        }
+        *joint.entry(key).or_insert(0) += 1;
+        cond[cond_code] += 1;
+    }
+
+    let global = finish_sparse(plan, &marginal, &cond, &joint);
+    (joint, marginal, cond, global)
+}
+
+/// Sparse single pass for grouped (embedded) series variables.
+#[allow(clippy::needless_range_loop)]
+fn count_sparse_grouped(
+    cols: &[&[i32]],
+    var_cols: &[Vec<usize>],
+    plan: &DensePlan,
+) -> (FxHashMap<u64, u32>, Vec<u32>, Vec<u32>, f64) {
+    let mut joint: FxHashMap<u64, u32> = FxHashMap::default();
+    let mut marginal = vec![0u32; plan.marginal_len];
+    let mut cond = vec![0u32; plan.cond_range];
+
+    let cond_cols = &var_cols[plan.n_series];
+    for t in 0..plan.n {
+        let mut cond_code = 0usize;
+        for &c in cond_cols {
+            cond_code += (cols[c][t] - plan.col_min[c]) as usize * plan.col_stride[c];
+        }
+        let mut key = cond_code as u64 * plan.var_joint_stride[plan.n_series] as u64;
+        for i in 0..plan.n_series {
+            let mut code = 0usize;
+            for &c in &var_cols[i] {
+                code += (cols[c][t] - plan.col_min[c]) as usize * plan.col_stride[c];
+            }
+            key += code as u64 * plan.var_joint_stride[i] as u64;
+            marginal[plan.marginal_off[i] + code * plan.cond_range + cond_code] += 1;
+        }
+        *joint.entry(key).or_insert(0) += 1;
+        cond[cond_code] += 1;
+    }
+
+    let global = finish_sparse(plan, &marginal, &cond, &joint);
+    (joint, marginal, cond, global)
+}
+
+/// Dense sum: scan the joint cell-by-cell with nested loops (no per-cell
+/// integer division) over precomputed log tables.
+fn finish_dense(plan: &DensePlan, marginal: &[u32], cond: &[u32], joint: &[u32]) -> f64 {
     let n_minus_1 = (plan.n_series as f64) - 1.0;
-    // Logs of the count tables are reused across every joint cell that touches
-    // them; computing them inline dominated the sum for small alphabets.
     let marginal_ln: Vec<f64> = marginal
         .iter()
         .map(|&c| if c > 0 { (c as f64).ln() } else { 0.0 })
@@ -326,8 +506,6 @@ fn finish_counts(
     let mut sum = 0.0_f64;
 
     if plan.n_series == 2 {
-        // Decode the joint layout with nested loops instead of per-cell
-        // integer division/modulo.
         let (r0, r1) = (plan.var_range[0], plan.var_range[1]);
         let (o0, o1) = (plan.marginal_off[0], plan.marginal_off[1]);
         let cond_range = plan.cond_range;
@@ -336,7 +514,7 @@ fn finish_counts(
             if cond[cc] == 0 {
                 continue;
             }
-            let cln = cond_ln[cc];
+            let clnc = cond_ln[cc];
             let jbase = cc * cond_joint_stride;
             for x in 0..r0 {
                 let mxl = marginal_ln[o0 + x * cond_range + cc];
@@ -345,45 +523,122 @@ fn finish_counts(
                     if jc == 0 {
                         continue;
                     }
-                    let local = (jc as f64).ln() + n_minus_1 * cln
+                    let lc = (jc as f64).ln() + n_minus_1 * clnc
                         - mxl
                         - marginal_ln[o1 + y * cond_range + cc];
-                    sum += jc as f64 * local;
+                    sum += jc as f64 * lc;
                 }
             }
         }
-    } else {
-        for (jidx, &jc_u) in joint.iter().enumerate() {
-            if jc_u == 0 {
-                continue;
-            }
-            let cond_code = (jidx / plan.var_joint_stride[plan.n_series]) % plan.cond_range;
-            let mut denom = 0.0;
-            for i in 0..plan.n_series {
-                let code = (jidx / plan.var_joint_stride[i]) % plan.var_range[i];
-                denom += marginal_ln[plan.marginal_off[i] + code * plan.cond_range + cond_code];
-            }
-            sum += jc_u as f64 * ((jc_u as f64).ln() + n_minus_1 * cond_ln[cond_code] - denom);
-        }
+        return sum / plan.n as f64;
     }
 
-    DenseCounts {
-        joint,
-        marginal,
-        cond,
-        global: sum / plan.n as f64,
+    for (jidx, &jc) in joint.iter().enumerate() {
+        if jc == 0 {
+            continue;
+        }
+        let cond_code = (jidx / plan.var_joint_stride[plan.n_series]) % plan.cond_range;
+        let mut denom = 0.0;
+        for i in 0..plan.n_series {
+            let code = (jidx / plan.var_joint_stride[i]) % plan.var_range[i];
+            denom += marginal_ln[plan.marginal_off[i] + code * plan.cond_range + cond_code];
+        }
+        sum += jc as f64 * ((jc as f64).ln() + n_minus_1 * cond_ln[cond_code] - denom);
     }
+    sum / plan.n as f64
 }
 
-/// Dense direct discrete conditional MI state (retains the inputs for local
-/// values).
+/// Sparse sum: only `O(N)` joint cells are occupied, so the logs of the
+/// (possibly large) marginal/conditioning tables are precomputed only while
+/// those tables are small and otherwise evaluated on demand for the cells that
+/// are actually present.
+fn finish_sparse(
+    plan: &DensePlan,
+    marginal: &[u32],
+    cond: &[u32],
+    joint: &FxHashMap<u64, u32>,
+) -> f64 {
+    const LOG_PRE_MAX: usize = 8192;
+    let n_minus_1 = (plan.n_series as f64) - 1.0;
+    let marginal_ln: Option<Vec<f64>> = (marginal.len() <= LOG_PRE_MAX).then(|| {
+        marginal
+            .iter()
+            .map(|&c| if c > 0 { (c as f64).ln() } else { 0.0 })
+            .collect()
+    });
+    let cond_ln: Option<Vec<f64>> = (cond.len() <= LOG_PRE_MAX).then(|| {
+        cond.iter()
+            .map(|&c| if c > 0 { (c as f64).ln() } else { 0.0 })
+            .collect()
+    });
+    let mln = |i: usize| -> f64 {
+        match &marginal_ln {
+            Some(v) => v[i],
+            None => {
+                if marginal[i] > 0 {
+                    (marginal[i] as f64).ln()
+                } else {
+                    0.0
+                }
+            }
+        }
+    };
+    let cln = |i: usize| -> f64 {
+        match &cond_ln {
+            Some(v) => v[i],
+            None => {
+                if cond[i] > 0 {
+                    (cond[i] as f64).ln()
+                } else {
+                    0.0
+                }
+            }
+        }
+    };
+    let mut sum = 0.0_f64;
+
+    // Two series: `var_joint_stride[0] == 1`, so the packed key decodes with one
+    // division plus a remainder, instead of the generic div/mod per series.
+    if plan.n_series == 2 {
+        let r0 = plan.var_range[0] as u64;
+        let s3 = plan.var_joint_stride[2] as u64;
+        let (o0, o1) = (plan.marginal_off[0], plan.marginal_off[1]);
+        let cond_range = plan.cond_range;
+        for (&key, &jc) in joint.iter() {
+            let cond_code = (key / s3) as usize;
+            let rem = key % s3;
+            let x = (rem % r0) as usize;
+            let y = (rem / r0) as usize;
+            let lc = (jc as f64).ln() + n_minus_1 * cln(cond_code)
+                - mln(o0 + x * cond_range + cond_code)
+                - mln(o1 + y * cond_range + cond_code);
+            sum += jc as f64 * lc;
+        }
+        return sum / plan.n as f64;
+    }
+
+    for (&key, &jc) in joint.iter() {
+        let cond_code =
+            ((key / plan.var_joint_stride[plan.n_series] as u64) % plan.cond_range as u64) as usize;
+        let mut denom = 0.0;
+        for i in 0..plan.n_series {
+            let code =
+                ((key / plan.var_joint_stride[i] as u64) % plan.var_range[i] as u64) as usize;
+            denom += mln(plan.marginal_off[i] + code * plan.cond_range + cond_code);
+        }
+        sum += jc as f64 * ((jc as f64).ln() + n_minus_1 * cln(cond_code) - denom);
+    }
+    sum / plan.n as f64
+}
+
+/// Direct discrete conditional MI state (retains the inputs for local values).
 pub(crate) struct DenseCmi {
     plan: DensePlan,
     /// All input columns, concatenated: column `c` is `vals[c*n .. (c+1)*n]`.
     vals: Vec<i32>,
     /// Column indices forming each variable (series 0.., then the condition).
     var_cols: Vec<Vec<usize>>,
-    joint_counts: Vec<u32>,
+    joint: Joint,
     marginal_counts: Vec<u32>,
     cond_counts: Vec<u32>,
     global: f64,
@@ -392,8 +647,8 @@ pub(crate) struct DenseCmi {
 impl DenseCmi {
     /// Build from `ndarray` column groups: `series[i]` is the i-th variable (one
     /// or more columns forming its embed), `cond` the condition group. Returns
-    /// `None` when the joint alphabet is too large. Non-contiguous (strided)
-    /// views are materialised.
+    /// `None` when the marginal tables would be too large. Non-contiguous
+    /// (strided) views are materialised.
     pub(crate) fn new(series: &[&[ArrayView1<i32>]], cond: &[ArrayView1<i32>]) -> Option<Self> {
         if series.is_empty() || cond.is_empty() {
             return None;
@@ -432,7 +687,7 @@ impl DenseCmi {
         alphabet: Option<usize>,
     ) -> Option<Self> {
         let plan = DensePlan::new(cols, var_cols, alphabet)?;
-        let counts = count_dense(cols, var_cols, &plan);
+        let (joint, marginal, cond, global) = count(cols, var_cols, &plan);
         let mut vals = Vec::with_capacity(cols.len() * plan.n);
         for c in cols {
             vals.extend_from_slice(c);
@@ -441,10 +696,10 @@ impl DenseCmi {
             plan,
             vals,
             var_cols: var_cols.to_vec(),
-            joint_counts: counts.joint,
-            marginal_counts: counts.marginal,
-            cond_counts: counts.cond,
-            global: counts.global,
+            joint,
+            marginal_counts: marginal,
+            cond_counts: cond,
+            global,
         })
     }
 
@@ -463,19 +718,18 @@ impl DenseCmi {
 
     fn local_at(&self, t: usize) -> f64 {
         let cond_code = self.code_at(self.plan.n_series, t);
-        let mut jidx = cond_code * self.plan.var_joint_stride[self.plan.n_series];
+        let mut key = cond_code as u64 * self.plan.var_joint_stride[self.plan.n_series] as u64;
         let mut denom = 0.0;
         for i in 0..self.plan.n_series {
             let code = self.code_at(i, t);
-            jidx += code * self.plan.var_joint_stride[i];
+            key += code as u64 * self.plan.var_joint_stride[i] as u64;
             denom += (self.marginal_counts
                 [self.plan.marginal_off[i] + code * self.plan.cond_range + cond_code]
                 as f64)
                 .ln();
         }
         let n_minus_1 = (self.plan.n_series as f64) - 1.0;
-        (self.joint_counts[jidx] as f64).ln()
-            + n_minus_1 * (self.cond_counts[cond_code] as f64).ln()
+        (self.joint.get(key) as f64).ln() + n_minus_1 * (self.cond_counts[cond_code] as f64).ln()
             - denom
     }
 
@@ -488,9 +742,9 @@ impl DenseCmi {
     }
 }
 
-/// Compute the dense direct CMI average without retaining any inputs.
+/// Compute the direct CMI average without retaining any inputs.
 ///
-/// Returns `None` when the joint alphabet exceeds [`DENSE_CMI_CAP`]; the caller
+/// Returns `None` only when the marginal tables would be too large; the caller
 /// then falls back to the generic estimator.
 pub(crate) fn dense_cmi_global(
     cols: &[&[i32]],
@@ -498,10 +752,11 @@ pub(crate) fn dense_cmi_global(
     alphabet: Option<usize>,
 ) -> Option<f64> {
     let plan = DensePlan::new(cols, var_cols, alphabet)?;
-    Some(count_dense(cols, var_cols, &plan).global)
+    let (_, _, _, global) = count(cols, var_cols, &plan);
+    Some(global)
 }
 
-/// Builder for the dense direct discrete-MLE conditional mutual information.
+/// Builder for the direct discrete-MLE conditional mutual information.
 ///
 /// Obtain one from [`MutualInformation::cmi_discrete_mle`],
 /// [`TransferEntropy::te_discrete_mle`] or
@@ -514,8 +769,10 @@ pub(crate) fn dense_cmi_global(
 /// - [`global_only`](Self::global_only) — a value-only [`DenseCmiGlobal`] that
 ///   retains no inputs and does not implement [`LocalValues`].
 ///
-/// Both fall back to the generic entropy-summation estimator when the joint
-/// alphabet is too large.
+/// The joint is counted densely while it is small relative to `N` and as a hash
+/// map otherwise; both give the same value, only the speed differs. Only a huge
+/// *marginal* table falls back to the generic estimator. See the module-level
+/// "Joint storage" notes above.
 ///
 /// [`LocalValues`]: crate::estimators::traits::LocalValues
 /// [`MutualInformation::cmi_discrete_mle`]: crate::estimators::mutual_information::MutualInformation::cmi_discrete_mle
@@ -601,6 +858,7 @@ impl<'a> DenseCmiBuilder<'a> {
 
     /// Conditional transfer-entropy embedding:
     /// `I(X_past; Y_t | Y_past, Z_past)`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_cte(
         source: &'a [i32],
         destination: &'a [i32],
@@ -728,7 +986,7 @@ impl<'a> DenseCmiBuilder<'a> {
     }
 }
 
-/// Global-only dense CMI result.
+/// Global-only direct CMI result.
 ///
 /// Deliberately does **not** implement [`LocalValues`](crate::estimators::traits::LocalValues):
 /// a global-only construction retains no per-sample inputs, so requesting local

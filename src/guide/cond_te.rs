@@ -137,10 +137,11 @@
 //! [`new_cte_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_cte_discrete_mle):
 //! it borrows the raw code columns, builds the history embeddings inline, skips
 //! the alphabet scan with `with_alphabet`, and drops the retained inputs with
-//! `global_only`. Because the discrete joint alphabet grows with the
-//! conditioning history, it falls back to the generic estimator beyond the
-//! internal dense cap. See
-//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//! `global_only`. Because the discrete joint alphabet grows quickly with the
+//! conditioning history ($base^4$ for CTE), the joint is counted densely while it
+//! is small relative to the sample count and as a hash map otherwise (identical
+//! values, only the speed differs — see
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder)).
 //!
 //! ```rust
 //! use infomeasure::estimators::entropy::GlobalValue;

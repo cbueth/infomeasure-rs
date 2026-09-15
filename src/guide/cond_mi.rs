@@ -74,10 +74,12 @@
 //! is the timing-optimised counterpart of
 //! [`new_cmi_discrete_mle`](crate::estimators::mutual_information::MutualInformation::new_cmi_discrete_mle):
 //! it borrows the raw code columns, skips the alphabet scan with `with_alphabet`,
-//! and drops the retained inputs with `global_only`, falling back to the generic
-//! estimator for large joint alphabets. Remember that the discrete CMI joint
-//! alphabet is the product of all variable and conditioning states. See
-//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
+//! and drops the retained inputs with `global_only`. The joint table is counted
+//! densely while it is small relative to the sample count and as a hash map
+//! otherwise (identical values, only the speed differs — see
+//! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder)).
+//! Remember that the discrete CMI joint alphabet is the product of all variable
+//! and conditioning states.
 //! ```rust
 //! use infomeasure::estimators::entropy::GlobalValue;
 //! use infomeasure::estimators::mutual_information::MutualInformation;

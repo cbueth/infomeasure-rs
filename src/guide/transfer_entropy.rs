@@ -144,8 +144,9 @@
 //! [`new_discrete_mle`](crate::estimators::transfer_entropy::TransferEntropy::new_discrete_mle):
 //! it borrows the raw code columns, builds the history embeddings inline, skips
 //! the alphabet scan with `with_alphabet`, and drops the retained inputs with
-//! `global_only`. It falls back to the generic estimator for large joint
-//! alphabets. See
+//! `global_only`. The joint table is counted densely while it is small relative
+//! to the sample count and as a hash map otherwise (identical values, only the
+//! speed differs). See
 //! [Performance Benchmarks](super::benchmarks#dense-direct-paths-and-the-known-alphabet-builder).
 //! ```rust
 //! use infomeasure::estimators::entropy::GlobalValue;
