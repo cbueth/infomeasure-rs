@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for the detailed infomeasure benchmark grid. Consumed by benches/utils/grid.rs (infomeasure-rs) and scripts/bench_packages/_grid.py (infomeasure-python). Axis names map to estimator parameters; `cross` selects the representative subset used for the cross-package comparison page; `langs` restricts a variant to specific infomeasure packages. NSB is intentionally absent from `method`: it is only defined in the undersampled regime and returns NaN (in both infomeasure-rs and infomeasure-python) on these non-undersampled datasets, so it cannot be compared here.",
+  "_comment": "Single source of truth for the detailed infomeasure benchmark grid. Consumed by benches/utils/grid.rs (infomeasure-rs) and scripts/bench_packages/_grid.py (infomeasure-python). Axis names map to estimator parameters; `cross` selects the representative subset used for the cross-package comparison page; `langs` restricts a variant to specific infomeasure packages. NSB is intentionally absent from `method`: it is only defined in the undersampled regime and returns NaN (in both infomeasure-rs and infomeasure-python) on these non-undersampled datasets, so it cannot be compared here. The kNN family is a single estimator per measure: entropy is Kozachenko-Leonenko (KL) and the rest are KSG; entries may override an axis, so entropy's KL uses k in {1,4,5,10} while the shared k axis stays {4,5}.",
   "sizes": {
     "cross": [100, 400, 1600, 6400, 12500],
     "detailed": [100, 200, 400, 800, 1600, 3200, 6400, 12500]
@@ -15,7 +15,6 @@
   "values": {
     "method": ["mle", "grassberger", "miller_madow", "ansb", "chao_shen", "chao_wang_jost", "shrink", "bayes", "bonachela", "zhang"],
     "k": [4, 5],
-    "kl_k": [1, 10],
     "bandwidth": [0.3, 0.5, 1.0, 1.5],
     "kernel": ["gaussian", "box"],
     "order": [2, 3, 4],
@@ -32,9 +31,8 @@
       { "approach": "discrete", "axes": ["method"] },
       { "approach": "ordinal", "axes": ["order"] },
       { "approach": "kernel", "axes": ["bandwidth", "kernel"] },
-      { "approach": "ksg", "axes": ["k"] },
-      { "approach": "kl_cheb", "axes": ["k"], "langs": ["rust"] },
-      { "approach": "kl_k", "axes": ["kl_k"], "langs": ["rust"] },
+      { "approach": "ksg", "axes": ["k"], "langs": ["rust"], "values": { "k": [1, 4, 5, 10] } },
+      { "approach": "ksg", "axes": ["k"], "langs": ["python"] },
       { "approach": "renyi", "axes": ["alpha", "k"] },
       { "approach": "tsallis", "axes": ["q", "k"] }
     ],
@@ -43,7 +41,6 @@
       { "approach": "ordinal", "axes": ["order"] },
       { "approach": "kernel", "axes": ["bandwidth", "kernel"] },
       { "approach": "ksg", "axes": ["k"] },
-      { "approach": "kl", "axes": ["k"], "langs": ["rust"] },
       { "approach": "renyi", "axes": ["alpha", "k"] },
       { "approach": "tsallis", "axes": ["q", "k"] }
     ],
@@ -52,7 +49,6 @@
       { "approach": "ordinal", "axes": ["order"] },
       { "approach": "kernel", "axes": ["bandwidth", "kernel"] },
       { "approach": "ksg", "axes": ["k"] },
-      { "approach": "kl", "axes": ["k"], "langs": ["rust"] },
       { "approach": "renyi", "axes": ["alpha", "k"] },
       { "approach": "tsallis", "axes": ["q", "k"] }
     ],
@@ -69,7 +65,6 @@
       { "approach": "ordinal", "axes": ["order"] },
       { "approach": "kernel", "axes": ["bandwidth", "kernel"] },
       { "approach": "ksg", "axes": ["k"] },
-      { "approach": "kl", "axes": ["k"], "langs": ["rust"] },
       { "approach": "renyi", "axes": ["alpha", "k"] },
       { "approach": "tsallis", "axes": ["q", "k"] }
     ]

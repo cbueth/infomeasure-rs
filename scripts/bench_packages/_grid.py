@@ -89,7 +89,9 @@ def variants(lang: str) -> list[dict]:
             if "langs" in entry and lang not in entry["langs"]:
                 continue
             axes = entry["axes"]
-            for combo_vals in product(*(values[a] for a in axes)):
+            # An entry may override a global axis' values (e.g. entropy's KL).
+            per_entry = entry.get("values", {})
+            for combo_vals in product(*(per_entry.get(a, values[a]) for a in axes)):
                 combo = dict(zip(axes, combo_vals))
                 v = {
                     "measure": measure,

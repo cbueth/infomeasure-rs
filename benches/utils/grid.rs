@@ -79,9 +79,6 @@ impl Variant {
                     format!("{m}::new_ksg")
                 }
             }
-            "kl" => format!("{m}::new_kl"),
-            "kl_cheb" => "Entropy::new_kl_1d.with_chebyshev".into(),
-            "kl_k" => "Entropy::new_kl_1d".into(),
             "renyi" => format!("{m}::new_renyi"),
             "tsallis" => format!("{m}::new_tsallis"),
             other => other.to_string(),
@@ -216,10 +213,18 @@ pub fn load(lang: &str) -> Grid {
             }
 
             let axes = entry["axes"].as_array().expect("axes");
+            // An entry may override a global axis' values (e.g. entropy's KL
+            // uses k ∈ {1,4,5,10} while the shared k axis stays {4,5}).
+            let per_entry = entry.get("values");
             let mut combos: Vec<BTreeMap<String, Value>> = vec![BTreeMap::new()];
             for axis in axes {
                 let axis = axis.as_str().expect("axis");
-                let axis_values = values[axis].as_array().expect("axis values").clone();
+                let axis_values = per_entry
+                    .and_then(|v| v.get(axis))
+                    .unwrap_or(&values[axis])
+                    .as_array()
+                    .expect("axis values")
+                    .clone();
                 let mut next = Vec::new();
                 for base in &combos {
                     for val in &axis_values {
