@@ -138,10 +138,13 @@
     </div>
     <div class="chart-wrap"><canvas id="a-chart"></canvas></div>
     <div class="section">
-      <p>Discrete MLE runtime as the alphabet (number of states) grows, at a fixed sample size
-        <span id="a-nNote">N</span>. A line ends where a package stops scaling: its dense table hit
-        the memory cap, or a size exceeded the time budget and larger N was skipped. Packages without
-        a known-alphabet discrete API infer it internally, as in the cross-package view.</p>
+      <p>Discrete MLE runtime vs sample size N at a fixed alphabet size (number of states,
+        <span id="a-nNote">alphabet = …</span>). A line ends where that package stopped: its dense
+        table hit the memory cap, or a size exceeded the time budget and larger N was skipped.
+        A <b>&#9656;</b> point on the infomeasure-rs line was computed by the generic sparse (hash-map)
+        engine rather than the dense direct table &mdash; infomeasure-rs switches above 2&#8304; joint
+        cells, so its cost scales with N instead of the alphabet, while JIDT's dense table is roughly
+        flat in N but grows with the alphabet.</p>
     </div>
   </div>
 </div>
@@ -187,7 +190,7 @@ const errorBars = {
 
 let CAT = null, REP = {}, PCOL = {}, MODE = 'cross', RESTORE = {};
 let crossChart = null, detailChart = null, alphaChart = null;
-const ALPHA = { measure: 'entropy', n: null, langs: {}, logY: true, logX: true };
+const ALPHA = { measure: 'cmi', states: null, langs: {}, logY: true, logX: true };
 
 // ======================= shared load =======================
 async function boot() {
@@ -476,11 +479,23 @@ function alphaAvailableMeasures() {
     (frag.benchmarks || []).forEach((e) => s.add(e.measure)));
   return [...s].sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
 }
-function alphaSizes(measure) {
+// Distinct alphabet sizes present for a measure.
+function alphaStates(measure) {
   const s = new Set();
   Object.values(CAT.alphabet || {}).forEach((frag) =>
-    (frag.benchmarks || []).forEach((e) => { if (e.measure === measure) s.add(e.params.n); }));
+    (frag.benchmarks || []).forEach((e) => { if (e.measure === measure && e.params.states != null) s.add(e.params.states); }));
   return [...s].sort((a, b) => a - b);
+}
+// infomeasure-rs computes the discrete CMI/TE/CTE via the dense direct table
+// only up to this many joint cells; above it the generic sparse (hash-map)
+// engine runs (mirrors DENSE_CMI_CAP in dense_cmi.rs). The joint table is
+// base^d; marking those points keeps the comparison honest.
+const ALPHA_DENSE_CAP = 1 << 20;
+const ALPHA_STATE_DIM = { entropy: 1, mi: 2, cmi: 3, te: 3, cte: 4 };
+function alphaUsesSparse(e) {
+  const d = ALPHA_STATE_DIM[e.measure];
+  const s = e.params.states;
+  return e.package === 'infomeasure-rs' && d && s && Math.pow(s, d) > ALPHA_DENSE_CAP;
 }
 function buildAlphaUI() {
   CAT.packages.forEach((p) => { ALPHA.langs[p.id] = true; });
@@ -488,23 +503,23 @@ function buildAlphaUI() {
   const ms = alphaAvailableMeasures();
   if (!ms.length) return;
   if (!ms.includes(ALPHA.measure)) ALPHA.measure = ms[0];
-  const sizes = alphaSizes(ALPHA.measure);
-  if (ALPHA.n == null || !sizes.includes(ALPHA.n)) ALPHA.n = sizes[sizes.length - 1] ?? null;
+  const states = alphaStates(ALPHA.measure);
+  if (ALPHA.states == null || !states.includes(ALPHA.states)) ALPHA.states = states[states.length - 1] ?? null;
   const mb = document.getElementById('a-measureBar');
   mb.innerHTML = `<span class="ml">Measure</span>` +
     ms.map((m) => `<button class="mtab${m === ALPHA.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
-    `<span class="ms"></span><span class="ml">N</span>` +
-    sizes.map((n) => `<button class="mtab${n === ALPHA.n ? ' active' : ''}" data-n="${n}">${n}</button>`).join('') +
+    `<span class="ms"></span><span class="ml">Alphabet</span>` +
+    states.map((s) => `<button class="mtab${s === ALPHA.states ? ' active' : ''}" data-states="${s}">${s}</button>`).join('') +
     `<span class="ms"></span><span class="ml">Packages</span>` +
     CAT.packages.map((p) => {
-      const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.n === ALPHA.n);
+      const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.states === ALPHA.states);
       const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
       return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;
     }).join('');
   mb.onclick = (e) => {
     const b = e.target.closest('.mtab'); if (!b) return;
     if (b.dataset.measure) ALPHA.measure = b.dataset.measure;
-    if (b.dataset.n) ALPHA.n = Number(b.dataset.n);
+    if (b.dataset.states) ALPHA.states = Number(b.dataset.states);
     buildAlphaUI(); renderAlpha();
   };
   mb.onchange = (e) => { if (e.target.matches('[data-pkg]')) { ALPHA.langs[e.target.dataset.pkg] = e.target.checked; renderAlpha(); } };
@@ -520,22 +535,24 @@ function buildAlphaUI() {
   };
 }
 function renderAlpha() {
-  const measure = ALPHA.measure, N = ALPHA.n;
+  const measure = ALPHA.measure, states = ALPHA.states;
   const byPkg = {};
   for (const [id, frag] of Object.entries(CAT.alphabet || {})) {
-    const list = (frag.benchmarks || []).filter((e) => e.measure === measure && e.params.n === N && e.params.states != null);
+    const list = (frag.benchmarks || []).filter((e) => e.measure === measure && e.params.states === states && e.params.n != null);
     if (list.length) byPkg[id] = list;
   }
   const ids = Object.keys(byPkg).filter((id) => ALPHA.langs[id]);
   const groups = ids.map((id) => ({
     id,
-    pts: byPkg[id].map((e) => ({ x: e.params.states, y: meanOf(e), _err: stdOf(e), e }))
+    pts: byPkg[id].map((e) => ({ x: e.params.n, y: meanOf(e), _err: stdOf(e), sparse: alphaUsesSparse(e), e }))
       .sort((a, b) => a.x - b.x),
   })).filter((g) => g.pts.length);
+  const sparse = groups.some((g) => g.pts.some((p) => p.sparse));
   document.getElementById('a-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
   document.getElementById('a-lineCount').textContent = `${groups.length} packages`;
-  document.getElementById('a-subtitle').textContent = `${MEASURE_LABELS[measure] || measure} · discrete MLE · N=${N}`;
-  const note = document.getElementById('a-nNote'); if (note) note.textContent = `N = ${N}`;
+  document.getElementById('a-subtitle').textContent =
+    `${MEASURE_LABELS[measure] || measure} · discrete MLE · alphabet ${states}` + (sparse ? ' · \u25ee = sparse engine' : '');
+  const note = document.getElementById('a-nNote'); if (note) note.textContent = `alphabet = ${states}`;
   if (alphaChart) alphaChart.destroy();
   if (!groups.length) { alphaChart = emptyChart('a-chart'); syncHash(); return; }
   const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -543,11 +560,12 @@ function renderAlpha() {
   const ds = groups.map((g) => ({
     label: g.id, data: g.pts.map((p) => ({ x: p.x, y: p.y, _err: p._err })),
     borderColor: PCOL[g.id] || packageColor(g.id), backgroundColor: (PCOL[g.id] || packageColor(g.id)) + '22',
-    pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, tension: 0.15, fill: false, showLine: true,
+    pointStyle: g.pts.map((p) => (p.sparse ? 'triangle' : 'circle')),
+    pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, tension: 0.15, fill: false, showLine: true,
   }));
   alphaChart = new Chart(document.getElementById('a-chart').getContext('2d'), {
     type: 'line', data: { datasets: ds }, plugins: [errorBars],
-    options: chartOptions('a-chart', { logY: ALPHA.logY, logX: ALPHA.logX, xTitle: 'alphabet (states)', yTitle: 'Time (s)', dm, gridCol, tickCol }),
+    options: chartOptions('a-chart', { logY: ALPHA.logY, logX: ALPHA.logX, xTitle: 'n', yTitle: 'Time (s)', dm, gridCol, tickCol }),
   });
   syncHash();
 }
@@ -804,7 +822,7 @@ function hashOf() {
     if (off.length) p.set('off', off.join(','));
   } else if (MODE === 'alpha') {
     p.set('am', ALPHA.measure);
-    if (ALPHA.n != null) p.set('an', ALPHA.n);
+    if (ALPHA.states != null) p.set('ab', ALPHA.states);
     p.set('aly', ALPHA.logY ? '1' : '0'); p.set('alx', ALPHA.logX ? '1' : '0');
     const off = Object.entries(ALPHA.langs).filter(([, v]) => !v).map(([k]) => k);
     if (off.length) p.set('aoff', off.join(','));
@@ -837,7 +855,7 @@ document.getElementById('shareBtn').onclick = () => {
   if (p.has('dlx')) DETAIL.logX = p.get('dlx') === '1';
   if (p.get('off')) RESTORE.crossOff = p.get('off').split(',').filter(Boolean);
   if (p.get('am')) ALPHA.measure = p.get('am');
-  if (p.get('an')) ALPHA.n = Number(p.get('an'));
+  if (p.get('ab')) ALPHA.states = Number(p.get('ab'));
   if (p.has('aly')) ALPHA.logY = p.get('aly') === '1';
   if (p.has('alx')) ALPHA.logX = p.get('alx') === '1';
   if (p.get('aoff')) RESTORE.alphaOff = p.get('aoff').split(',').filter(Boolean);
