@@ -125,8 +125,8 @@ steps:
       - event: [manual, tag, cron]
     commands:
       - cd /build
-      - . /usr/local/bin/init-nvidia-vulkan.sh || true
-      - vulkaninfo --summary 2>/dev/null | grep -q DISCRETE_GPU && echo "GPU: discrete adapter available" || echo "GPU: none (overlay step will be recorded as failed)"
+      - '. /usr/local/bin/init-nvidia-vulkan.sh || true'
+      - 'vulkaninfo --summary 2>/dev/null | grep -q DISCRETE_GPU && echo "discrete GPU available" || echo "no discrete GPU (the overlay step will be recorded as failed)"'
       - . /build/plan.env
       - |
         if [ "$ACTION" != "collect" ]; then
