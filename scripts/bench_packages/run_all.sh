@@ -201,14 +201,6 @@ if selected discreteentropyjl; then
     --budget "$AB_BUDGET" --seeds "$SEEDS"
   publish
 fi
-if selected rtransferentropy; then
-  echo "=== RTransferEntropy (alphabet) ==="
-  step rtransferentropy-alphabet Rscript "$SCRIPT_DIR/collect_rtransferentropy.R" \
-    --data-dir "$BENCH_DATA_DIR" --family alphabet \
-    --states "$AB_STATES" --sizes "$AB_SIZES" --caps "$AB_CAPS" \
-    --budget "$AB_BUDGET" --seeds "$SEEDS"
-  publish
-fi
 
 echo "=== merge ==="
 step merge "$PY" "$SCRIPT_DIR/merge_results.py"

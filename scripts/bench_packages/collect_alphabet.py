@@ -180,10 +180,12 @@ def collect(name: str, mod, version: str, measures: list[str], limitations: str,
                 if st["mean"] > ab["budget_s"]:
                     print(f"  -> {name} b{states} n={n} exceeded {ab['budget_s']}s; skipping larger N")
                     stopped = True
-                write_fragment(
-                    name, "python", version, benchmarks, seeds, cfg,
-                    fingerprint=fp, family=FAMILY, limitations=limitations,
-                )
+        # Flush per measure (not per entry) so a cancelled run resumes while
+        # keeping fragment writes infrequent.
+        write_fragment(
+            name, "python", version, benchmarks, seeds, cfg,
+            fingerprint=fp, family=FAMILY, limitations=limitations,
+        )
     write_fragment(
         name, "python", version, benchmarks, seeds, cfg,
         fingerprint=fp, family=FAMILY, limitations=limitations,

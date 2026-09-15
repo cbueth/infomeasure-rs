@@ -201,3 +201,5 @@ mean exceeds the budget. Datasets are
 `<measure>_discrete_b<states>_s<seed>_n<n>.bin` (`gen_datasets`, `DATA_VERSION`
 is part of the resume fingerprints). The site renders them in the "Alphabet
 scaling" view, and they are excluded from the merged `cross_package.json`.
+Only genuine discrete-MLE packages are collected: `syntropy` (kNN/continuous)
+and `RTransferEntropy` (quantile-binned continuous) are excluded.

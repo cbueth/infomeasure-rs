@@ -20,15 +20,6 @@ data_dir <- get_arg("--data-dir", Sys.getenv("BENCH_DATA_DIR", "target/bench-dat
 out <- get_arg("--out", file.path(data_dir, "results", "rtransferentropy.json"))
 sizes <- as.integer(strsplit(get_arg("--sizes", "100,400"), ",")[[1]])
 seeds <- as.numeric(strsplit(get_arg("--seeds", ""), ",")[[1]])
-family <- get_arg("--family", "main")
-states <- as.integer(strsplit(get_arg("--states", "5,10,25,50,200"), ",")[[1]])
-budget <- as.numeric(get_arg("--budget", "2.0"))
-caps <- list()
-for (pair in strsplit(get_arg("--caps", "te:200"), ",")[[1]]) {
-  kv <- strsplit(pair, ":")[[1]]
-  if (length(kv) == 2) caps[[kv[1]]] <- as.integer(kv[2])
-}
-cap_for <- function(m) if (is.null(caps[[m]])) 0L else caps[[m]]
 
 # Adaptive rounds, matching the other collectors (bounds CI wall time).
 short <- Sys.getenv("BENCH_SHORT", "0") %in% c("1", "true", "True")
@@ -64,70 +55,6 @@ stats_json <- function(times) {
 }
 
 entries <- character(0)
-
-if (family == "alphabet") {
-  alphabet_out <- get_arg("--out", file.path(data_dir, "results", "rtransferentropy_alphabet.json"))
-  for (st in states[states <= cap_for("te")]) {
-    stopped <- FALSE
-    for (n in sizes) {
-      if (stopped) break
-      times <- numeric(0)
-      value <- NA_real_
-      for (seed in seeds) {
-        path <- file.path(data_dir, sprintf("te_discrete_b%d_s%d_n%d.bin", st, as.integer(seed), n))
-        flat <- read_i32(path)
-        x <- flat[seq(1, length(flat), by = 2)]
-        y <- flat[seq(2, length(flat), by = 2)]
-        w0 <- proc.time()[["elapsed"]]
-        w <- 0L
-        repeat {
-          invisible(calc_te(x, y, n_bins = st))
-          w <- w + 1L
-          if (w >= warmup_max) break
-          if (warmup_budget > 0 && proc.time()[["elapsed"]] - w0 >= warmup_budget) break
-        }
-        t0 <- proc.time()[["elapsed"]]
-        k <- 0L
-        repeat {
-          s <- proc.time()[["elapsed"]]
-          value <- calc_te(x, y, n_bins = st)
-          times <- c(times, proc.time()[["elapsed"]] - s)
-          k <- k + 1L
-          if (k >= max_iters) break
-          if (k >= min_iters && iter_budget > 0 && proc.time()[["elapsed"]] - t0 >= iter_budget) break
-        }
-      }
-      cat(sprintf("  %7s b%-4d n=%-6d %9.3f ms\n", "te", st, n, mean(times) * 1e3))
-      entries <- c(entries, sprintf(paste0(
-        '{"id":"te/discrete/mle/b%d/n%d/rtransferentropy","package":"rtransferentropy",',
-        '"language":"r","measure":"te","approach":"discrete","function":"calc_te(n_bins=states)",',
-        '"representative":true,"params":{"n":%d,"states":%d,"k":null,"bandwidth":null,',
-        '"order":null,"delay":1,"alpha":null,"q":null,"dims":1,"method":"mle","kernel_type":null},',
-        '"statistics":%s,"value":%.12g,',
-        '"notes":"Quantile-binned (n_bins=states); nearest equivalent to the plug-in TE."}'
-      ), st, n, n, st, stats_json(times), value))
-      if (mean(times) > budget) {
-        cat(sprintf("  -> b%d n=%d exceeded %ss; skipping larger N\n", st, n, budget))
-        stopped <- TRUE
-      }
-    }
-  }
-  seeds_json <- paste(sprintf("%d", as.integer(seeds)), collapse = ",")
-  fragment <- sprintf(
-    paste0('{"meta":{"schema":2,"run_id":"fragment_rtransferentropy_alphabet",',
-           '"hardware":null,"runtime":{"threads":1,"adaptive":%s,"family":"alphabet","budget_s":%.3g},',
-           '"seeds":[%s],"packages":[{"id":"rtransferentropy","language":"r","version":"%s",',
-           '"limitations":"Shannon TE only; quantile-binned (n_bins=states)."}],',
-           '"coverage":[["te","discrete"]]},"benchmarks":[%s]}'),
-    if (short) "false" else "true", budget, seeds_json,
-    as.character(packageVersion("RTransferEntropy")), paste(entries, collapse = ",")
-  )
-  dir.create(dirname(alphabet_out), recursive = TRUE, showWarnings = FALSE)
-  writeLines(fragment, alphabet_out)
-  cat(sprintf("wrote %d entries to %s\n", length(entries), alphabet_out))
-  quit(save = "no")
-}
-
 for (n in sizes) {
   times <- numeric(0)
   value <- NA_real_
