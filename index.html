@@ -685,7 +685,7 @@ const DLANG_COLORS = {
   python: { discrete: '#ff7f00', kernel: '#e41a1c', kl: '#f781bf', ordinal: '#d4a017', renyi: '#a65628', tsallis: '#377eb8' },
 };
 const DISCRETE_COLORS = { mle: '#1f78b4', miller_madow: '#e31a1c', grassberger: '#33a02c', nsb: '#ff7f00', ansb: '#6a3d9a', chao_shen: '#b15928', chao_wang_jost: '#fb9a99', shrink: '#a6cee3', bayes: '#b2df8a', bonachela: '#fdbf6f', zhang: '#cab2d6' };
-const KL_COLORS = { KSG: '#984ea3', KL: '#c77dd6', 'KL-cheb': '#6a3d9a', 'KL-k': '#b15928' };
+const KL_COLORS = { KSG: '#984ea3', KL: '#c77dd6' };
 // Overview stays uncluttered: one estimator per family; Rényi/Tsallis and the
 // extra KL variants live in their own tabs.
 const OVERVIEW_APPROACHES = ['discrete', 'kernel', 'kl', 'ordinal'];
@@ -700,15 +700,13 @@ const DAPP_CFG = {
 };
 
 function subApproach(e) {
-  switch (e.approach) {
-    // For entropy, the kNN estimator *is* the Kozachenko–Leonenko one (no
-    // separate KSG), so label it KL rather than KSG.
-    case 'ksg': return e.measure === 'entropy' ? 'KL' : 'KSG';
-    case 'kl': return 'KL';
-    case 'kl_cheb': return 'KL-cheb';
-    case 'kl_k': return 'KL-k';
-    default: return '';
+  // The kNN family has one estimator name per measure: KL (Kozachenko-Leonenko)
+  // for entropy, KSG for the rest. `ksg` and the extra-k `kl_k` are the same
+  // Rust estimator, so they share the label; `kl`/`kl_cheb` are dropped upstream.
+  if (e.approach === 'ksg' || e.approach === 'kl_k') {
+    return e.measure === 'entropy' ? 'KL' : 'KSG';
   }
+  return '';
 }
 function buildDetailEntries() {
   DETAIL.entries = [];
@@ -718,6 +716,11 @@ function buildDetailEntries() {
       // NSB is only valid on undersampled data and returns no value here
       // (both implementations); exclude it from the detailed view.
       if (e.params && e.params.method === 'nsb') continue;
+      // The kNN family is one estimator per measure: entropy's Kozachenko-
+      // Leonenko (KL), and KSG for the rest. The Rust-only `kl` (a slower
+      // entropy-sum difference) and the `kl_cheb` norm variant are dropped so
+      // the tab shows a single, clearly-named estimator.
+      if (e.approach === 'kl' || e.approach === 'kl_cheb') continue;
       DETAIL.entries.push({ ...e, package: id, language: e.language, dapp: detailApproach(e), sub: subApproach(e) });
     }
   }
@@ -812,15 +815,10 @@ function renderDetail() {
     // Uncluttered: discrete MLE, one kernel (bw=0.5), one kNN/KL series per
     // language, ordinal. Rényi/Tsallis and the KL variants live in their tabs.
     const defs = { kernel: { key: 'bandwidth', val: '0.5' }, ordinal: { key: 'order', val: '3' } };
-    const langsWithKl = new Set(entries.filter((e) => e.dapp === 'kl' && e.approach === 'kl').map((e) => e.language));
     entries = entries.filter((e) => {
       if (e.dapp === 'discrete') return e.params.method === 'mle';
-      if (e.dapp === 'kl') {
-        if (String(e.params.k) !== '4') return false;
-        if (e.approach !== 'kl' && e.approach !== 'ksg') return false;
-        if (e.approach === 'ksg' && langsWithKl.has(e.language)) return false; // prefer KL
-        return true;
-      }
+      // One kNN/KL line per language, at the common k=4.
+      if (e.dapp === 'kl') return String(e.params.k) === '4' && e.approach === 'ksg';
       if (e.dapp === 'renyi' || e.dapp === 'tsallis') return false;
       const d = defs[e.dapp]; if (!d) return true;
       if (e.params[d.key] != null && String(e.params[d.key]) !== d.val) return false;
@@ -836,13 +834,15 @@ function renderDetail() {
       parts.push(`${key}=${e.params[key]}`);
     }
     const appLabel = DETAIL_APPROACH_LABELS[e.dapp] || e.dapp;
-    const sub = (e.dapp === 'kl' && e.sub) ? ` ${e.sub}` : '';
+    // Legend shows the estimator name (KL/KSG on the kNN tab, the tab label
+    // otherwise), without repeating the tab name in every series.
+    const estName = (e.dapp === 'kl' && e.sub) ? e.sub : appLabel;
     const show = [];
     if (e.params.method && e.dapp !== 'kl') show.push(e.params.method);
     if (e.params.kernel_type) show.push(e.params.kernel_type);
     for (const p of parts) { const k = p.split('=')[0]; if (k === 'kernel_type' || k === 'method') continue; show.push(p); }
     const suff = show.length ? ` (${show.join(', ')})` : '';
-    const label = `${e.language.charAt(0).toUpperCase() + e.language.slice(1)} ${appLabel}${sub}${suff}`;
+    const label = `${e.language.charAt(0).toUpperCase() + e.language.slice(1)} ${estName}${suff}`;
     if (!groups[label]) groups[label] = { lang: e.language, dapp: e.dapp, sub: e.sub, method: e.params.method, label, pts: [] };
     const xv = e.params[DETAIL.x];
     if (xv != null) groups[label].pts.push({ x: Number(xv), y: meanOf(e), _err: stdOf(e), e });

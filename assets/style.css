@@ -36,15 +36,22 @@ select { padding: 3px 6px; font-size: 11px; border: 1px solid #ddd; border-radiu
 .chart-wrap canvas { width: 100% !important; height: 400px !important; }
 
 /* Wide-screen layout: chart on the left, controls + packages in a right rail.
-   On narrow screens the rail stacks above the chart, so the controls come first
-   (as before the rail existed). */
+   Below the breakpoint the rail flattens back into compact, borderless inline
+   rows above the chart (as before the rail existed). */
 .chart-layout { display: flex; flex-direction: column; }
 .chart-col { min-width: 0; }
 .side-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px 20px; order: -1; }
 .side-block { border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; }
 .side-title { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px; }
 .side-panel .ctrl-bar { border-bottom: none; padding: 0; min-height: 0; }
-.pkg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px 6px; }
+.pkg-list { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+@media (max-width: 1099px) {
+  .side-panel { gap: 2px; padding: 6px 20px; }
+  .side-block { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+    border: none; border-radius: 0; padding: 0 0 4px; }
+  .side-title { margin: 0 2px 0 0; }
+  .pkg-list { display: inline-flex; }
+}
 @media (min-width: 1100px) {
   .chart-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); align-items: start; }
   .side-panel { order: 0; border-left: 1px solid #eee; padding-left: 16px; }
