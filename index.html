@@ -23,6 +23,7 @@
         <button class="tbtn mode-btn" data-mode="detail">infomeasure detailed</button>
         <button class="tbtn mode-btn" data-mode="alpha">Alphabet scaling</button>
       </span>
+      <button class="tbtn" id="gpuToggle" title="Use infomeasure-rs GPU numbers where a GPU path exists (kernel estimators above the dispatch gate); every other line stays CPU">GPU</button>
       <span class="header-right">
         <span class="nav-links">
           <a href="https://codeberg.org/cbueth/infomeasure-rs" target="_blank" rel="noopener">Repository</a>
@@ -57,10 +58,6 @@
           </span>
         </div>
         <div class="chart-wrap"><canvas id="c-chart"></canvas></div>
-        <button class="table-toggle" id="c-tableToggle" aria-expanded="false"><span class="caret">&#9656;</span> Show benchmark table (exact numbers)</button>
-        <div class="table-wrap" id="c-tableWrap" style="display:none">
-          <table><thead><tr id="c-tableHead"></tr></thead><tbody id="c-tableBody"></tbody></table>
-        </div>
       </div>
       <aside class="side-panel">
         <div class="side-block">
@@ -72,6 +69,10 @@
           <div class="ctrl-bar" id="c-ctrlBar"></div>
         </div>
       </aside>
+    </div>
+    <button class="table-toggle" id="c-tableToggle" aria-expanded="false"><span class="caret">&#9656;</span> Show benchmark table (exact numbers)</button>
+    <div class="table-wrap" id="c-tableWrap" style="display:none">
+      <table><thead><tr id="c-tableHead"></tr></thead><tbody id="c-tableBody"></tbody></table>
     </div>
 
     <div class="section" id="cov">
@@ -110,7 +111,13 @@
         <code>NUMEXPR_NUM_THREADS=1</code>, <code>RAYON_NUM_THREADS=1</code> and
         <code>VECLIB_MAXIMUM_THREADS=1</code>. The Python implementations additionally run with
         <code>workers=1</code>. All packages use the same seeds, the same input sizes and the same
-        estimator parameters, and only CPU numbers are shown here.</p>
+        estimator parameters.</p>
+      <p>With the <strong>GPU</strong> toggle on, infomeasure-rs kernel estimators above their
+        dispatch gate (Gaussian ≥500, box ≥2000 points) use their GPU numbers via wgpu, and every
+        other line &mdash; other packages and every non-eligible cell &mdash; keeps its CPU number.
+        The toggle therefore contrasts infomeasure-rs <em>GPU</em> against the CPU baseline, not a
+        GPU-vs-GPU run: no other profiled toolkit has a comparable single-estimate GPU path
+        (JIDT's CUDA path accelerates surrogate significance testing, not one estimate).</p>
       <p><strong>On this page, "discrete" refers to the maximum-likelihood (MLE) estimator only.</strong>
         The full detailed comparison covers all bias-corrected estimators, ordinal patterns, several
         kernel bandwidths, the KL and KSG families, and the Rényi and Tsallis entropies across
@@ -130,16 +137,24 @@
           <span id="d-subtitle" style="font-style:italic"></span>
         </div>
         <div class="chart-wrap"><canvas id="d-chart"></canvas></div>
-        <div class="table-wrap">
-          <table><thead><tr id="d-tableHead"></tr></thead><tbody id="d-tableBody"></tbody></table>
-        </div>
       </div>
       <aside class="side-panel">
+        <div class="side-block">
+          <div class="side-title">Languages</div>
+          <div class="pkg-list" id="d-langList"></div>
+        </div>
+        <div class="side-block">
+          <div class="side-title">Approaches</div>
+          <div class="pkg-list" id="d-appList"></div>
+        </div>
         <div class="side-block">
           <div class="side-title">Display</div>
           <div class="ctrl-bar" id="d-ctrlBar"></div>
         </div>
       </aside>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr id="d-tableHead"></tr></thead><tbody id="d-tableBody"></tbody></table>
     </div>
     <div class="section">
       <p>These are the detailed infomeasure-native numbers (Rust vs Python) across every estimator
@@ -167,8 +182,12 @@
           <div class="pkg-list" id="a-pkgList"></div>
         </div>
         <div class="side-block">
-          <div class="side-title">Alphabet &amp; scale</div>
+          <div class="side-title">Display</div>
           <div class="ctrl-bar" id="a-ctrlBar"></div>
+        </div>
+        <div class="side-block">
+          <div class="side-title">Alphabet (states)</div>
+          <div class="ctrl-bar" id="a-alphaBar"></div>
         </div>
       </aside>
     </div>
@@ -226,6 +245,10 @@ const errorBars = {
 
 let CAT = null, REP = {}, PCOL = {}, MODE = 'cross', RESTORE = {};
 let crossChart = null, detailChart = null, alphaChart = null;
+// GPU overlay: when on, infomeasure-rs kernel entries above the dispatch gate
+// use the numbers from `data/infomeasure-rs_gpu.json`; every other line/cell
+// keeps its CPU number.
+let GPU_MODE = false, GPU_BY_ID = {}, HAS_GPU = false;
 const ALPHA = { measure: 'cmi', states: null, langs: {}, logY: true, logX: true };
 
 // ======================= shared load =======================
@@ -236,6 +259,12 @@ async function boot() {
     REP[id] = (frag.benchmarks || []).filter((e) => isRepresentative(e) && mainApproach(e));
   }
   buildDetailEntries();
+
+  GPU_BY_ID = {};
+  const gpuFrag = CAT.gpu && CAT.gpu['infomeasure-rs'];
+  if (gpuFrag) for (const e of gpuFrag.benchmarks || []) GPU_BY_ID[e.id] = e;
+  HAS_GPU = Object.keys(GPU_BY_ID).length > 0;
+  if (!HAS_GPU) GPU_MODE = false;
 
   PCOL = makeColorMap(CAT.packages.map((p) => p.id));
   DETAIL.apps = {};
@@ -272,6 +301,7 @@ async function boot() {
   buildAlphaUI();
   const modeParam = new URLSearchParams(location.hash.slice(1)).get('mode');
   setMode(['detail', 'alpha'].includes(modeParam) ? modeParam : 'cross', true);
+  updateGpuToggle();
 }
 
 function setMode(m, skipHash) {
@@ -280,6 +310,7 @@ function setMode(m, skipHash) {
   document.getElementById('detailUI').style.display = m === 'detail' ? '' : 'none';
   document.getElementById('alphaUI').style.display = m === 'alpha' ? '' : 'none';
   document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
+  updateGpuToggle();
   if (m === 'cross') {
     if (detailChart) { detailChart.destroy(); detailChart = null; }
     if (alphaChart) { alphaChart.destroy(); alphaChart = null; }
@@ -299,6 +330,24 @@ function setMode(m, skipHash) {
 document.querySelectorAll('.mode-btn').forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
 document.querySelectorAll('.to-detail').forEach((a) => { a.onclick = (e) => { e.preventDefault(); setMode('detail'); }; });
 
+// CPU/GPU toggle. Only shown when a GPU fragment was published (there is only
+// one, for infomeasure-rs) and hidden in the alphabet view, which is discrete
+// MLE and has no GPU path.
+function updateGpuToggle() {
+  const b = document.getElementById('gpuToggle');
+  if (!b) return;
+  b.style.display = HAS_GPU && MODE !== 'alpha' ? '' : 'none';
+  b.classList.toggle('active', GPU_MODE);
+  b.textContent = GPU_MODE ? 'GPU \u2713' : 'GPU';
+}
+document.getElementById('gpuToggle').onclick = () => {
+  GPU_MODE = !GPU_MODE;
+  updateGpuToggle();
+  if (MODE === 'cross') renderCross();
+  else if (MODE === 'detail') renderDetail();
+  history.replaceState(null, '', '#' + hashOf());
+};
+
 // ==================================================================
 // ======================= CROSS-PACKAGE ============================
 // ==================================================================
@@ -308,10 +357,20 @@ function measuresAvailable() {
   const s = new Set(); Object.values(REP).forEach((b) => b.forEach((e) => s.add(e.measure)));
   return [...s].sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
 }
+// Replace an entry's statistics with the GPU overlay when one exists. The GPU
+// fragment is sparse (kernel estimators above the dispatch gate); every other
+// entry keeps its CPU number, so the comparison stays honest.
+function gpuOverlay(e) {
+  if (!GPU_MODE || e.package !== 'infomeasure-rs') return e;
+  const g = GPU_BY_ID[e.id];
+  return g ? { ...e, statistics: g.statistics, value: g.value, _gpu: true } : e;
+}
 function crossEntries(measure, approach) {
   const map = {};
   for (const [id, b] of Object.entries(REP)) {
-    const list = b.filter((e) => e.measure === measure && mainApproach(e) === approach);
+    const list = b
+      .filter((e) => e.measure === measure && mainApproach(e) === approach)
+      .map(gpuOverlay);
     if (list.length) map[id] = list;
   }
   return map;
@@ -349,8 +408,8 @@ function buildCrossCtrlBar() {
   cb.innerHTML =
     `<span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button>` +
     `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="c-scaleXBtn"><span class="sopt${CROSS.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logX ? '' : ' on'}">Lin</span></button>` +
-    `<label class="chk" style="margin-left:6px"><input type="checkbox" id="c-relChk"${CROSS.relative ? ' checked' : ''}> relative to infomeasure-rs</label>` +
-    `<button class="tbtn" id="c-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
+    `<button class="tbtn" id="c-resetZoom" style="margin-left:6px">Reset Zoom</button>` +
+    `<label class="chk" style="margin-left:6px"><input type="checkbox" id="c-relChk"${CROSS.relative ? ' checked' : ''}> relative to infomeasure-rs</label>`;
   cb.onclick = (e) => {
     if (e.target.closest('#c-scaleYBtn')) { CROSS.logY = !CROSS.logY; buildCrossCtrlBar(); renderCross(); }
     else if (e.target.closest('#c-scaleXBtn')) { CROSS.logX = !CROSS.logX; buildCrossCtrlBar(); renderCross(); }
@@ -438,7 +497,7 @@ function renderCross() {
   }).filter((g) => g.pts.length);
   document.getElementById('c-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
   document.getElementById('c-lineCount').textContent = `${groups.length} packages`;
-  document.getElementById('c-subtitle').textContent = `${MEASURE_LABELS[CROSS.measure] || CROSS.measure} · ${MAIN_APPROACH_LABELS[CROSS.approach]}` + (CROSS.relative ? ' · relative to infomeasure-rs' : '');
+  document.getElementById('c-subtitle').textContent = `${MEASURE_LABELS[CROSS.measure] || CROSS.measure} · ${MAIN_APPROACH_LABELS[CROSS.approach]}` + (CROSS.relative ? ' · relative to infomeasure-rs' : '') + (GPU_MODE ? ' · GPU overlay (infomeasure-rs)' : '');
   if (crossChart) crossChart.destroy();
   if (!groups.length) { crossChart = emptyChart('c-chart'); fillCrossTable([]); syncHash(); return; }
   const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -556,15 +615,17 @@ function buildAlphaUI() {
   cb.innerHTML =
     `<span class="cl">Y</span><button class="scbtn" id="a-scaleYBtn"><span class="sopt${ALPHA.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logY ? '' : ' on'}">Lin</span></button>` +
     `<span class="cl" style="margin-left:6px">X</span><button class="scbtn" id="a-scaleXBtn"><span class="sopt${ALPHA.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${ALPHA.logX ? '' : ' on'}">Lin</span></button>` +
-    `<button class="tbtn" id="a-resetZoom" style="margin-left:4px">Reset Zoom</button>` +
-    `<span class="ms"></span><span class="ml">Alphabet</span>` +
-    states.map((s) => `<button class="mtab${s === ALPHA.states ? ' active' : ''}" data-states="${s}">${s}</button>`).join('');
+    `<button class="tbtn" id="a-resetZoom" style="margin-left:6px">Reset Zoom</button>`;
   cb.onclick = (e) => {
-    const b = e.target.closest('.mtab');
-    if (b && b.dataset.states) { ALPHA.states = Number(b.dataset.states); buildAlphaUI(); renderAlpha(); return; }
     if (e.target.closest('#a-scaleYBtn')) { ALPHA.logY = !ALPHA.logY; buildAlphaUI(); renderAlpha(); }
     else if (e.target.closest('#a-scaleXBtn')) { ALPHA.logX = !ALPHA.logX; buildAlphaUI(); renderAlpha(); }
     else if (e.target.closest('#a-resetZoom')) { alphaChart && alphaChart.resetZoom && alphaChart.resetZoom(); }
+  };
+  const ab = document.getElementById('a-alphaBar');
+  ab.innerHTML = states.map((s) => `<button class="mtab${s === ALPHA.states ? ' active' : ''}" data-states="${s}">${s}</button>`).join('');
+  ab.onclick = (e) => {
+    const b = e.target.closest('.mtab');
+    if (b && b.dataset.states) { ALPHA.states = Number(b.dataset.states); buildAlphaUI(); renderAlpha(); }
   };
 }
 function buildAlphaPkgList() {
@@ -682,20 +743,20 @@ function buildDetailMeasureBar() {
     .sort((a, b) => MEASURE_ORDER.indexOf(a) - MEASURE_ORDER.indexOf(b));
   if (!measures.includes(DETAIL.measure)) DETAIL.measure = measures[0] || 'entropy';
   const mb = document.getElementById('d-measureBar');
-  const approachCtl = view === 'overview'
-    ? `<span class="ms"></span><span class="ml">Approaches</span>` +
-      overviewPresent.map((a) => `<label class="app-chk" style="color:${DAPP_COLORS[a]}"><input type="checkbox" data-dapp="${a}"${DETAIL.apps[a] ? ' checked' : ''}> ${DETAIL_APPROACH_LABELS[a]}</label>`).join('')
-    : `<span class="ms"></span><span class="ml">Approach</span><span class="app-tag" style="color:${DAPP_COLORS[view]}">${DETAIL_APPROACH_LABELS[view]}</span>`;
   mb.innerHTML = `<span class="ml">Measure</span>` +
-    measures.map((m) => `<button class="mtab${m === DETAIL.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('') +
-    `<span class="ms"></span>` +
-    ['rust', 'python'].map((l) => `<label class="chk"><input type="checkbox" data-dlang="${l}"${DETAIL.langs[l] ? ' checked' : ''}> ${l.charAt(0).toUpperCase() + l.slice(1)}</label>`).join('') +
-    approachCtl;
+    measures.map((m) => `<button class="mtab${m === DETAIL.measure ? ' active' : ''}" data-measure="${m}">${MEASURE_LABELS[m] || m}</button>`).join('');
   mb.onclick = (e) => { const b = e.target.closest('.mtab'); if (!b) return; DETAIL.measure = b.dataset.measure; buildDetailMeasureBar(); renderDetail(); };
-  mb.onchange = (e) => {
-    if (e.target.matches('[data-dlang]')) { DETAIL.langs[e.target.dataset.dlang] = e.target.checked; renderDetail(); }
-    else if (e.target.matches('[data-dapp]')) { DETAIL.apps[e.target.dataset.dapp] = e.target.checked; buildDetailMeasureBar(); renderDetail(); }
-  };
+
+  // Languages and approaches live in the side rail.
+  const langEl = document.getElementById('d-langList');
+  langEl.innerHTML = ['rust', 'python'].map((l) => `<label class="chk"><input type="checkbox" data-dlang="${l}"${DETAIL.langs[l] ? ' checked' : ''}> ${l.charAt(0).toUpperCase() + l.slice(1)}</label>`).join('');
+  langEl.onchange = (e) => { if (e.target.matches('[data-dlang]')) { DETAIL.langs[e.target.dataset.dlang] = e.target.checked; renderDetail(); } };
+
+  const appEl = document.getElementById('d-appList');
+  appEl.innerHTML = view === 'overview'
+    ? overviewPresent.map((a) => `<label class="app-chk" style="color:${DAPP_COLORS[a]}"><input type="checkbox" data-dapp="${a}"${DETAIL.apps[a] ? ' checked' : ''}> ${DETAIL_APPROACH_LABELS[a]}</label>`).join('')
+    : `<span class="app-tag" style="color:${DAPP_COLORS[view]}">${DETAIL_APPROACH_LABELS[view]}</span>`;
+  appEl.onchange = (e) => { if (e.target.matches('[data-dapp]')) { DETAIL.apps[e.target.dataset.dapp] = e.target.checked; buildDetailMeasureBar(); renderDetail(); } };
 }
 function buildDetailCtrlBar() {
   const view = DETAIL.view, cfg = DAPP_CFG[view] || DAPP_CFG.overview;
@@ -742,7 +803,9 @@ function renderDetail() {
   const apps = view === 'overview' ? present.filter((a) => OVERVIEW_APPROACHES.includes(a) && DETAIL.apps[a]) : [view];
   const fltrs = {}; document.querySelectorAll('.dfltr').forEach((s) => { if (s.value) fltrs[s.dataset.key] = s.value; });
   const langs = Object.entries(DETAIL.langs).filter(([, v]) => v).map(([k]) => k);
-  let entries = DETAIL.entries.filter((e) => e.measure === DETAIL.measure && apps.includes(e.dapp) && langs.includes(e.language));
+  let entries = DETAIL.entries
+    .filter((e) => e.measure === DETAIL.measure && apps.includes(e.dapp) && langs.includes(e.language))
+    .map(gpuOverlay);
   for (const [k, v] of Object.entries(fltrs)) entries = entries.filter((e) => String(e.params[k]) === v);
 
   if (view === 'overview') {
@@ -793,6 +856,7 @@ function renderDetail() {
   const af = Object.entries(fltrs).map(([k, v]) => `${k}=${v}`); if (af.length) subParts.push(af.join(' · '));
   if (DETAIL.x !== 'n') subParts.push(`x=${DETAIL.x}`);
   subParts.push(langs.join('+') || 'none');
+  if (GPU_MODE) subParts.push('GPU overlay (infomeasure-rs)');
   document.getElementById('d-subtitle').textContent = subParts.join(' · ');
   if (detailChart) detailChart.destroy();
   if (!glist.length) { detailChart = emptyChart('d-chart'); fillDetailTable([]); syncHash(); return; }
@@ -828,12 +892,18 @@ function fillDetailTable(groups) {
 }
 
 // ======================= shared chart helpers =======================
+function fmtTick(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || Math.abs(n) < 1000) return String(v);
+  const k = n / 1000;
+  return (Number.isInteger(k) ? k : k.toFixed(1)) + 'k';
+}
 function chartOptions(id, o) {
   return {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode: 'nearest', intersect: false },
     scales: {
-      x: { type: o.logX ? 'logarithmic' : 'linear', title: { display: true, text: o.xTitle || 'n', font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { color: o.tickCol } },
+      x: { type: o.logX ? 'logarithmic' : 'linear', title: { display: true, text: o.xTitle || 'n', font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { color: o.tickCol, autoSkip: true, autoSkipPadding: 10, maxRotation: 60, minRotation: 0, maxTicksLimit: 12, callback: (v) => fmtTick(v) } },
       y: { type: o.logY ? 'logarithmic' : 'linear', title: { display: true, text: o.yTitle, font: { weight: 'bold' }, color: o.tickCol }, grid: { color: o.gridCol }, ticks: { callback: (v) => o.relative ? v : fmt(v), color: o.tickCol } },
     },
     color: o.dm ? '#ccc' : '#333',
@@ -859,6 +929,7 @@ function emptyChart(id) {
 function hashOf() {
   const p = new URLSearchParams();
   p.set('mode', MODE);
+  if (GPU_MODE) p.set('gpu', '1');
   if (MODE === 'cross') {
     p.set('v', CROSS.approach); p.set('m', CROSS.measure);
     p.set('ly', CROSS.logY ? '1' : '0'); p.set('lx', CROSS.logX ? '1' : '0'); p.set('r', CROSS.relative ? '1' : '0');
@@ -887,6 +958,7 @@ document.getElementById('shareBtn').onclick = () => {
 (function restore() {
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.get('mode')) MODE = p.get('mode');
+  if (p.get('gpu') === '1') GPU_MODE = true;
   if (p.get('v') && MAIN_APPROACHES.includes(p.get('v'))) CROSS.approach = p.get('v');
   if (p.get('m')) CROSS.measure = p.get('m');
   if (p.has('ly')) CROSS.logY = p.get('ly') === '1';

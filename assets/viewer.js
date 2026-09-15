@@ -80,13 +80,18 @@ async function loadCatalog() {
   const packages = reg.packages || [];
   const fragments = await Promise.all(packages.map((p) => fetchJSON(`./data/${p.id}.json`)));
   const alphabetFrags = await Promise.all(packages.map((p) => fetchJSON(`./data/${p.id}_alphabet.json`)));
+  // Optional sparse GPU overlay (`<id>_gpu.json`): only the kernel variants
+  // above the dispatch gate, for packages that have a GPU path.
+  const gpuFrags = await Promise.all(packages.map((p) => fetchJSON(`./data/${p.id}_gpu.json`)));
   const data = {};
   const alphabet = {};
+  const gpu = {};
   packages.forEach((p, i) => {
     if (fragments[i]) data[p.id] = fragments[i];
     if (alphabetFrags[i]) alphabet[p.id] = alphabetFrags[i];
+    if (gpuFrags[i]) gpu[p.id] = gpuFrags[i];
   });
-  return { registry: reg, packages, excluded: reg.excluded || [], data, alphabet };
+  return { registry: reg, packages, excluded: reg.excluded || [], data, alphabet, gpu };
 }
 
 function fragmentPackages(frag) {
