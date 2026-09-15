@@ -105,7 +105,9 @@ fn load_cols(measure: &str, states: i32, seed: u64, n: usize, dir: &Path) -> Vec
 /// Timed region: build + evaluate the discrete MLE estimator.
 fn run(measure: &str, states: usize, cols: &[Vec<i32>]) -> f64 {
     match measure {
-        "entropy" => Entropy::new_discrete_from_slice(&cols[0]).global_value(),
+        "entropy" => {
+            Entropy::new_discrete_from_slice_with_alphabet(&cols[0], states).global_value()
+        }
         "mi" => MutualInformation::mi_discrete_mle(&[&cols[0], &cols[1]])
             .with_alphabet(states)
             .global_only()

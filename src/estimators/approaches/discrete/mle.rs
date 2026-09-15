@@ -46,6 +46,15 @@ impl DiscreteEntropy {
         }
     }
 
+    /// Borrowed, global-value-only variant with a **known alphabet** (`0..alphabet`):
+    /// counts into a dense histogram in a single pass and computes the entropy
+    /// eagerly — the fast path the discrete benchmarks use.
+    pub fn from_slice_with_alphabet(data: &[i32], alphabet: usize) -> Self {
+        Self {
+            dataset: DiscreteDataset::from_borrowed_with_alphabet(data, alphabet),
+        }
+    }
+
     /// Build a vector of DiscreteEntropy estimators, one per row of a 2D array.
     pub fn from_rows(data: Array2<i32>) -> Vec<Self> {
         #[cfg(feature = "gpu")]
@@ -73,6 +82,10 @@ impl DiscreteEntropy {
 impl GlobalValue for DiscreteEntropy {
     /// Calculate global entropy for the data set.
     fn global_value(&self) -> f64 {
+        // The borrowed constructor precomputes this via a dense histogram.
+        if let Some(h) = self.dataset.entropy {
+            return h;
+        }
         let n_f = self.dataset.n as f64;
         // -sum(p * ln p). Order of iteration doesn't matter for sum.
         let mut h = 0.0_f64;
@@ -97,16 +110,16 @@ impl CrossEntropy for DiscreteEntropy {
     /// Cross-entropy H(P||Q) = -Σ_x p(x) ln q(x)
     fn cross_entropy(&self, other: &DiscreteEntropy) -> f64 {
         use std::collections::HashSet;
-        // Build sets of supports
-        let supp_p: HashSet<i32> = self.dataset.counts.keys().cloned().collect();
-        let supp_q: HashSet<i32> = other.dataset.counts.keys().cloned().collect();
+        // Probability look-ups (materialised for the borrowed/dense constructor).
+        let p_map = self.dataset.prob_map();
+        let q_map = other.dataset.prob_map();
+        let supp_p: HashSet<i32> = p_map.keys().cloned().collect();
+        let supp_q: HashSet<i32> = q_map.keys().cloned().collect();
         let inter: HashSet<i32> = supp_p.intersection(&supp_q).cloned().collect();
         if inter.is_empty() {
             return 0.0;
         }
 
-        let p_map = &self.dataset.dist;
-        let q_map = &other.dataset.dist;
         let mut h = 0.0_f64;
         for v in inter {
             if let (Some(&p), Some(&q)) = (p_map.get(&v), q_map.get(&v))

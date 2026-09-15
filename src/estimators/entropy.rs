@@ -350,6 +350,12 @@ impl Entropy {
         DiscreteEntropy::from_slice(data)
     }
 
+    /// Borrowed-input discrete entropy with a **known alphabet** (`0..alphabet`):
+    /// a single-pass dense histogram, the fast global-value path.
+    pub fn new_discrete_from_slice_with_alphabet(data: &[i32], alphabet: usize) -> DiscreteEntropy {
+        DiscreteEntropy::from_slice_with_alphabet(data, alphabet)
+    }
+
     /// Create a Miller–Madow bias-corrected discrete entropy estimator.
     ///
     /// The Miller-Madow correction adds $(K-1)/(2N)$ to the MLE estimate:

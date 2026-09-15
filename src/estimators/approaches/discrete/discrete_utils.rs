@@ -21,6 +21,12 @@ pub struct DiscreteDataset {
     /// Whether `data` holds the observations (local values available). False
     /// for the borrowed, global-value-only constructor.
     pub has_data: bool,
+    /// Global entropy (nats), precomputed when the borrowed constructor used a
+    /// dense histogram. `counts`/`dist` are then empty.
+    pub entropy: Option<f64>,
+    /// Dense histogram `(min, counts)` behind [`Self::entropy`], kept only for the
+    /// rare cross-entropy lookup on a borrowed dataset.
+    pub dense: Option<(i32, Vec<u32>)>,
 }
 
 impl DiscreteDataset {
@@ -41,6 +47,8 @@ impl DiscreteDataset {
             k,
             dist,
             has_data: true,
+            entropy: None,
+            dense: None,
         }
     }
 
@@ -60,6 +68,8 @@ impl DiscreteDataset {
             k,
             dist,
             has_data: true,
+            entropy: None,
+            dense: None,
         }
     }
 
@@ -71,9 +81,36 @@ impl DiscreteDataset {
     /// owns the input can `Entropy::new_discrete_from_slice(...)` a pre-loaded
     /// column without an N-copy per call.
     ///
+    /// When the values form a small non-negative range the counts are kept as a
+    /// dense histogram and the entropy is computed here, avoiding the hash map
+    /// (this path is what the discrete benchmarks time). `counts`/`dist` are
+    /// then empty; [`Self::prob_map`] materialises them if needed.
+    ///
     /// [`map_probs`]: Self::map_probs
     pub fn from_borrowed(data: &[i32]) -> Self {
         let n = data.len();
+        if let Some((min_v, dense)) = dense_histogram(data) {
+            let n_f = n as f64;
+            let mut h = 0.0_f64;
+            let mut k = 0usize;
+            for &c in &dense {
+                if c != 0 {
+                    k += 1;
+                    let p = c as f64 / n_f;
+                    h -= p * p.ln();
+                }
+            }
+            return Self {
+                data: Array1::zeros(0),
+                counts: FxHashMap::default(),
+                n,
+                k,
+                dist: FxHashMap::default(),
+                has_data: false,
+                entropy: Some(h),
+                dense: Some((min_v, dense)),
+            };
+        }
         let counts = count_frequencies_slice(data);
         let k = counts.len();
         let n_f = n as f64;
@@ -88,6 +125,8 @@ impl DiscreteDataset {
             k,
             dist,
             has_data: false,
+            entropy: None,
+            dense: None,
         }
     }
 
@@ -98,6 +137,91 @@ impl DiscreteDataset {
         }
         self.data.mapv(|v| self.dist[&v])
     }
+
+    /// Like [`Self::from_borrowed`], but with a known alphabet: the counts go
+    /// into a dense histogram of size `alphabet` in a **single pass** (no
+    /// min/max scan), and the entropy is computed eagerly. Falls back to
+    /// [`Self::from_borrowed`] if a value lies outside `0..alphabet`.
+    ///
+    /// Codes must be 0-based; this is the fast path the discrete benchmarks use.
+    pub fn from_borrowed_with_alphabet(data: &[i32], alphabet: usize) -> Self {
+        let n = data.len();
+        if alphabet == 0 || n == 0 {
+            return Self::from_borrowed(data);
+        }
+        let mut counts = vec![0u32; alphabet];
+        for &v in data {
+            match counts.get_mut(v as usize) {
+                Some(c) => *c += 1,
+                // Negative values wrap to a huge index; out-of-alphabet too.
+                None => return Self::from_borrowed(data),
+            }
+        }
+        let n_f = n as f64;
+        let mut h = 0.0_f64;
+        let mut k = 0usize;
+        for &c in &counts {
+            if c != 0 {
+                k += 1;
+                let p = c as f64 / n_f;
+                h -= p * p.ln();
+            }
+        }
+        Self {
+            data: Array1::zeros(0),
+            counts: FxHashMap::default(),
+            n,
+            k,
+            dist: FxHashMap::default(),
+            has_data: false,
+            entropy: Some(h),
+            dense: Some((0, counts)),
+        }
+    }
+
+    /// Probability look-up for cross-entropy, materialising it from the dense
+    /// histogram when the borrowed constructor skipped the maps.
+    pub fn prob_map(&self) -> FxHashMap<i32, f64> {
+        if let Some((min_v, dense)) = &self.dense {
+            let n_f = self.n as f64;
+            return dense
+                .iter()
+                .enumerate()
+                .filter(|&(_, &c)| c != 0)
+                .map(|(i, &c)| (min_v + i as i32, c as f64 / n_f))
+                .collect();
+        }
+        self.dist.clone()
+    }
+}
+
+/// Build a dense histogram `(min_value, counts)` for a non-negative value range
+/// small enough to be cheaper than a hash map; `None` otherwise.
+fn dense_histogram(data: &[i32]) -> Option<(i32, Vec<u32>)> {
+    if data.is_empty() {
+        return None;
+    }
+    let mut min_v = i32::MAX;
+    let mut max_v = i32::MIN;
+    for &v in data {
+        min_v = min_v.min(v);
+        max_v = max_v.max(v);
+    }
+    if min_v < 0 {
+        return None;
+    }
+    let range = (max_v - min_v) as usize + 1;
+    // 1-D histogram: a large alphabet is still cheap, but avoid an absurd
+    // allocation for sparse, wide-range data.
+    const MAX_DENSE_RANGE: usize = 1 << 20;
+    if range > MAX_DENSE_RANGE {
+        return None;
+    }
+    let mut counts = vec![0u32; range];
+    for &v in data {
+        counts[(v - min_v) as usize] += 1;
+    }
+    Some((min_v, counts))
 }
 
 /// Helper function to count the occurrences of each value in an array.
@@ -441,9 +565,24 @@ mod tests {
         let borrowed = DiscreteDataset::from_borrowed(&data);
         assert_eq!(owned.n, borrowed.n);
         assert_eq!(owned.k, borrowed.k);
-        assert_eq!(owned.counts, borrowed.counts);
+        // The borrowed constructor may keep a dense histogram and skip the maps;
+        // prob_map() materialises the same distribution either way.
+        assert_eq!(owned.prob_map(), borrowed.prob_map());
         assert!(owned.has_data && !borrowed.has_data);
         assert_eq!(borrowed.map_probs().len(), 0);
+        // The precomputed (dense) entropy matches the map-based value.
+        if let Some(h) = borrowed.entropy {
+            let n = owned.n as f64;
+            let h_owned: f64 = owned
+                .counts
+                .values()
+                .map(|&c| {
+                    let p = c as f64 / n;
+                    -p * p.ln()
+                })
+                .sum();
+            assert!((h - h_owned).abs() < 1e-12, "{h} vs {h_owned}");
+        }
     }
 
     #[test]

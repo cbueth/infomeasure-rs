@@ -83,7 +83,11 @@ fn run_variant(v: &Variant, data: &Loaded) -> f64 {
                 // MLE only needs the counts: borrow the pre-loaded column and
                 // skip the owned copy (global-value path).
                 if method == "mle" {
-                    return Entropy::new_discrete_from_slice(&cols[0]).global_value();
+                    return Entropy::new_discrete_from_slice_with_alphabet(
+                        &cols[0],
+                        NUM_STATES_DISCRETE as usize,
+                    )
+                    .global_value();
                 }
                 let x = a(0);
                 match method {
