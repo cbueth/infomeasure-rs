@@ -133,12 +133,10 @@ function mainApproach(e) {
   return null;
 }
 
-// Normalize a detailed entry's approach to one of DETAIL_APPROACHES.
-// KSG and the KL variants collapse into the "kl" tab, as the old viewer did.
+// Normalize a detailed entry's approach to one of DETAIL_APPROACHES. The kNN
+// family (KSG / Kozachenko-Leonenko) collapses into the "kl" tab.
 function detailApproach(e) {
-  const a = e.approach;
-  if (a === 'ksg' || a === 'kl' || a === 'kl_cheb' || a === 'kl_k') return 'kl';
-  return a;
+  return e.approach === 'ksg' ? 'kl' : e.approach;
 }
 
 function limitsOf(pkg, frag) {

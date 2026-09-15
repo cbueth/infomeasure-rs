@@ -685,9 +685,8 @@ const DLANG_COLORS = {
   python: { discrete: '#ff7f00', kernel: '#e41a1c', kl: '#f781bf', ordinal: '#d4a017', renyi: '#a65628', tsallis: '#377eb8' },
 };
 const DISCRETE_COLORS = { mle: '#1f78b4', miller_madow: '#e31a1c', grassberger: '#33a02c', nsb: '#ff7f00', ansb: '#6a3d9a', chao_shen: '#b15928', chao_wang_jost: '#fb9a99', shrink: '#a6cee3', bayes: '#b2df8a', bonachela: '#fdbf6f', zhang: '#cab2d6' };
-const KL_COLORS = { KSG: '#984ea3', KL: '#c77dd6' };
-// Overview stays uncluttered: one estimator per family; Rényi/Tsallis and the
-// extra KL variants live in their own tabs.
+// Overview stays uncluttered: one estimator per family; Rényi/Tsallis live in
+// their own tabs.
 const OVERVIEW_APPROACHES = ['discrete', 'kernel', 'kl', 'ordinal'];
 const DAPP_CFG = {
   overview: { xDflt: 'n', fltr: [], hide: ['k', 'bandwidth', 'order', 'delay', 'dims', 'method', 'alpha', 'q', 'kernel_type'] },
@@ -701,12 +700,8 @@ const DAPP_CFG = {
 
 function subApproach(e) {
   // The kNN family has one estimator name per measure: KL (Kozachenko-Leonenko)
-  // for entropy, KSG for the rest. `ksg` and the extra-k `kl_k` are the same
-  // Rust estimator, so they share the label; `kl`/`kl_cheb` are dropped upstream.
-  if (e.approach === 'ksg' || e.approach === 'kl_k') {
-    return e.measure === 'entropy' ? 'KL' : 'KSG';
-  }
-  return '';
+  // for entropy, KSG for the rest.
+  return e.approach === 'ksg' ? (e.measure === 'entropy' ? 'KL' : 'KSG') : '';
 }
 function buildDetailEntries() {
   DETAIL.entries = [];
@@ -716,11 +711,6 @@ function buildDetailEntries() {
       // NSB is only valid on undersampled data and returns no value here
       // (both implementations); exclude it from the detailed view.
       if (e.params && e.params.method === 'nsb') continue;
-      // The kNN family is one estimator per measure: entropy's Kozachenko-
-      // Leonenko (KL), and KSG for the rest. The Rust-only `kl` (a slower
-      // entropy-sum difference) and the `kl_cheb` norm variant are dropped so
-      // the tab shows a single, clearly-named estimator.
-      if (e.approach === 'kl' || e.approach === 'kl_cheb') continue;
       DETAIL.entries.push({ ...e, package: id, language: e.language, dapp: detailApproach(e), sub: subApproach(e) });
     }
   }
@@ -793,7 +783,8 @@ function buildDetailCtrlBar() {
 function detailColor(g) {
   if (DETAIL.view === 'overview') return DAPP_COLORS[g.dapp] || '#999';
   if (g.dapp === 'discrete' && g.method && DISCRETE_COLORS[g.method]) return DISCRETE_COLORS[g.method];
-  if (g.dapp === 'kl' && g.sub) return KL_COLORS[g.sub] || '#984ea3';
+  // Every non-discrete tab (including the kNN/KL one) colors per language; the
+  // line style (solid Rust / dashed Python) reinforces it.
   return (DLANG_COLORS[g.lang] || {})[g.dapp] || '#999';
 }
 function detailDash(g) {
@@ -843,7 +834,7 @@ function renderDetail() {
     for (const p of parts) { const k = p.split('=')[0]; if (k === 'kernel_type' || k === 'method') continue; show.push(p); }
     const suff = show.length ? ` (${show.join(', ')})` : '';
     const label = `${e.language.charAt(0).toUpperCase() + e.language.slice(1)} ${estName}${suff}`;
-    if (!groups[label]) groups[label] = { lang: e.language, dapp: e.dapp, sub: e.sub, method: e.params.method, label, pts: [] };
+    if (!groups[label]) groups[label] = { lang: e.language, dapp: e.dapp, method: e.params.method, label, pts: [] };
     const xv = e.params[DETAIL.x];
     if (xv != null) groups[label].pts.push({ x: Number(xv), y: meanOf(e), _err: stdOf(e), e });
   }
