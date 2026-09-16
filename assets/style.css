@@ -34,6 +34,10 @@ select { padding: 3px 6px; font-size: 11px; border: 1px solid #ddd; border-radiu
 .tbtn { padding: 3px 10px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; }
 .tbtn:hover { background: #f0f0f0; }
 .tbtn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+/* GPU toggle (in the Display block): green when on, like the old page. */
+.gpu-toggle { margin-right: 2px; }
+.gpu-toggle.active { background: #d4edda; color: #155724; border-color: #82b785; }
+.gpu-toggle.active:hover { background: #c3e0c5; }
 .chart-wrap { padding: 12px 20px; }
 .chart-wrap canvas { width: 100% !important; height: 400px !important; }
 
@@ -119,6 +123,8 @@ tr:hover { background: #f8f9fa; }
   .chk input { accent-color: #4d9aff; }
   .tbtn { background:#333; color:#ccc; border-color:#555; }
   .tbtn:hover { background:#444; }
+  .gpu-toggle.active { background:#1a3a2c; color:#7fc1a0; border-color:#2a5a3c; }
+  .gpu-toggle.active:hover { background:#1e4632; }
   .scbtn { border-color:#555; }
   .scbtn .sopt { background:#333; color:#888; }
   .scbtn .sopt.on { background:#0d6efd; color:#fff; }

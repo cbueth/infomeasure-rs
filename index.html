@@ -23,7 +23,6 @@
         <button class="tbtn mode-btn" data-mode="detail">infomeasure detailed</button>
         <button class="tbtn mode-btn" data-mode="alpha">Alphabet scaling</button>
       </span>
-      <button class="tbtn" id="gpuToggle" title="Use infomeasure-rs GPU numbers where a GPU path exists (kernel estimators above the dispatch gate); every other line stays CPU">GPU</button>
       <span class="header-right">
         <span class="nav-links">
           <a href="https://codeberg.org/cbueth/infomeasure-rs" target="_blank" rel="noopener">Repository</a>
@@ -112,12 +111,13 @@
         <code>VECLIB_MAXIMUM_THREADS=1</code>. The Python implementations additionally run with
         <code>workers=1</code>. All packages use the same seeds, the same input sizes and the same
         estimator parameters.</p>
-      <p>With the <strong>GPU</strong> toggle on, infomeasure-rs kernel estimators above their
-        dispatch gate (Gaussian ≥500, box ≥2000 points) use their GPU numbers via wgpu, and every
-        other line &mdash; other packages and every non-eligible cell &mdash; keeps its CPU number.
-        The toggle therefore contrasts infomeasure-rs <em>GPU</em> against the CPU baseline, not a
-        GPU-vs-GPU run: no other profiled toolkit has a comparable single-estimate GPU path
-        (JIDT's CUDA path accelerates surrogate significance testing, not one estimate).</p>
+      <p id="gpuNote" style="display:none">With <strong>GPU</strong> numbers on, infomeasure-rs kernel
+        estimators at <span id="gpuGates">the sizes where its GPU path is active</span> use GPU timings on
+        the benchmark adapter (<span id="gpuAdapter">the CI GPU</span>); every other line &mdash; other
+        packages and every non-eligible size &mdash; keeps its CPU number. So the toggle contrasts
+        infomeasure-rs <em>GPU</em> against the CPU baseline, not a GPU-vs-GPU run: no other profiled
+        toolkit has a comparable single-estimate GPU path (JIDT's CUDA path accelerates surrogate
+        significance testing, not one estimate).</p>
       <p><strong>On this page, "discrete" refers to the maximum-likelihood (MLE) estimator only.</strong>
         The full detailed comparison covers all bias-corrected estimators, ordinal patterns, several
         kernel bandwidths, the KL and KSG families, and the Rényi and Tsallis entropies across
@@ -264,7 +264,24 @@ async function boot() {
   const gpuFrag = CAT.gpu && CAT.gpu['infomeasure-rs'];
   if (gpuFrag) for (const e of gpuFrag.benchmarks || []) GPU_BY_ID[e.id] = e;
   HAS_GPU = Object.keys(GPU_BY_ID).length > 0;
-  if (!HAS_GPU) GPU_MODE = false;
+  // GPU numbers are on by default where they exist; `#gpu=0` turns them off.
+  GPU_MODE = HAS_GPU && RESTORE.gpu !== '0';
+  const gmeta = gpuFrag && gpuFrag.meta && gpuFrag.meta.gpu;
+  const gpuNote = document.getElementById('gpuNote');
+  if (gpuNote && HAS_GPU) {
+    gpuNote.style.display = '';
+    if (gmeta && gmeta.min_points) {
+      const { gaussian: g, box } = gmeta.min_points;
+      const gates = document.getElementById('gpuGates');
+      if (gates && g != null && box != null) {
+        gates.textContent = `N \u2265 ${g} (Gaussian) / \u2265 ${box} (box) points`;
+      }
+    }
+    const adapter = document.getElementById('gpuAdapter');
+    if (adapter && gmeta && gmeta.adapter) {
+      adapter.textContent = gmeta.adapter + (gmeta.backend ? `, ${gmeta.backend}` : '');
+    }
+  }
 
   PCOL = makeColorMap(CAT.packages.map((p) => p.id));
   DETAIL.apps = {};
@@ -301,7 +318,6 @@ async function boot() {
   buildAlphaUI();
   const modeParam = new URLSearchParams(location.hash.slice(1)).get('mode');
   setMode(['detail', 'alpha'].includes(modeParam) ? modeParam : 'cross', true);
-  updateGpuToggle();
 }
 
 function setMode(m, skipHash) {
@@ -310,7 +326,7 @@ function setMode(m, skipHash) {
   document.getElementById('detailUI').style.display = m === 'detail' ? '' : 'none';
   document.getElementById('alphaUI').style.display = m === 'alpha' ? '' : 'none';
   document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
-  updateGpuToggle();
+  updateGpuToggle(false);
   if (m === 'cross') {
     if (detailChart) { detailChart.destroy(); detailChart = null; }
     if (alphaChart) { alphaChart.destroy(); alphaChart = null; }
@@ -330,23 +346,26 @@ function setMode(m, skipHash) {
 document.querySelectorAll('.mode-btn').forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
 document.querySelectorAll('.to-detail').forEach((a) => { a.onclick = (e) => { e.preventDefault(); setMode('detail'); }; });
 
-// CPU/GPU toggle. Only shown when a GPU fragment was published (there is only
-// one, for infomeasure-rs) and hidden in the alphabet view, which is discrete
-// MLE and has no GPU path.
-function updateGpuToggle() {
-  const b = document.getElementById('gpuToggle');
+// GPU toggle, rendered inside the Display block of the cross/detail views. It
+// is shown only where the current selection actually has GPU numbers (`canGpu`).
+function gpuToggleHtml(id) {
+  const label = GPU_MODE ? 'GPU \u2713' : 'GPU';
+  return `<button class="tbtn gpu-toggle" id="${id}" style="display:none" title="Show infomeasure-rs GPU-accelerated numbers where available">${label}</button>`;
+}
+function updateGpuToggle(canGpu) {
+  const id = MODE === 'detail' ? 'd-gpuToggle' : 'c-gpuToggle';
+  const b = document.getElementById(id);
   if (!b) return;
-  b.style.display = HAS_GPU && MODE !== 'alpha' ? '' : 'none';
+  b.style.display = HAS_GPU && canGpu ? '' : 'none';
   b.classList.toggle('active', GPU_MODE);
   b.textContent = GPU_MODE ? 'GPU \u2713' : 'GPU';
 }
-document.getElementById('gpuToggle').onclick = () => {
+function toggleGpu() {
   GPU_MODE = !GPU_MODE;
-  updateGpuToggle();
   if (MODE === 'cross') renderCross();
   else if (MODE === 'detail') renderDetail();
   history.replaceState(null, '', '#' + hashOf());
-};
+}
 
 // ==================================================================
 // ======================= CROSS-PACKAGE ============================
@@ -406,11 +425,13 @@ function buildCrossPkgList() {
 function buildCrossCtrlBar() {
   const cb = document.getElementById('c-ctrlBar');
   cb.innerHTML =
-    `<span class="ctl"><span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button></span>` +
+    gpuToggleHtml('c-gpuToggle') +
+    `<span class="ctl" style="margin-left:6px"><span class="cl">Y</span><button class="scbtn" id="c-scaleYBtn"><span class="sopt${CROSS.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logY ? '' : ' on'}">Lin</span></button></span>` +
     `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><button class="scbtn" id="c-scaleXBtn"><span class="sopt${CROSS.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${CROSS.logX ? '' : ' on'}">Lin</span></button></span>` +
     `<button class="tbtn" id="c-resetZoom" style="margin-left:6px">Reset Zoom</button>` +
     `<label class="chk" style="margin-left:6px"><input type="checkbox" id="c-relChk"${CROSS.relative ? ' checked' : ''}> relative to infomeasure-rs</label>`;
   cb.onclick = (e) => {
+    if (e.target.closest('.gpu-toggle')) { toggleGpu(); return; }
     if (e.target.closest('#c-scaleYBtn')) { CROSS.logY = !CROSS.logY; buildCrossCtrlBar(); renderCross(); }
     else if (e.target.closest('#c-scaleXBtn')) { CROSS.logX = !CROSS.logX; buildCrossCtrlBar(); renderCross(); }
     else if (e.target.closest('#c-resetZoom')) { crossChart && crossChart.resetZoom && crossChart.resetZoom(); }
@@ -495,9 +516,12 @@ function renderCross() {
     }).filter(Boolean).sort((a, b) => a.x - b.x);
     return { id, pts };
   }).filter((g) => g.pts.length);
+  const usedGpu = groups.some((g) => g.pts.some((p) => p.e._gpu));
+  const canGpu = groups.some((g) => g.pts.some((p) => GPU_BY_ID[p.e.id]));
+  updateGpuToggle(canGpu);
   document.getElementById('c-entryCount').textContent = `${groups.reduce((s, g) => s + g.pts.length, 0)} points`;
   document.getElementById('c-lineCount').textContent = `${groups.length} packages`;
-  document.getElementById('c-subtitle').textContent = `${MEASURE_LABELS[CROSS.measure] || CROSS.measure} · ${MAIN_APPROACH_LABELS[CROSS.approach]}` + (CROSS.relative ? ' · relative to infomeasure-rs' : '') + (GPU_MODE ? ' · GPU overlay (infomeasure-rs)' : '');
+  document.getElementById('c-subtitle').textContent = `${MEASURE_LABELS[CROSS.measure] || CROSS.measure} · ${MAIN_APPROACH_LABELS[CROSS.approach]}` + (CROSS.relative ? ' · relative to infomeasure-rs' : '') + (GPU_MODE && usedGpu ? ' · GPU-accelerated (infomeasure-rs)' : '');
   if (crossChart) crossChart.destroy();
   if (!groups.length) { crossChart = emptyChart('c-chart'); fillCrossTable([]); syncHash(); return; }
   const dm = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -757,7 +781,7 @@ function buildDetailCtrlBar() {
   const cb = document.getElementById('d-ctrlBar');
   const xOpts = ['n', 'bandwidth', 'k', 'order', 'delay', 'dims', 'alpha', 'q'].filter((k) => !cfg.hide.includes(k) && DETAIL.entries.some((e) => apps.includes(e.dapp) && e.params[k] != null));
   if (!xOpts.includes(DETAIL.x)) DETAIL.x = xOpts.includes(cfg.xDflt) ? cfg.xDflt : (xOpts[0] || 'n');
-  let html = `<span class="ctl"><span class="cl">X</span><select id="d-xSel">` + xOpts.map((k) => `<option value="${k}"${k === DETAIL.x ? ' selected' : ''}>${k === 'n' ? 'size' : k}</option>`).join('') + `</select></span>`;
+  let html = gpuToggleHtml('d-gpuToggle') + `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><select id="d-xSel">` + xOpts.map((k) => `<option value="${k}"${k === DETAIL.x ? ' selected' : ''}>${k === 'n' ? 'size' : k}</option>`).join('') + `</select></span>`;
   html += `<span class="ctl" style="margin-left:6px"><span class="cl">Y</span><button class="scbtn" id="d-scaleYBtn"><span class="sopt${DETAIL.logY ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logY ? '' : ' on'}">Lin</span></button></span>`;
   html += `<span class="ctl" style="margin-left:6px"><span class="cl">X</span><button class="scbtn" id="d-scaleXBtn"><span class="sopt${DETAIL.logX ? ' on' : ''}">Log</span><span class="sdiv">|</span><span class="sopt${DETAIL.logX ? '' : ' on'}">Lin</span></button></span>`;
   html += `<button class="tbtn" id="d-resetZoom" style="margin-left:4px">Reset Zoom</button>`;
@@ -775,6 +799,7 @@ function buildDetailCtrlBar() {
     else if (e.target.matches('.dfltr')) { renderDetail(); }
   };
   cb.onclick = (e) => {
+    if (e.target.closest('.gpu-toggle')) { toggleGpu(); return; }
     if (e.target.closest('#d-scaleYBtn')) { DETAIL.logY = !DETAIL.logY; buildDetailCtrlBar(); renderDetail(); }
     else if (e.target.closest('#d-scaleXBtn')) { DETAIL.logX = !DETAIL.logX; buildDetailCtrlBar(); renderDetail(); }
     else if (e.target.closest('#d-resetZoom')) { detailChart && detailChart.resetZoom && detailChart.resetZoom(); }
@@ -840,6 +865,9 @@ function renderDetail() {
   }
   const glist = Object.values(groups).filter((g) => g.pts.length >= 2);
   glist.forEach((g) => g.pts.sort((a, b) => a.x - b.x));
+  const usedGpu = glist.some((g) => g.pts.some((p) => p.e._gpu));
+  const canGpu = glist.some((g) => g.pts.some((p) => GPU_BY_ID[p.e.id]));
+  updateGpuToggle(canGpu);
   document.getElementById('d-entryCount').textContent = `${glist.reduce((s, g) => s + g.pts.length, 0)} points`;
   document.getElementById('d-lineCount').textContent = `${glist.length} lines`;
   const subParts = [MEASURE_LABELS[DETAIL.measure] || DETAIL.measure];
@@ -847,7 +875,7 @@ function renderDetail() {
   const af = Object.entries(fltrs).map(([k, v]) => `${k}=${v}`); if (af.length) subParts.push(af.join(' · '));
   if (DETAIL.x !== 'n') subParts.push(`x=${DETAIL.x}`);
   subParts.push(langs.join('+') || 'none');
-  if (GPU_MODE) subParts.push('GPU overlay (infomeasure-rs)');
+  if (GPU_MODE && usedGpu) subParts.push('GPU-accelerated (infomeasure-rs)');
   document.getElementById('d-subtitle').textContent = subParts.join(' · ');
   if (detailChart) detailChart.destroy();
   if (!glist.length) { detailChart = emptyChart('d-chart'); fillDetailTable([]); syncHash(); return; }
@@ -920,7 +948,7 @@ function emptyChart(id) {
 function hashOf() {
   const p = new URLSearchParams();
   p.set('mode', MODE);
-  if (GPU_MODE) p.set('gpu', '1');
+  if (HAS_GPU) p.set('gpu', GPU_MODE ? '1' : '0');
   if (MODE === 'cross') {
     p.set('v', CROSS.approach); p.set('m', CROSS.measure);
     p.set('ly', CROSS.logY ? '1' : '0'); p.set('lx', CROSS.logX ? '1' : '0'); p.set('r', CROSS.relative ? '1' : '0');
@@ -949,7 +977,7 @@ document.getElementById('shareBtn').onclick = () => {
 (function restore() {
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.get('mode')) MODE = p.get('mode');
-  if (p.get('gpu') === '1') GPU_MODE = true;
+  if (p.has('gpu')) RESTORE.gpu = p.get('gpu');
   if (p.get('v') && MAIN_APPROACHES.includes(p.get('v'))) CROSS.approach = p.get('v');
   if (p.get('m')) CROSS.measure = p.get('m');
   if (p.has('ly')) CROSS.logY = p.get('ly') === '1';
