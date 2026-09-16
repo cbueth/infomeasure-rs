@@ -1579,7 +1579,7 @@ impl<const K: usize> KernelEntropy<K> {
     /// (the result-collection write/add/copy/push was ~26% of box kernel time).
     ///
     /// Queries are independent, so the loop is split across rayon workers above
-    /// [`PARALLEL_DENSITY_MIN_QUERIES`]. The GPU tier (wgpu) still owns this
+    /// the `PARALLEL_DENSITY_MIN_QUERIES` threshold. The GPU tier (wgpu) still owns this
     /// computation above its size gate — see `kde_probability_density` — and this
     /// CPU path only runs when the gate declined (below the gate, no adapter, or
     /// K≥32). Benchmarks pin `RAYON_NUM_THREADS=1`, keeping the single-thread
@@ -1625,8 +1625,8 @@ impl<const K: usize> KernelEntropy<K> {
     /// plain dot product. Identical density to `gaussian_kernel_density_cpu_mahalanobis`
     /// up to fp rounding (the transform is an isometry for the Mahalanobis metric).
     ///
-    /// Parallelised across queries with rayon (CPU branch only, see
-    /// [`PARALLEL_DENSITY_MIN_QUERIES`]); wgpu owns the large-N case above the gate.
+    /// Parallelised across queries with rayon (CPU branch only, see the
+    /// `PARALLEL_DENSITY_MIN_QUERIES` threshold); wgpu owns the large-N case above the gate.
     fn gaussian_kernel_density_cpu_whitened(&self, wtree: &KdTreeKernel<K>) -> Array1<f64> {
         let n = self.n_samples as f64;
         let bw = self.bandwidth;
@@ -2045,8 +2045,8 @@ mod tests {
         data
     }
 
-    /// The per-query density loops split across rayon workers above
-    /// [`PARALLEL_DENSITY_MIN_QUERIES`] when the `parallel` feature is on. Each
+    /// The per-query density loops split across rayon workers above the
+    /// `PARALLEL_DENSITY_MIN_QUERIES` threshold when the `parallel` feature is on. Each
     /// query writes one independent output, so the result must equal a
     /// straightforward sequential brute force (to fp tolerance) — pinning both
     /// the chunked and the sequential fallback path and catching a data race.
