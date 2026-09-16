@@ -86,7 +86,16 @@
 //!
 //! # Feature Flags
 //!
-//! - `gpu`: Enable GPU acceleration for kernel estimators
+//! - `gpu`: Enable GPU acceleration (wgpu) for kernel estimators and the
+//!   discrete histogram. Preferred for dense, large-N work on machines with a
+//!   hardware adapter.
+//! - `parallel`: Enable CPU data-parallelism (rayon) for query-parallel
+//!   estimator loops. Use it for GPU-less builds or below the GPU size gate.
+//!
+//! Both are opt-in and produce identical results to the plain CPU path; when
+//! both are enabled the GPU tier decides first and `parallel` only covers the
+//! CPU fallback. See the [Acceleration guide](crate::guide::performance) for
+//! the selection guidance and thread-count control.
 //!
 //! # Python Compatibility
 //!
@@ -98,6 +107,7 @@
 //!
 //! - [Estimator Usage Guide](crate::guide::estimator_usage) - How to use this crate
 //! - [Estimator Selection Guide](crate::guide::estimator_selection) - Choosing the right estimator
+//! - [Acceleration Guide](crate::guide::performance) - GPU (wgpu) vs CPU parallelism (rayon)
 //!
 //! For more details on the theory behind these measures, see the Python package documentation.
 //!

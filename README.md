@@ -27,7 +27,7 @@ High-performance Rust library for information-theoretic measures with multiple e
 `infomeasure-rs` computes **entropy**, **mutual information**, and **transfer entropy** from data using four different estimation strategies:
 
 - **Discrete**: For categorical data with 11+ bias-corrected estimators
-- **Kernel**: For continuous data with optional GPU acceleration
+- **Kernel**: For continuous data with optional GPU or CPU-parallel acceleration
 - **Ordinal**: For time series using permutation patterns
 - **Exponential Family**: For high-dimensional data using k-NN
 
@@ -58,13 +58,48 @@ println!("Kernel entropy: {}", kernel_entropy);
 
 ## Optional Features
 
-- **`gpu`**: Enable GPU-accelerated kernel density estimation. Useful for large
-  datasets with continuous variables (kernel approach) and batch processing.
+Two **opt-in accelerators** are available. Both are off by default and change
+*when*, not *what*, is computed — values are identical to the plain CPU path.
+
+- **`gpu`**: GPU acceleration (wgpu → Vulkan / Metal / DX12 / WebGPU) for kernel
+  density estimation and the discrete histogram. Preferred for large, dense
+  workloads on machines with a hardware adapter.
+- **`parallel`**: CPU multi-threading (rayon) for the query-parallel kernel
+  loops. Use it on GPU-less machines, or below the GPU size gate; the Gaussian
+  kernel gains roughly **6–8×** at a few thousand points on a multi-core CPU.
+
+Enable either, or both (when both are on, the GPU gate decides first and
+`parallel` only covers the CPU fallback):
 
 ```toml
 [dependencies]
-infomeasure = { version = "0.4.0", features = ["gpu"] }
+infomeasure = { version = "0.4.0", features = ["gpu"] }        # GPU
+# infomeasure = { version = "0.4.0", features = ["parallel"] } # CPU parallelism
+# infomeasure = { version = "0.4.0", features = ["gpu", "parallel"] } # both
 ```
+
+The API is unchanged — the accelerator is selected internally:
+
+```rust
+use infomeasure::estimators::entropy::Entropy;
+use infomeasure::estimators::traits::GlobalValue;
+use ndarray::Array1;
+
+// Identical code with or without `gpu` / `parallel`; only the runtime differs.
+let data = Array1::from((0..5000).map(|i| (i as f64 * 0.01).sin()).collect::<Vec<_>>());
+let value = Entropy::new_kernel_with_type(data, "gaussian".to_string(), 0.5).global_value();
+println!("Gaussian kernel entropy: {value}");
+```
+
+`parallel` uses rayon's global pool; bound it (e.g. to reproduce the
+single-threaded benchmark track) with `RAYON_NUM_THREADS`:
+
+```bash
+RAYON_NUM_THREADS=1 cargo run --release --features parallel
+```
+
+See the [Acceleration guide](https://docs.rs/infomeasure/latest/infomeasure/guide/performance/index.html)
+for the full selection guidance.
 
 ## Feature Status
 
@@ -105,6 +140,7 @@ in Rust for users who need:
 | Compile-time type safety via Rust's type system              | Runtime string-based approach selection |
 | Up to ~40x faster execution (detailled benchmarks to follow) | Flexible, scriptable interface |
 | GPU acceleration for kernel estimators                       | GPU support via numba |
+| Optional CPU multi-threading (rayon) for kernel estimators   | — |
 | Compile-time optimized estimator code                        | Runtime dispatch |
 | `[dependencies]` in `Cargo.toml`                             | `pip install infomeasure` |
 

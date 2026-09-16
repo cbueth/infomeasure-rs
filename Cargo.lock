@@ -1220,6 +1220,7 @@ dependencies = [
  "pprof",
  "rand",
  "rand_distr",
+ "rayon",
  "rstest",
  "rustc-hash",
  "serde_json",

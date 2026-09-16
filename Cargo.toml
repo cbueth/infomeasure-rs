@@ -27,12 +27,18 @@ statrs = ">=0.16"  # For special functions (digamma)
 ndarray-stats = ">=0.7.0"  # covariance matrix
 ndarray-linalg = { version = ">=0.18.1", features = ["openblas-static"] }  # .cholesky
 rustc-hash = ">=1.1"  # Fast non-cryptographic hashing for HashMap hot paths
+rayon = { version = ">=1.10", optional = true }  # CPU data-parallel loops (feature "parallel")
 rand = { version = ">=0.8", features = ["small_rng"] }
 rand_distr = ">=0.4"
 
 [features]
 default = []
 gpu = []
+# Opt-in CPU parallelism (rayon) for query-parallel estimator loops. Off by
+# default, mirroring the `gpu` accelerator flag: enable it for GPU-less builds
+# or where the GPU tier does not apply. See the `parallel` entry in the crate
+# docs (guide) for the wgpu-vs-rayon guidance.
+parallel = ["dep:rayon"]
 profiling = ["dep:pprof"]
 
 [dependencies.pprof]

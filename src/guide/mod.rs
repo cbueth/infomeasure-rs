@@ -69,6 +69,7 @@
 //! ### Configuration
 //! - [Settings](settings) — Configuration options
 //! - [Statistical Tests](statistical_tests) — Hypothesis testing
+//! - [Acceleration](performance) — Choosing between GPU (wgpu) and CPU parallelism (rayon)
 //! - [Benchmarks](benchmarks) — Performance benchmarks
 //!
 //! ### References
@@ -110,6 +111,7 @@ pub mod jsd;
 pub mod kld;
 pub mod macros;
 pub mod mutual_information;
+pub mod performance;
 pub mod references;
 pub mod settings;
 pub mod statistical_tests;

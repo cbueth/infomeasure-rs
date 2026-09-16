@@ -103,6 +103,51 @@ use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, UPLO};
 use ndarray_stats::CorrelationExt;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+/// Minimum number of query points before the CPU density loops are split across
+/// rayon workers (feature `parallel`). Below it the whole call is µs-scale and
+/// pool overhead would dominate. Benchmark environments pin
+/// `RAYON_NUM_THREADS=1`, so the canonical single-thread track stays identical
+/// to the sequential path even with the feature enabled.
+#[cfg_attr(not(feature = "parallel"), allow(dead_code))]
+const PARALLEL_DENSITY_MIN_QUERIES: usize = 512;
+
+/// Evaluates a per-query density closure over `n` queries, reusing one scratch
+/// buffer per rayon worker (single one on the sequential path).
+///
+/// Every query writes exactly one independent output, so the result is
+/// bit-identical to a sequential loop regardless of the thread count. Without
+/// the `parallel` feature this is always the sequential loop.
+///
+/// Chunking is explicit (one chunk per worker) rather than `map_init` so the
+/// allocating `create_scratch` runs ~`num_threads` times instead of once per
+/// rayon split — with `RAYON_NUM_THREADS=1` this is a single sequential pass,
+/// identical to the feature-off path.
+fn density_queries<S, Init, F>(n: usize, init: Init, query: F) -> Array1<f64>
+where
+    S: Send,
+    Init: Fn() -> S + Sync + Send,
+    F: Fn(&mut S, usize) -> f64 + Sync + Send,
+{
+    #[cfg(feature = "parallel")]
+    if n >= PARALLEL_DENSITY_MIN_QUERIES {
+        let threads = rayon::current_num_threads().max(1);
+        let chunk = n.div_ceil(threads);
+        let mut out = vec![0.0f64; n];
+        out.par_chunks_mut(chunk).enumerate().for_each(|(c, slot)| {
+            let mut scratch = init();
+            let base = c * chunk;
+            for (k, value) in slot.iter_mut().enumerate() {
+                *value = query(&mut scratch, base + k);
+            }
+        });
+        return Array1::from_vec(out);
+    }
+    let mut scratch = init();
+    Array1::from_vec((0..n).map(|i| query(&mut scratch, i)).collect())
+}
 
 /// Kernel-based transfer entropy estimator.
 ///
@@ -1532,26 +1577,34 @@ impl<const K: usize> KernelEntropy<K> {
     /// Uses kiddo's public `.visit()` as a count-only query: only
     /// `count = candidates.len()` is needed, so no result Vec is materialised
     /// (the result-collection write/add/copy/push was ~26% of box kernel time).
+    ///
+    /// Queries are independent, so the loop is split across rayon workers above
+    /// [`PARALLEL_DENSITY_MIN_QUERIES`]. The GPU tier (wgpu) still owns this
+    /// computation above its size gate — see `kde_probability_density` — and this
+    /// CPU path only runs when the gate declined (below the gate, no adapter, or
+    /// K≥32). Benchmarks pin `RAYON_NUM_THREADS=1`, keeping the single-thread
+    /// CPU track bit-identical to the sequential loop.
     pub fn box_kernel_density_cpu(&self) -> Array1<f64> {
         let volume = self.bandwidth.powi(K as i32);
         let n_volume = self.n_samples as f64 * volume;
-        let mut densities = Array1::<f64>::zeros(self.n_samples);
 
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
-        let mut scratch = Default::default();
 
-        for (i, query_point) in self.points.iter().enumerate() {
-            let mut count = 0usize;
-            self.tree
-                .query(query_point)
-                .within::<Chebyshev<f64>>(r_eps)
-                .unsorted()
-                .with_scratch(&mut scratch)
-                .visit(|_| count += 1);
-            densities[i] = count as f64 / n_volume;
-        }
-        densities
+        density_queries(
+            self.n_samples,
+            || self.tree.create_scratch::<Chebyshev<f64>>(),
+            |scratch, i| {
+                let mut count = 0usize;
+                self.tree
+                    .query(&self.points[i])
+                    .within::<Chebyshev<f64>>(r_eps)
+                    .unsorted()
+                    .with_scratch(scratch)
+                    .visit(|_| count += 1);
+                count as f64 / n_volume
+            },
+        )
     }
 
     /// Internal method to compute density using Gaussian kernel on CPU
@@ -1571,6 +1624,9 @@ impl<const K: usize> KernelEntropy<K> {
     /// queried in a Euclidean ball of fixed squared radius and the inner loop is a
     /// plain dot product. Identical density to `gaussian_kernel_density_cpu_mahalanobis`
     /// up to fp rounding (the transform is an isometry for the Mahalanobis metric).
+    ///
+    /// Parallelised across queries with rayon (CPU branch only, see
+    /// [`PARALLEL_DENSITY_MIN_QUERIES`]); wgpu owns the large-N case above the gate.
     fn gaussian_kernel_density_cpu_whitened(&self, wtree: &KdTreeKernel<K>) -> Array1<f64> {
         let n = self.n_samples as f64;
         let bw = self.bandwidth;
@@ -1587,7 +1643,6 @@ impl<const K: usize> KernelEntropy<K> {
 
         let normalization =
             n * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
-        let mut densities = Array1::<f64>::zeros(self.n_samples);
 
         // In whitened space the covariance is the identity, so the search radius is
         // the squared Mahalanobis truncation bound (64 for N<=5000, 36 otherwise),
@@ -1598,23 +1653,26 @@ impl<const K: usize> KernelEntropy<K> {
             .whitened_points
             .as_deref()
             .expect("whitened tree implies whitened points");
-        let mut scratch = Default::default();
-        for (i, query_point) in wpoints.iter().enumerate() {
-            let mut sum_k = 0.0;
-            // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
-            // squared distance kiddo computes during traversal is reused directly
-            // instead of re-deriving it from the coordinates.
-            wtree
-                .query(query_point)
-                .within::<SquaredEuclidean<f64>>(adaptive_radius)
-                .unsorted()
-                .with_scratch(&mut scratch)
-                .visit(|item| {
-                    sum_k += (-0.5 * item.distance).exp();
-                });
-            densities[i] = sum_k / normalization;
-        }
-        densities
+
+        density_queries(
+            self.n_samples,
+            || wtree.create_scratch::<SquaredEuclidean<f64>>(),
+            |scratch, i| {
+                let mut sum_k = 0.0;
+                // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
+                // squared distance kiddo computes during traversal is reused directly
+                // instead of re-deriving it from the coordinates.
+                wtree
+                    .query(&wpoints[i])
+                    .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                    .unsorted()
+                    .with_scratch(scratch)
+                    .visit(|item| {
+                        sum_k += (-0.5 * item.distance).exp();
+                    });
+                sum_k / normalization
+            },
+        )
     }
 
     /// Mahalanobis-space Gaussian density (fallback when no Cholesky factor exists,
@@ -1636,7 +1694,6 @@ impl<const K: usize> KernelEntropy<K> {
 
         let normalization =
             n * (2.0 * std::f64::consts::PI).powf(K as f64 / 2.0) * det_scaled_cov.sqrt();
-        let mut densities = Array1::<f64>::zeros(self.n_samples);
 
         let adaptive_radius = if self.n_samples > 5000 {
             36.0 * self.max_eigenvalue
@@ -1644,22 +1701,25 @@ impl<const K: usize> KernelEntropy<K> {
             64.0 * self.max_eigenvalue
         };
 
-        let mut scratch = Default::default();
-        for (i, query_point) in self.points.iter().enumerate() {
-            let mut sum_k = 0.0;
-            self.tree
-                .query(query_point)
-                .within::<SquaredEuclidean<f64>>(adaptive_radius)
-                .unsorted()
-                .with_scratch(&mut scratch)
-                .visit(|item| {
-                    let p = &self.points[item.item as usize];
-                    let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
-                    sum_k += (-0.5 * dist_sq).exp();
-                });
-            densities[i] = sum_k / normalization;
-        }
-        densities
+        density_queries(
+            self.n_samples,
+            || self.tree.create_scratch::<SquaredEuclidean<f64>>(),
+            |scratch, i| {
+                let query_point = &self.points[i];
+                let mut sum_k = 0.0;
+                self.tree
+                    .query(query_point)
+                    .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                    .unsorted()
+                    .with_scratch(scratch)
+                    .visit(|item| {
+                        let p = &self.points[item.item as usize];
+                        let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
+                        sum_k += (-0.5 * dist_sq).exp();
+                    });
+                sum_k / normalization
+            },
+        )
     }
 
     /// Computes local entropy values using a box (uniform) kernel
@@ -1965,6 +2025,98 @@ mod tests {
                     epsilon = 1e-12
                 );
             }
+        }
+    }
+
+    /// Deterministic 2-D data with a well-conditioned covariance (LCG; no RNG dep).
+    fn lcg_points(n: usize, seed: u64) -> Array2<f64> {
+        let mut state = seed | 1;
+        let mut data = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            let mut draw = || {
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                ((state >> 11) as f64) / ((1u64 << 53) as f64)
+            };
+            data[[i, 0]] = draw();
+            data[[i, 1]] = 0.5 * draw() + 0.25;
+        }
+        data
+    }
+
+    /// The per-query density loops split across rayon workers above
+    /// [`PARALLEL_DENSITY_MIN_QUERIES`] when the `parallel` feature is on. Each
+    /// query writes one independent output, so the result must equal a
+    /// straightforward sequential brute force (to fp tolerance) — pinning the
+    /// parallel path and catching a data race. `n` spans both sides of the
+    /// threshold; CPU is forced so the GPU gate never intercepts.
+    #[rstest]
+    fn density_matches_bruteforce(
+        #[values("box", "gaussian")] kernel_type: &str,
+        #[values(600, 1100)] n: usize,
+    ) {
+        let bw = 0.5;
+        let data = lcg_points(n, 0x1234_5678_9abc_def0);
+        let mut est = KernelEntropy::<2>::new_2d(data.clone(), kernel_type.to_string(), bw);
+        est.set_force_cpu(true);
+        let got = est.kde_probability_density();
+
+        let points: Vec<[f64; 2]> = (0..n).map(|i| [data[[i, 0]], data[[i, 1]]]).collect();
+        let mut want = vec![0.0f64; n];
+
+        if kernel_type == "box" {
+            let r_eps = bw / 2.0 + 1e-15;
+            let n_volume = n as f64 * bw.powi(2);
+            for (i, qi) in points.iter().enumerate() {
+                let count = points
+                    .iter()
+                    .filter(|qj| (qi[0] - qj[0]).abs().max((qi[1] - qj[1]).abs()) <= r_eps)
+                    .count();
+                want[i] = count as f64 / n_volume;
+            }
+        } else {
+            let l = est
+                .cholesky_factor
+                .clone()
+                .expect("gaussian has a Cholesky factor");
+            let mean = est.mean.expect("gaussian has a mean");
+            let whiten = |p: &[f64; 2]| -> [f64; 2] {
+                let mut y = [0.0; 2];
+                for i in 0..2 {
+                    let base = i * 2;
+                    let mut sum = 0.0;
+                    for j in 0..i {
+                        sum += l[base + j] * y[j];
+                    }
+                    y[i] = (p[i] - mean[i] - sum) / l[base + i];
+                }
+                y
+            };
+            let y: Vec<[f64; 2]> = points.iter().map(whiten).collect();
+            let det = l[0] * l[3];
+            let normalization = n as f64 * 2.0 * std::f64::consts::PI * det;
+            let radius = if n > 5000 { 36.0 } else { 64.0 };
+            for (i, yi) in y.iter().enumerate() {
+                let sum: f64 = y
+                    .iter()
+                    .map(|yj| {
+                        let d = (yi[0] - yj[0]).powi(2) + (yi[1] - yj[1]).powi(2);
+                        if d <= radius { (-0.5 * d).exp() } else { 0.0 }
+                    })
+                    .sum();
+                want[i] = sum / normalization;
+            }
+        }
+
+        for i in 0..n {
+            let diff = (got[i] - want[i]).abs();
+            assert!(
+                diff <= 1e-9 * want[i].abs().max(1.0),
+                "density mismatch at {i} ({kernel_type}, n={n}): got {}, want {}",
+                got[i],
+                want[i]
+            );
         }
     }
 }
