@@ -12,7 +12,10 @@ use std::time::Duration;
 
 mod utils;
 
-use utils::{bench_alphas, bench_bandwidths, bench_k_values, bench_q_values, bench_sizes};
+use utils::{
+    bench_alphas, bench_bandwidths, bench_k_values, bench_q_values, bench_sizes,
+    bench_sizes_extended,
+};
 
 /// Fixed worker count for the `*_parallel` kernel benchmarks. The global rayon
 /// pool is pinned to 1 in the benchmark environment, so the existing benchmarks
@@ -351,8 +354,17 @@ fn bench_expfam_gpu_group<const D: usize>(c: &mut Criterion, name: &str) {
     let mut group = c.benchmark_group(name);
     group.measurement_time(Duration::from_secs(3));
 
+    // The tier only engages above its size gate, which the CI default size set
+    // (`BENCH_SIZES=1000`) does not reach; combine with the extended set so the
+    // 5000-point case is collected (Bencher visibility) and local runs still
+    // pick up 10000.
+    let mut sizes = bench_sizes();
+    sizes.extend(bench_sizes_extended());
+    sizes.sort_unstable();
+    sizes.dedup();
+
     let k = 3;
-    for &size in bench_sizes().iter() {
+    for &size in sizes.iter() {
         if size < EXPFAM_GPU_MIN_SIZE {
             continue;
         }

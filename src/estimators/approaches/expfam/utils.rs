@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::estimators::approaches::common_nd::KdTreeExpfam;
+use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array2, ArrayView2};
 use rand::prelude::*;
@@ -143,11 +144,81 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
 
     let points = to_points::<K>(data);
     let tree: KdTreeExpfam<K> = KdTreeExpfam::<K>::new_from_slice(&points).unwrap();
+    let at_points = match at {
+        Some(target_data) => {
+            assert!(target_data.ncols() == K, "target_data.ncols() must equal K");
+            Some(to_points::<K>(target_data))
+        }
+        None => None,
+    };
+    radii_from_tree(&tree, &points, k, at_points.as_deref(), use_chebyshev)
+}
 
-    if let Some(target_data) = at {
-        assert!(target_data.ncols() == K, "target_data.ncols() must equal K");
-        let m = target_data.nrows();
-        let target_points = to_points::<K>(target_data);
+/// Like [`knn_radii_at_with_metric`], but takes a [`NdDataset`] whose kd-tree is
+/// already built and reuses it.
+///
+/// This is the hot path for the expfam estimators: materialising points and
+/// rebuilding the tree on every call is pure overhead because each estimator
+/// already owns its dataset and tree. `at = None` queries the dataset against
+/// itself (excluding self); `at = Some(q)` queries `q`'s points against
+/// `data`'s tree.
+#[cfg_attr(not(feature = "gpu"), allow(unused_variables))]
+pub(crate) fn knn_radii_at_dataset<const K: usize>(
+    data: &NdDataset<K>,
+    k: usize,
+    at: Option<&NdDataset<K>>,
+    use_chebyshev: bool,
+    allow_gpu: bool,
+) -> Vec<f64> {
+    assert!(k >= 1, "k must be >= 1");
+    if data.n == 0 {
+        return Vec::new();
+    }
+    if at.is_none() {
+        assert!(
+            k < data.n,
+            "k must be <= N-1 when querying within the same dataset"
+        );
+    }
+
+    // Dense O(N²) tier: above the expfam gate the pairwise scan beats kiddo's
+    // irregular traversal. Any ineligibility or GPU error falls through.
+    #[cfg(feature = "gpu")]
+    if allow_gpu
+        && let Some(radii) = super::expfam_gpu::knn_radii_gpu::<K>(
+            data.view(),
+            k,
+            at.map(|q| q.view()),
+            use_chebyshev,
+        )
+    {
+        return radii;
+    }
+
+    radii_from_tree(
+        &data.tree,
+        &data.points,
+        k,
+        at.map(|q| q.points.as_slice()),
+        use_chebyshev,
+    )
+}
+
+/// Euclidean/Chebyshev k-th-neighbour radii answered by an existing tree.
+///
+/// `points` are the tree's own points (self-queries); `at_points`, when given,
+/// is the query cloud for a cross query. Keeping this separate lets both the
+/// view-based and the [`NdDataset`]-based entry points share one implementation
+/// without rebuilding a tree.
+fn radii_from_tree<const K: usize>(
+    tree: &KdTreeExpfam<K>,
+    points: &[[f64; K]],
+    k: usize,
+    at_points: Option<&[[f64; K]]>,
+    use_chebyshev: bool,
+) -> Vec<f64> {
+    if let Some(target_points) = at_points {
+        let m = target_points.len();
         let mut radii = Vec::with_capacity(m);
         if use_chebyshev {
             let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
@@ -172,7 +243,7 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         }
         radii
     } else {
-        let mut radii = Vec::with_capacity(n);
+        let mut radii = Vec::with_capacity(points.len());
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
         if use_chebyshev {
             let mut scratch = tree.create_scratch::<Chebyshev<f64>>();
@@ -231,7 +302,10 @@ pub fn knn_radii_chebyshev<const K: usize>(data: ArrayView2<'_, f64>, k: usize) 
 
 /// Compute common components used by exponential-family kNN estimators.
 /// This is the standard version (r=1) used by Rényi and Tsallis entropy.
-/// Mirrors Python calculate_common_entropy_components.
+/// Mirrors Python calculate_common_entropy_components. Kept as the view-based
+/// reference (tests/parity); the estimators use
+/// [`calculate_common_entropy_components_at_dataset`].
+#[allow(dead_code)]
 pub(crate) fn calculate_common_entropy_components_at<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
@@ -259,29 +333,44 @@ pub(crate) fn calculate_common_entropy_components_at_chebyshev<const K: usize>(
     (v_m, rho_k, n, K)
 }
 
-/// Compute common components for KL entropy specifically (uses r=1/2).
-/// Mirrors Python's KL entropy implementation.
-pub(crate) fn calculate_common_entropy_components_at_kl<const K: usize>(
-    data: ArrayView2<'_, f64>,
+/// Dataset-reusing variant of [`calculate_common_entropy_components_at`] (r=1,
+/// Euclidean). Used by the estimators, which already own their kd-tree.
+pub(crate) fn calculate_common_entropy_components_at_dataset<const K: usize>(
+    data: &NdDataset<K>,
     k: usize,
-    at: Option<ArrayView2<'_, f64>>,
+    at: Option<&NdDataset<K>>,
+    allow_gpu: bool,
+) -> (f64, Vec<f64>, usize, usize) {
+    let v_m = unit_ball_volume_with_radius(K, 2.0, 1.0);
+    let rho_k = knn_radii_at_dataset::<K>(data, k, at, false, allow_gpu);
+    let n = rho_k.len(); // N if at is None, M if at is Some(target)
+    (v_m, rho_k, n, K)
+}
+
+/// Dataset-reusing variant of [`calculate_common_entropy_components_at_kl`]
+/// (r=1/2, Euclidean).
+pub(crate) fn calculate_common_entropy_components_at_kl_dataset<const K: usize>(
+    data: &NdDataset<K>,
+    k: usize,
+    at: Option<&NdDataset<K>>,
     allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_with_radius(K, 2.0, 0.5);
-    let rho_k = knn_radii_at::<K>(data, k, at, allow_gpu);
+    let rho_k = knn_radii_at_dataset::<K>(data, k, at, false, allow_gpu);
     let n = rho_k.len();
     (v_m, rho_k, n, K)
 }
 
-/// Compute common components for KL entropy using Chebyshev metric (uses r=1/2).
-pub(crate) fn calculate_common_entropy_components_at_chebyshev_kl<const K: usize>(
-    data: ArrayView2<'_, f64>,
+/// Dataset-reusing variant of
+/// [`calculate_common_entropy_components_at_chebyshev_kl`] (r=1/2, Chebyshev).
+pub(crate) fn calculate_common_entropy_components_at_chebyshev_kl_dataset<const K: usize>(
+    data: &NdDataset<K>,
     k: usize,
-    at: Option<ArrayView2<'_, f64>>,
+    at: Option<&NdDataset<K>>,
     allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_chebyshev_with_radius(K, 0.5);
-    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at, allow_gpu);
+    let rho_k = knn_radii_at_dataset::<K>(data, k, at, true, allow_gpu);
     let n = rho_k.len();
     (v_m, rho_k, n, K)
 }

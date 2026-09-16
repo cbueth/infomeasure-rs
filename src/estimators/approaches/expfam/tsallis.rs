@@ -111,10 +111,10 @@ impl<const K: usize> CrossEntropy for TsallisEntropy<K> {
         use statrs::function::gamma::digamma;
         // H_q(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
         let (v_m, rho_k, m_samples, dimension) =
-            super::utils::calculate_common_entropy_components_at::<K>(
-                other.nd.view(),
+            super::utils::calculate_common_entropy_components_at_dataset::<K>(
+                &other.nd,
                 self.k,
-                Some(self.nd.view()),
+                Some(&self.nd),
                 !self.force_cpu && !other.force_cpu,
             );
 
@@ -259,8 +259,13 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
             let mut cnt = 0usize;
             // Compute kNN radii (CPU or the opt-in dense GPU tier)
             // (exclude self by requesting k+1 and skipping self)
-            let radii =
-                super::utils::knn_radii_at::<K>(self.nd.view(), self.k, None, !self.force_cpu);
+            let radii = super::utils::knn_radii_at_dataset::<K>(
+                &self.nd,
+                self.k,
+                None,
+                false,
+                !self.force_cpu,
+            );
             for r in radii {
                 if r > 0.0 {
                     sum_ln_r += r.ln();
@@ -284,7 +289,8 @@ impl<const K: usize> GlobalValue for TsallisEntropy<K> {
         let c_k = (gamma(self.k as f64) / gamma(self.k as f64 + 1.0 - q)).powf(1.0 / (1.0 - q));
         let prefactor = (n_eff * c_k * v_m).powf(1.0 - q);
         let mut sum_term = 0.0_f64;
-        let radii = super::utils::knn_radii_at::<K>(self.nd.view(), self.k, None, !self.force_cpu);
+        let radii =
+            super::utils::knn_radii_at_dataset::<K>(&self.nd, self.k, None, false, !self.force_cpu);
         for r in radii {
             if r > 0.0 {
                 sum_term += r.powi(K as i32).powf(1.0 - q);

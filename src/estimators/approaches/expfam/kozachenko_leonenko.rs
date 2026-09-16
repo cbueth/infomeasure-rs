@@ -124,17 +124,17 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
         // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
         let allow_gpu = !self.force_cpu && !other.force_cpu;
         let (v_m, rho_k, _n_p, dimension) = if self.use_chebyshev {
-            super::utils::calculate_common_entropy_components_at_chebyshev_kl::<K>(
-                other.nd.view(),
+            super::utils::calculate_common_entropy_components_at_chebyshev_kl_dataset::<K>(
+                &other.nd,
                 self.k,
-                Some(self.nd.view()),
+                Some(&self.nd),
                 allow_gpu,
             )
         } else {
-            super::utils::calculate_common_entropy_components_at_kl::<K>(
-                other.nd.view(),
+            super::utils::calculate_common_entropy_components_at_kl_dataset::<K>(
+                &other.nd,
                 self.k,
-                Some(self.nd.view()),
+                Some(&self.nd),
                 allow_gpu,
             )
         };
@@ -252,8 +252,8 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
             unit_ball_volume_with_radius(K, 2.0, 0.5)
         };
 
-        let radii = super::utils::knn_radii_at_with_metric::<K>(
-            self.nd.view(),
+        let radii = super::utils::knn_radii_at_dataset::<K>(
+            &self.nd,
             self.k,
             None,
             self.use_chebyshev,
@@ -306,8 +306,8 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
 
         let a_const = (statrs::function::gamma::digamma(n_f) - psi_k) / ln_base + log_b(c_d);
 
-        let radii = super::utils::knn_radii_at_with_metric::<K>(
-            self.nd.view(),
+        let radii = super::utils::knn_radii_at_dataset::<K>(
+            &self.nd,
             self.k,
             None,
             self.use_chebyshev,
