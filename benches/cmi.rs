@@ -17,6 +17,12 @@ use utils::{
     bench_sizes_extended,
 };
 
+/// Fixed worker count for the `*_parallel` kernel benchmarks. The global rayon
+/// pool is pinned to 1 in the benchmark environment, so the existing benchmarks
+/// stay single-threaded and only these variants use a fixed multi-thread pool.
+#[cfg(feature = "parallel")]
+const PARALLEL_BENCH_THREADS: usize = 4;
+
 fn generate_correlated(size: usize, correlation: f64, seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut x = Vec::with_capacity(size);
@@ -121,6 +127,58 @@ fn bench_kernel_cmi(c: &mut Criterion) {
                             *bw,
                         );
                         black_box(cmi.global_value())
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
+/// Same kernel CMI sweep as `bench_kernel_cmi`, executed on a fixed multi-thread
+/// rayon pool (see [`PARALLEL_BENCH_THREADS`]) and tracked as
+/// `cmi_kernel_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_kernel_cmi_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("cmi_kernel_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
+    let kernel_types = ["box", "gaussian"];
+    let seed = 42u64;
+
+    for &kernel_type in &kernel_types {
+        for &bw in &bandwidths {
+            for &size in &sizes {
+                let (x, y) = generate_correlated(size, 0.5, seed);
+                let mut rng = StdRng::seed_from_u64(seed + 1);
+                let z: Vec<f64> = (0..size)
+                    .map(|_| rng.sample(Normal::new(0.0, 1.0).unwrap()))
+                    .collect();
+                let x_arr = Array1::from(x);
+                let y_arr = Array1::from(y);
+                let z_arr = Array1::from(z);
+
+                let kt = kernel_type.to_string();
+                let bw_str = bw.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw_{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bw), |b, (kt, bw)| {
+                    b.iter(|| {
+                        pool.install(|| {
+                            let cmi = MutualInformation::new_cmi_kernel_with_type(
+                                &[x_arr.clone(), y_arr.clone()],
+                                &z_arr,
+                                kt.clone(),
+                                *bw,
+                            );
+                            black_box(cmi.global_value())
+                        })
                     });
                 });
             }
@@ -337,6 +395,19 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+#[cfg(feature = "parallel")]
+criterion_group!(
+    benches,
+    bench_discrete_cmi,
+    bench_kernel_cmi,
+    bench_kernel_cmi_parallel,
+    bench_ksg_cmi,
+    bench_renyi_cmi,
+    bench_tsallis_cmi,
+    bench_kl_cmi,
+    bench_ordinal_cmi
+);
+#[cfg(not(feature = "parallel"))]
 criterion_group!(
     benches,
     bench_discrete_cmi,

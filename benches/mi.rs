@@ -14,6 +14,12 @@ mod utils;
 
 use utils::{bench_bandwidths, bench_k_values, bench_orders, bench_sizes, bench_sizes_extended};
 
+/// Fixed worker count for the `*_parallel` kernel benchmarks. The global rayon
+/// pool is pinned to 1 in the benchmark environment, so the existing benchmarks
+/// stay single-threaded and only these variants use a fixed multi-thread pool.
+#[cfg(feature = "parallel")]
+const PARALLEL_BENCH_THREADS: usize = 4;
+
 fn generate_correlated(size: usize, correlation: f64, seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut x = Vec::with_capacity(size);
@@ -117,6 +123,52 @@ fn bench_kernel_mi(c: &mut Criterion) {
     group.finish();
 }
 
+/// Same kernel MI sweep as `bench_kernel_mi`, but executed on a fixed
+/// multi-thread rayon pool (see [`PARALLEL_BENCH_THREADS`]). Bencher tracks these
+/// as distinct `mi_kernel_parallel/...` benchmarks.
+#[cfg(feature = "parallel")]
+fn bench_kernel_mi_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("mi_kernel_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
+    let kernel_types = ["box", "gaussian"];
+    let seed = 42u64;
+
+    for &kernel_type in &kernel_types {
+        for &bw in &bandwidths {
+            for &size in &sizes {
+                let (x, y) = generate_correlated(size, 0.5, seed);
+                let x_arr = Array1::from(x);
+                let y_arr = Array1::from(y);
+
+                let kt = kernel_type.to_string();
+                let bw_str = bw.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw_{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bw), |b, (kt, bw)| {
+                    b.iter(|| {
+                        pool.install(|| {
+                            let mi = MutualInformation::new_kernel_with_type(
+                                &[x_arr.clone(), y_arr.clone()],
+                                kt.clone(),
+                                *bw,
+                            );
+                            black_box(mi.global_value())
+                        })
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
 fn bench_ksg_mi(c: &mut Criterion) {
     let mut group = c.benchmark_group("mi_ksg");
     group.measurement_time(Duration::from_secs(3));
@@ -183,6 +235,16 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+#[cfg(feature = "parallel")]
+criterion_group!(
+    benches,
+    bench_discrete_mi,
+    bench_kernel_mi,
+    bench_kernel_mi_parallel,
+    bench_ksg_mi,
+    bench_ordinal_mi
+);
+#[cfg(not(feature = "parallel"))]
 criterion_group!(
     benches,
     bench_discrete_mi,

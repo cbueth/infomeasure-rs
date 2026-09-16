@@ -56,7 +56,7 @@ steps:
         fi
       - |
         BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed"
-        cargo bench --no-run --features gpu $BENCH_ARGS
+        cargo bench --no-run --features gpu,parallel $BENCH_ARGS
 
   - name: bench
     image: codeberg.org/cbueth/infomeasure-rs:stable
@@ -72,9 +72,10 @@ steps:
       BENCH_ORDERS: "3"
       BENCH_ALPHAS: "1.2"
       BENCH_Q_VALUES: "1.2"
-      # Keep the Bencher track single-threaded if the opt-in `parallel` feature
-      # (rayon) is enabled; matches the cross-package protocol in
-      # scripts/bench_packages.
+      # The build enables `parallel`, but the global rayon pool is pinned to 1 so
+      # every existing benchmark stays single-threaded (comparable history, and
+      # matches the cross-package protocol in scripts/bench_packages). The new
+      # `*_kernel_parallel` benchmarks run on their own fixed 4-thread pool.
       RAYON_NUM_THREADS: "1"
       NVIDIA_DRIVER_CAPABILITIES: all
       NVIDIA_VISIBLE_DEVICES: all
@@ -98,7 +99,7 @@ steps:
             --start-point-reset \
             --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo" \
             --error-on-alert \
-            cargo bench --features gpu $BENCH_ARGS -- $CRIT_FLAGS
+            cargo bench --features gpu,parallel $BENCH_ARGS -- $CRIT_FLAGS
         else
           bencher run \
             --adapter rust_criterion \
@@ -113,7 +114,7 @@ steps:
             --threshold-upper-boundary 0.99 \
             --thresholds-reset \
             --error-on-alert \
-            cargo bench --features gpu $BENCH_ARGS -- $CRIT_FLAGS
+            cargo bench --features gpu,parallel $BENCH_ARGS -- $CRIT_FLAGS
         fi
 
   - name: comment

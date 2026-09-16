@@ -53,6 +53,7 @@ debug = true
 
 [dev-dependencies]
 rstest = "0.26.1"  # For fixture-based testint
+rayon = ">=1.10"   # Fixed-size thread pool for the `parallel` bench variants
 serde_json = "1.0" # For JSON interop in Python parity tests
 validation = { path = "./tests/validation_crate" }  # Local validation module for Python compatibility testing
 rand = "0.8"      # For random number generation in tests

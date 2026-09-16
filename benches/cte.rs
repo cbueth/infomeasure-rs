@@ -17,6 +17,12 @@ use utils::{
     bench_sizes_extended,
 };
 
+/// Fixed worker count for the `*_parallel` kernel benchmarks. The global rayon
+/// pool is pinned to 1 in the benchmark environment, so the existing benchmarks
+/// stay single-threaded and only these variants use a fixed multi-thread pool.
+#[cfg(feature = "parallel")]
+const PARALLEL_BENCH_THREADS: usize = 4;
+
 fn generate_lagged_series(
     size: usize,
     coupling: f64,
@@ -151,6 +157,64 @@ fn bench_kernel_cte(c: &mut Criterion) {
                             *bw,
                         );
                         black_box(cte.global_value())
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
+/// Same kernel CTE sweep as `bench_kernel_cte`, executed on a fixed multi-thread
+/// rayon pool (see [`PARALLEL_BENCH_THREADS`]) and tracked as
+/// `cte_kernel_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_kernel_cte_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("cte_kernel_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let bandwidths = bench_bandwidths();
+    let kernel_types = ["box", "gaussian"];
+    let lag = 1;
+    let seed = 42u64;
+
+    for &kernel_type in &kernel_types {
+        for &bw in &bandwidths {
+            for &size in &sizes {
+                let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
+                let mut rng = StdRng::seed_from_u64(seed + 1);
+                let cond: Vec<f64> = (0..size)
+                    .map(|_| rng.sample(Normal::new(0.0, 1.0).unwrap()))
+                    .collect();
+                let source_arr = Array1::from(source);
+                let target_arr = Array1::from(target);
+                let cond_arr = Array1::from(cond);
+
+                let kt = kernel_type.to_string();
+                let bw_str = bw.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw_{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bw), |b, (kt, bw)| {
+                    b.iter(|| {
+                        pool.install(|| {
+                            let cte = TransferEntropy::new_cte_kernel_with_type(
+                                &source_arr,
+                                &target_arr,
+                                &cond_arr,
+                                1,
+                                1,
+                                1,
+                                1,
+                                kt.clone(),
+                                *bw,
+                            );
+                            black_box(cte.global_value())
+                        })
                     });
                 });
             }
@@ -379,6 +443,19 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+#[cfg(feature = "parallel")]
+criterion_group!(
+    benches,
+    bench_discrete_cte,
+    bench_kernel_cte,
+    bench_kernel_cte_parallel,
+    bench_ksg_cte,
+    bench_renyi_cte,
+    bench_tsallis_cte,
+    bench_kl_cte,
+    bench_ordinal_cte
+);
+#[cfg(not(feature = "parallel"))]
 criterion_group!(
     benches,
     bench_discrete_cte,

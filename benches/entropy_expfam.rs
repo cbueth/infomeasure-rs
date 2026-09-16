@@ -14,6 +14,12 @@ mod utils;
 
 use utils::{bench_alphas, bench_bandwidths, bench_k_values, bench_q_values, bench_sizes};
 
+/// Fixed worker count for the `*_parallel` kernel benchmarks. The global rayon
+/// pool is pinned to 1 in the benchmark environment, so the existing benchmarks
+/// stay single-threaded and only these variants use a fixed multi-thread pool.
+#[cfg(feature = "parallel")]
+const PARALLEL_BENCH_THREADS: usize = 4;
+
 fn bench_renyi_entropy(c: &mut Criterion) {
     let mut group = c.benchmark_group("entropy_renyi");
     group.measurement_time(Duration::from_secs(3));
@@ -273,11 +279,68 @@ fn bench_kernel_entropy(c: &mut Criterion) {
     group.finish();
 }
 
+/// Same kernel entropy sweep as `bench_kernel_entropy`, executed on a fixed
+/// multi-thread rayon pool (see [`PARALLEL_BENCH_THREADS`]) and tracked as
+/// `entropy_kernel_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_kernel_entropy_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("entropy_kernel_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let kernel_types = ["box", "gaussian"];
+    let bandwidths = bench_bandwidths();
+    let seed = 42u64;
+
+    for &kernel_type in &kernel_types {
+        for &bandwidth in &bandwidths {
+            for &size in &sizes {
+                let mut rng = StdRng::seed_from_u64(seed);
+                let normal = Normal::new(0.0, 1.0).unwrap();
+                let arr: Array1<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
+
+                let kt = kernel_type.to_string();
+                let bw_str = bandwidth.to_string().replace('.', "_");
+                let id = BenchmarkId::new(format!("{}/bw{}", kernel_type, bw_str), size);
+                group.bench_with_input(id, &(kt, bandwidth), |b, (kt, bw)| {
+                    b.iter(|| {
+                        pool.install(|| {
+                            let entropy =
+                                Entropy::new_kernel_with_type(arr.clone(), kt.clone(), *bw);
+                            black_box(entropy.global_value())
+                        })
+                    });
+                });
+            }
+        }
+    }
+
+    group.finish();
+}
+
 fn black_box<T>(t: T) -> T {
     use std::hint::black_box;
     black_box(t)
 }
 
+#[cfg(feature = "parallel")]
+criterion_group!(
+    benches,
+    bench_renyi_entropy,
+    bench_tsallis_entropy,
+    bench_kl_entropy,
+    bench_kl_entropy_cheb,
+    bench_kl_entropy_k_extended,
+    bench_kl_nd_entropy,
+    bench_kl_nd_entropy_cheb,
+    bench_kernel_entropy,
+    bench_kernel_entropy_parallel
+);
+#[cfg(not(feature = "parallel"))]
 criterion_group!(
     benches,
     bench_renyi_entropy,
