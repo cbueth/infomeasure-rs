@@ -10,7 +10,7 @@
 //!
 //! | Feature | Engine | Best at | Requires |
 //! |---------|--------|---------|----------|
-//! | `gpu` | wgpu (Vulkan / Metal / DX12 / WebGPU) | Dense, regular, large-N work: fixed-radius neighbour counts, weighted Gaussian density, discrete histograms | A hardware GPU adapter |
+//! | `gpu` | wgpu (Vulkan / Metal / DX12 / WebGPU) | Dense, regular, large-N work: fixed-radius neighbour counts, weighted Gaussian density, discrete histograms, dense k-NN distances for the exponential-family estimators | A hardware GPU adapter |
 //! | `parallel` | rayon (CPU) | Query-parallel CPU loops with independent per-item results — above all, kernels on machines without a GPU | Nothing beyond the feature flag |
 //!
 //! ## Choosing between them
@@ -19,6 +19,12 @@
 //! on the dense O(N²) tiers (Gaussian density, box counts) once a call is large
 //! enough to amortise a device dispatch, and it does so without occupying your
 //! CPU cores.
+//!
+//! The exponential-family ($k$-nearest-neighbour) estimators also have a dense
+//! GPU tier: all pairwise distances plus a per-row $k$-selection. Unlike the
+//! kernels it only overtakes the kd-tree for **high-dimensional, large-$N$**
+//! data, because the exact search is irregular and cheap at low $D$ — see
+//! [GPU sizing gates](#gpu-sizing-gates).
 //!
 //! Use `parallel` instead when the GPU tier does not apply:
 //!
@@ -79,6 +85,16 @@
 //! it the CPU path is faster. Tune the thresholds per machine with
 //! `INFOMEASURE_GPU_MIN_GAUSSIAN` and `INFOMEASURE_GPU_MIN_BOX` when you know
 //! your hardware's crossover better than the shipped defaults.
+//!
+//! The exponential-family dense tier is gated on **both** size and
+//! dimensionality: it needs at least about 4000 points **and** $D \ge 8$ by
+//! default. The reason is the fixed dispatch/readback cost (roughly 2.5 ms on
+//! Metal): a scalar distance scan cannot amortise it while the kd-tree is still
+//! efficient, and the tree degenerates with dimensionality. Measured crossover
+//! on an Apple M4 Pro is 1–4D never (up to $N = 6000$), 6D around $N = 5000$,
+//! 8D around $N = 3000$ and 16D below $N = 2000$. Override with
+//! `INFOMEASURE_GPU_MIN_EXPFAM` and `INFOMEASURE_GPU_MIN_EXPFAM_DIM`; below
+//! either gate the estimators use the exact kd-tree path unchanged.
 //!
 //! ```rust
 //! use infomeasure::estimators::entropy::Entropy;

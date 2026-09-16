@@ -327,6 +327,73 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+/// Input length below which the expfam dense GPU tier never engages (matches
+/// `EXPFAM_GPU_MIN_POINTS`); smaller entries would only compare CPU with CPU.
+#[cfg(feature = "gpu")]
+const EXPFAM_GPU_MIN_SIZE: usize = 4000;
+
+/// Entropy-seeded Gaussian cloud, `size × dim`. The dense tier's whole point is
+/// the shape-dependent crossover, so these groups are not pinned to one sample.
+#[cfg(feature = "gpu")]
+fn random_nd(size: usize, dim: usize) -> Array2<f64> {
+    let mut rng = StdRng::from_entropy();
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    Array2::from_shape_fn((size, dim), |_| normal.sample(&mut rng))
+}
+
+/// KL entropy on the dense expfam GPU tier vs the CPU path, for one dimension.
+///
+/// Only dimensions at or above the tier's `EXPFAM_GPU_MIN_DIM` (8) can win;
+/// below the size gate the two rows would be identical, so those sizes are
+/// skipped. `cpu` forces the kiddo path, `gpu` lets the gate decide.
+#[cfg(feature = "gpu")]
+fn bench_expfam_gpu_group<const D: usize>(c: &mut Criterion, name: &str) {
+    let mut group = c.benchmark_group(name);
+    group.measurement_time(Duration::from_secs(3));
+
+    let k = 3;
+    for &size in bench_sizes().iter() {
+        if size < EXPFAM_GPU_MIN_SIZE {
+            continue;
+        }
+        let arr = random_nd(size, D);
+
+        group.bench_with_input(BenchmarkId::new("cpu", size), &arr, |b, arr| {
+            b.iter(|| {
+                let mut est = KozachenkoLeonenkoEntropy::<D>::new(arr.clone(), k, 0.0);
+                est.set_force_cpu(true);
+                black_box(est.global_value())
+            });
+        });
+        group.bench_with_input(BenchmarkId::new("gpu", size), &arr, |b, arr| {
+            b.iter(|| {
+                let mut est = KozachenkoLeonenkoEntropy::<D>::new(arr.clone(), k, 0.0);
+                est.set_force_cpu(false);
+                black_box(est.global_value())
+            });
+        });
+    }
+
+    group.finish();
+}
+
+/// Registered unconditionally so it can live in the shared `criterion_group!`
+/// lists; the body is a no-op without the `gpu` feature.
+fn bench_kl_nd_entropy_gpu_d8(c: &mut Criterion) {
+    #[cfg(feature = "gpu")]
+    bench_expfam_gpu_group::<8>(c, "entropy_kl_nd_gpu_d8");
+    #[cfg(not(feature = "gpu"))]
+    let _ = c;
+}
+
+/// See [`bench_kl_nd_entropy_gpu_d8`]; 16D is where the dense tier wins earliest.
+fn bench_kl_nd_entropy_gpu_d16(c: &mut Criterion) {
+    #[cfg(feature = "gpu")]
+    bench_expfam_gpu_group::<16>(c, "entropy_kl_nd_gpu_d16");
+    #[cfg(not(feature = "gpu"))]
+    let _ = c;
+}
+
 #[cfg(feature = "parallel")]
 criterion_group!(
     benches,
@@ -337,6 +404,8 @@ criterion_group!(
     bench_kl_entropy_k_extended,
     bench_kl_nd_entropy,
     bench_kl_nd_entropy_cheb,
+    bench_kl_nd_entropy_gpu_d8,
+    bench_kl_nd_entropy_gpu_d16,
     bench_kernel_entropy,
     bench_kernel_entropy_parallel
 );
@@ -350,6 +419,8 @@ criterion_group!(
     bench_kl_entropy_k_extended,
     bench_kl_nd_entropy,
     bench_kl_nd_entropy_cheb,
+    bench_kl_nd_entropy_gpu_d8,
+    bench_kl_nd_entropy_gpu_d16,
     bench_kernel_entropy
 );
 criterion_main!(benches);

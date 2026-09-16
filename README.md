@@ -62,8 +62,10 @@ Two **opt-in accelerators** are available. Both are off by default and change
 *when*, not *what*, is computed — values are identical to the plain CPU path.
 
 - **`gpu`**: GPU acceleration (wgpu → Vulkan / Metal / DX12 / WebGPU) for kernel
-  density estimation and the discrete histogram. Preferred for large, dense
-  workloads on machines with a hardware adapter.
+  density estimation, the discrete histogram, and the dense k-NN tier of the
+  exponential-family (kNN) estimators. Preferred for large, dense workloads on
+  machines with a hardware adapter; the expfam tier additionally needs
+  high-dimensional data (see the guide).
 - **`parallel`**: CPU multi-threading (rayon) for the query-parallel kernel
   loops. Use it on GPU-less machines, or below the GPU size gate; the Gaussian
   kernel gains roughly **6–8×** at a few thousand points on a multi-core CPU.
@@ -139,7 +141,7 @@ in Rust for users who need:
 |--------------------------------------------------------------|---|
 | Compile-time type safety via Rust's type system              | Runtime string-based approach selection |
 | Up to ~40x faster execution (detailled benchmarks to follow) | Flexible, scriptable interface |
-| GPU acceleration for kernel estimators                       | GPU support via numba |
+| GPU acceleration for kernel and kNN (expfam) estimators      | GPU support via numba |
 | Optional CPU multi-threading (rayon) for kernel estimators   | — |
 | Compile-time optimized estimator code                        | Runtime dispatch |
 | `[dependencies]` in `Cargo.toml`                             | `pip install infomeasure` |
