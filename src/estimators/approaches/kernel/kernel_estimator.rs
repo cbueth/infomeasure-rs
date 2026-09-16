@@ -2048,13 +2048,14 @@ mod tests {
     /// The per-query density loops split across rayon workers above
     /// [`PARALLEL_DENSITY_MIN_QUERIES`] when the `parallel` feature is on. Each
     /// query writes one independent output, so the result must equal a
-    /// straightforward sequential brute force (to fp tolerance) — pinning the
-    /// parallel path and catching a data race. `n` spans both sides of the
-    /// threshold; CPU is forced so the GPU gate never intercepts.
+    /// straightforward sequential brute force (to fp tolerance) — pinning both
+    /// the chunked and the sequential fallback path and catching a data race.
+    /// `n` spans both sides of the threshold; CPU is forced so the GPU gate
+    /// never intercepts.
     #[rstest]
     fn density_matches_bruteforce(
         #[values("box", "gaussian")] kernel_type: &str,
-        #[values(600, 1100)] n: usize,
+        #[values(400, 600, 1100)] n: usize,
     ) {
         let bw = 0.5;
         let data = lcg_points(n, 0x1234_5678_9abc_def0);

@@ -22,7 +22,11 @@ when:
 
 matrix:
   RUST: [stable, beta]
-  FEATURES: [""]  # not testing gpu on CI (no GPU adapter)
+  # `parallel` (rayon) is CPU-only, so the normal CPU runners exercise it here.
+  # `gpu` is not tested in this workflow (no adapter) - see test-gpu.yml. Tests
+  # deliberately run with rayon's default thread count (all cores); the timed
+  # benchmark track is the one that pins a fixed number of threads.
+  FEATURES: ["", "parallel"]
 
 steps:
   - name: build
