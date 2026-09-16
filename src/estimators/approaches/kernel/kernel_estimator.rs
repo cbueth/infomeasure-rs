@@ -108,45 +108,38 @@ use rayon::prelude::*;
 
 /// Minimum number of query points before the CPU density loops are split across
 /// rayon workers (feature `parallel`). Below it the whole call is µs-scale and
-/// pool overhead would dominate. Benchmark environments pin
-/// `RAYON_NUM_THREADS=1`, so the canonical single-thread track stays identical
-/// to the sequential path even with the feature enabled.
+/// pool overhead would dominate. The chunked path is only taken when more than
+/// one thread is available, so a single-thread run (e.g. the benchmark tracks,
+/// which pin `RAYON_NUM_THREADS=1`) executes the exact same inline loop as a
+/// build without the feature.
 #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
 const PARALLEL_DENSITY_MIN_QUERIES: usize = 512;
 
-/// Evaluates a per-query density closure over `n` queries, reusing one scratch
-/// buffer per rayon worker (single one on the sequential path).
+/// Splits `n` queries into one chunk per rayon worker and evaluates `query` for
+/// each index, reusing one scratch buffer per chunk.
 ///
 /// Every query writes exactly one independent output, so the result is
-/// bit-identical to a sequential loop regardless of the thread count. Without
-/// the `parallel` feature this is always the sequential loop.
-///
-/// Chunking is explicit (one chunk per worker) rather than `map_init` so the
-/// allocating `create_scratch` runs ~`num_threads` times instead of once per
-/// rayon split — with `RAYON_NUM_THREADS=1` this is a single sequential pass,
-/// identical to the feature-off path.
-fn density_queries<S, Init, F>(n: usize, init: Init, query: F) -> Array1<f64>
+/// bit-identical to the inline sequential loop. Chunking is explicit (one chunk
+/// per worker) rather than `map_init` so the allocating `create_scratch` runs
+/// ~`num_threads` times instead of once per rayon split.
+#[cfg(feature = "parallel")]
+fn parallel_chunked_queries<S, Init, F>(n: usize, init: Init, query: F) -> Array1<f64>
 where
     S: Send,
     Init: Fn() -> S + Sync + Send,
     F: Fn(&mut S, usize) -> f64 + Sync + Send,
 {
-    #[cfg(feature = "parallel")]
-    if n >= PARALLEL_DENSITY_MIN_QUERIES {
-        let threads = rayon::current_num_threads().max(1);
-        let chunk = n.div_ceil(threads);
-        let mut out = vec![0.0f64; n];
-        out.par_chunks_mut(chunk).enumerate().for_each(|(c, slot)| {
-            let mut scratch = init();
-            let base = c * chunk;
-            for (k, value) in slot.iter_mut().enumerate() {
-                *value = query(&mut scratch, base + k);
-            }
-        });
-        return Array1::from_vec(out);
-    }
-    let mut scratch = init();
-    Array1::from_vec((0..n).map(|i| query(&mut scratch, i)).collect())
+    let threads = rayon::current_num_threads().max(1);
+    let chunk = n.div_ceil(threads);
+    let mut out = vec![0.0f64; n];
+    out.par_chunks_mut(chunk).enumerate().for_each(|(c, slot)| {
+        let mut scratch = init();
+        let base = c * chunk;
+        for (k, value) in slot.iter_mut().enumerate() {
+            *value = query(&mut scratch, base + k);
+        }
+    });
+    Array1::from_vec(out)
 }
 
 /// Kernel-based transfer entropy estimator.
@@ -1591,20 +1584,39 @@ impl<const K: usize> KernelEntropy<K> {
         let r = self.bandwidth / 2.0;
         let r_eps = r + 1e-15;
 
-        density_queries(
-            self.n_samples,
-            || self.tree.create_scratch::<Chebyshev<f64>>(),
-            |scratch, i| {
-                let mut count = 0usize;
-                self.tree
-                    .query(&self.points[i])
-                    .within::<Chebyshev<f64>>(r_eps)
-                    .unsorted()
-                    .with_scratch(scratch)
-                    .visit(|_| count += 1);
-                count as f64 / n_volume
-            },
-        )
+        #[cfg(feature = "parallel")]
+        if self.n_samples >= PARALLEL_DENSITY_MIN_QUERIES && rayon::current_num_threads() > 1 {
+            return parallel_chunked_queries(
+                self.n_samples,
+                || self.tree.create_scratch::<Chebyshev<f64>>(),
+                |scratch, i| {
+                    let mut count = 0usize;
+                    self.tree
+                        .query(&self.points[i])
+                        .within::<Chebyshev<f64>>(r_eps)
+                        .unsorted()
+                        .with_scratch(scratch)
+                        .visit(|_| count += 1);
+                    count as f64 / n_volume
+                },
+            );
+        }
+
+        // Single-thread / feature-off path: the original inline loop, byte-for-byte
+        // identical to the pre-`parallel` implementation.
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+        let mut scratch = Default::default();
+        for (i, query_point) in self.points.iter().enumerate() {
+            let mut count = 0usize;
+            self.tree
+                .query(query_point)
+                .within::<Chebyshev<f64>>(r_eps)
+                .unsorted()
+                .with_scratch(&mut scratch)
+                .visit(|_| count += 1);
+            densities[i] = count as f64 / n_volume;
+        }
+        densities
     }
 
     /// Internal method to compute density using Gaussian kernel on CPU
@@ -1654,25 +1666,46 @@ impl<const K: usize> KernelEntropy<K> {
             .as_deref()
             .expect("whitened tree implies whitened points");
 
-        density_queries(
-            self.n_samples,
-            || wtree.create_scratch::<SquaredEuclidean<f64>>(),
-            |scratch, i| {
-                let mut sum_k = 0.0;
-                // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
-                // squared distance kiddo computes during traversal is reused directly
-                // instead of re-deriving it from the coordinates.
-                wtree
-                    .query(&wpoints[i])
-                    .within::<SquaredEuclidean<f64>>(adaptive_radius)
-                    .unsorted()
-                    .with_scratch(scratch)
-                    .visit(|item| {
-                        sum_k += (-0.5 * item.distance).exp();
-                    });
-                sum_k / normalization
-            },
-        )
+        #[cfg(feature = "parallel")]
+        if self.n_samples >= PARALLEL_DENSITY_MIN_QUERIES && rayon::current_num_threads() > 1 {
+            return parallel_chunked_queries(
+                self.n_samples,
+                || wtree.create_scratch::<SquaredEuclidean<f64>>(),
+                |scratch, i| {
+                    let mut sum_k = 0.0;
+                    wtree
+                        .query(&wpoints[i])
+                        .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                        .unsorted()
+                        .with_scratch(scratch)
+                        .visit(|item| {
+                            sum_k += (-0.5 * item.distance).exp();
+                        });
+                    sum_k / normalization
+                },
+            );
+        }
+
+        // Single-thread / feature-off path: the original inline loop, byte-for-byte
+        // identical to the pre-`parallel` implementation.
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+        let mut scratch = Default::default();
+        for (i, query_point) in wpoints.iter().enumerate() {
+            let mut sum_k = 0.0;
+            // In whitened space SquaredEuclidean is the Mahalanobis metric, so the
+            // squared distance kiddo computes during traversal is reused directly
+            // instead of re-deriving it from the coordinates.
+            wtree
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                .unsorted()
+                .with_scratch(&mut scratch)
+                .visit(|item| {
+                    sum_k += (-0.5 * item.distance).exp();
+                });
+            densities[i] = sum_k / normalization;
+        }
+        densities
     }
 
     /// Mahalanobis-space Gaussian density (fallback when no Cholesky factor exists,
@@ -1701,25 +1734,48 @@ impl<const K: usize> KernelEntropy<K> {
             64.0 * self.max_eigenvalue
         };
 
-        density_queries(
-            self.n_samples,
-            || self.tree.create_scratch::<SquaredEuclidean<f64>>(),
-            |scratch, i| {
-                let query_point = &self.points[i];
-                let mut sum_k = 0.0;
-                self.tree
-                    .query(query_point)
-                    .within::<SquaredEuclidean<f64>>(adaptive_radius)
-                    .unsorted()
-                    .with_scratch(scratch)
-                    .visit(|item| {
-                        let p = &self.points[item.item as usize];
-                        let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
-                        sum_k += (-0.5 * dist_sq).exp();
-                    });
-                sum_k / normalization
-            },
-        )
+        #[cfg(feature = "parallel")]
+        if self.n_samples >= PARALLEL_DENSITY_MIN_QUERIES && rayon::current_num_threads() > 1 {
+            return parallel_chunked_queries(
+                self.n_samples,
+                || self.tree.create_scratch::<SquaredEuclidean<f64>>(),
+                |scratch, i| {
+                    let query_point = &self.points[i];
+                    let mut sum_k = 0.0;
+                    self.tree
+                        .query(query_point)
+                        .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                        .unsorted()
+                        .with_scratch(scratch)
+                        .visit(|item| {
+                            let p = &self.points[item.item as usize];
+                            let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
+                            sum_k += (-0.5 * dist_sq).exp();
+                        });
+                    sum_k / normalization
+                },
+            );
+        }
+
+        // Single-thread / feature-off path: the original inline loop, byte-for-byte
+        // identical to the pre-`parallel` implementation.
+        let mut densities = Array1::<f64>::zeros(self.n_samples);
+        let mut scratch = Default::default();
+        for (i, query_point) in self.points.iter().enumerate() {
+            let mut sum_k = 0.0;
+            self.tree
+                .query(query_point)
+                .within::<SquaredEuclidean<f64>>(adaptive_radius)
+                .unsorted()
+                .with_scratch(&mut scratch)
+                .visit(|item| {
+                    let p = &self.points[item.item as usize];
+                    let dist_sq = self.calculate_mahalanobis_distance(query_point, p);
+                    sum_k += (-0.5 * dist_sq).exp();
+                });
+            densities[i] = sum_k / normalization;
+        }
+        densities
     }
 
     /// Computes local entropy values using a box (uniform) kernel
