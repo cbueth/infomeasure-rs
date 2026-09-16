@@ -50,3 +50,6 @@ pub mod ksg;
 pub mod renyi;
 pub mod tsallis;
 pub mod utils;
+
+#[cfg(feature = "gpu")]
+pub(crate) mod expfam_gpu;

@@ -107,17 +107,38 @@ fn to_points<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<[f64; K]> {
 ///
 /// If `at` is None, it computes distances within the same dataset `data` (excluding self).
 /// If `at` is Some(target), it computes distances from points in `target` to their k-th neighbors in `data`.
+///
+/// `allow_gpu` opts into the dense GPU tier; with `false` (e.g. an estimator
+/// with `force_cpu` set), or without the `gpu` feature / a usable adapter /
+/// above the size gate, this is the plain kiddo path.
+#[cfg_attr(not(feature = "gpu"), allow(unused_variables))]
 pub(crate) fn knn_radii_at_with_metric<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
     use_chebyshev: bool,
+    allow_gpu: bool,
 ) -> Vec<f64> {
     assert!(k >= 1, "k must be >= 1");
     assert!(data.ncols() == K, "data.ncols() must equal K");
     let n = data.nrows();
     if n == 0 {
         return Vec::new();
+    }
+    if at.is_none() {
+        assert!(
+            k < n,
+            "k must be <= N-1 when querying within the same dataset"
+        );
+    }
+
+    // Dense O(N²) tier: above the expfam gate the pairwise scan beats kiddo's
+    // irregular traversal. Any ineligibility or GPU error falls through.
+    #[cfg(feature = "gpu")]
+    if allow_gpu
+        && let Some(radii) = super::expfam_gpu::knn_radii_gpu::<K>(data, k, at, use_chebyshev)
+    {
+        return radii;
     }
 
     let points = to_points::<K>(data);
@@ -151,10 +172,6 @@ pub(crate) fn knn_radii_at_with_metric<const K: usize>(
         }
         radii
     } else {
-        assert!(
-            k < n,
-            "k must be <= N-1 when querying within the same dataset"
-        );
         let mut radii = Vec::with_capacity(n);
         let max_qty = NonZeroUsize::new(k + 1).unwrap();
         if use_chebyshev {
@@ -187,8 +204,9 @@ pub(crate) fn knn_radii_at<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> Vec<f64> {
-    knn_radii_at_with_metric::<K>(data, k, at, false)
+    knn_radii_at_with_metric::<K>(data, k, at, false, allow_gpu)
 }
 
 /// Compute kNN radii using Chebyshev metric.
@@ -196,18 +214,19 @@ pub(crate) fn knn_radii_at_chebyshev<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> Vec<f64> {
-    knn_radii_at_with_metric::<K>(data, k, at, true)
+    knn_radii_at_with_metric::<K>(data, k, at, true, allow_gpu)
 }
 
 /// Compute kNN radii (Euclidean distances to the k-th nearest neighbor), excluding self.
 pub fn knn_radii<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
-    knn_radii_at::<K>(data, k, None)
+    knn_radii_at::<K>(data, k, None, true)
 }
 
 /// Compute kNN radii (Chebyshev distances to the k-th nearest neighbor), excluding self.
 pub fn knn_radii_chebyshev<const K: usize>(data: ArrayView2<'_, f64>, k: usize) -> Vec<f64> {
-    knn_radii_at_chebyshev::<K>(data, k, None)
+    knn_radii_at_chebyshev::<K>(data, k, None, true)
 }
 
 /// Compute common components used by exponential-family kNN estimators.
@@ -217,9 +236,10 @@ pub(crate) fn calculate_common_entropy_components_at<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_with_radius(K, 2.0, 1.0);
-    let rho_k = knn_radii_at::<K>(data, k, at);
+    let rho_k = knn_radii_at::<K>(data, k, at, allow_gpu);
     let n = rho_k.len(); // N if at is None, M if at is Some(target)
     (v_m, rho_k, n, K)
 }
@@ -231,9 +251,10 @@ pub(crate) fn calculate_common_entropy_components_at_chebyshev<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_chebyshev_with_radius(K, 1.0);
-    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at);
+    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at, allow_gpu);
     let n = rho_k.len();
     (v_m, rho_k, n, K)
 }
@@ -244,9 +265,10 @@ pub(crate) fn calculate_common_entropy_components_at_kl<const K: usize>(
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_with_radius(K, 2.0, 0.5);
-    let rho_k = knn_radii_at::<K>(data, k, at);
+    let rho_k = knn_radii_at::<K>(data, k, at, allow_gpu);
     let n = rho_k.len();
     (v_m, rho_k, n, K)
 }
@@ -256,9 +278,10 @@ pub(crate) fn calculate_common_entropy_components_at_chebyshev_kl<const K: usize
     data: ArrayView2<'_, f64>,
     k: usize,
     at: Option<ArrayView2<'_, f64>>,
+    allow_gpu: bool,
 ) -> (f64, Vec<f64>, usize, usize) {
     let v_m = unit_ball_volume_chebyshev_with_radius(K, 0.5);
-    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at);
+    let rho_k = knn_radii_at_chebyshev::<K>(data, k, at, allow_gpu);
     let n = rho_k.len();
     (v_m, rho_k, n, K)
 }
@@ -275,7 +298,7 @@ mod tests {
         data: ArrayView2<'_, f64>,
         k: usize,
     ) -> (f64, Vec<f64>, usize, usize) {
-        calculate_common_entropy_components_at::<K>(data, k, None)
+        calculate_common_entropy_components_at::<K>(data, k, None, true)
     }
 
     #[test]

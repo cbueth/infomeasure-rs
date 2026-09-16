@@ -44,7 +44,6 @@
 //! - [Kraskov et al., 2004](crate::guide::references#ksg2004)
 
 use crate::estimators::doc_macros::doc_snippets;
-use kiddo::Chebyshev;
 use ndarray::{Array1, Array2};
 use statrs::function::gamma::digamma;
 
@@ -87,6 +86,8 @@ pub struct KozachenkoLeonenkoEntropy<const K: usize> {
     pub base: f64,
     pub noise_level: f64,
     pub use_chebyshev: bool,
+    /// Bypass the (opt-in) GPU kNN tier for this estimator.
+    pub force_cpu: bool,
 }
 
 impl<const K: usize> JointEntropy for KozachenkoLeonenkoEntropy<K> {
@@ -121,17 +122,20 @@ impl<const K: usize> CrossEntropy for KozachenkoLeonenkoEntropy<K> {
         use statrs::function::gamma::digamma;
 
         // H(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
+        let allow_gpu = !self.force_cpu && !other.force_cpu;
         let (v_m, rho_k, _n_p, dimension) = if self.use_chebyshev {
             super::utils::calculate_common_entropy_components_at_chebyshev_kl::<K>(
                 other.nd.view(),
                 self.k,
                 Some(self.nd.view()),
+                allow_gpu,
             )
         } else {
             super::utils::calculate_common_entropy_components_at_kl::<K>(
                 other.nd.view(),
                 self.k,
                 Some(self.nd.view()),
+                allow_gpu,
             )
         };
 
@@ -181,7 +185,14 @@ impl<const K: usize> KozachenkoLeonenkoEntropy<K> {
             base: std::f64::consts::E,
             noise_level,
             use_chebyshev: true,
+            force_cpu: false,
         }
+    }
+
+    /// Force the CPU kNN path, bypassing the GPU tier even when the `gpu`
+    /// feature is enabled (used by parity tests and benchmarks).
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
     }
 
     pub fn with_type(mut self, ksg_type: KsgType) -> Self {
@@ -241,45 +252,19 @@ impl<const K: usize> GlobalValue for KozachenkoLeonenkoEntropy<K> {
             unit_ball_volume_with_radius(K, 2.0, 0.5)
         };
 
-        let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
+        let radii = super::utils::knn_radii_at_with_metric::<K>(
+            self.nd.view(),
+            self.k,
+            None,
+            self.use_chebyshev,
+            !self.force_cpu,
+        );
         let mut sum_ln_eps = 0.0f64;
         let mut cnt = 0usize;
-        if self.use_chebyshev {
-            let mut scratch = self.nd.tree.create_scratch::<Chebyshev<f64>>();
-            for i in 0..n_samples {
-                let p = &self.nd.points[i];
-                let neighbors = self
-                    .nd
-                    .tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let dist = neighbors[self.k].distance;
-                if dist > 0.0 {
-                    sum_ln_eps += (2.0 * dist).ln();
-                    cnt += 1;
-                }
-            }
-        } else {
-            let mut scratch = self
-                .nd
-                .tree
-                .create_scratch::<kiddo::SquaredEuclidean<f64>>();
-            for i in 0..n_samples {
-                let p = &self.nd.points[i];
-                let neighbors = self
-                    .nd
-                    .tree
-                    .query(p)
-                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let r = neighbors[self.k].distance.sqrt();
-                if r > 0.0 {
-                    sum_ln_eps += (2.0 * r).ln();
-                    cnt += 1;
-                }
+        for r in radii {
+            if r > 0.0 {
+                sum_ln_eps += (2.0 * r).ln();
+                cnt += 1;
             }
         }
         if cnt == 0 {
@@ -321,46 +306,19 @@ impl<const K: usize> LocalValues for KozachenkoLeonenkoEntropy<K> {
 
         let a_const = (statrs::function::gamma::digamma(n_f) - psi_k) / ln_base + log_b(c_d);
 
+        let radii = super::utils::knn_radii_at_with_metric::<K>(
+            self.nd.view(),
+            self.k,
+            None,
+            self.use_chebyshev,
+            !self.force_cpu,
+        );
         let mut out = Array1::<f64>::zeros(n_samples);
-        let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-        if self.use_chebyshev {
-            let mut scratch = self.nd.tree.create_scratch::<Chebyshev<f64>>();
-            for i in 0..n_samples {
-                let p = &self.nd.points[i];
-                let neighbors = self
-                    .nd
-                    .tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let r = neighbors[self.k].distance;
-                if r > 0.0 {
-                    out[i] = a_const + (K as f64) * log_b(2.0 * r);
-                } else {
-                    out[i] = a_const;
-                }
-            }
-        } else {
-            let mut scratch = self
-                .nd
-                .tree
-                .create_scratch::<kiddo::SquaredEuclidean<f64>>();
-            for i in 0..n_samples {
-                let p = &self.nd.points[i];
-                let neighbors = self
-                    .nd
-                    .tree
-                    .query(p)
-                    .nearest_n::<kiddo::SquaredEuclidean<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let r = neighbors[self.k].distance.sqrt();
-                if r > 0.0 {
-                    out[i] = a_const + (K as f64) * log_b(2.0 * r);
-                } else {
-                    out[i] = a_const;
-                }
+        for (i, r) in radii.into_iter().enumerate() {
+            if r > 0.0 {
+                out[i] = a_const + (K as f64) * log_b(2.0 * r);
+            } else {
+                out[i] = a_const;
             }
         }
         out

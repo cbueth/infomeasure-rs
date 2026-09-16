@@ -43,11 +43,9 @@
 //! - [Leonenko et al., 2008](crate::guide::references#leonenko2008)
 
 use crate::estimators::doc_macros::doc_snippets;
-use kiddo::SquaredEuclidean;
 use ndarray::{Array1, Array2, Axis, concatenate};
-use std::num::NonZeroUsize;
 
-use super::utils::{add_noise, calculate_common_entropy_components_at, unit_ball_volume};
+use super::utils::{add_noise, unit_ball_volume};
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
@@ -81,6 +79,8 @@ pub struct RenyiEntropy<const K: usize> {
     pub alpha: f64,
     pub base: f64,
     pub noise_level: f64,
+    /// Bypass the (opt-in) GPU kNN tier for this estimator.
+    pub force_cpu: bool,
 }
 
 impl<const K: usize> JointEntropy for RenyiEntropy<K> {
@@ -114,11 +114,13 @@ impl<const K: usize> CrossEntropy for RenyiEntropy<K> {
     fn cross_entropy(&self, other: &RenyiEntropy<K>) -> f64 {
         use statrs::function::gamma::{digamma, gamma};
         // H_alpha(P||Q) evaluated by taking points from self (P) and k-neighbors in other (Q)
-        let (v_m, rho_k, m_samples, dimension) = calculate_common_entropy_components_at::<K>(
-            other.nd.view(),
-            self.k,
-            Some(self.nd.view()),
-        );
+        let (v_m, rho_k, m_samples, dimension) =
+            super::utils::calculate_common_entropy_components_at::<K>(
+                other.nd.view(),
+                self.k,
+                Some(self.nd.view()),
+                !self.force_cpu && !other.force_cpu,
+            );
 
         let ln_base = self.base.ln();
         let log_b = |x: f64| -> f64 { x.ln() / ln_base };
@@ -181,7 +183,14 @@ impl<const K: usize> RenyiEntropy<K> {
             alpha,
             base: std::f64::consts::E,
             noise_level,
+            force_cpu: false,
         }
+    }
+
+    /// Force the CPU kNN path, bypassing the GPU tier even when the `gpu`
+    /// feature is enabled (used by parity tests and benchmarks).
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
     }
 
     /// Build a vector of RenyiEntropy estimators, one per row of a 2D array.
@@ -240,13 +249,11 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
         }
         let v_m = unit_ball_volume(K, 2.0);
 
-        let max_qty = NonZeroUsize::new(self.k + 1).unwrap();
         // Effective sample count when self is excluded in neighbor queries
         let n_eff = (self.nd.n as f64) - 1.0;
 
         // Log with chosen base
         let ln_base = self.base.ln();
-        let mut scratch = self.nd.tree.create_scratch::<SquaredEuclidean<f64>>();
 
         let q = self.alpha;
         if (q - 1.0).abs() < 1e-12 {
@@ -254,17 +261,11 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
             let ln_c = (n_eff * (-digamma(self.k as f64)).exp() * v_m).ln();
             let mut sum_ln_r = 0.0_f64;
             let mut cnt = 0usize;
-            // Compute kNN radii via KD-tree
+            // Compute kNN radii (CPU or the opt-in dense GPU tier)
             // (exclude self by requesting k+1 and skipping first)
-            for p in self.nd.points.iter() {
-                let neigh = self
-                    .nd
-                    .tree
-                    .query(p)
-                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                let r = neigh[self.k].distance.sqrt();
+            let radii =
+                super::utils::knn_radii_at::<K>(self.nd.view(), self.k, None, !self.force_cpu);
+            for r in radii {
                 if r > 0.0 {
                     sum_ln_r += r.ln();
                     cnt += 1;
@@ -284,15 +285,8 @@ impl<const K: usize> GlobalValue for RenyiEntropy<K> {
         let c_k = (gamma(self.k as f64) / gamma(self.k as f64 + 1.0 - q)).powf(1.0 / (1.0 - q));
         let prefactor = (n_eff * c_k * v_m).powf(1.0 - q);
         let mut sum_term = 0.0_f64;
-        for p in self.nd.points.iter() {
-            let neigh = self
-                .nd
-                .tree
-                .query(p)
-                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                .with_scratch(&mut scratch)
-                .execute();
-            let r = neigh[self.k].distance.sqrt();
+        let radii = super::utils::knn_radii_at::<K>(self.nd.view(), self.k, None, !self.force_cpu);
+        for r in radii {
             if r > 0.0 {
                 sum_term += r.powi(K as i32).powf(1.0 - q);
             }

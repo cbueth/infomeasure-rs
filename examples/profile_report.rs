@@ -302,7 +302,12 @@ pub mod imp {
             #[cfg(feature = "gpu")]
             {
                 if matches!(workload.family, Family::KernelGaussian | Family::KernelBox) {
-                    infomeasure::estimators::gpu::set_gpu_min_points_override(Some(0), Some(0));
+                    infomeasure::estimators::gpu::set_gpu_min_points_override(
+                        Some(0),
+                        Some(0),
+                        Some(0),
+                        Some(0),
+                    );
                     gpu_ctx = infomeasure::estimators::gpu::GpuContext::get();
                     if let Some(ctx) = gpu_ctx {
                         ctx.set_pass_timing_enabled(env_or("PROFILE_TIMING", "1") == "1");

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Module containing tests for exponential family entropy estimators.
+mod expfam_gpu_parity;
 mod kl_joint_cross_parity;
 mod kl_python_parity;
 mod ksg_parity;
