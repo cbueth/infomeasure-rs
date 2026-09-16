@@ -75,11 +75,11 @@
     </div>
 
     <div class="section" id="cov">
-      <h2>Coverage</h2>
-      <p>Approach availability for the selected measure (<span id="covMeasure">-</span>).
-        A green check means the data is available, a yellow cell lists the measures that the
-        package supports with that approach instead, and a red cross means the approach is not
-        offered at all. Full details per package are in the "Packages" section below.</p>
+      <h2 id="covTitle">Coverage</h2>
+      <p>A green check means the data is available for the selected measure; a yellow cell lists
+        the measures that the package supports with that approach instead; and a red cross means
+        the approach is not offered at all. Full details per package are in the "Packages"
+        section below.</p>
       <div id="coverageTable"></div>
     </div>
 
@@ -480,7 +480,8 @@ function covApproach(e) {
   return COVERAGE_APPROACHES.includes(a) ? a : null;
 }
 function buildCoverage() {
-  document.getElementById('covMeasure').textContent = MEASURE_LABELS[CROSS.measure] || CROSS.measure;
+  document.getElementById('covTitle').textContent =
+    `Coverage for ${MEASURE_LABELS[CROSS.measure] || CROSS.measure}`;
   const rows = CAT.packages.map((p) => {
     const all = (((CAT.data[p.id] || {}).benchmarks) || []).filter(covApproach);
     const frag = CAT.data[p.id];
