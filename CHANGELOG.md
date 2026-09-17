@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(ksg): parallelise the kNN phases with rayon [[#93](https://codeberg.org/cbueth/infomeasure-rs/pulls/93)]
 - perf(gpu): device-aware dispatch gates [[#92](https://codeberg.org/cbueth/infomeasure-rs/pulls/92)]
 - perf(kernel): parallelise the CPU density loops behind an opt-in `parallel` feature [[#86](https://codeberg.org/cbueth/infomeasure-rs/pulls/86)]
 - bench(gpu): sparse GPU overlay for the kernel estimators [[#85](https://codeberg.org/cbueth/infomeasure-rs/pulls/85)]
