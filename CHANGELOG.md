@@ -6,6 +6,10 @@
 
 @cbueth
 
+### 🐛 Bug Fixes
+
+- fix(gpu): bound discrete histogram buffers by the adapter limits [[#90](https://codeberg.org/cbueth/infomeasure-rs/pulls/90)]
+
 ### ⚡ Performance
 
 - perf(kernel): parallelise the CPU density loops behind an opt-in `parallel` feature [[#86](https://codeberg.org/cbueth/infomeasure-rs/pulls/86)]
@@ -17,6 +21,7 @@
 
 ### Misc
 
+- ci(bench): track the GPU crossover on every benchmark run [[#91](https://codeberg.org/cbueth/infomeasure-rs/pulls/91)]
 - feat(gpu): dense expfam kNN tier [[#88](https://codeberg.org/cbueth/infomeasure-rs/pulls/88)]
 
 ## [0.4.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.0) - 2026-09-11
