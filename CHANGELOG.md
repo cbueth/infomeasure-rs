@@ -6,18 +6,19 @@
 
 @cbueth
 
-### 🐛 Bug Fixes
-
-- fix(gpu): bound discrete histogram buffers by the adapter limits [[#90](https://codeberg.org/cbueth/infomeasure-rs/pulls/90)]
-
 ### ⚡ Performance
 
+- perf(gpu): device-aware dispatch gates [[#92](https://codeberg.org/cbueth/infomeasure-rs/pulls/92)]
 - perf(kernel): parallelise the CPU density loops behind an opt-in `parallel` feature [[#86](https://codeberg.org/cbueth/infomeasure-rs/pulls/86)]
 - bench(gpu): sparse GPU overlay for the kernel estimators [[#85](https://codeberg.org/cbueth/infomeasure-rs/pulls/85)]
 - bench(alphabet): discrete alphabet-scaling benchmark family + site view [[#84](https://codeberg.org/cbueth/infomeasure-rs/pulls/84)]
 - perf(discrete): dense direct discrete CMI/TE/CTE, multi-MI, and known-alphabet builder [[#83](https://codeberg.org/cbueth/infomeasure-rs/pulls/83)]
 - perf(nsb): count histogram, fused quadrature, global adaptive integrator [[#82](https://codeberg.org/cbueth/infomeasure-rs/pulls/82)]
 - perf(discrete): close the JIDT gap on the discrete estimators [[#79](https://codeberg.org/cbueth/infomeasure-rs/pulls/79)]
+
+### 🐛 Bug Fixes
+
+- fix(gpu): bound discrete histogram buffers by the adapter limits [[#90](https://codeberg.org/cbueth/infomeasure-rs/pulls/90)]
 
 ### Misc
 
