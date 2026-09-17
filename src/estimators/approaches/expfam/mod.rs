@@ -53,3 +53,5 @@ pub mod utils;
 
 #[cfg(feature = "gpu")]
 pub(crate) mod expfam_gpu;
+#[cfg(feature = "gpu")]
+pub(crate) mod ksg_gpu;

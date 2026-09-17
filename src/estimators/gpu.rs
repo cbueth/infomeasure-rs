@@ -28,6 +28,8 @@ pub enum ShaderKind {
     Gaussian,
     Box,
     Expfam,
+    /// Per-query fixed-radius neighbour count (KSG marginal/conditional spaces).
+    Count,
     Histogram,
 }
 
@@ -104,6 +106,20 @@ pub const EXPFAM_GPU_MIN_POINTS_DISCRETE: usize = 2000;
 /// See [`EXPFAM_GPU_MIN_POINTS_DISCRETE`].
 pub const EXPFAM_GPU_MIN_DIM_DISCRETE: usize = 4;
 
+/// Minimum dataset size for the KSG GPU count tier.
+///
+/// On an integrated GPU the tier does **not** pay off: the CPU count uses a
+/// sorted-slab scan that only visits the candidate slab, which beats the dense
+/// O(N²) GPU scan. Measured on an Apple M4 Pro the GPU is 0.4–1.0× the CPU from
+/// N = 4000 to 12500, so the integrated profile never dispatches (an explicit
+/// override still can, for benchmarking).
+pub const KSG_GPU_MIN_POINTS: usize = usize::MAX;
+
+/// Discrete-card gate for the KSG count tier. Dedicated cards are relatively
+/// stronger, but the CPU slab scan is still cheap, so the crossover sits high;
+/// provisional until the tracked KSG benches provide a per-machine value.
+pub const KSG_GPU_MIN_POINTS_DISCRETE: usize = 5000;
+
 /// Per-family minimum points below which the CPU path is used. `expfam_min_dim`
 /// additionally bounds the expfam dense tier to high-dimensional data (see
 /// [`EXPFAM_GPU_MIN_DIM`]).
@@ -113,6 +129,7 @@ pub struct GpuMinPoints {
     pub r#box: usize,
     pub expfam: usize,
     pub expfam_min_dim: usize,
+    pub ksg: usize,
 }
 
 /// Acceleration profile of the selected adapter. Crossovers move with the
@@ -153,6 +170,7 @@ impl GpuMinPoints {
         r#box: BOX_GPU_MIN_POINTS,
         expfam: EXPFAM_GPU_MIN_POINTS,
         expfam_min_dim: EXPFAM_GPU_MIN_DIM,
+        ksg: KSG_GPU_MIN_POINTS,
     };
 
     /// Dedicated cards win earlier: the expfam tier is measured (see the
@@ -163,6 +181,7 @@ impl GpuMinPoints {
         r#box: BOX_GPU_MIN_POINTS_DISCRETE,
         expfam: EXPFAM_GPU_MIN_POINTS_DISCRETE,
         expfam_min_dim: EXPFAM_GPU_MIN_DIM_DISCRETE,
+        ksg: KSG_GPU_MIN_POINTS_DISCRETE,
     };
 
     /// Software renderers (llvmpipe/lavapipe, WARP, virtio) execute WGSL on
@@ -174,6 +193,7 @@ impl GpuMinPoints {
         r#box: usize::MAX,
         expfam: usize::MAX,
         expfam_min_dim: usize::MAX,
+        ksg: usize::MAX,
     };
 
     fn defaults(class: DeviceClass) -> Self {
@@ -193,6 +213,7 @@ pub struct GpuMinPointsOverride {
     pub r#box: Option<usize>,
     pub expfam: Option<usize>,
     pub expfam_min_dim: Option<usize>,
+    pub ksg: Option<usize>,
 }
 
 /// A `DeviceType::Cpu` or virtual adapter executes shaders in software, see
@@ -221,12 +242,14 @@ fn parse_env_min_points(
     r#box: Option<&str>,
     expfam: Option<&str>,
     expfam_min_dim: Option<&str>,
+    ksg: Option<&str>,
 ) -> GpuMinPointsOverride {
     GpuMinPointsOverride {
         gaussian: parse_env_value(gaussian),
         r#box: parse_env_value(r#box),
         expfam: parse_env_value(expfam),
         expfam_min_dim: parse_env_value(expfam_min_dim),
+        ksg: parse_env_value(ksg),
     }
 }
 
@@ -252,6 +275,7 @@ fn resolve_min_points(
             .expfam_min_dim
             .or(env.expfam_min_dim)
             .unwrap_or(defaults.expfam_min_dim),
+        ksg: programmatic.ksg.or(env.ksg).unwrap_or(defaults.ksg),
     }
 }
 
@@ -282,7 +306,8 @@ fn adapter_class() -> DeviceClass {
 
 /// Environment overrides, read once at first use:
 /// `INFOMEASURE_GPU_MIN_GAUSSIAN` / `INFOMEASURE_GPU_MIN_BOX` /
-/// `INFOMEASURE_GPU_MIN_EXPFAM` / `INFOMEASURE_GPU_MIN_EXPFAM_DIM`.
+/// `INFOMEASURE_GPU_MIN_EXPFAM` / `INFOMEASURE_GPU_MIN_EXPFAM_DIM` /
+/// `INFOMEASURE_GPU_MIN_KSG`.
 static ENV_OVERRIDE: LazyLock<GpuMinPointsOverride> = LazyLock::new(|| {
     parse_env_min_points(
         std::env::var("INFOMEASURE_GPU_MIN_GAUSSIAN")
@@ -293,6 +318,7 @@ static ENV_OVERRIDE: LazyLock<GpuMinPointsOverride> = LazyLock::new(|| {
         std::env::var("INFOMEASURE_GPU_MIN_EXPFAM_DIM")
             .ok()
             .as_deref(),
+        std::env::var("INFOMEASURE_GPU_MIN_KSG").ok().as_deref(),
     )
 });
 
@@ -303,6 +329,8 @@ static PROGRAMMATIC_OVERRIDE: AtomicU64 = AtomicU64::new((UNSET_LANE << 32) | UN
 /// The expfam lanes (points low, min-dimension high) live in their own atomic
 /// because the pair above is full.
 static PROGRAMMATIC_OVERRIDE_EXPFAM: AtomicU64 = AtomicU64::new((UNSET_LANE << 32) | UNSET_LANE);
+/// The KSG lane lives in its own atomic (only one `u32` lane is used).
+static PROGRAMMATIC_OVERRIDE_KSG: AtomicU64 = AtomicU64::new(UNSET_LANE);
 
 fn encode_lane(value: Option<usize>) -> u64 {
     // Clamp instead of colliding with the unset sentinel. Sizes near
@@ -325,6 +353,7 @@ fn programmatic_override() -> GpuMinPointsOverride {
         r#box: decode_lane(bits & 0xFFFF_FFFF),
         expfam: decode_lane(expfam_bits & 0xFFFF_FFFF),
         expfam_min_dim: decode_lane(expfam_bits >> 32),
+        ksg: decode_lane(PROGRAMMATIC_OVERRIDE_KSG.load(Ordering::Relaxed)),
     }
 }
 
@@ -342,6 +371,7 @@ pub fn set_gpu_min_points_override(
     r#box: Option<usize>,
     expfam: Option<usize>,
     expfam_min_dim: Option<usize>,
+    ksg: Option<usize>,
 ) {
     PROGRAMMATIC_OVERRIDE.store(
         (encode_lane(gaussian) << 32) | encode_lane(r#box),
@@ -351,6 +381,7 @@ pub fn set_gpu_min_points_override(
         (encode_lane(expfam_min_dim) << 32) | encode_lane(expfam),
         Ordering::Relaxed,
     );
+    PROGRAMMATIC_OVERRIDE_KSG.store(encode_lane(ksg), Ordering::Relaxed);
 }
 
 /// Built-in minimum points for the currently detected adapter, before any
@@ -376,6 +407,12 @@ pub fn gpu_min_points_expfam_default() -> usize {
 #[doc(hidden)]
 pub fn gpu_min_points_expfam_min_dim_default() -> usize {
     GpuMinPoints::defaults(adapter_class()).expfam_min_dim
+}
+
+/// See [`gpu_min_points_gaussian_default`].
+#[doc(hidden)]
+pub fn gpu_min_points_ksg_default() -> usize {
+    GpuMinPoints::defaults(adapter_class()).ksg
 }
 
 /// Effective Gaussian-kernel gate: points below this stay on the CPU.
@@ -417,6 +454,16 @@ pub fn gpu_min_points_expfam_min_dim() -> usize {
         programmatic_override(),
     )
     .expfam_min_dim
+}
+
+/// Effective KSG count gate: datasets below this keep the CPU count path.
+pub fn gpu_min_points_ksg() -> usize {
+    resolve_min_points(
+        GpuMinPoints::defaults(adapter_class()),
+        *ENV_OVERRIDE,
+        programmatic_override(),
+    )
+    .ksg
 }
 
 /// The adapter selected by the same request wgpu performs for the compute
@@ -604,7 +651,7 @@ impl GpuContext {
         // Histogram shape: data ro / atomic counts rw / config uniform.
         let entries: &[wgpu::BindGroupLayoutEntry] = match kind {
             ShaderKind::Gaussian => &[storage_read(0), uniform(1), storage_rw(2)],
-            ShaderKind::Box | ShaderKind::Expfam => {
+            ShaderKind::Box | ShaderKind::Expfam | ShaderKind::Count => {
                 &[storage_read(0), storage_read(1), uniform(2), storage_rw(3)]
             }
             ShaderKind::Histogram => &[storage_read(0), storage_rw(1), uniform(2)],
@@ -834,7 +881,7 @@ impl GpuContext {
                         resource: output_buffer.as_entire_binding(),
                     });
                 }
-                ShaderKind::Box => {
+                ShaderKind::Box | ShaderKind::Count => {
                     let extra = extra_buffer.as_ref()?;
                     entries.push(wgpu::BindGroupEntry {
                         binding: 1,
@@ -1145,30 +1192,47 @@ mod tests {
         assert_eq!(is_software_renderer(&info), expected);
     }
 
+    /// Five optional env-var values / resolved lanes.
+    type EnvArgs<'a> = (
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+    );
+    type EnvExpect = (
+        Option<usize>,
+        Option<usize>,
+        Option<usize>,
+        Option<usize>,
+        Option<usize>,
+    );
+
     #[rstest]
     #[case(
-        (Some("1600"), Some("5000"), Some("4000"), Some("8")),
-        (Some(1600), Some(5000), Some(4000), Some(8))
+        (Some("1600"), Some("5000"), Some("4000"), Some("8"), Some("2500")),
+        (Some(1600), Some(5000), Some(4000), Some(8), Some(2500))
     )]
     #[case(
-        (Some(" 42 "), None, None, None),
-        (Some(42), None, None, None)
+        (Some(" 42 "), None, None, None, None),
+        (Some(42), None, None, None, None)
     )]
     #[case(
-        (None, Some("3000"), Some("9000"), Some("4")),
-        (None, Some(3000), Some(9000), Some(4))
+        (None, Some("3000"), Some("9000"), Some("4"), Some("1500")),
+        (None, Some(3000), Some(9000), Some(4), Some(1500))
     )]
     fn parse_env_min_points_accepts_valid_values(
-        #[case] input: (Option<&str>, Option<&str>, Option<&str>, Option<&str>),
-        #[case] want: (Option<usize>, Option<usize>, Option<usize>, Option<usize>),
+        #[case] input: EnvArgs<'_>,
+        #[case] want: EnvExpect,
     ) {
-        let parsed = parse_env_min_points(input.0, input.1, input.2, input.3);
+        let parsed = parse_env_min_points(input.0, input.1, input.2, input.3, input.4);
         assert_eq!(
             (
                 parsed.gaussian,
                 parsed.r#box,
                 parsed.expfam,
-                parsed.expfam_min_dim
+                parsed.expfam_min_dim,
+                parsed.ksg
             ),
             want
         );
@@ -1176,14 +1240,20 @@ mod tests {
 
     #[test]
     fn parse_env_min_points_rejects_invalid_values() {
-        let parsed = parse_env_min_points(Some("fast"), Some("-5"), Some(""), Some("x"));
+        let parsed = parse_env_min_points(Some("fast"), Some("-5"), Some(""), Some("x"), Some("y"));
         assert_eq!(parsed, GpuMinPointsOverride::default());
-        let parsed_partial =
-            parse_env_min_points(Some("900"), Some("nope"), Some("2500"), Some("6"));
+        let parsed_partial = parse_env_min_points(
+            Some("900"),
+            Some("nope"),
+            Some("2500"),
+            Some("6"),
+            Some("7"),
+        );
         assert_eq!(parsed_partial.gaussian, Some(900));
         assert_eq!(parsed_partial.r#box, None);
         assert_eq!(parsed_partial.expfam, Some(2500));
         assert_eq!(parsed_partial.expfam_min_dim, Some(6));
+        assert_eq!(parsed_partial.ksg, Some(7));
     }
 
     #[test]
@@ -1193,12 +1263,14 @@ mod tests {
             r#box: 5000,
             expfam: 4000,
             expfam_min_dim: 8,
+            ksg: 4000,
         };
         let env = GpuMinPointsOverride {
             gaussian: Some(1000),
             r#box: None,
             expfam: None,
             expfam_min_dim: None,
+            ksg: None,
         };
 
         // No overrides at all → shipped constants.
@@ -1218,6 +1290,7 @@ mod tests {
                 r#box: Some(7),
                 expfam: Some(11),
                 expfam_min_dim: Some(3),
+                ksg: Some(9),
             },
         );
         assert_eq!(
@@ -1227,6 +1300,7 @@ mod tests {
                 r#box: 7,
                 expfam: 11,
                 expfam_min_dim: 3,
+                ksg: 9,
             }
         );
     }
@@ -1240,14 +1314,20 @@ mod tests {
                 r#box: BOX_GPU_MIN_POINTS,
                 expfam: EXPFAM_GPU_MIN_POINTS,
                 expfam_min_dim: EXPFAM_GPU_MIN_DIM,
+                ksg: KSG_GPU_MIN_POINTS,
             },
             "defaults are provisional crossover snapshots (see the constants' \
              docs). Retune only with gpu_crossover data, never by hand"
         );
-        // Unknown device types are treated as integrated (conservative).
+        // Unknown device types are treated as integrated (conservative), and
+        // the KSG count tier is disabled there (it loses to the CPU slab scan).
         assert_eq!(
             GpuMinPoints::defaults(DeviceClass::Other),
             GpuMinPoints::defaults(DeviceClass::Integrated)
+        );
+        assert_eq!(
+            GpuMinPoints::defaults(DeviceClass::Integrated).ksg,
+            usize::MAX
         );
     }
 
@@ -1258,6 +1338,7 @@ mod tests {
         assert_eq!(discrete.expfam_min_dim, EXPFAM_GPU_MIN_DIM_DISCRETE);
         assert_eq!(discrete.gaussian, GAUSSIAN_GPU_MIN_POINTS_DISCRETE);
         assert_eq!(discrete.r#box, BOX_GPU_MIN_POINTS_DISCRETE);
+        assert_eq!(discrete.ksg, KSG_GPU_MIN_POINTS_DISCRETE);
         // The discrete profile must be at least as eager as the integrated one.
         assert!(
             discrete.expfam_min_dim < EXPFAM_GPU_MIN_DIM
@@ -1274,6 +1355,7 @@ mod tests {
         assert_eq!(never.gaussian, usize::MAX);
         assert_eq!(never.r#box, usize::MAX);
         assert_eq!(never.expfam, usize::MAX);
+        assert_eq!(never.ksg, usize::MAX);
         // Overrides stay uniform (prog > env > default): an explicit request
         // may still force the software path, e.g. for benchmarking it.
         let resolved = resolve_min_points(
@@ -1283,6 +1365,7 @@ mod tests {
                 r#box: None,
                 expfam: None,
                 expfam_min_dim: None,
+                ksg: None,
             },
             GpuMinPointsOverride::default(),
         );
@@ -1297,7 +1380,7 @@ mod tests {
     /// enforced independently, so no assertion elsewhere depends on routing.
     #[test]
     fn programmatic_override_roundtrip_and_clear() {
-        set_gpu_min_points_override(Some(42), None, None, None);
+        set_gpu_min_points_override(Some(42), None, None, None, None);
         assert_eq!(gpu_min_points_gaussian(), 42);
         assert_eq!(gpu_min_points_box(), gpu_min_points_box_default());
         assert_eq!(gpu_min_points_expfam(), gpu_min_points_expfam_default());
@@ -1305,19 +1388,21 @@ mod tests {
             gpu_min_points_expfam_min_dim(),
             gpu_min_points_expfam_min_dim_default()
         );
+        assert_eq!(gpu_min_points_ksg(), gpu_min_points_ksg_default());
 
-        set_gpu_min_points_override(None, Some(7), None, None);
+        set_gpu_min_points_override(None, Some(7), None, None, None);
         assert_eq!(gpu_min_points_gaussian(), gpu_min_points_gaussian_default());
         assert_eq!(gpu_min_points_box(), 7);
         assert_eq!(gpu_min_points_expfam(), gpu_min_points_expfam_default());
 
-        set_gpu_min_points_override(None, None, Some(13), Some(2));
+        set_gpu_min_points_override(None, None, Some(13), Some(2), Some(9));
         assert_eq!(gpu_min_points_gaussian(), gpu_min_points_gaussian_default());
         assert_eq!(gpu_min_points_box(), gpu_min_points_box_default());
         assert_eq!(gpu_min_points_expfam(), 13);
         assert_eq!(gpu_min_points_expfam_min_dim(), 2);
+        assert_eq!(gpu_min_points_ksg(), 9);
 
-        set_gpu_min_points_override(None, None, None, None);
+        set_gpu_min_points_override(None, None, None, None, None);
         assert_eq!(gpu_min_points_gaussian(), gpu_min_points_gaussian_default());
         assert_eq!(gpu_min_points_box(), gpu_min_points_box_default());
         assert_eq!(gpu_min_points_expfam(), gpu_min_points_expfam_default());
@@ -1325,6 +1410,7 @@ mod tests {
             gpu_min_points_expfam_min_dim(),
             gpu_min_points_expfam_min_dim_default()
         );
+        assert_eq!(gpu_min_points_ksg(), gpu_min_points_ksg_default());
     }
 
     /// Gate resolution must work without panicking on any machine — including
@@ -1336,6 +1422,7 @@ mod tests {
         assert!(gpu_min_points_box() > 0);
         assert!(gpu_min_points_expfam() > 0);
         assert!(gpu_min_points_expfam_min_dim() > 0);
+        assert!(gpu_min_points_ksg() > 0);
         let _ = gpu_adapter_info(); // probe must be side-effect free for callers
     }
 

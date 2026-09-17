@@ -6,6 +6,7 @@
 mod expfam_gpu_parity;
 mod kl_joint_cross_parity;
 mod kl_python_parity;
+mod ksg_gpu_parity;
 mod ksg_parallel_parity;
 mod ksg_parity;
 mod ksg_sanity;

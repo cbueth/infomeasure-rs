@@ -10,7 +10,7 @@
 //!
 //! | Feature | Engine | Best at | Requires |
 //! |---------|--------|---------|----------|
-//! | `gpu` | wgpu (Vulkan / Metal / DX12 / WebGPU) | Dense, regular, large-N work: fixed-radius neighbour counts, weighted Gaussian density, discrete histograms, dense k-NN distances for the exponential-family estimators | A hardware GPU adapter |
+//! | `gpu` | wgpu (Vulkan / Metal / DX12 / WebGPU) | Dense, regular, large-N work: fixed-radius neighbour counts, weighted Gaussian density, discrete histograms, dense k-NN distances and KSG marginal counts for the exponential-family estimators | A hardware GPU adapter |
 //! | `parallel` | rayon (CPU) | Query-parallel CPU loops with independent per-item results — kernel density loops and the expfam/KSG kNN queries, above all on machines without a GPU | Nothing beyond the feature flag |
 //!
 //! ## Choosing between them
@@ -106,6 +106,13 @@
 //! $D \ge 4$ with about 2000 points for the expfam tier and about 1000 points
 //! for both kernels. Integrated GPUs and unknown device types keep the
 //! conservative profile. Explicit overrides always win over the profile.
+//!
+//! The KSG marginal/conditional counts have their own gate
+//! (`INFOMEASURE_GPU_MIN_KSG`). It is **disabled on integrated GPUs** by
+//! default: the CPU count is a sorted-slab scan that only visits the candidate
+//! slab, which beats the dense O(N²) GPU scan (measured 0.4–1.0× on an Apple
+//! M4 Pro from N = 4000 to 12500). Discrete cards use a high provisional gate
+//! until the tracked KSG benches provide a per-machine crossover.
 //!
 //! These thresholds are set against the **single-thread** CPU baseline (the fair
 //! published track). Since the GPU gate decides before `parallel`, a discrete

@@ -148,6 +148,8 @@ macro_rules! impl_ksg_mi {
             pub base: f64,
             pub noise_level: f64,
             pub use_chebyshev: bool,
+            /// Bypass the (opt-in) GPU count tier for this estimator.
+            pub force_cpu: bool,
         }
 
         impl<const D_JOINT: usize, $(const $d_param: usize),*> $name<D_JOINT, $($d_param),*> {
@@ -161,7 +163,14 @@ macro_rules! impl_ksg_mi {
                     base: std::f64::consts::E,
                     noise_level,
                     use_chebyshev: true, // Chebyshev is standard for KSG
+                    force_cpu: false,
                 }
+            }
+
+            /// Force the CPU count path, bypassing the GPU tier even when the
+            /// `gpu` feature is enabled (used by parity tests and benchmarks).
+            pub fn set_force_cpu(&mut self, force_cpu: bool) {
+                self.force_cpu = force_cpu;
             }
 
             pub fn with_type(mut self, ksg_type: KsgType) -> Self {
@@ -257,9 +266,61 @@ macro_rules! impl_ksg_mi {
                     epsilons
                 };
 
-                // 2. Count neighbours in marginal spaces within epsilon
-                let mut marginal_counts = Vec::new();
-                $(
+                // 2. Count neighbours in marginal spaces within epsilon. The
+                // dense GPU tier runs every space in one submit; if any space
+                // is ineligible the CPU path below handles all of them.
+                #[cfg_attr(not(feature = "gpu"), allow(unused_labels))]
+                let marginal_counts: Vec<Vec<f64>> = 'marginals: {
+                    #[cfg(feature = "gpu")]
+                    if !self.force_cpu {
+                        let mut jobs = Vec::new();
+                        let mut ready = true;
+                        $(
+                            match super::ksg_gpu::count_job::<$d_param>(
+                                self.data[$d_idx].view(),
+                                &epsilons,
+                                self.use_chebyshev,
+                                self.ksg_type == KsgType::Type1,
+                            ) {
+                                Some(job) => jobs.push(job),
+                                None => ready = false,
+                            }
+                        )*
+                        if ready
+                            && let Some(raw) = super::ksg_gpu::count_raw_batch(&jobs)
+                        {
+                            let type1 = self.ksg_type == KsgType::Type1;
+                            let mut counts_per_space = Vec::with_capacity(raw.len());
+                            let mut spaces = raw.into_iter();
+                            $(
+                                {
+                                    let space = spaces.next().expect("one job per space");
+                                    let counts = if space.ambiguous() {
+                                        // Boundary-ambiguous space: exact CPU count.
+                                        let m_points = NdDataset::<$d_param>::points_as_vec(
+                                            self.data[$d_idx].clone(),
+                                        );
+                                        count_space_cpu::<$d_param>(
+                                            &m_points,
+                                            &epsilons,
+                                            self.use_chebyshev,
+                                            self.ksg_type,
+                                        )
+                                    } else {
+                                        super::ksg_gpu::apply_self_exclusion(
+                                            &space.at_radius,
+                                            &epsilons,
+                                            type1,
+                                        )
+                                    };
+                                    counts_per_space.push(counts);
+                                }
+                            )*
+                            break 'marginals counts_per_space;
+                        }
+                    }
+                    let mut marginal_counts = Vec::new();
+                    $(
                     let m_data = self.data[$d_idx].view();
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
                     let m_sorted = SortedSpace::new(m_points.clone());
@@ -311,7 +372,9 @@ macro_rules! impl_ksg_mi {
                         counts
                     };
                     marginal_counts.push(counts);
-                )*
+                    )*
+                    marginal_counts
+                };
 
                 let mut local_mi = Array1::zeros(n_samples);
                 let ln_base = self.base.ln();
@@ -463,6 +526,33 @@ impl<const D: usize> SortedSpace<D> {
     }
 }
 
+/// Exact CPU neighbour count for one space, used as the fallback for spaces
+/// whose f32 GPU count is boundary-ambiguous. Mirrors the inline CPU path.
+fn count_space_cpu<const D: usize>(
+    points: &[[f64; D]],
+    epsilons: &[f64],
+    use_chebyshev: bool,
+    ksg_type: KsgType,
+) -> Vec<f64> {
+    let sorted = SortedSpace::new(points.to_vec());
+    let exclusive = ksg_type == KsgType::Type1;
+    (0..points.len())
+        .map(|i| {
+            let eps = epsilons[i];
+            let count = if exclusive {
+                if eps > 0.0 {
+                    sorted.count_within(&points[i], eps, use_chebyshev, true) - 1
+                } else {
+                    0
+                }
+            } else {
+                sorted.count_within(&points[i], eps, use_chebyshev, false)
+            };
+            count as f64
+        })
+        .collect()
+}
+
 /// KSG (kNN-based) conditional mutual information estimator.
 ///
 /// ## Theory
@@ -489,6 +579,8 @@ pub struct KsgConditionalMutualInformation<
     pub base: f64,
     pub noise_level: f64,
     pub use_chebyshev: bool,
+    /// Bypass the (opt-in) GPU count tier for this estimator.
+    pub force_cpu: bool,
 }
 
 impl<
@@ -515,7 +607,14 @@ impl<
             base: std::f64::consts::E,
             noise_level,
             use_chebyshev: true,
+            force_cpu: false,
         }
+    }
+
+    /// Force the CPU count path, bypassing the GPU tier even when the `gpu`
+    /// feature is enabled (used by parity tests and benchmarks).
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.force_cpu = force_cpu;
     }
 
     pub fn with_type(mut self, ksg_type: KsgType) -> Self {
@@ -612,8 +711,8 @@ impl<
         let yz = concatenate(Axis(1), &[self.data[1].view(), self.cond.view()]).unwrap();
         let z = self.cond.view();
 
-        let xz_points = NdDataset::<D1_COND>::points_as_vec(xz);
-        let yz_points = NdDataset::<D2_COND>::points_as_vec(yz);
+        let xz_points = NdDataset::<D1_COND>::points_as_vec(xz.clone());
+        let yz_points = NdDataset::<D2_COND>::points_as_vec(yz.clone());
         let z_points = NdDataset::<D_COND>::points_as_vec(z.to_owned());
 
         let xz_sorted = SortedSpace::new(xz_points.clone());
@@ -627,6 +726,76 @@ impl<
 
         #[cfg_attr(not(feature = "parallel"), allow(unused_labels))]
         let local_cmi: Array1<f64> = 'cmi: {
+            // Dense GPU tier: the three conditional/marginal spaces in one
+            // submit. Falls through to the CPU paths when ineligible.
+            #[cfg(feature = "gpu")]
+            if !self.force_cpu {
+                let type1 = self.ksg_type == KsgType::Type1;
+                let jobs = [
+                    super::ksg_gpu::count_job::<D1_COND>(
+                        xz.view(),
+                        &epsilons,
+                        self.use_chebyshev,
+                        type1,
+                    ),
+                    super::ksg_gpu::count_job::<D2_COND>(
+                        yz.view(),
+                        &epsilons,
+                        self.use_chebyshev,
+                        type1,
+                    ),
+                    super::ksg_gpu::count_job::<D_COND>(z, &epsilons, self.use_chebyshev, type1),
+                ];
+                if let [Some(a), Some(b), Some(c)] = jobs
+                    && let Some(raw) = super::ksg_gpu::count_raw_batch(&[a, b, c])
+                {
+                    let exact =
+                        |ambiguous: bool, counts: &[f64], fallback: &dyn Fn() -> Vec<f64>| {
+                            if ambiguous {
+                                fallback()
+                            } else {
+                                super::ksg_gpu::apply_self_exclusion(counts, &epsilons, type1)
+                            }
+                        };
+                    let cxz = exact(raw[0].ambiguous(), &raw[0].at_radius, &|| {
+                        count_space_cpu::<D1_COND>(
+                            &xz_points,
+                            &epsilons,
+                            self.use_chebyshev,
+                            self.ksg_type,
+                        )
+                    });
+                    let cyz = exact(raw[1].ambiguous(), &raw[1].at_radius, &|| {
+                        count_space_cpu::<D2_COND>(
+                            &yz_points,
+                            &epsilons,
+                            self.use_chebyshev,
+                            self.ksg_type,
+                        )
+                    });
+                    let cz = exact(raw[2].ambiguous(), &raw[2].at_radius, &|| {
+                        count_space_cpu::<D_COND>(
+                            &z_points,
+                            &epsilons,
+                            self.use_chebyshev,
+                            self.ksg_type,
+                        )
+                    });
+                    let mut local = Array1::zeros(n_samples);
+                    for i in 0..n_samples {
+                        local[i] = if type1 {
+                            (digamma_k + digamma(cz[i] + 1.0)
+                                - digamma(cxz[i] + 1.0)
+                                - digamma(cyz[i] + 1.0))
+                                * inv_ln_base
+                        } else {
+                            (digamma_k - inv_k + digamma(cz[i]) - digamma(cxz[i]) - digamma(cyz[i]))
+                                * inv_ln_base
+                        };
+                    }
+                    break 'cmi local;
+                }
+            }
             #[cfg(feature = "parallel")]
             if n_samples >= PARALLEL_MIN_QUERIES && rayon::current_num_threads() > 1 {
                 break 'cmi Array1::from(chunked_map(
@@ -881,6 +1050,12 @@ impl<
         self.internal_cmi = self.internal_cmi.with_chebyshev(use_chebyshev);
         self
     }
+
+    /// Force the CPU count path, bypassing the GPU tier even when the `gpu`
+    /// feature is enabled (used by parity tests and benchmarks).
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.internal_cmi.set_force_cpu(force_cpu);
+    }
 }
 
 impl<
@@ -1094,6 +1269,12 @@ impl<
     pub fn with_chebyshev(mut self, use_chebyshev: bool) -> Self {
         self.internal_cmi = self.internal_cmi.with_chebyshev(use_chebyshev);
         self
+    }
+
+    /// Force the CPU count path, bypassing the GPU tier even when the `gpu`
+    /// feature is enabled (used by parity tests and benchmarks).
+    pub fn set_force_cpu(&mut self, force_cpu: bool) {
+        self.internal_cmi.set_force_cpu(force_cpu);
     }
 }
 

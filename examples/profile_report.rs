@@ -307,6 +307,7 @@ pub mod imp {
                         Some(0),
                         Some(0),
                         Some(0),
+                        Some(0),
                     );
                     gpu_ctx = infomeasure::estimators::gpu::GpuContext::get();
                     if let Some(ctx) = gpu_ctx {

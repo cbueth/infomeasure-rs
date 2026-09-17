@@ -62,10 +62,11 @@ Two **opt-in accelerators** are available. Both are off by default and change
 *when*, not *what*, is computed — values are identical to the plain CPU path.
 
 - **`gpu`**: GPU acceleration (wgpu → Vulkan / Metal / DX12 / WebGPU) for kernel
-  density estimation, the discrete histogram, and the dense k-NN tier of the
-  exponential-family (kNN) estimators. Preferred for large, dense workloads on
-  machines with a hardware adapter; the expfam tier additionally needs
-  high-dimensional data (see the guide).
+  density estimation, the discrete histogram, and the dense k-NN and KSG
+  marginal-count tiers of the exponential-family (kNN) estimators. Preferred for
+  large, dense workloads on machines with a hardware adapter; the expfam tier
+  additionally needs high-dimensional data and the KSG counts prefer discrete
+  cards (see the guide).
 - **`parallel`**: CPU multi-threading (rayon) for the query-parallel kernel
   loops and the expfam/KSG kNN queries. Use it on GPU-less machines, or below
   the GPU size gate; the Gaussian kernel gains roughly **6–8×** at a few

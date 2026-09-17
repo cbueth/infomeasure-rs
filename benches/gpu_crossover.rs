@@ -25,6 +25,10 @@ use infomeasure::estimators::entropy::{Entropy, GlobalValue};
 #[cfg(feature = "gpu")]
 use infomeasure::estimators::gpu::set_gpu_min_points_override;
 #[cfg(feature = "gpu")]
+use infomeasure::estimators::mutual_information::MutualInformation;
+#[cfg(feature = "gpu")]
+use infomeasure::estimators::transfer_entropy::TransferEntropy;
+#[cfg(feature = "gpu")]
 use ndarray::{Array1, Array2};
 #[cfg(feature = "gpu")]
 use rand::Rng;
@@ -85,7 +89,7 @@ fn bench_gaussian_crossover(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(4));
 
     // Force every call through the GPU path regardless of size.
-    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0));
+    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0), Some(0));
 
     for size in crossover_sizes() {
         let data = gaussian_sample(size);
@@ -108,7 +112,7 @@ fn bench_gaussian_crossover(c: &mut Criterion) {
         });
     }
 
-    set_gpu_min_points_override(None, None, None, None);
+    set_gpu_min_points_override(None, None, None, None, None);
     group.finish();
 }
 
@@ -117,7 +121,7 @@ fn bench_box_crossover(c: &mut Criterion) {
     let mut group = c.benchmark_group("crossover_box");
     group.measurement_time(Duration::from_secs(4));
 
-    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0));
+    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0), Some(0));
 
     for size in crossover_sizes() {
         let data = gaussian_sample(size);
@@ -140,7 +144,75 @@ fn bench_box_crossover(c: &mut Criterion) {
         });
     }
 
-    set_gpu_min_points_override(None, None, None, None);
+    set_gpu_min_points_override(None, None, None, None, None);
+    group.finish();
+}
+
+/// Correlated KSG inputs (x, y coupled, z independent).
+#[cfg(feature = "gpu")]
+fn ksg_series(size: usize) -> (Array1<f64>, Array1<f64>, Array1<f64>) {
+    let mut rng = StdRng::from_entropy();
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    let mut x = Vec::with_capacity(size);
+    let mut y = Vec::with_capacity(size);
+    let mut z = Vec::with_capacity(size);
+    for _ in 0..size {
+        let a: f64 = normal.sample(&mut rng);
+        let b: f64 = normal.sample(&mut rng);
+        let c: f64 = normal.sample(&mut rng);
+        x.push(a);
+        y.push(0.5 * a + 0.75_f64.sqrt() * b);
+        z.push(c);
+    }
+    (Array1::from(x), Array1::from(y), Array1::from(z))
+}
+
+/// KSG count tier crossover: forced CPU counts versus the GPU count submit per
+/// measure. The CPU count uses a sorted-slab scan, so the crossover is expected
+/// to sit higher than for the box kernel.
+#[cfg(feature = "gpu")]
+fn bench_ksg_crossover(c: &mut Criterion) {
+    let mut group = c.benchmark_group("crossover_ksg");
+    group.measurement_time(Duration::from_secs(4));
+
+    // Force the count tier on at any size for both paths.
+    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0), Some(0));
+
+    let k = 3;
+    for &size in crossover_sizes().iter() {
+        let (x, y, z) = ksg_series(size);
+
+        group.bench_with_input(BenchmarkId::new("mi_cpu", size), &size, |b, _| {
+            b.iter(|| {
+                let mut est = MutualInformation::new_ksg(&[x.clone(), y.clone()], k, 0.0);
+                est.set_force_cpu(true);
+                black_box(est.global_value())
+            });
+        });
+        group.bench_with_input(BenchmarkId::new("mi_gpu", size), &size, |b, _| {
+            b.iter(|| {
+                let mut est = MutualInformation::new_ksg(&[x.clone(), y.clone()], k, 0.0);
+                est.set_force_cpu(false);
+                black_box(est.global_value())
+            });
+        });
+        group.bench_with_input(BenchmarkId::new("cte_cpu", size), &size, |b, _| {
+            b.iter(|| {
+                let mut est = TransferEntropy::new_cte_ksg(&x, &y, &z, 1, 1, 1, 1, k, 0.0);
+                est.set_force_cpu(true);
+                black_box(est.global_value())
+            });
+        });
+        group.bench_with_input(BenchmarkId::new("cte_gpu", size), &size, |b, _| {
+            b.iter(|| {
+                let mut est = TransferEntropy::new_cte_ksg(&x, &y, &z, 1, 1, 1, 1, k, 0.0);
+                est.set_force_cpu(false);
+                black_box(est.global_value())
+            });
+        });
+    }
+
+    set_gpu_min_points_override(None, None, None, None, None);
     group.finish();
 }
 
@@ -162,7 +234,7 @@ fn bench_expfam_crossover(c: &mut Criterion) {
     let mut group = c.benchmark_group("crossover_expfam_kl");
     group.measurement_time(Duration::from_secs(4));
 
-    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0));
+    set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0), Some(0));
 
     macro_rules! dim_series {
         ($dim:literal) => {
@@ -204,7 +276,7 @@ fn bench_expfam_crossover(c: &mut Criterion) {
     dim_series!(8);
     dim_series!(16);
 
-    set_gpu_min_points_override(None, None, None, None);
+    set_gpu_min_points_override(None, None, None, None, None);
     group.finish();
 }
 
@@ -213,7 +285,8 @@ criterion_group!(
     benches,
     bench_gaussian_crossover,
     bench_box_crossover,
-    bench_expfam_crossover
+    bench_expfam_crossover,
+    bench_ksg_crossover
 );
 
 #[cfg(feature = "gpu")]

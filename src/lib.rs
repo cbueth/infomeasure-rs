@@ -87,8 +87,9 @@
 //! # Feature Flags
 //!
 //! - `gpu`: Enable GPU acceleration (wgpu) for kernel estimators, the discrete
-//!   histogram, and the dense k-NN tier of the exponential-family estimators.
-//!   Preferred for dense, large-N work on machines with a hardware adapter.
+//!   histogram, and the dense k-NN and KSG marginal-count tiers of the
+//!   exponential-family estimators. Preferred for dense, large-N work on
+//!   machines with a hardware adapter.
 //! - `parallel`: Enable CPU data-parallelism (rayon) for query-parallel
 //!   estimator loops. Use it for GPU-less builds or below the GPU size gate.
 //!

@@ -46,7 +46,7 @@ struct ExpfamKnnConfig {
 }
 
 /// Packs a row-major `n x K` cloud into flat f32 bytes for the shader.
-fn pack_cloud<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<u8> {
+pub(crate) fn pack_cloud<const K: usize>(data: ArrayView2<'_, f64>) -> Vec<u8> {
     let mut flat: Vec<f32> = Vec::with_capacity(data.nrows() * K);
     if let Some(slice) = data.as_slice() {
         flat.extend(slice.iter().map(|&v| v as f32));
