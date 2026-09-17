@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.1) - 2026-09-17
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### ⚡ Performance
+
+- perf(kernel): parallelise the CPU density loops behind an opt-in `parallel` feature [[#86](https://codeberg.org/cbueth/infomeasure-rs/pulls/86)]
+- bench(gpu): sparse GPU overlay for the kernel estimators [[#85](https://codeberg.org/cbueth/infomeasure-rs/pulls/85)]
+- bench(alphabet): discrete alphabet-scaling benchmark family + site view [[#84](https://codeberg.org/cbueth/infomeasure-rs/pulls/84)]
+- perf(discrete): dense direct discrete CMI/TE/CTE, multi-MI, and known-alphabet builder [[#83](https://codeberg.org/cbueth/infomeasure-rs/pulls/83)]
+- perf(nsb): count histogram, fused quadrature, global adaptive integrator [[#82](https://codeberg.org/cbueth/infomeasure-rs/pulls/82)]
+- perf(discrete): close the JIDT gap on the discrete estimators [[#79](https://codeberg.org/cbueth/infomeasure-rs/pulls/79)]
+
+### Misc
+
+- feat(gpu): dense expfam kNN tier [[#88](https://codeberg.org/cbueth/infomeasure-rs/pulls/88)]
+
 ## [0.4.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.0) - 2026-09-11
 
 ### ❤️ Thanks to all contributors! ❤️
