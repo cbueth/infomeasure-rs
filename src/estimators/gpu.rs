@@ -60,6 +60,24 @@ pub const GAUSSIAN_GPU_MIN_POINTS: usize = 1200;
 /// M4 Pro tie at ~3200, clear win by 4000.
 pub const BOX_GPU_MIN_POINTS: usize = 4000;
 
+/// Discrete-card gate for the Gaussian kernel. Measured on a GTX 1060, the GPU
+/// already wins by ~16x at 1000 points (12.1 ms CPU vs 0.76 ms GPU) and by
+/// ~129x at 5000, so the integrated constant of 1200 leaves wins unused.
+/// The smallest tracked crossover point is 1000, hence the conservative value.
+pub const GAUSSIAN_GPU_MIN_POINTS_DISCRETE: usize = 1000;
+
+/// Discrete-card gate for the box kernel. Measured on the GTX 1060 the GPU wins
+/// from 1000 points (1.02 ms CPU vs 0.67 ms GPU, ~1.5x) and by ~9x at 5000,
+/// much earlier than the integrated tie at ~3200.
+///
+/// The gate is set against the single-thread CPU baseline, which is the fair
+/// track. Because the GPU tier decides before `parallel`, this also preempts the
+/// multi-thread CPU fallback for box around 1000 points, where 4 threads are
+/// still faster than the GPU (~0.35 ms vs ~0.67 ms). That overlap is accepted:
+/// the single-thread gain is larger and grows with N, and `parallel` remains the
+/// fallback for GPU-less and below-gate calls.
+pub const BOX_GPU_MIN_POINTS_DISCRETE: usize = 1000;
+
 /// Minimum dataset size for the expfam dense kNN tier (tier T4: pairwise
 /// distances + per-row k-selection). expfam is dominated by *irregular* kiddo
 /// traversal below the crossover, so the dense O(N²) fallback is gated well
@@ -77,6 +95,15 @@ pub const EXPFAM_GPU_MIN_POINTS: usize = 4000;
 /// side; tune per machine with `INFOMEASURE_GPU_MIN_EXPFAM_DIM`.
 pub const EXPFAM_GPU_MIN_DIM: usize = 8;
 
+/// Discrete-card profile for the expfam dense tier. A discrete card is
+/// relatively stronger than the host CPU, so it wins earlier than an integrated
+/// one: measured on a GTX 1060 / i7-8750H, 1D/2D never up to N = 8000, 3D ≈
+/// parity, **4D wins 1.38–1.48×** (even at N = 2000), 6D 2.0–2.9×, 16D 7–12×.
+/// Hence a lower dimensionality/size gate.
+pub const EXPFAM_GPU_MIN_POINTS_DISCRETE: usize = 2000;
+/// See [`EXPFAM_GPU_MIN_POINTS_DISCRETE`].
+pub const EXPFAM_GPU_MIN_DIM_DISCRETE: usize = 4;
+
 /// Per-family minimum points below which the CPU path is used. `expfam_min_dim`
 /// additionally bounds the expfam dense tier to high-dimensional data (see
 /// [`EXPFAM_GPU_MIN_DIM`]).
@@ -88,15 +115,54 @@ pub struct GpuMinPoints {
     pub expfam_min_dim: usize,
 }
 
+/// Acceleration profile of the selected adapter. Crossovers move with the
+/// device: discrete cards are relatively stronger (and their host CPUs slower)
+/// than integrated ones, so they are dispatched earlier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DeviceClass {
+    /// llvmpipe/lavapipe/WARP/virtio — never dispatched.
+    Software,
+    /// Shared-memory GPU (Apple/Intel/AMD iGPU); the shared constants apply.
+    Integrated,
+    /// Dedicated card; wins at lower dimensionality and size.
+    Discrete,
+    /// Unknown device type — treated like integrated (conservative).
+    Other,
+}
+
+impl DeviceClass {
+    fn of(info: &wgpu::AdapterInfo) -> Self {
+        if is_software_renderer(info) {
+            Self::Software
+        } else {
+            match info.device_type {
+                wgpu::DeviceType::DiscreteGpu => Self::Discrete,
+                wgpu::DeviceType::IntegratedGpu => Self::Integrated,
+                _ => Self::Other,
+            }
+        }
+    }
+}
+
 impl GpuMinPoints {
-    /// Shipped constants, derived from benchmark analysis. Deliberately kept
-    /// for every *hardware* adapter: per-machine crossovers are tuned through
-    /// the overrides below rather than a hardware-family table.
-    const HARDWARE_DEFAULTS: Self = Self {
+    /// Shipped constants for integrated (and unknown) adapters, derived from
+    /// benchmark analysis. Per-machine crossovers are tuned through the
+    /// overrides below rather than a hardware-family table.
+    const INTEGRATED_DEFAULTS: Self = Self {
         gaussian: GAUSSIAN_GPU_MIN_POINTS,
         r#box: BOX_GPU_MIN_POINTS,
         expfam: EXPFAM_GPU_MIN_POINTS,
         expfam_min_dim: EXPFAM_GPU_MIN_DIM,
+    };
+
+    /// Dedicated cards win earlier: the expfam tier is measured (see the
+    /// discrete constants), and so are the kernel gates from the per-machine
+    /// `gpu_crossover` data.
+    const DISCRETE_DEFAULTS: Self = Self {
+        gaussian: GAUSSIAN_GPU_MIN_POINTS_DISCRETE,
+        r#box: BOX_GPU_MIN_POINTS_DISCRETE,
+        expfam: EXPFAM_GPU_MIN_POINTS_DISCRETE,
+        expfam_min_dim: EXPFAM_GPU_MIN_DIM_DISCRETE,
     };
 
     /// Software renderers (llvmpipe/lavapipe, WARP, virtio) execute WGSL on
@@ -110,11 +176,11 @@ impl GpuMinPoints {
         expfam_min_dim: usize::MAX,
     };
 
-    fn defaults(is_software_renderer: bool) -> Self {
-        if is_software_renderer {
-            Self::SOFTWARE_NEVER
-        } else {
-            Self::HARDWARE_DEFAULTS
+    fn defaults(class: DeviceClass) -> Self {
+        match class {
+            DeviceClass::Software => Self::SOFTWARE_NEVER,
+            DeviceClass::Discrete => Self::DISCRETE_DEFAULTS,
+            DeviceClass::Integrated | DeviceClass::Other => Self::INTEGRATED_DEFAULTS,
         }
     }
 }
@@ -204,6 +270,16 @@ static ADAPTER_INFO: LazyLock<Option<wgpu::AdapterInfo>> = LazyLock::new(|| {
     .map(|adapter| adapter.get_info())
 });
 
+/// Acceleration profile of the adapter selected for the compute context. With
+/// no adapter at all this resolves to [`DeviceClass::Other`] (the hardware
+/// defaults); the GPU paths then fall back to CPU regardless.
+fn adapter_class() -> DeviceClass {
+    ADAPTER_INFO
+        .as_ref()
+        .map(DeviceClass::of)
+        .unwrap_or(DeviceClass::Other)
+}
+
 /// Environment overrides, read once at first use:
 /// `INFOMEASURE_GPU_MIN_GAUSSIAN` / `INFOMEASURE_GPU_MIN_BOX` /
 /// `INFOMEASURE_GPU_MIN_EXPFAM` / `INFOMEASURE_GPU_MIN_EXPFAM_DIM`.
@@ -281,31 +357,31 @@ pub fn set_gpu_min_points_override(
 /// override is applied (software renderers resolve to `usize::MAX`).
 #[doc(hidden)]
 pub fn gpu_min_points_gaussian_default() -> usize {
-    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).gaussian
+    GpuMinPoints::defaults(adapter_class()).gaussian
 }
 
 /// See [`gpu_min_points_gaussian_default`].
 #[doc(hidden)]
 pub fn gpu_min_points_box_default() -> usize {
-    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).r#box
+    GpuMinPoints::defaults(adapter_class()).r#box
 }
 
 /// See [`gpu_min_points_gaussian_default`].
 #[doc(hidden)]
 pub fn gpu_min_points_expfam_default() -> usize {
-    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).expfam
+    GpuMinPoints::defaults(adapter_class()).expfam
 }
 
 /// See [`gpu_min_points_gaussian_default`].
 #[doc(hidden)]
 pub fn gpu_min_points_expfam_min_dim_default() -> usize {
-    GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)).expfam_min_dim
+    GpuMinPoints::defaults(adapter_class()).expfam_min_dim
 }
 
 /// Effective Gaussian-kernel gate: points below this stay on the CPU.
 pub fn gpu_min_points_gaussian() -> usize {
     resolve_min_points(
-        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        GpuMinPoints::defaults(adapter_class()),
         *ENV_OVERRIDE,
         programmatic_override(),
     )
@@ -315,7 +391,7 @@ pub fn gpu_min_points_gaussian() -> usize {
 /// Effective box-kernel gate: points below this stay on the CPU.
 pub fn gpu_min_points_box() -> usize {
     resolve_min_points(
-        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        GpuMinPoints::defaults(adapter_class()),
         *ENV_OVERRIDE,
         programmatic_override(),
     )
@@ -325,7 +401,7 @@ pub fn gpu_min_points_box() -> usize {
 /// Effective expfam kNN gate: datasets below this stay on the CPU.
 pub fn gpu_min_points_expfam() -> usize {
     resolve_min_points(
-        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        GpuMinPoints::defaults(adapter_class()),
         *ENV_OVERRIDE,
         programmatic_override(),
     )
@@ -336,7 +412,7 @@ pub fn gpu_min_points_expfam() -> usize {
 /// datasets stay on the CPU even above the size gate.
 pub fn gpu_min_points_expfam_min_dim() -> usize {
     resolve_min_points(
-        GpuMinPoints::defaults(ADAPTER_INFO.as_ref().is_some_and(is_software_renderer)),
+        GpuMinPoints::defaults(adapter_class()),
         *ENV_OVERRIDE,
         programmatic_override(),
     )
@@ -1158,7 +1234,7 @@ mod tests {
     #[test]
     fn hardware_defaults_match_the_benchmarked_crossover() {
         assert_eq!(
-            GpuMinPoints::defaults(false),
+            GpuMinPoints::defaults(DeviceClass::Integrated),
             GpuMinPoints {
                 gaussian: GAUSSIAN_GPU_MIN_POINTS,
                 r#box: BOX_GPU_MIN_POINTS,
@@ -1168,18 +1244,40 @@ mod tests {
             "defaults are provisional crossover snapshots (see the constants' \
              docs). Retune only with gpu_crossover data, never by hand"
         );
+        // Unknown device types are treated as integrated (conservative).
+        assert_eq!(
+            GpuMinPoints::defaults(DeviceClass::Other),
+            GpuMinPoints::defaults(DeviceClass::Integrated)
+        );
+    }
+
+    #[test]
+    fn discrete_cards_dispatch_the_expfam_tier_earlier() {
+        let discrete = GpuMinPoints::defaults(DeviceClass::Discrete);
+        assert_eq!(discrete.expfam, EXPFAM_GPU_MIN_POINTS_DISCRETE);
+        assert_eq!(discrete.expfam_min_dim, EXPFAM_GPU_MIN_DIM_DISCRETE);
+        assert_eq!(discrete.gaussian, GAUSSIAN_GPU_MIN_POINTS_DISCRETE);
+        assert_eq!(discrete.r#box, BOX_GPU_MIN_POINTS_DISCRETE);
+        // The discrete profile must be at least as eager as the integrated one.
+        assert!(
+            discrete.expfam_min_dim < EXPFAM_GPU_MIN_DIM
+                && discrete.expfam <= EXPFAM_GPU_MIN_POINTS
+                && discrete.gaussian <= GAUSSIAN_GPU_MIN_POINTS
+                && discrete.r#box <= BOX_GPU_MIN_POINTS,
+            "every discrete gate must be no higher than the integrated one"
+        );
     }
 
     #[test]
     fn software_renderers_never_get_dispatched_by_default() {
-        let never = GpuMinPoints::defaults(true);
+        let never = GpuMinPoints::defaults(DeviceClass::Software);
         assert_eq!(never.gaussian, usize::MAX);
         assert_eq!(never.r#box, usize::MAX);
         assert_eq!(never.expfam, usize::MAX);
         // Overrides stay uniform (prog > env > default): an explicit request
         // may still force the software path, e.g. for benchmarking it.
         let resolved = resolve_min_points(
-            GpuMinPoints::defaults(true),
+            GpuMinPoints::defaults(DeviceClass::Software),
             GpuMinPointsOverride {
                 gaussian: Some(1),
                 r#box: None,

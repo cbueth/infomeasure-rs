@@ -87,14 +87,30 @@
 //! your hardware's crossover better than the shipped defaults.
 //!
 //! The exponential-family dense tier is gated on **both** size and
-//! dimensionality: it needs at least about 4000 points **and** $D \ge 8$ by
-//! default. The reason is the fixed dispatch/readback cost (roughly 2.5 ms on
-//! Metal): a scalar distance scan cannot amortise it while the kd-tree is still
-//! efficient, and the tree degenerates with dimensionality. Measured crossover
-//! on an Apple M4 Pro is 1–4D never (up to $N = 6000$), 6D around $N = 5000$,
-//! 8D around $N = 3000$ and 16D below $N = 2000$. Override with
+//! dimensionality: by default at least about 4000 points **and** $D \ge 8$ on
+//! integrated GPUs. The reason is the fixed dispatch/readback cost (roughly
+//! 2.5 ms on Metal): a scalar distance scan cannot amortise it while the kd-tree
+//! is still efficient, and the tree degenerates with dimensionality. Measured
+//! crossover on an Apple M4 Pro is 1–4D never (up to $N = 6000$), 6D around
+//! $N = 5000$, 8D around $N = 3000$ and 16D below $N = 2000$. Override with
 //! `INFOMEASURE_GPU_MIN_EXPFAM` and `INFOMEASURE_GPU_MIN_EXPFAM_DIM`; below
 //! either gate the estimators use the exact kd-tree path unchanged.
+//!
+//! The gates are **device-aware**. A dedicated card is relatively stronger than
+//! the host CPU, so the tiers engage earlier there: on a GTX 1060 the expfam
+//! crossover is around $D = 4$ (4D wins 1.4× even at $N = 2000$, 16D up to
+//! 11×), and the kernels win much earlier too (Gaussian by about 16× already at
+//! 1000 points, box by about 1.5×). Discrete adapters therefore use
+//! $D \ge 4$ with about 2000 points for the expfam tier and about 1000 points
+//! for both kernels. Integrated GPUs and unknown device types keep the
+//! conservative profile. Explicit overrides always win over the profile.
+//!
+//! These thresholds are set against the **single-thread** CPU baseline (the fair
+//! published track). Since the GPU gate decides before `parallel`, a discrete
+//! box call around 1000 points preempts the multi-thread fallback even though
+//! four CPU threads are still a little faster at that size. That is deliberate:
+//! the single-thread win is larger and grows with $N$, and `parallel` remains the
+//! fallback for GPU-less machines and calls below the gate.
 //!
 //! ```rust
 //! use infomeasure::estimators::entropy::Entropy;
