@@ -41,7 +41,20 @@ use std::time::Duration;
 mod utils;
 
 #[cfg(feature = "gpu")]
-use utils::bench_sizes;
+use utils::{bench_sizes, bench_sizes_extended};
+
+/// Sizes to sweep: the standard set plus the extended set. CI runs the bench
+/// with `BENCH_SIZES=1000` and `BENCH_SIZES_EXTENDED=5000`, so the union keeps
+/// the small crossover points and adds the 5000-point one the expfam tier needs
+/// (its gate is 4000).
+#[cfg(feature = "gpu")]
+fn crossover_sizes() -> Vec<usize> {
+    let mut sizes = bench_sizes();
+    sizes.extend(bench_sizes_extended());
+    sizes.sort_unstable();
+    sizes.dedup();
+    sizes
+}
 
 /// Bandwidth held fixed: the crossover against N is the quantity of interest,
 /// and a single bandwidth halves the runtime.
@@ -74,7 +87,7 @@ fn bench_gaussian_crossover(c: &mut Criterion) {
     // Force every call through the GPU path regardless of size.
     set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0));
 
-    for size in bench_sizes() {
+    for size in crossover_sizes() {
         let data = gaussian_sample(size);
 
         group.bench_with_input(BenchmarkId::new("cpu", size), &data, |b, data| {
@@ -106,7 +119,7 @@ fn bench_box_crossover(c: &mut Criterion) {
 
     set_gpu_min_points_override(Some(0), Some(0), Some(0), Some(0));
 
-    for size in bench_sizes() {
+    for size in crossover_sizes() {
         let data = gaussian_sample(size);
 
         group.bench_with_input(BenchmarkId::new("cpu", size), &data, |b, data| {
@@ -153,7 +166,7 @@ fn bench_expfam_crossover(c: &mut Criterion) {
 
     macro_rules! dim_series {
         ($dim:literal) => {
-            for size in bench_sizes() {
+            for size in crossover_sizes() {
                 let data = gaussian_sample_nd($dim, size);
 
                 group.bench_with_input(
