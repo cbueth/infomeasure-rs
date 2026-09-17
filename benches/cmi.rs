@@ -395,6 +395,53 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+/// Same KSG CMI sweep on a fixed multi-thread rayon pool (see
+/// [`PARALLEL_BENCH_THREADS`]); tracked as `cmi_ksg_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_ksg_cmi_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("cmi_ksg_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
+    let seed = 42u64;
+    let noise_level = 1e-10;
+
+    for &k in &ks {
+        for &size in &sizes {
+            let (x, y) = generate_correlated(size, 0.5, seed);
+            let mut rng = StdRng::seed_from_u64(seed + 1);
+            let z: Vec<f64> = (0..size)
+                .map(|_| rng.sample(Normal::new(0.0, 1.0).unwrap()))
+                .collect();
+            let x_arr = Array1::from(x);
+            let y_arr = Array1::from(y);
+            let z_arr = Array1::from(z);
+
+            let id = BenchmarkId::new(format!("k{}", k), size);
+            group.bench_with_input(id, &(k, size), |b, _| {
+                b.iter(|| {
+                    pool.install(|| {
+                        let cmi = MutualInformation::new_cmi_ksg(
+                            &[x_arr.clone(), y_arr.clone()],
+                            &z_arr,
+                            k,
+                            noise_level,
+                        );
+                        black_box(cmi.global_value())
+                    })
+                });
+            });
+        }
+    }
+
+    group.finish();
+}
+
 #[cfg(feature = "parallel")]
 criterion_group!(
     benches,
@@ -402,6 +449,7 @@ criterion_group!(
     bench_kernel_cmi,
     bench_kernel_cmi_parallel,
     bench_ksg_cmi,
+    bench_ksg_cmi_parallel,
     bench_renyi_cmi,
     bench_tsallis_cmi,
     bench_kl_cmi,

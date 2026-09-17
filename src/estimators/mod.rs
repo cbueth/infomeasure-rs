@@ -54,6 +54,7 @@ pub mod entropy;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod mutual_information;
+pub(crate) mod parallel;
 pub mod traits;
 pub mod transfer_entropy;
 pub mod utils;

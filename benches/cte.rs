@@ -443,6 +443,58 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+/// Same KSG CTE sweep on a fixed multi-thread rayon pool (see
+/// [`PARALLEL_BENCH_THREADS`]); tracked as `cte_ksg_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_ksg_cte_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("cte_ksg_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
+    let seed = 42u64;
+    let noise_level = 1e-10;
+
+    for &k in &ks {
+        for &size in &sizes {
+            let (source, target) = generate_lagged_series(size, 0.5, 1, seed);
+            let mut rng = StdRng::seed_from_u64(seed + 1);
+            let cond: Vec<f64> = (0..size)
+                .map(|_| rng.sample(Normal::new(0.0, 1.0).unwrap()))
+                .collect();
+            let source_arr = Array1::from(source);
+            let target_arr = Array1::from(target);
+            let cond_arr = Array1::from(cond);
+
+            let id = BenchmarkId::new(format!("k{}", k), size);
+            group.bench_with_input(id, &(k, size), |b, _| {
+                b.iter(|| {
+                    pool.install(|| {
+                        let cte = TransferEntropy::new_cte_ksg(
+                            &source_arr,
+                            &target_arr,
+                            &cond_arr,
+                            1,
+                            1,
+                            1,
+                            1,
+                            k,
+                            noise_level,
+                        );
+                        black_box(cte.global_value())
+                    })
+                });
+            });
+        }
+    }
+
+    group.finish();
+}
+
 #[cfg(feature = "parallel")]
 criterion_group!(
     benches,
@@ -450,6 +502,7 @@ criterion_group!(
     bench_kernel_cte,
     bench_kernel_cte_parallel,
     bench_ksg_cte,
+    bench_ksg_cte_parallel,
     bench_renyi_cte,
     bench_tsallis_cte,
     bench_kl_cte,

@@ -103,8 +103,6 @@ use kiddo::{Chebyshev, SquaredEuclidean};
 use ndarray::{Array1, Array2, Axis, concatenate};
 use ndarray_linalg::{Cholesky, UPLO};
 use ndarray_stats::CorrelationExt;
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 /// Minimum number of query points before the CPU density loops are split across
 /// rayon workers (feature `parallel`). Below it the whole call is µs-scale and
@@ -113,15 +111,14 @@ use rayon::prelude::*;
 /// which pin `RAYON_NUM_THREADS=1`) executes the exact same inline loop as a
 /// build without the feature.
 #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
-const PARALLEL_DENSITY_MIN_QUERIES: usize = 512;
+const PARALLEL_DENSITY_MIN_QUERIES: usize = crate::estimators::parallel::PARALLEL_MIN_QUERIES;
 
 /// Splits `n` queries into one chunk per rayon worker and evaluates `query` for
 /// each index, reusing one scratch buffer per chunk.
 ///
 /// Every query writes exactly one independent output, so the result is
-/// bit-identical to the inline sequential loop. Chunking is explicit (one chunk
-/// per worker) rather than `map_init` so the allocating `create_scratch` runs
-/// ~`num_threads` times instead of once per rayon split.
+/// bit-identical to the inline sequential loop. See
+/// [`crate::estimators::parallel::chunked_map`] for the shared implementation.
 #[cfg(feature = "parallel")]
 fn parallel_chunked_queries<S, Init, F>(n: usize, init: Init, query: F) -> Array1<f64>
 where
@@ -129,17 +126,7 @@ where
     Init: Fn() -> S + Sync + Send,
     F: Fn(&mut S, usize) -> f64 + Sync + Send,
 {
-    let threads = rayon::current_num_threads().max(1);
-    let chunk = n.div_ceil(threads);
-    let mut out = vec![0.0f64; n];
-    out.par_chunks_mut(chunk).enumerate().for_each(|(c, slot)| {
-        let mut scratch = init();
-        let base = c * chunk;
-        for (k, value) in slot.iter_mut().enumerate() {
-            *value = query(&mut scratch, base + k);
-        }
-    });
-    Array1::from_vec(out)
+    Array1::from_vec(crate::estimators::parallel::chunked_map(n, init, query))
 }
 
 /// Kernel-based transfer entropy estimator.

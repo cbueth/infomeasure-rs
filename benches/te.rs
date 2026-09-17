@@ -344,6 +344,52 @@ fn black_box<T>(t: T) -> T {
     black_box(t)
 }
 
+/// Same KSG TE sweep on a fixed multi-thread rayon pool (see
+/// [`PARALLEL_BENCH_THREADS`]); tracked as `te_ksg_parallel/...`.
+#[cfg(feature = "parallel")]
+fn bench_ksg_te_parallel(c: &mut Criterion) {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(PARALLEL_BENCH_THREADS)
+        .build()
+        .unwrap();
+    let mut group = c.benchmark_group("te_ksg_parallel");
+    group.measurement_time(Duration::from_secs(3));
+
+    let sizes = bench_sizes();
+    let ks = bench_k_values();
+    let lag = 1;
+    let seed = 42u64;
+    let noise_level = 1e-10;
+
+    for &k in &ks {
+        for &size in &sizes {
+            let (source, target) = generate_lagged_series(size, 0.5, lag, seed);
+            let source_arr = Array1::from(source);
+            let target_arr = Array1::from(target);
+
+            let id = BenchmarkId::new(format!("k{}", k), size);
+            group.bench_with_input(id, &(k, size), |b, _| {
+                b.iter(|| {
+                    pool.install(|| {
+                        let te = TransferEntropy::new_ksg(
+                            &source_arr,
+                            &target_arr,
+                            1,
+                            1,
+                            1,
+                            k,
+                            noise_level,
+                        );
+                        black_box(te.global_value())
+                    })
+                });
+            });
+        }
+    }
+
+    group.finish();
+}
+
 #[cfg(feature = "parallel")]
 criterion_group!(
     benches,
@@ -351,6 +397,7 @@ criterion_group!(
     bench_kernel_te,
     bench_kernel_te_parallel,
     bench_ksg_te,
+    bench_ksg_te_parallel,
     bench_te_renyi,
     bench_te_tsallis,
     bench_ordinal_te
