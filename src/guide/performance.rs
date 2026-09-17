@@ -11,7 +11,7 @@
 //! | Feature | Engine | Best at | Requires |
 //! |---------|--------|---------|----------|
 //! | `gpu` | wgpu (Vulkan / Metal / DX12 / WebGPU) | Dense, regular, large-N work: fixed-radius neighbour counts, weighted Gaussian density, discrete histograms, dense k-NN distances for the exponential-family estimators | A hardware GPU adapter |
-//! | `parallel` | rayon (CPU) | Query-parallel CPU loops with independent per-item results — above all, kernels on machines without a GPU | Nothing beyond the feature flag |
+//! | `parallel` | rayon (CPU) | Query-parallel CPU loops with independent per-item results — kernel density loops and the expfam/KSG kNN queries, above all on machines without a GPU | Nothing beyond the feature flag |
 //!
 //! ## Choosing between them
 //!
@@ -36,7 +36,9 @@
 //! In those situations `parallel` spreads the per-query CPU loop across cores.
 //! For the Gaussian kernel this is typically a **6–8×** speed-up at
 //! $N \gtrsim 2000$ on an 8–12 core machine; the box kernel benefits mainly at
-//! larger $N$.
+//! larger $N$. The same partition covers the expfam/KSG kNN queries (both the
+//! joint nearest-neighbour and the marginal counting phases), which is what
+//! moves the $k$-nearest-neighbour family on CPU-only machines.
 //!
 //! > **They do not run on the same call.** When both features are enabled, the
 //! > existing GPU gate decides first: above the gate the work goes to wgpu, and

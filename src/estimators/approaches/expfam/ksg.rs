@@ -68,6 +68,8 @@ pub use super::utils::KsgType;
 use super::utils::add_noise;
 use crate::estimators::approaches::common_nd::KdTreeExpfam;
 use crate::estimators::approaches::common_nd::dataset::NdDataset;
+#[cfg(feature = "parallel")]
+use crate::estimators::parallel::{PARALLEL_MIN_QUERIES, chunked_map};
 use crate::estimators::traits::{
     ConditionalTransferEntropyEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues, TransferEntropyEstimator,
@@ -189,33 +191,71 @@ macro_rules! impl_ksg_mi {
                 let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_data);
                 let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
-                let mut epsilons = Vec::with_capacity(n_samples);
                 let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-                if self.use_chebyshev {
-                    let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
-                    for i in 0..n_samples {
-                        let p = &joint_points[i];
-                        let neighbors = joint_tree
-                            .query(p)
-                            .nearest_n::<Chebyshev<f64>>(max_qty)
-                            .with_scratch(&mut scratch)
-                            .execute();
-                        let dist = neighbors[self.k].distance;
-                        epsilons.push(dist);
+                #[cfg_attr(not(feature = "parallel"), allow(unused_labels))]
+                let epsilons: Vec<f64> = 'eps: {
+                    // Independent queries: above the threshold they are split
+                    // across rayon workers (feature `parallel`); otherwise the
+                    // inline loop runs unchanged, bit-for-bit.
+                    #[cfg(feature = "parallel")]
+                    if n_samples >= PARALLEL_MIN_QUERIES && rayon::current_num_threads() > 1 {
+                        break 'eps if self.use_chebyshev {
+                            chunked_map(
+                                n_samples,
+                                || joint_tree.create_scratch::<Chebyshev<f64>>(),
+                                |scratch, i| {
+                                    joint_tree
+                                        .query(&joint_points[i])
+                                        .nearest_n::<Chebyshev<f64>>(max_qty)
+                                        .with_scratch(scratch)
+                                        .execute()[self.k]
+                                        .distance
+                                },
+                            )
+                        } else {
+                            chunked_map(
+                                n_samples,
+                                || joint_tree.create_scratch::<SquaredEuclidean<f64>>(),
+                                |scratch, i| {
+                                    joint_tree
+                                        .query(&joint_points[i])
+                                        .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                                        .with_scratch(scratch)
+                                        .execute()[self.k]
+                                        .distance
+                                        .sqrt()
+                                },
+                            )
+                        };
                     }
-                } else {
-                    let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
-                    for i in 0..n_samples {
-                        let p = &joint_points[i];
-                        let neighbors = joint_tree
-                            .query(p)
-                            .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                            .with_scratch(&mut scratch)
-                            .execute();
-                        let dist = neighbors[self.k].distance;
-                        epsilons.push(dist.sqrt());
+                    let mut epsilons = Vec::with_capacity(n_samples);
+                    if self.use_chebyshev {
+                        let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
+                        for i in 0..n_samples {
+                            let p = &joint_points[i];
+                            let neighbors = joint_tree
+                                .query(p)
+                                .nearest_n::<Chebyshev<f64>>(max_qty)
+                                .with_scratch(&mut scratch)
+                                .execute();
+                            let dist = neighbors[self.k].distance;
+                            epsilons.push(dist);
+                        }
+                    } else {
+                        let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
+                        for i in 0..n_samples {
+                            let p = &joint_points[i];
+                            let neighbors = joint_tree
+                                .query(p)
+                                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                                .with_scratch(&mut scratch)
+                                .execute();
+                            let dist = neighbors[self.k].distance;
+                            epsilons.push(dist.sqrt());
+                        }
                     }
-                }
+                    epsilons
+                };
 
                 // 2. Count neighbours in marginal spaces within epsilon
                 let mut marginal_counts = Vec::new();
@@ -224,28 +264,52 @@ macro_rules! impl_ksg_mi {
                     let m_points = NdDataset::<$d_param>::points_as_vec(m_data.to_owned());
                     let m_sorted = SortedSpace::new(m_points.clone());
 
-                    let mut counts = Vec::with_capacity(n_samples);
-                    for i in 0..n_samples {
-                        let p = &m_points[i];
-                        let eps = epsilons[i];
+                    #[cfg_attr(not(feature = "parallel"), allow(unused_labels))]
 
-                        let count = if self.ksg_type == KsgType::Type1 {
-                            // Type 1 uses strict inequality: dist < eps
-                            // Python uses: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
-                            if eps > 0.0 {
-                                let raw = m_sorted.count_within(p, eps, self.use_chebyshev, true);
-                                // Subtract 1 to exclude the point itself (same as Python)
-                                raw - 1
+                    let counts: Vec<f64> = 'counts: {
+                        #[cfg(feature = "parallel")]
+                        if n_samples >= PARALLEL_MIN_QUERIES
+                            && rayon::current_num_threads() > 1
+                        {
+                            break 'counts chunked_map(n_samples, || (), |_, i| {
+                                let p = &m_points[i];
+                                let eps = epsilons[i];
+                                let count = if self.ksg_type == KsgType::Type1 {
+                                    if eps > 0.0 {
+                                        m_sorted.count_within(p, eps, self.use_chebyshev, true) - 1
+                                    } else {
+                                        0
+                                    }
+                                } else {
+                                    m_sorted.count_within(p, eps, self.use_chebyshev, false)
+                                };
+                                count as f64
+                            });
+                        }
+                        let mut counts = Vec::with_capacity(n_samples);
+                        for i in 0..n_samples {
+                            let p = &m_points[i];
+                            let eps = epsilons[i];
+
+                            let count = if self.ksg_type == KsgType::Type1 {
+                                // Type 1 uses strict inequality: dist < eps
+                                // Python uses: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
+                                if eps > 0.0 {
+                                    let raw = m_sorted.count_within(p, eps, self.use_chebyshev, true);
+                                    // Subtract 1 to exclude the point itself (same as Python)
+                                    raw - 1
+                                } else {
+                                    0
+                                }
                             } else {
-                                0
-                            }
-                        } else {
-                            // Type 2 uses inclusive inequality: dist <= eps
-                            m_sorted.count_within(p, eps, self.use_chebyshev, false)
-                        };
+                                // Type 2 uses inclusive inequality: dist <= eps
+                                m_sorted.count_within(p, eps, self.use_chebyshev, false)
+                            };
 
-                        counts.push(count as f64);
-                    }
+                            counts.push(count as f64);
+                        }
+                        counts
+                    };
                     marginal_counts.push(counts);
                 )*
 
@@ -481,29 +545,67 @@ impl<
         let joint_points = NdDataset::<D_JOINT>::points_as_vec(joint_all);
         let joint_tree = KdTreeExpfam::<D_JOINT>::new_from_slice(&joint_points).unwrap();
 
-        let mut epsilons = Vec::with_capacity(n_samples);
         let max_qty = std::num::NonZeroUsize::new(self.k + 1).unwrap();
-        if self.use_chebyshev {
-            let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
-            for p in joint_points.iter().take(n_samples) {
-                let neighbors = joint_tree
-                    .query(p)
-                    .nearest_n::<Chebyshev<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                epsilons.push(neighbors[self.k].distance);
+        #[cfg_attr(not(feature = "parallel"), allow(unused_labels))]
+        let epsilons: Vec<f64> = 'eps: {
+            // Independent queries: split across rayon workers above the
+            // threshold (feature `parallel`); otherwise the inline loop runs
+            // unchanged, bit-for-bit.
+            #[cfg(feature = "parallel")]
+            if n_samples >= PARALLEL_MIN_QUERIES && rayon::current_num_threads() > 1 {
+                break 'eps if self.use_chebyshev {
+                    chunked_map(
+                        n_samples,
+                        || joint_tree.create_scratch::<Chebyshev<f64>>(),
+                        |scratch, i| {
+                            joint_tree
+                                .query(&joint_points[i])
+                                .nearest_n::<Chebyshev<f64>>(max_qty)
+                                .with_scratch(scratch)
+                                .execute()[self.k]
+                                .distance
+                        },
+                    )
+                } else {
+                    chunked_map(
+                        n_samples,
+                        || joint_tree.create_scratch::<SquaredEuclidean<f64>>(),
+                        |scratch, i| {
+                            joint_tree
+                                .query(&joint_points[i])
+                                .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                                .with_scratch(scratch)
+                                .execute()[self.k]
+                                .distance
+                                .sqrt()
+                        },
+                    )
+                };
             }
-        } else {
-            let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
-            for p in joint_points.iter().take(n_samples) {
-                let neighbors = joint_tree
-                    .query(p)
-                    .nearest_n::<SquaredEuclidean<f64>>(max_qty)
-                    .with_scratch(&mut scratch)
-                    .execute();
-                epsilons.push(neighbors[self.k].distance.sqrt());
+            let mut epsilons = Vec::with_capacity(n_samples);
+            if self.use_chebyshev {
+                let mut scratch = joint_tree.create_scratch::<Chebyshev<f64>>();
+                for p in joint_points.iter().take(n_samples) {
+                    let neighbors = joint_tree
+                        .query(p)
+                        .nearest_n::<Chebyshev<f64>>(max_qty)
+                        .with_scratch(&mut scratch)
+                        .execute();
+                    epsilons.push(neighbors[self.k].distance);
+                }
+            } else {
+                let mut scratch = joint_tree.create_scratch::<SquaredEuclidean<f64>>();
+                for p in joint_points.iter().take(n_samples) {
+                    let neighbors = joint_tree
+                        .query(p)
+                        .nearest_n::<SquaredEuclidean<f64>>(max_qty)
+                        .with_scratch(&mut scratch)
+                        .execute();
+                    epsilons.push(neighbors[self.k].distance.sqrt());
+                }
             }
-        }
+            epsilons
+        };
 
         // Marginal/Conditional spaces: (X, Z), (Y, Z), (Z)
         let xz = concatenate(Axis(1), &[self.data[0].view(), self.cond.view()]).unwrap();
@@ -518,53 +620,127 @@ impl<
         let yz_sorted = SortedSpace::new(yz_points.clone());
         let z_sorted = SortedSpace::new(z_points.clone());
 
-        let mut local_cmi = Array1::zeros(n_samples);
         let ln_base = self.base.ln();
         let digamma_k = digamma(self.k as f64);
         let inv_ln_base = 1.0 / ln_base;
         let inv_k = 1.0 / (self.k as f64);
 
-        for i in 0..n_samples {
-            let eps = epsilons[i];
-
-            let (count_xz, count_yz, count_z) = if self.ksg_type == KsgType::Type1 {
-                // Algorithm 1 uses strict inequality (dist < eps)
-                // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
-                if eps > 0.0 {
-                    let raw_xz =
-                        xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, true);
-                    let raw_yz =
-                        yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, true);
-                    let raw_z = z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, true);
-                    (raw_xz as i32 - 1, raw_yz as i32 - 1, raw_z as i32 - 1)
-                } else {
-                    (0, 0, 0)
-                }
-            } else {
-                // Algorithm 2 uses inclusive inequality (distance <= eps).
-                // Python: query_ball_point(..., r=eps, p=inf, ...)
-                let raw_xz = xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, false);
-                let raw_yz = yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, false);
-                let raw_z = z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, false);
-                (raw_xz as i32, raw_yz as i32, raw_z as i32)
-            };
-
-            let (cxz, cyz, cz) = (count_xz, count_yz, count_z);
-
-            if self.ksg_type == KsgType::Type1 {
-                // local_cmi = digamma(k) + [digamma(cz + 1) - sum(digamma(c + 1) for c in counts)]
-                local_cmi[i] = (digamma_k + digamma(cz as f64 + 1.0)
-                    - digamma(cxz as f64 + 1.0)
-                    - digamma(cyz as f64 + 1.0))
-                    * inv_ln_base;
-            } else {
-                // local_cmi = digamma(k) - 1.0/k + [digamma(cz) - sum(digamma(c) for c in counts)]
-                local_cmi[i] = (digamma_k - inv_k + digamma(cz as f64)
-                    - digamma(cxz as f64)
-                    - digamma(cyz as f64))
-                    * inv_ln_base;
+        #[cfg_attr(not(feature = "parallel"), allow(unused_labels))]
+        let local_cmi: Array1<f64> = 'cmi: {
+            #[cfg(feature = "parallel")]
+            if n_samples >= PARALLEL_MIN_QUERIES && rayon::current_num_threads() > 1 {
+                break 'cmi Array1::from(chunked_map(
+                    n_samples,
+                    || (),
+                    |_, i| {
+                        let eps = epsilons[i];
+                        let (cxz, cyz, cz) = if self.ksg_type == KsgType::Type1 {
+                            if eps > 0.0 {
+                                (
+                                    xz_sorted.count_within(
+                                        &xz_points[i],
+                                        eps,
+                                        self.use_chebyshev,
+                                        true,
+                                    ) as i32
+                                        - 1,
+                                    yz_sorted.count_within(
+                                        &yz_points[i],
+                                        eps,
+                                        self.use_chebyshev,
+                                        true,
+                                    ) as i32
+                                        - 1,
+                                    z_sorted.count_within(
+                                        &z_points[i],
+                                        eps,
+                                        self.use_chebyshev,
+                                        true,
+                                    ) as i32
+                                        - 1,
+                                )
+                            } else {
+                                (0, 0, 0)
+                            }
+                        } else {
+                            (
+                                xz_sorted.count_within(
+                                    &xz_points[i],
+                                    eps,
+                                    self.use_chebyshev,
+                                    false,
+                                ) as i32,
+                                yz_sorted.count_within(
+                                    &yz_points[i],
+                                    eps,
+                                    self.use_chebyshev,
+                                    false,
+                                ) as i32,
+                                z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, false)
+                                    as i32,
+                            )
+                        };
+                        if self.ksg_type == KsgType::Type1 {
+                            (digamma_k + digamma(cz as f64 + 1.0)
+                                - digamma(cxz as f64 + 1.0)
+                                - digamma(cyz as f64 + 1.0))
+                                * inv_ln_base
+                        } else {
+                            (digamma_k - inv_k + digamma(cz as f64)
+                                - digamma(cxz as f64)
+                                - digamma(cyz as f64))
+                                * inv_ln_base
+                        }
+                    },
+                ));
             }
-        }
+            let mut local_cmi = Array1::zeros(n_samples);
+            for i in 0..n_samples {
+                let eps = epsilons[i];
+
+                let (count_xz, count_yz, count_z) = if self.ksg_type == KsgType::Type1 {
+                    // Algorithm 1 uses strict inequality (dist < eps)
+                    // Python: query_ball_point(r=nextafter(eps, -inf)) - (eps > 0 ? 1 : 0)
+                    if eps > 0.0 {
+                        let raw_xz =
+                            xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, true);
+                        let raw_yz =
+                            yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, true);
+                        let raw_z =
+                            z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, true);
+                        (raw_xz as i32 - 1, raw_yz as i32 - 1, raw_z as i32 - 1)
+                    } else {
+                        (0, 0, 0)
+                    }
+                } else {
+                    // Algorithm 2 uses inclusive inequality (distance <= eps).
+                    // Python: query_ball_point(..., r=eps, p=inf, ...)
+                    let raw_xz =
+                        xz_sorted.count_within(&xz_points[i], eps, self.use_chebyshev, false);
+                    let raw_yz =
+                        yz_sorted.count_within(&yz_points[i], eps, self.use_chebyshev, false);
+                    let raw_z = z_sorted.count_within(&z_points[i], eps, self.use_chebyshev, false);
+                    (raw_xz as i32, raw_yz as i32, raw_z as i32)
+                };
+
+                let (cxz, cyz, cz) = (count_xz, count_yz, count_z);
+
+                if self.ksg_type == KsgType::Type1 {
+                    // local_cmi = digamma(k) + [digamma(cz + 1) - sum(digamma(c + 1) for c in counts)]
+                    local_cmi[i] = (digamma_k + digamma(cz as f64 + 1.0)
+                        - digamma(cxz as f64 + 1.0)
+                        - digamma(cyz as f64 + 1.0))
+                        * inv_ln_base;
+                } else {
+                    // local_cmi = digamma(k) - 1.0/k + [digamma(cz) - sum(digamma(c) for c in counts)]
+                    local_cmi[i] = (digamma_k - inv_k + digamma(cz as f64)
+                        - digamma(cxz as f64)
+                        - digamma(cyz as f64))
+                        * inv_ln_base;
+                }
+            }
+            local_cmi
+        };
         local_cmi
     }
 }
