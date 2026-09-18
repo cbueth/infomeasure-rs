@@ -57,47 +57,54 @@ pub fn te_observations_const<
         );
     }
 
-    let base_indices: Vec<usize> = (max_delay..n).step_by(STEP_SIZE).collect();
-    let n_samples = base_indices.len();
+    // Build flat row-major buffers and hand them to ndarray at the end: this
+    // avoids zero-initialising the output and keeps the writes sequential.
+    let n_samples = (n - max_delay).div_ceil(STEP_SIZE);
+    let mut dest_future: Vec<T> = Vec::with_capacity(n_samples * D_TARGET);
+    let mut dest_history: Vec<T> = Vec::with_capacity(n_samples * DEST_HIST * D_TARGET);
+    let mut src_history: Vec<T> = Vec::with_capacity(n_samples * SRC_HIST * D_SOURCE);
 
-    let mut dest_future = Array2::default((n_samples, D_TARGET));
-    let mut dest_history = Array2::default((n_samples, DEST_HIST * D_TARGET));
-    let mut src_history = Array2::default((n_samples, SRC_HIST * D_SOURCE));
-
-    for (idx, &base_idx) in base_indices.iter().enumerate() {
+    for base_idx in (max_delay..n).step_by(STEP_SIZE) {
         for d in 0..D_TARGET {
-            dest_future[(idx, d)] = destination[(base_idx, d)].clone();
+            dest_future.push(destination[(base_idx, d)].clone());
         }
 
         for j in 0..DEST_HIST {
             let offset = (j + 1) * STEP_SIZE;
             for d in 0..D_TARGET {
-                dest_history[(idx, (DEST_HIST - 1 - j) * D_TARGET + d)] =
-                    destination[(base_idx - offset, d)].clone();
+                dest_history.push(destination[(base_idx - offset, d)].clone());
             }
         }
 
         for j in 0..SRC_HIST {
             let offset = (j + 1) * STEP_SIZE;
             for d in 0..D_SOURCE {
-                src_history[(idx, (SRC_HIST - 1 - j) * D_SOURCE + d)] =
-                    source[(base_idx - offset, d)].clone();
+                src_history.push(source[(base_idx - offset, d)].clone());
             }
         }
     }
+
+    let dest_future =
+        Array2::from_shape_vec((n_samples, D_TARGET), dest_future).expect("row-major buffer");
+    let dest_history = Array2::from_shape_vec((n_samples, DEST_HIST * D_TARGET), dest_history)
+        .expect("row-major buffer");
+    let mut src_history = Array2::from_shape_vec((n_samples, SRC_HIST * D_SOURCE), src_history)
+        .expect("row-major buffer");
 
     if permute_src {
         let mut rng = thread_rng();
         let mut indices: Vec<usize> = (0..n_samples).collect();
         indices.shuffle(&mut rng);
 
-        let mut permuted_src_history = Array2::default((n_samples, SRC_HIST * D_SOURCE));
-        for (i, &new_idx) in indices.iter().enumerate() {
-            for j in 0..SRC_HIST * D_SOURCE {
-                permuted_src_history[(i, j)] = src_history[(new_idx, j)].clone();
+        let cols = SRC_HIST * D_SOURCE;
+        let mut permuted: Vec<T> = Vec::with_capacity(n_samples * cols);
+        for &row in &indices {
+            for j in 0..cols {
+                permuted.push(src_history[(row, j)].clone());
             }
         }
-        src_history = permuted_src_history;
+        src_history =
+            Array2::from_shape_vec((n_samples, cols), permuted).expect("row-major buffer");
     }
 
     (dest_future, dest_history, src_history)
@@ -145,56 +152,64 @@ pub fn cte_observations_const<
         );
     }
 
-    let base_indices: Vec<usize> = (max_delay..n).step_by(STEP_SIZE).collect();
-    let n_samples = base_indices.len();
+    // Same flat-buffer construction as `te_observations_const`: no zero-init and
+    // sequential writes.
+    let n_samples = (n - max_delay).div_ceil(STEP_SIZE);
+    let mut dest_future: Vec<T> = Vec::with_capacity(n_samples * D_TARGET);
+    let mut dest_history: Vec<T> = Vec::with_capacity(n_samples * DEST_HIST * D_TARGET);
+    let mut src_history: Vec<T> = Vec::with_capacity(n_samples * SRC_HIST * D_SOURCE);
+    let mut cond_history: Vec<T> = Vec::with_capacity(n_samples * COND_HIST * D_COND);
 
-    let mut dest_future = Array2::default((n_samples, D_TARGET));
-    let mut dest_history = Array2::default((n_samples, DEST_HIST * D_TARGET));
-    let mut src_history = Array2::default((n_samples, SRC_HIST * D_SOURCE));
-    let mut cond_history = Array2::default((n_samples, COND_HIST * D_COND));
-
-    for (idx, &base_idx) in base_indices.iter().enumerate() {
+    for base_idx in (max_delay..n).step_by(STEP_SIZE) {
         for d in 0..D_TARGET {
-            dest_future[(idx, d)] = destination[(base_idx, d)].clone();
+            dest_future.push(destination[(base_idx, d)].clone());
         }
 
         for j in 0..DEST_HIST {
             let offset = (j + 1) * STEP_SIZE;
             for d in 0..D_TARGET {
-                dest_history[(idx, (DEST_HIST - 1 - j) * D_TARGET + d)] =
-                    destination[(base_idx - offset, d)].clone();
+                dest_history.push(destination[(base_idx - offset, d)].clone());
             }
         }
 
         for j in 0..SRC_HIST {
             let offset = (j + 1) * STEP_SIZE;
             for d in 0..D_SOURCE {
-                src_history[(idx, (SRC_HIST - 1 - j) * D_SOURCE + d)] =
-                    source[(base_idx - offset, d)].clone();
+                src_history.push(source[(base_idx - offset, d)].clone());
             }
         }
 
         for j in 0..COND_HIST {
             let offset = (j + 1) * STEP_SIZE;
             for d in 0..D_COND {
-                cond_history[(idx, (COND_HIST - 1 - j) * D_COND + d)] =
-                    condition[(base_idx - offset, d)].clone();
+                cond_history.push(condition[(base_idx - offset, d)].clone());
             }
         }
     }
+
+    let dest_future =
+        Array2::from_shape_vec((n_samples, D_TARGET), dest_future).expect("row-major buffer");
+    let dest_history = Array2::from_shape_vec((n_samples, DEST_HIST * D_TARGET), dest_history)
+        .expect("row-major buffer");
+    let mut src_history = Array2::from_shape_vec((n_samples, SRC_HIST * D_SOURCE), src_history)
+        .expect("row-major buffer");
+    let cond_history = Array2::from_shape_vec((n_samples, COND_HIST * D_COND), cond_history)
+        .expect("row-major buffer");
 
     if permute_src {
         let mut rng = thread_rng();
         let mut indices: Vec<usize> = (0..n_samples).collect();
         indices.shuffle(&mut rng);
 
-        let mut permuted_src_history = Array2::default((n_samples, SRC_HIST * D_SOURCE));
-        for (i, &new_idx) in indices.iter().enumerate() {
-            for j in 0..SRC_HIST * D_SOURCE {
-                permuted_src_history[(i, j)] = src_history[(new_idx, j)].clone();
+        let cols = SRC_HIST * D_SOURCE;
+        let mut permuted: Vec<T> = Vec::with_capacity(n_samples * cols);
+        for &row in &indices {
+            for j in 0..cols {
+                permuted.push(src_history[(row, j)].clone());
             }
         }
-        src_history = permuted_src_history;
+        src_history =
+            Array2::from_shape_vec((n_samples, cols), permuted).expect("row-major buffer");
     }
 
     (dest_future, dest_history, src_history, cond_history)
