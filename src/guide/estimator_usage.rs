@@ -657,7 +657,14 @@
 //!
 //! ### Feature Flags
 //!
-//! - `gpu`: Enable GPU acceleration for kernel estimators
+//! - `gpu`: GPU acceleration (wgpu) for the kernel estimators, the discrete
+//!   histogram, and the dense k-NN tier of the exponential-family estimators.
+//! - `parallel`: CPU multi-threading (rayon) for the query-parallel kernel and
+//!   expfam/KSG k-NN loops; the fallback for GPU-less builds and below the GPU
+//!   size gate.
+//!
+//! Both are opt-in and return identical values to the plain CPU path. See the
+//! [Acceleration guide](super::performance) for the selection guidance.
 //!
 //! ## Related Guides
 //!

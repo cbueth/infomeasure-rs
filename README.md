@@ -141,7 +141,7 @@ in Rust for users who need:
 | Rust (`infomeasure-rs`)                                      | Python (`infomeasure`) |
 |--------------------------------------------------------------|---|
 | Compile-time type safety via Rust's type system              | Runtime string-based approach selection |
-| Up to ~40x faster execution (detailled benchmarks to follow) | Flexible, scriptable interface |
+| An order of magnitude faster on average, up to >100× on discrete/ordinal | Flexible, scriptable interface |
 | GPU acceleration for kernel and kNN (expfam) estimators      | GPU support via numba |
 | Optional CPU multi-threading (rayon) for kernel and kNN estimators | — |
 | Compile-time optimized estimator code                        | Runtime dispatch |
@@ -150,14 +150,17 @@ in Rust for users who need:
 Choose **Rust** if you need maximum performance for production or large-scale analysis.
 Choose **Python** if you need rapid prototyping, interactive analysis, or academic flexibility.
 
-Full head-to-head benchmarks are being prepared and will be published soon.
+Full head-to-head benchmarks — Rust, Python and peer toolkits across all
+estimators, sizes and feature flags — are published at
+<https://cbueth.codeberg.page/infomeasure-rs/> and refreshed each release.
 See the [Rust Guide](https://docs.rs/infomeasure/latest/infomeasure/guide/index.html)
 for a detailed comparison of the architecture.
 
 ## Python Compatibility
 
 This crate maintains functional compatibility with the [infomeasure](https://github.com/cbueth/infomeasure)
-Python package, implementing the same measures and estimation approaches, while providing 8-40x performance improvements.
+Python package, implementing the same measures and estimation approaches, while
+providing order-of-magnitude performance improvements.
 
 ## Repository Structure
 

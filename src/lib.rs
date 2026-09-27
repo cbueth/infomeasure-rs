@@ -66,14 +66,15 @@
 //!
 //! ## Kernel Estimation
 //! Non-parametric density estimation for continuous data using Box and Gaussian kernels.
-//! Optional GPU acceleration for large datasets.
+//! Optional `gpu` or `parallel` acceleration for large datasets.
 //!
 //! ## Ordinal Pattern Analysis
 //! Permutation pattern encoding for time series data, robust to amplitude variations.
 //!
 //! ## Exponential Family (k-NN)
 //! Distance-based estimation using k-nearest neighbours for differential entropy.
-//! Supports Rényi and Tsallis generalized entropies.
+//! Supports Rényi and Tsallis generalized entropies, with an optional dense `gpu`
+//! tier for high-dimensional, large-$N$ data.
 //!
 //! # Architecture
 //!

@@ -20,7 +20,8 @@
 //! ## Why Use This Crate?
 //!
 //! - **Performance**: Written in Rust for maximum performance
-//! - **GPU Support**: Optional GPU acceleration for kernel estimators
+//! - **Acceleration**: Optional GPU (wgpu) and CPU-parallel (rayon) backends for
+//!   the kernel and k-NN (exponential-family) estimators
 //! - **Type Safety**: Compile-time checked estimators
 //! - **Multiple Approaches**: Discrete, kernel, ordinal, and k-NN based estimators
 //!

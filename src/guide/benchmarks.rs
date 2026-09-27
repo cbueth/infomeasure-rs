@@ -13,13 +13,27 @@
 //! axes, hardware context, a CPU/GPU toggle, version badges, and a sortable data
 //! table with standard deviation per benchmark.
 //!
-//! The GPU toggle is a **sparse overlay**: only the kernel estimators
-//! (E/MI/CMI/TE/CTE) run on the GPU, and only at sizes above the dispatch gate,
-//! so it changes the infomeasure-rs lines where a GPU number exists and leaves
-//! every other line (and every smaller size) on CPU. It therefore contrasts
-//! infomeasure-rs GPU against the CPU baseline rather than a GPU-vs-GPU run — no
-//! other profiled toolkit offers a comparable single-estimate GPU path (JIDT's
-//! CUDA path accelerates surrogate significance testing, not one estimate).
+//! The GPU toggle is a **sparse overlay**: the kernel estimators
+//! (E/MI/CMI/TE/CTE) and the dense k-NN tier of the exponential-family
+//! estimators can run on the GPU, and only above their size (and, for k-NN,
+//! dimensionality) gates — so the toggle changes only the infomeasure-rs lines
+//! where a GPU number exists and leaves every other line, and every smaller
+//! size, on CPU. It therefore contrasts infomeasure-rs GPU against the CPU
+//! baseline rather than a GPU-vs-GPU run — no other profiled toolkit offers a
+//! comparable single-estimate GPU path (JIDT's CUDA path accelerates surrogate
+//! significance testing, not one estimate).
+//!
+//! ## Headline Results
+//!
+//! Across the canonical cross-package run refreshed for each release
+//! (single-threaded CPU track, one testbed), infomeasure-rs is roughly an
+//! **order of magnitude faster than the Python reference overall**. The largest
+//! margins are on the discrete and ordinal estimators (tens to over 100×),
+//! followed by the k-NN / exponential-family family (~10×) and the kernel
+//! estimators (a few ×). Enabling `gpu` adds further multiples on the kernel and
+//! dense k-NN tiers above their gates, and `parallel` adds multi-core speed-ups
+//! on the CPU fallback. Per-benchmark numbers, standard deviations and the
+//! hardware context are on the page above and are regenerated every release.
 //!
 //! ## Running Your Own Benchmarks
 //!
