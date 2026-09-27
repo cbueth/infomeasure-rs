@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.1) - 2026-09-17
+## [0.4.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.1) - 2026-09-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ⚡ Performance
 
+- perf(te): build constant-lag embeddings without zero-init [[#95](https://codeberg.org/cbueth/infomeasure-rs/pulls/95)]
 - perf(ksg): parallelise the kNN phases with rayon [[#93](https://codeberg.org/cbueth/infomeasure-rs/pulls/93)]
 - perf(gpu): device-aware dispatch gates [[#92](https://codeberg.org/cbueth/infomeasure-rs/pulls/92)]
 - perf(kernel): parallelise the CPU density loops behind an opt-in `parallel` feature [[#86](https://codeberg.org/cbueth/infomeasure-rs/pulls/86)]
