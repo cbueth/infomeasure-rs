@@ -2074,3 +2074,118 @@ print(est.result())
         .parse::<f64>()
         .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
 }
+
+/// Calculates the Kullback–Leibler divergence using the Python `infomeasure` package.
+///
+/// `approach` selects the entropy estimator and `kwargs` are forwarded to it
+/// (e.g. `kernel`, `bandwidth`, `embedding_dim`, `alpha`, `k`). The base is
+/// pinned to nats (`"e"`), matching the Rust discrete/kernel/ordinal defaults.
+pub fn calculate_kld<T: Serialize, U: Serialize>(
+    p: &[T],
+    q: &[U],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure uv virtual environment exists".into());
+    }
+    let p_file = save_data_to_temp_file(p)?;
+    let q_file = save_data_to_temp_file(q)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_kld_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+from numpy import inf
+with open("{pf}", "r") as f:
+    p = np.array(json.load(f))
+with open("{qf}", "r") as f:
+    q = np.array(json.load(f))
+if "{ap}" in ["kernel", "metric", "kl", "renyi", "tsallis"]:
+    p = p.reshape(-1, 1) if p.ndim == 1 else p
+    q = q.reshape(-1, 1) if q.ndim == 1 else q
+kwargs = dict({kw})
+kwargs.setdefault("base", "e")
+print(im.kld(p, q, approach="{ap}", **kwargs))
+"#,
+        pf = p_file.to_str().unwrap(),
+        qf = q_file.to_str().unwrap(),
+        kw = kwargs_str,
+        ap = approach
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(p_file);
+    let _ = std::fs::remove_file(q_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Calculates the Jensen–Shannon divergence using the Python `infomeasure` package.
+///
+/// `dists` is the list of distributions; `approach` selects the entropy
+/// estimator and `kwargs` are forwarded to it. The base is pinned to nats
+/// (`"e"`), matching the Rust discrete/ordinal defaults.
+pub fn calculate_jsd<T: Serialize>(
+    dists: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+) -> Result<f64, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure uv virtual environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(dists)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("calculate_jsd_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+with open("{df}", "r") as f:
+    data = json.load(f)
+arrays = [np.array(d) for d in data]
+kwargs = dict({kw})
+kwargs.setdefault("base", "e")
+print(im.jsd(*arrays, approach="{ap}", **kwargs))
+"#,
+        df = data_file.to_str().unwrap(),
+        kw = kwargs_str,
+        ap = approach
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    output
+        .trim()
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}

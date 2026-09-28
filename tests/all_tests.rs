@@ -5,6 +5,8 @@
 // Aggregates all submodule tests so `cargo test` runs them.
 #[path = "common_nd/mod.rs"]
 mod common_nd;
+#[path = "composite_measures/mod.rs"]
+mod composite_measures;
 #[path = "discrete/mod.rs"]
 mod discrete;
 #[path = "discrete/discrete_mi_te.rs"]
