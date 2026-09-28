@@ -5,7 +5,9 @@ use crate::estimators::doc_macros::doc_snippets;
 
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
-use crate::estimators::traits::{GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+use crate::estimators::traits::{
+    GlobalValue, JointEntropy, LocalValues, OptionalLocalValues, ProbabilityMass,
+};
 use ndarray::{Array1, Array2};
 use std::collections::HashMap;
 
@@ -77,6 +79,15 @@ impl ShrinkEntropy {
             dist_shrink.insert(val, p);
         }
         dist_shrink
+    }
+}
+
+impl ProbabilityMass for ShrinkEntropy {
+    type Key = i32;
+
+    /// James–Stein shrunk probabilities $\lambda t + (1-\lambda)\hat{p}^{ML}$.
+    fn pmf(&self) -> rustc_hash::FxHashMap<i32, f64> {
+        self.shrink_probs().into_iter().collect()
     }
 }
 

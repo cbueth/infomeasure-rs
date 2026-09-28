@@ -10,7 +10,7 @@ use ndarray::{Array1, Array2};
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::traits::{
-    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues, ProbabilityMass,
 };
 
 /// Choices for the Dirichlet concentration parameter alpha
@@ -70,6 +70,16 @@ impl CrossEntropy for BayesEntropy {
             }
         }
         h
+    }
+}
+
+impl ProbabilityMass for BayesEntropy {
+    type Key = i32;
+
+    /// Posterior-mean probabilities $(n_x + \alpha) / (N + K\alpha)$.
+    fn pmf(&self) -> rustc_hash::FxHashMap<i32, f64> {
+        let (probs, uniq) = self.bayes_probs();
+        uniq.into_iter().zip(probs).collect()
     }
 }
 

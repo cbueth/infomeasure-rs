@@ -27,6 +27,7 @@
 //! - [`ConditionalTransferEntropyEstimator`]
 
 use ndarray::Array1;
+use rustc_hash::FxHashMap;
 
 /// Interface for estimators that provide a single global value.
 ///
@@ -121,6 +122,36 @@ pub trait OptionalLocalValues {
 pub trait CrossEntropy<Rhs = Self> {
     /// Compute the cross-entropy between this distribution (P) and another (Q).
     fn cross_entropy(&self, other: &Rhs) -> f64;
+}
+
+/// Interface for estimators that expose a normalized probability mass function
+/// over a finite discrete support.
+///
+/// ## Theory
+///
+/// A probability mass function (pmf) assigns a probability to every symbol in
+/// the estimator's alphabet, with $\sum_x p(x) = 1$. Exposing it lets composite
+/// measures such as the Jensen–Shannon divergence form a *mixture distribution*
+/// $M = \sum_i \pi_i P_i$ over the union of the supports.
+///
+/// ## Crate Architecture
+///
+/// This trait is deliberately implemented only for estimators where a mixture
+/// distribution is mathematically meaningful: the discrete family
+/// ([`DiscreteEntropy`](crate::estimators::approaches::discrete::mle::DiscreteEntropy),
+/// [`BayesEntropy`](crate::estimators::approaches::discrete::bayes::BayesEntropy),
+/// [`ShrinkEntropy`](crate::estimators::approaches::discrete::shrink::ShrinkEntropy))
+/// and [`OrdinalEntropy`](crate::estimators::approaches::ordinal::ordinal_estimator::OrdinalEntropy).
+/// Bias-corrected variants such as Miller–Madow, and the differential/continuous
+/// estimators (kernel is pooled separately), intentionally do not implement it.
+///
+/// ## See Also
+/// - [JSD Guide](crate::guide::jsd) — Mixture-based divergence
+pub trait ProbabilityMass {
+    /// Symbol type of the discrete alphabet.
+    type Key: std::hash::Hash + Eq + Copy;
+    /// Normalized probabilities $p(x)$ over the estimator's support.
+    fn pmf(&self) -> FxHashMap<Self::Key, f64>;
 }
 
 /// Interface for estimators that support joint entropy $H(X_1, X_2, \dots, X_n)$.

@@ -17,7 +17,7 @@ use crate::estimators::approaches::ordinal::ordinal_utils::{
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, ConditionalTransferEntropyEstimator, CrossEntropy,
     GlobalValue, JointEntropy, LocalValues, MutualInformationEstimator, OptionalLocalValues,
-    TransferEntropyEstimator,
+    ProbabilityMass, TransferEntropyEstimator,
 };
 use ndarray::s;
 
@@ -55,6 +55,15 @@ impl CrossEntropy for OrdinalEntropy {
         // We use self's parameters for both if we want strict H(P||Q) where P and Q are same type of estimator.
         // But here we'll just use their respective internal DiscreteEntropy.
         self.inner.cross_entropy(&other.inner)
+    }
+}
+
+impl ProbabilityMass for OrdinalEntropy {
+    type Key = i32;
+
+    /// Ordinal pattern distribution (delegates to the inner discrete estimator).
+    fn pmf(&self) -> rustc_hash::FxHashMap<i32, f64> {
+        self.inner.pmf()
     }
 }
 

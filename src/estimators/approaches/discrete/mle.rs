@@ -6,7 +6,7 @@ use crate::estimators::doc_macros::doc_snippets;
 use crate::estimators::approaches::discrete::discrete_utils::reduce_joint_space_compact;
 use crate::estimators::approaches::discrete::discrete_utils::{DiscreteDataset, rows_as_vec};
 use crate::estimators::traits::{
-    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues,
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues, ProbabilityMass,
 };
 use ndarray::{Array1, Array2};
 
@@ -130,6 +130,15 @@ impl CrossEntropy for DiscreteEntropy {
             }
         }
         h
+    }
+}
+
+impl ProbabilityMass for DiscreteEntropy {
+    type Key = i32;
+
+    /// Empirical probabilities $\hat{p}(x) = n_x / N$ over the observed support.
+    fn pmf(&self) -> rustc_hash::FxHashMap<i32, f64> {
+        self.dataset.prob_map()
     }
 }
 
