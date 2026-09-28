@@ -58,5 +58,6 @@
 //! - [Cross-Entropy Guide](super::cross_entropy) — Total encoding cost
 //!
 //! ## References
+//! - [Lin, 1991](super::references#lin1991) — Original Jensen–Shannon divergence
 //! - [Cover & Thomas, 2012](super::references#cover2012elements)
 //! - [Endres & Schindelin, 2003](super::references#endres2003)

@@ -195,6 +195,9 @@
 //! <dt><span class="ref-key" id="kullback1951">kullback1951</span></dt>
 //! <dd><span class="ref-authors">Kullback, Solomon, and Richard A. Leibler.</span> "On Information and Sufficiency." <span class="ref-title">Annals of Mathematical Statistics</span> 22, no. 1 (1951): 79–86.</dd>
 //!
+//! <dt><span class="ref-key" id="lin1991">lin1991</span></dt>
+//! <dd><span class="ref-authors">Lin, Jianhua.</span> "Divergence measures based on the Shannon entropy." <span class="ref-title">IEEE Transactions on Information Theory</span> 37, no. 1 (1991): 145–151. <a href="https://doi.org/10.1109/18.61115" target="_blank" rel="noopener">doi:10.1109/18.61115</a></dd>
+//!
 //! <dt><span class="ref-key" id="endres2003">endres2003</span></dt>
 //! <dd><span class="ref-authors">Endres, D. M., and J. E. Schindelin.</span> "A new metric for probability distributions." <span class="ref-title">IEEE Transactions on Information Theory</span> 49, no. 7 (2003): 1858–1860. <a href="https://doi.org/10.1109/TIT.2003.813506" target="_blank" rel="noopener">doi:10.1109/TIT.2003.813506</a></dd>
 //!

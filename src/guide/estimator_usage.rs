@@ -500,29 +500,73 @@
 //! assert!(mi3 >= 0.0);
 //! ```
 //!
-//! ## Cross-Entropy
+//! ## Cross-Entropy, KLD, and JSD
 //!
-//! Cross-entropy measures the information when using distribution Q to encode P:
+//! Cross-entropy measures the cost of encoding data from P with a code built for Q,
+//! and is exposed through the [`CrossEntropy`](crate::estimators::traits::CrossEntropy)
+//! trait:
 //!
 //! ```rust
 //! use infomeasure::estimators::entropy::Entropy;
-//! use infomeasure::estimators::traits::GlobalValue;
+//! use infomeasure::estimators::traits::{CrossEntropy, GlobalValue};
 //! use ndarray::array;
 //!
-//! let p = array![0, 1, 0, 1, 0, 1, 0, 1];
-//! let q = array![0, 0, 1, 1, 0, 0, 1, 1];
+//! let est_p = Entropy::new_discrete(array![0, 1, 0, 1, 0, 1, 0, 1]);
+//! let est_q = Entropy::new_discrete(array![0, 0, 1, 1, 0, 0, 1, 1]);
 //!
-//! // Compute entropy using discrete estimators
-//! let est_p = Entropy::new_discrete(p);
-//! let est_q = Entropy::new_discrete(q);
-//! // Cross-entropy = H(P) + D(P||Q), not directly exposed but can be derived
-//! let h_p = est_p.global_value();
-//! let h_q = est_q.global_value();
-//! assert!(h_p >= 0.0);
-//! assert!(h_q >= 0.0);
-//! // Cross-entropy is always >= entropy
-//! // (H(P) <= H_Q(P) = H(P) + D(P||Q), with D >= 0)
+//! let h_q_p = est_p.cross_entropy(&est_q); // H_Q(P) >= H(P)
+//! assert!(h_q_p >= est_p.global_value() - 1e-12);
 //! ```
+//!
+//! The Kullback–Leibler divergence follows from cross-entropy and entropy, and is
+//! available for every estimator that supports cross-entropy:
+//!
+//! ```rust
+//! use infomeasure::estimators::entropy::Entropy;
+//! use infomeasure::estimators::composite_measures::Kld;
+//! use ndarray::array;
+//!
+//! let p = Entropy::new_discrete(array![0, 0, 0, 1, 1, 2]);
+//! let q = Entropy::new_discrete(array![0, 0, 1, 1, 2, 2]);
+//!
+//! let kld = p.kld(&q); // D_KL(P || Q) = H_Q(P) - H(P), asymmetric
+//! assert!(kld.is_finite());
+//! ```
+//!
+//! The Jensen–Shannon divergence is symmetric and bounded. It needs a mixture
+//! distribution, so it is available for estimators exposing a normalized pmf, or via
+//! a pooled kernel estimate for continuous data. Weighted (generalized) `JS_π` is a
+//! single call:
+//!
+//! ```rust
+//! use infomeasure::estimators::entropy::Entropy;
+//! use infomeasure::estimators::composite_measures::{jsd, jsd_kernel_1d};
+//! use ndarray::array;
+//!
+//! let jsd_two = jsd(
+//!     &[
+//!         Entropy::new_discrete(array![0, 0, 0, 1, 1, 2]),
+//!         Entropy::new_discrete(array![0, 0, 1, 1, 2, 2]),
+//!     ],
+//!     None, // uniform weights
+//! );
+//! let jsd_three = jsd(
+//!     &[
+//!         Entropy::new_discrete(array![0, 0, 0, 1, 1, 2]),
+//!         Entropy::new_discrete(array![0, 0, 1, 1, 2, 2]),
+//!         Entropy::new_discrete(array![0, 1, 1, 1, 2, 2]),
+//!     ],
+//!     Some(&[0.5, 0.25, 0.25]), // generalized, n distributions with weights
+//! );
+//! assert!(jsd_two >= -1e-12 && jsd_three >= -1e-12);
+//!
+//! // Continuous data: pool the samples into one kernel estimate
+//! let x = array![1.0, 2.0, 2.5, 4.0, 5.0];
+//! let y = array![1.5, 2.2, 3.0, 4.4, 5.5];
+//! assert!(jsd_kernel_1d(&[x, y], None, 1.0, "gaussian").is_finite());
+//! ```
+//!
+//! See the [KLD](crate::guide::kld) and [JSD](crate::guide::jsd) guides for the theory.
 //!
 //! ## Macros for Complex Estimators
 //!

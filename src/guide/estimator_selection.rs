@@ -29,6 +29,8 @@
 //! | Mutual Information | Variable dependence | See MI section below |
 //! | Transfer Entropy | Causal flow | See TE section below |
 //! | Conditional MI/TE | Controlling for confounders | Same estimators with condition |
+//! | KLD (relative entropy) | Distribution/model mismatch | [KLD guide](crate::guide::kld) — any cross-entropy-capable estimator |
+//! | JSD (distribution similarity) | Symmetric, bounded divergence | [JSD guide](crate::guide::jsd) — pmf or kernel estimators |
 //!
 //! ## Discrete Data Selection
 //!
