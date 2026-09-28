@@ -28,11 +28,28 @@
 //! on $Q$ instead of the true distribution $P$. Unlike distance metrics, KLD is
 //! **asymmetric**: $D_{\mathrm{KL}}(P \parallel Q) \neq D_{\mathrm{KL}}(Q \parallel P)$.
 //!
-//! ## Implementation Status
+//! ## Implementation
 //!
-//! KLD is not yet directly implemented in this crate. However, it can be computed
-//! using the relationship $D_{\mathrm{KL}}(P \parallel Q) = H_Q(P) - H(P)$ for estimators
-//! that support cross-entropy via the [`CrossEntropy`](crate::estimators::traits::CrossEntropy) trait.
+//! KLD is available for every estimator that supports cross-entropy via the
+//! [`CrossEntropy`](crate::estimators::traits::CrossEntropy) trait, through the
+//! [`Kld`](crate::estimators::composite_measures::Kld) extension trait and the
+//! [`kld`](crate::estimators::composite_measures::kld) function. This covers the
+//! discrete MLE, Miller–Madow, Bayes, kernel, ordinal, Kozachenko–Leonenko,
+//! Rényi and Tsallis approaches — exactly the estimators where cross-entropy is
+//! mathematically sound. Bias-corrected discrete variants (NSB, Chao–Shen,
+//! Chao–Wang–Jost, Grassberger, ANSB, Zhang, Bonachela) and shrinkage do not
+//! implement cross-entropy and are therefore not available.
+//!
+//! ```rust
+//! use infomeasure::estimators::entropy::Entropy;
+//! use infomeasure::estimators::composite_measures::Kld;
+//! use ndarray::array;
+//!
+//! let p = Entropy::new_discrete(array![1, 1, 1, 2, 2, 3, 4, 5]);
+//! let q = Entropy::new_discrete(array![1, 1, 2, 2, 2, 3, 3, 5]);
+//! let d_kl = p.kld(&q); // asymmetric: H_Q(P) - H(P)
+//! assert!(d_kl.is_finite());
+//! ```
 //!
 //! ## See Also
 //!

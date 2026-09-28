@@ -21,17 +21,36 @@
 //! - **Boundedness**: $0 \leq JSD \leq \log(n)$ (for $n$ distributions)
 //! - **Metric Property**: The square root $\sqrt{JSD}$ is a true distance metric
 //!   satisfying the triangle inequality [Endres & Schindelin, 2003](super::references#endres2003).
-//! ## Implementation Status
+//! ## Implementation
 //!
-//! JSD is not yet directly implemented as a dedicated estimator in this crate, but it is planned for a future release.
+//! JSD is available for estimators that expose a normalized probability mass
+//! function via [`ProbabilityMass`](crate::estimators::traits::ProbabilityMass)
+//! — the discrete MLE, Bayes, shrinkage and ordinal approaches — through the
+//! [`jsd`](crate::estimators::composite_measures::jsd) function. For continuous
+//! data, [`jsd_kernel_1d`](crate::estimators::composite_measures::jsd_kernel_1d)
+//! and [`jsd_kernel_nd`](crate::estimators::composite_measures::jsd_kernel_nd)
+//! pool the samples into a single kernel density estimate.
 //!
-//! ### Manual Computation
+//! JSD is **not** a cross-entropy wrapper: it requires a well-defined mixture
+//! distribution. Differential and generalized-entropy estimators
+//! (Kozachenko–Leonenko, Rényi, Tsallis) therefore do not support it.
 //!
-//! You can compute JSD today by using the entropy of a mixture distribution. For two datasets $P$ and $Q$ of the same type:
+//! ```rust
+//! use infomeasure::estimators::entropy::Entropy;
+//! use infomeasure::estimators::composite_measures::{jsd, jsd_kernel_1d};
+//! use ndarray::array;
 //!
-//! 1. Calculate individual entropies $H(P)$ and $H(Q)$.
-//! 2. Combine $P$ and $Q$ into a single dataset $M$ (mixture) and calculate $H(M)$.
-//! 3. Apply the formula: $JSD = H(M) - \frac{1}{2}(H(P) + H(Q))$.
+//! // Discrete: symmetric, 0 <= JSD <= ln(n)
+//! let p = Entropy::new_discrete(array![0, 0, 0, 1, 1, 2, 3, 4]);
+//! let q = Entropy::new_discrete(array![0, 0, 1, 1, 1, 2, 2, 4]);
+//! let d = jsd(&[p, q], None);
+//! assert!(d >= 0.0);
+//!
+//! // Kernel: continuous data of the same dimension
+//! let x = array![1.0, 2.0, 2.5, 4.0, 5.0];
+//! let y = array![1.5, 2.2, 3.0, 4.4, 5.5];
+//! assert!(jsd_kernel_1d(&[x, y], None, 1.0, "gaussian").is_finite());
+//! ```
 //!
 //! ## See Also
 //! - [Entropy Guide](super::entropy) — Base entropy computation
