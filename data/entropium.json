@@ -1,0 +1,376 @@
+{
+  "benchmarks": [
+    {
+      "approach": "discrete",
+      "function": "entropium::entropy",
+      "id": "entropy/discrete/mle/n100/entropium",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 2.380793193470977e-6,
+        "ci_upper": 2.444856806529025e-6,
+        "max": 2.857e-6,
+        "mean": 2.412825000000001e-6,
+        "median": 2.3859999999999997e-6,
+        "min": 2.279e-6,
+        "samples": 40,
+        "stddev": 1.0336067979751841e-7
+      },
+      "value": 3.276299786294656
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::entropy",
+      "id": "entropy/discrete/mle/n400/entropium",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 7.22178923866449e-6,
+        "ci_upper": 8.280610761335513e-6,
+        "max": 0.000018277,
+        "mean": 7.751200000000001e-6,
+        "median": 7.4650000000000005e-6,
+        "min": 7.373e-6,
+        "samples": 40,
+        "stddev": 1.7083100241061455e-6
+      },
+      "value": 3.3123696281945567
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::entropy",
+      "id": "entropy/discrete/mle/n1600/entropium",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.000027694761564981934,
+        "ci_upper": 0.000028097188435018066,
+        "max": 0.000031862,
+        "mean": 0.000027895975,
+        "median": 0.0000277945,
+        "min": 0.000027573,
+        "samples": 40,
+        "stddev": 6.492783168197653e-7
+      },
+      "value": 3.3162598069710816
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::entropy",
+      "id": "entropy/discrete/mle/n6400/entropium",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00010974559207803971,
+        "ci_upper": 0.00011197015792196026,
+        "max": 0.000128239,
+        "mean": 0.00011085787499999999,
+        "median": 0.000109737,
+        "min": 0.00010927,
+        "samples": 40,
+        "stddev": 3.5891300366344753e-6
+      },
+      "value": 3.3204822995438965
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::entropy",
+      "id": "entropy/discrete/mle/n12500/entropium",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00021542353797167552,
+        "ci_upper": 0.00022098461202832458,
+        "max": 0.000256162,
+        "mean": 0.00021820407500000005,
+        "median": 0.000215171,
+        "min": 0.000214634,
+        "samples": 40,
+        "stddev": 8.972275640756805e-6
+      },
+      "value": 3.3212592428275234
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::mutual_information",
+      "id": "mi/discrete/mle/n100/entropium",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.000014857097289740483,
+        "ci_upper": 0.000016130052710259527,
+        "max": 0.000025531,
+        "mean": 0.000015493575000000005,
+        "median": 0.0000149565,
+        "min": 0.00001389,
+        "samples": 40,
+        "stddev": 2.0537951472947056e-6
+      },
+      "value": 0.6192372087337055
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::mutual_information",
+      "id": "mi/discrete/mle/n400/entropium",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.0000337159462934101,
+        "ci_upper": 0.000035045253706589904,
+        "max": 0.000043476,
+        "mean": 0.0000343806,
+        "median": 0.000033803,
+        "min": 0.000033206,
+        "samples": 40,
+        "stddev": 2.1447138449972943e-6
+      },
+      "value": 0.15804089690399883
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::mutual_information",
+      "id": "mi/discrete/mle/n1600/entropium",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00009829551330362115,
+        "ci_upper": 0.0001000497866963789,
+        "max": 0.000108321,
+        "mean": 0.00009917265000000002,
+        "median": 0.000098275,
+        "min": 0.000096559,
+        "samples": 40,
+        "stddev": 2.8303569182375883e-6
+      },
+      "value": 0.030850432921852074
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::mutual_information",
+      "id": "mi/discrete/mle/n6400/entropium",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00035570168543535164,
+        "ci_upper": 0.0003596910145646483,
+        "max": 0.000379625,
+        "mean": 0.00035769634999999997,
+        "median": 0.00035625800000000003,
+        "min": 0.000350639,
+        "samples": 40,
+        "stddev": 6.4364114207315165e-6
+      },
+      "value": 0.007869304183735782
+    },
+    {
+      "approach": "discrete",
+      "function": "entropium::mutual_information",
+      "id": "mi/discrete/mle/n12500/entropium",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "entropium",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.0006802135374277889,
+        "ci_upper": 0.0006878884125722108,
+        "max": 0.000721727,
+        "mean": 0.0006840509749999999,
+        "median": 0.0006806595,
+        "min": 0.000670867,
+        "samples": 40,
+        "stddev": 0.000012382697047850529
+      },
+      "value": 0.0047595963359072
+    }
+  ],
+  "meta": {
+    "coverage": [
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ]
+    ],
+    "fingerprint": null,
+    "hardware": null,
+    "packages": [
+      {
+        "id": "entropium",
+        "language": "rust",
+        "library": "entropium",
+        "limitations": "Discrete MLE only (Shannon entropy, MI); values in bits. No native CMI (conditional entropy only), no TE/CTE; unsupported cells are N/A.",
+        "log_base": 2,
+        "version": "0.2.0"
+      }
+    ],
+    "run_id": "fragment_1790610621",
+    "runtime": {
+      "adaptive": true,
+      "family": null,
+      "iter_budget_s": 1.5,
+      "max_iters": 10,
+      "min_iters": 3,
+      "threads": 1,
+      "warmup_budget_s": 0.4,
+      "warmup_max": 3
+    },
+    "schema": 2,
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ]
+  }
+}

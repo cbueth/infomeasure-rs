@@ -1,0 +1,555 @@
+{
+  "benchmarks": [
+    {
+      "approach": "discrete",
+      "function": "logp::entropy_bits",
+      "id": "entropy/discrete/mle/n100/logp",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 3.4980707714906363e-7,
+        "ci_upper": 3.553929228509362e-7,
+        "max": 3.75e-7,
+        "mean": 3.525999999999999e-7,
+        "median": 3.5e-7,
+        "min": 3.38e-7,
+        "samples": 40,
+        "stddev": 9.012242385805701e-9
+      },
+      "value": 3.276299786294656
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::entropy_bits",
+      "id": "entropy/discrete/mle/n400/logp",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 1.1395956211748153e-6,
+        "ci_upper": 1.257654378825185e-6,
+        "max": 1.845e-6,
+        "mean": 1.1986250000000001e-6,
+        "median": 1.119e-6,
+        "min": 1.097e-6,
+        "samples": 40,
+        "stddev": 1.9047682240050853e-7
+      },
+      "value": 3.3123696281945567
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::entropy_bits",
+      "id": "entropy/discrete/mle/n1600/logp",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 2.312629563848297e-6,
+        "ci_upper": 3.1956704361517024e-6,
+        "max": 0.000010789,
+        "mean": 2.7541499999999997e-6,
+        "median": 2.486e-6,
+        "min": 1.936e-6,
+        "samples": 40,
+        "stddev": 1.424704297704417e-6
+      },
+      "value": 3.3162598069710816
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::entropy_bits",
+      "id": "entropy/discrete/mle/n6400/logp",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 7.723720264661514e-6,
+        "ci_upper": 8.214829735338486e-6,
+        "max": 0.00001262,
+        "mean": 7.969275e-6,
+        "median": 7.759e-6,
+        "min": 7.581e-6,
+        "samples": 40,
+        "stddev": 7.923594427647476e-7
+      },
+      "value": 3.3204822995438956
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::entropy_bits",
+      "id": "entropy/discrete/mle/n12500/logp",
+      "language": "rust",
+      "measure": "entropy",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00001450772390667436,
+        "ci_upper": 0.000015013126093325641,
+        "max": 0.000018275,
+        "mean": 0.000014760425,
+        "median": 0.000014583,
+        "min": 0.000014091,
+        "samples": 40,
+        "stddev": 8.154194103304075e-7
+      },
+      "value": 3.3212592428275234
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::mutual_information",
+      "id": "mi/discrete/mle/n100/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 3.253239058249393e-6,
+        "ci_upper": 3.7868609417506078e-6,
+        "max": 5.392e-6,
+        "mean": 3.5200500000000003e-6,
+        "median": 3.6655e-6,
+        "min": 1.784e-6,
+        "samples": 40,
+        "stddev": 8.609492659045238e-7
+      },
+      "value": 0.6192372087337054
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::mutual_information",
+      "id": "mi/discrete/mle/n400/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 5.7174926839412735e-6,
+        "ci_upper": 5.803757316058724e-6,
+        "max": 6.056e-6,
+        "mean": 5.760624999999999e-6,
+        "median": 5.7205000000000005e-6,
+        "min": 5.562e-6,
+        "samples": 40,
+        "stddev": 1.391799586773753e-7
+      },
+      "value": 0.15804089690399883
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::mutual_information",
+      "id": "mi/discrete/mle/n1600/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 5.1030033512306175e-6,
+        "ci_upper": 5.1368966487693825e-6,
+        "max": 5.214e-6,
+        "mean": 5.11995e-6,
+        "median": 5.1245e-6,
+        "min": 4.998e-6,
+        "samples": 40,
+        "stddev": 5.468368246748868e-8
+      },
+      "value": 0.03085043292185231
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::mutual_information",
+      "id": "mi/discrete/mle/n6400/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.000014357858782397686,
+        "ci_upper": 0.00001569489121760232,
+        "max": 0.000028243,
+        "mean": 0.000015026375000000002,
+        "median": 0.0000146655,
+        "min": 0.000014283,
+        "samples": 40,
+        "stddev": 2.1571774493714986e-6
+      },
+      "value": 0.007869304183735708
+    },
+    {
+      "approach": "discrete",
+      "function": "logp::mutual_information",
+      "id": "mi/discrete/mle/n12500/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": null,
+        "kernel_type": null,
+        "method": "mle",
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.00002635414575509937,
+        "ci_upper": 0.00002718890424490063,
+        "max": 0.000033544,
+        "mean": 0.000026771525,
+        "median": 0.000026513999999999997,
+        "min": 0.000025902,
+        "samples": 40,
+        "stddev": 1.3468051652726643e-6
+      },
+      "value": 0.0047595963359071715
+    },
+    {
+      "approach": "ksg",
+      "function": "logp::mutual_information_ksg",
+      "id": "mi/ksg/k4/n100/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": 4,
+        "kernel_type": null,
+        "method": null,
+        "n": 100,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.0004739746117202546,
+        "ci_upper": 0.0004756027882797454,
+        "max": 0.000480272,
+        "mean": 0.0004747887,
+        "median": 0.000474897,
+        "min": 0.000470467,
+        "samples": 40,
+        "stddev": 2.626911408616198e-6
+      },
+      "value": 0.2028161009697928
+    },
+    {
+      "approach": "ksg",
+      "function": "logp::mutual_information_ksg",
+      "id": "mi/ksg/k4/n400/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": 4,
+        "kernel_type": null,
+        "method": null,
+        "n": 400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.008565276861243734,
+        "ci_upper": 0.008625102788756263,
+        "max": 0.008695083,
+        "mean": 0.008595189824999998,
+        "median": 0.008632487,
+        "min": 0.008425601,
+        "samples": 40,
+        "stddev": 0.00009652356840394027
+      },
+      "value": 0.29437232478555225
+    },
+    {
+      "approach": "ksg",
+      "function": "logp::mutual_information_ksg",
+      "id": "mi/ksg/k4/n1600/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": 4,
+        "kernel_type": null,
+        "method": null,
+        "n": 1600,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 0.14579929904853733,
+        "ci_upper": 0.14605090820146266,
+        "max": 0.146975944,
+        "mean": 0.145925103625,
+        "median": 0.14585580450000002,
+        "min": 0.145476329,
+        "samples": 40,
+        "stddev": 0.0004059479609130608
+      },
+      "value": 0.17575018298292694
+    },
+    {
+      "approach": "ksg",
+      "function": "logp::mutual_information_ksg",
+      "id": "mi/ksg/k4/n6400/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": 4,
+        "kernel_type": null,
+        "method": null,
+        "n": 6400,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 2.5173644327206675,
+        "ci_upper": 2.5197117742793336,
+        "max": 2.5227678,
+        "mean": 2.5185381035000005,
+        "median": 2.5185487474999997,
+        "min": 2.516131523,
+        "samples": 12,
+        "stddev": 0.0020743443073100503
+      },
+      "value": 0.22523880796517334
+    },
+    {
+      "approach": "ksg",
+      "function": "logp::mutual_information_ksg",
+      "id": "mi/ksg/k4/n12500/logp",
+      "language": "rust",
+      "measure": "mi",
+      "notes": null,
+      "package": "logp",
+      "params": {
+        "alpha": null,
+        "bandwidth": null,
+        "delay": null,
+        "dims": 1,
+        "k": 4,
+        "kernel_type": null,
+        "method": null,
+        "n": 12500,
+        "order": null,
+        "q": null
+      },
+      "representative": true,
+      "statistics": {
+        "ci_lower": 9.888888972386667,
+        "ci_upper": 9.90635618228,
+        "max": 9.915682916,
+        "mean": 9.897622577333333,
+        "median": 9.898903034,
+        "min": 9.865788072,
+        "samples": 12,
+        "stddev": 0.01543576275598199
+      },
+      "value": 0.21195276556439796
+    }
+  ],
+  "meta": {
+    "coverage": [
+      [
+        "entropy",
+        "discrete"
+      ],
+      [
+        "mi",
+        "discrete"
+      ],
+      [
+        "mi",
+        "ksg"
+      ]
+    ],
+    "fingerprint": null,
+    "hardware": null,
+    "packages": [
+      {
+        "id": "logp",
+        "ksg": {
+          "added_noise": "none",
+          "algorithm": "1",
+          "metric": "max-norm (chebyshev)",
+          "neighbour_index": "brute force (O(N^2), no spatial index)",
+          "noise_note": "Adds no random jitter. Jitter (infomeasure 1e-10, JIDT 1e-8) helps on duplicate/degenerate samples but costs time inside the timed call.",
+          "normalisation": "none",
+          "theiler_window": "none",
+          "units": "nats"
+        },
+        "language": "rust",
+        "library": "logp",
+        "limitations": "Discrete plug-in MLE (Shannon entropy, MI) and KSG MI. KSG: Algorithm 1 (strict marginal counts), Chebyshev/max-norm metric, no normalisation, no added noise (infomeasure adds 1e-10 jitter), no Theiler window, O(N^2) brute force (no spatial index). Values converted from nats to bits. No native CMI (conditional entropy only), no TE/CTE and no KL entropy estimator; its plug-in Renyi/Tsallis are not the grid's kNN variants. Unsupported cells are N/A.",
+        "log_base": 2,
+        "version": "0.2.3"
+      }
+    ],
+    "run_id": "fragment_1790610619",
+    "runtime": {
+      "adaptive": true,
+      "family": null,
+      "iter_budget_s": 1.5,
+      "max_iters": 10,
+      "min_iters": 3,
+      "threads": 1,
+      "warmup_budget_s": 0.4,
+      "warmup_max": 3
+    },
+    "schema": 2,
+    "seeds": [
+      610418971,
+      2086847849,
+      627358495,
+      1501472984
+    ]
+  }
+}
