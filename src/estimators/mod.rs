@@ -48,6 +48,7 @@
 //! [Estimator Selection Guide](crate::guide::estimator_selection).
 
 pub mod approaches;
+pub mod composite_measures;
 #[macro_use]
 pub(crate) mod doc_macros;
 pub mod entropy;
@@ -63,4 +64,6 @@ pub mod utils;
 pub use approaches::expfam::kozachenko_leonenko::KozachenkoLeonenkoEntropy;
 pub use approaches::expfam::ksg::KsgType;
 pub use entropy::Entropy;
-pub use traits::{CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues};
+pub use traits::{
+    CrossEntropy, GlobalValue, JointEntropy, LocalValues, OptionalLocalValues, ProbabilityMass,
+};
