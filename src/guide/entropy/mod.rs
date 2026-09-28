@@ -99,7 +99,7 @@
 //! - [Mutual Information](super::mutual_information) — $I(X;Y) = H(X) + H(Y) - H(X,Y)$
 //! - [Conditional Entropy](super::cond_entropy) — $H(X|Y) = H(X,Y) - H(Y)$
 //! - [KLD](super::kld) — $D_{\mathrm{KL}}(P||Q) = H_Q(P) - H(P)$
-//! - [JSD](super::jsd) — $JSD = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$ (Planned)
+//! - [JSD](super::jsd) — $JSD = H((P+Q)/2) - \frac{1}{2}H(P) - \frac{1}{2}H(Q)$
 //! - [Estimator Selection](super::estimator_selection) — Choosing estimators
 //! ## References
 //! - [Shannon, 1948](super::references#shannon1948)

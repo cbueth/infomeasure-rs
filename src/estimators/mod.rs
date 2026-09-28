@@ -34,6 +34,11 @@
 //! - [Transfer Entropy](transfer_entropy) ($T_{X \to Y}$)
 //! - [Conditional Transfer Entropy](transfer_entropy) ($T_{X \to Y | Z}$)
 //!
+//! ### 4. [Composite Measures](composite_measures)
+//! Divergences built from the entropy estimators.
+//! - [Kullback–Leibler Divergence](composite_measures::Kld) ($D_{\mathrm{KL}}(P \parallel Q)$)
+//! - [Jensen–Shannon Divergence](composite_measures::jsd) ($JSD(P \parallel Q)$)
+//!
 //! ## Estimation Approaches
 //!
 //! Each measure can be estimated using different algorithmic approaches depending

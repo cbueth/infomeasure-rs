@@ -24,7 +24,7 @@ High-performance Rust library for information-theoretic measures with multiple e
 
 ## What This Does
 
-`infomeasure-rs` computes **entropy**, **mutual information**, and **transfer entropy** from data using four different estimation strategies:
+`infomeasure-rs` computes **entropy**, **mutual information**, **transfer entropy**, and the **Kullback–Leibler** and **Jensen–Shannon** divergences from data using four different estimation strategies:
 
 - **Discrete**: For categorical data with 11+ bias-corrected estimators
 - **Kernel**: For continuous data with optional GPU or CPU-parallel acceleration
@@ -54,6 +54,15 @@ println!("Entropy: {}", entropy);
 let continuous = array![[1.0, 1.5], [2.0, 3.0], [4.0, 5.0]];
 let kernel_entropy = Entropy::nd_kernel::<2>(continuous, 1.0).global_value();
 println!("Kernel entropy: {}", kernel_entropy);
+
+// Divergences between two distributions
+use infomeasure::estimators::composite_measures::{Kld, jsd};
+
+let p = Entropy::new_discrete(array![0, 0, 0, 1, 1, 2]);
+let q = Entropy::new_discrete(array![0, 0, 1, 1, 2, 2]);
+let kld = p.kld(&q);          // KLD(P||Q) = H_Q(P) - H(P), asymmetric
+let jsd = jsd(&[p, q], None); // symmetric, bounded by ln(2)
+println!("KLD: {kld}, JSD: {jsd}");
 ```
 
 ## Optional Features
@@ -115,17 +124,17 @@ estimation approaches:
 | **Joint Entropy** $H(X,Y)$ | ✅ | ✅ | ✅ | ✅ |
 | **Conditional Entropy** $H(X\|Y)$ | ✅ | ✅ | ✅ | ✅ |
 | **Cross-Entropy** $H_Q(P)$ | ✅[^1] | ✅ | ✅ | ✅ |
-| **KLD** $D_{KL}(P\|Q)$ | ⚠️[^2] | ⚠️ | ⚠️ | ⚠️ |
-| **JSD** $JSD(P\|Q)$ | ❌ | ❌ | ❌ | ❌ |
+| **KLD** $D_{KL}(P\|Q)$ | ✅ | ✅ | ✅ | ✅ |
+| **JSD** $JSD(P\|Q)$ | ✅[^2] | ✅ | ✅ | ❌ |
 | **MI** $I(X;Y)$ | ✅ | ✅ | ✅ | ✅ |
 | **CMI** $I(X;Y\|Z)$ | ✅ | ✅ | ✅ | ✅ |
 | **TE** $T_{X \to Y}$ | ✅ | ✅ | ✅ | ✅ |
 | **CTE** $T_{X \to Y\|Z}$ | ✅ | ✅ | ✅ | ✅ |
 
-✅ = Implemented | ⚠️ = Via trait (see docs) | ❌ = Planned
+✅ = Implemented | ⚠️ = Via trait (see docs) | ❌ = Not implemented
 
 [^1]: Discrete cross-entropy is available for MLE, Miller-Madow, and Bayesian estimators only.
-[^2]: KLD is available via the `CrossEntropy` trait.
+[^2]: JSD needs a mixture distribution: available for estimators exposing a normalized pmf (discrete MLE, Bayes, shrinkage, ordinal) and for kernel by pooling the samples. Differential/generalized-entropy estimators (Kozachenko-Leonenko, Rényi, Tsallis) are mathematically excluded.
 
 ## Documentation
 
