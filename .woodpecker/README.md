@@ -207,9 +207,10 @@ It reads the same canonical datasets and writes the same schema-v2 fragments
 `pages` carry `ecosystem: crates`, so the weekly cron tracks their versions like
 any other package.
 
-Cross-grid coverage: both fill the discrete MLE cells (entropy, MI, CMI);
-`logp` additionally fills KSG MI (`k = 4`, Algorithm 1). Cells a package does
-not implement (e.g. TE/CTE, kernel) render as N/A.
+Cross-grid coverage: both fill the discrete MLE cells (entropy, MI); `logp`
+additionally fills KSG MI (`k = 4`, Algorithm 1). Cells a package does not
+implement (e.g. CMI, TE/CTE, kernel) render as N/A — measures composed from
+several package calls are not timed.
 
 ### Alphabet-scaling family
 

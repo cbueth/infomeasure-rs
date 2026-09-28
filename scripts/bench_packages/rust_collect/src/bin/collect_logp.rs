@@ -6,12 +6,14 @@
 //!
 //! Times only the estimator call on the canonical datasets and writes
 //! `results/logp.json`. Coverage of the cross-package grid:
-//! - discrete (MLE): Shannon entropy, MI, CMI (plug-in from empirical counts);
+//! - discrete (MLE): Shannon entropy and MI (plug-in from empirical counts);
 //! - ksg: MI via [`logp::mutual_information_ksg`] (Algorithm 1, matching the
 //!   infomeasure/scipy default).
 //!
 //! `logp` reports nats; values are converted to bits so all rows share a unit.
-//! No TE/CTE and no KL entropy estimator, so those cells stay N/A.
+//! It has no native CMI (only conditional entropy), no TE/CTE and no KL entropy
+//! estimator, so those cells stay N/A — a measure assembled from several package
+//! calls is not timed (see the benchmark plan's equalisation rule).
 
 use bench_rust_collect::{datasets, fragment, timing};
 use logp::KsgVariant;
@@ -49,30 +51,18 @@ fn joint(a: &[i32], b: &[i32]) -> (Vec<f64>, usize, usize) {
     (c, nx, ny)
 }
 
-fn joint3(a: &[i32], b: &[i32], d: &[i32]) -> (Vec<f64>, usize, usize, usize) {
-    let (nx, ny, nz) = (n_states(a), n_states(b), n_states(d));
-    let mut c = vec![0.0f64; nx * ny * nz];
-    for i in 0..a.len() {
-        let idx = (a[i] as usize * ny + b[i] as usize) * nz + d[i] as usize;
-        c[idx] += 1.0;
-    }
-    let len = a.len() as f64;
-    for v in &mut c {
-        *v /= len;
-    }
-    (c, nx, ny, nz)
-}
-
 fn main() {
     let (sizes, seeds) = datasets::sizes_and_seeds();
     let rounds = timing::config();
     let mut benchmarks: Vec<Value> = Vec::new();
 
     // --- discrete, method = mle -------------------------------------------
+    // Native measures only: logp has no CMI function (only conditional
+    // entropy), and composing one from several calls is out of scope for the
+    // fair harness, so the CMI cells stay N/A.
     for (measure, function) in [
         ("entropy", "logp::entropy_bits"),
         ("mi", "logp::mutual_information"),
-        ("cmi", "logp::conditional_entropy"),
     ] {
         for &n in &sizes {
             let mut times = Vec::new();
@@ -85,15 +75,6 @@ fn main() {
                         "mi" => {
                             let (p, nx, ny) = joint(&cols[0], &cols[1]);
                             logp::mutual_information(&p, nx, ny, TOL).unwrap() / LN2
-                        }
-                        "cmi" => {
-                            let (p_xz, nx, nz) = joint(&cols[0], &cols[2]);
-                            let (p_xyz, _, ny, _) = joint3(&cols[0], &cols[1], &cols[2]);
-                            let h_x_given_z =
-                                logp::conditional_entropy(&p_xz, nx, nz, TOL).unwrap();
-                            let h_x_given_yz =
-                                logp::conditional_entropy(&p_xyz, nx, ny * nz, TOL).unwrap();
-                            (h_x_given_z - h_x_given_yz) / LN2
                         }
                         _ => unreachable!(),
                     },
@@ -163,8 +144,12 @@ fn main() {
         &seeds,
         &rounds,
         json!({ "base": 2, "library": "logp" }),
-        "Discrete plug-in MLE (Shannon entropy, MI, CMI) and KSG MI (Algorithm 1). \
-         Values converted from nats to bits; no TE/CTE, no KL entropy estimator. \
-         KSG MI is an O(N^2) brute-force estimator (no spatial index).",
+        "Discrete plug-in MLE (Shannon entropy, MI) and KSG MI. KSG: Algorithm 1 \
+         (strict marginal counts), Chebyshev/max-norm metric, no normalisation, \
+         no added noise (infomeasure adds 1e-10 jitter), no Theiler window, \
+         O(N^2) brute force (no spatial index). Values converted from nats to \
+         bits. No native CMI (conditional entropy only), no TE/CTE and no KL \
+         entropy estimator; its plug-in Renyi/Tsallis are not the grid's kNN \
+         variants. Unsupported cells are N/A.",
     );
 }
