@@ -39,6 +39,23 @@ APPROACHES = ("discrete", "ksg", "kernel", "ordinal", "renyi", "tsallis")
 HIST = {"src_hist_len": 1, "dest_hist_len": 1}
 HIST_COND = {"src_hist_len": 1, "dest_hist_len": 1, "cond_hist_len": 1}
 
+# Recorded per package so the KSG rows can state their semantics on the page.
+KSG_EXTRA = {
+    "ksg": {
+        "algorithm": "1",
+        "metric": "chebyshev",
+        "normalisation": "none",
+        "added_noise": "1e-10",
+        "theiler_window": "none",
+        "neighbour_index": "kd-tree",
+        "units": "nats",
+        "noise_note": (
+            "Adds random jitter to break distance ties on duplicate/degenerate "
+            "samples; the RNG runs inside the timed call."
+        ),
+    }
+}
+
 
 def build_fn(measure: str, v: dict, cols):
     """Return ``(callable, function_name)`` for one grid variant."""
@@ -146,6 +163,7 @@ def main() -> int:
                     benchmarks,
                     seeds_all,
                     cross_cfg,
+                    extra=KSG_EXTRA,
                     fingerprint=fp,
                 )
             current_measure = measure
@@ -198,6 +216,7 @@ def main() -> int:
         benchmarks,
         seeds_all,
         cross_cfg,
+        extra=KSG_EXTRA,
         fingerprint=fp,
     )
     return 0

@@ -135,6 +135,8 @@ public class JidtCollector {
     static double run(String measure, String approach, Object data) throws Exception {
         if (approach.equals("discrete")) {
             int[][] c = (int[][]) data;
+            // JIDT's `base` is the ALPHABET SIZE (number of states), not a
+            // logarithm base. Log units are recorded separately as `log_base`.
             int base = (measure.equals("te") || measure.equals("cte")) ? 5 : 10;
             switch (measure) {
                 case "entropy": {
@@ -360,6 +362,9 @@ public class JidtCollector {
         }
         b.append("],\"packages\":[{\"id\":\"jidt\",\"language\":\"java\",\"version\":\"1.6.1\",");
         b.append("\"released\":\"2023-08-22\",\"artifact_sha256\":\"2d367c244b729877fdaf0608884cf97ae964a8035c3020215b799812143a5b11\",");
+        b.append("\"ksg\":{\"algorithm\":\"1\",\"metric\":\"max-norm\",\"normalisation\":\"none\",");
+        b.append("\"added_noise\":\"1e-8\",\"theiler_window\":\"none\",\"neighbour_index\":\"kd-tree\",\"units\":\"nats\",");
+        b.append("\"noise_note\":\"Adds random jitter to break distance ties on duplicate/degenerate samples; the RNG runs inside the timed call.\"},");
         b.append("\"limitations\":\"No Gaussian-kernel estimator; no kernel conditional MI/CTE. Also ships a linear-Gaussian estimator family (not compared; no infomeasure counterpart).\"}]},");
         b.append("\"benchmarks\":[");
 

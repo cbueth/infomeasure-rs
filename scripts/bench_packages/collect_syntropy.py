@@ -104,10 +104,27 @@ def main() -> int:
         benchmarks,
         seeds,
         cfg,
-        extra={"base": "nats"},
+        extra={
+            "log_base": "nats",
+            "ksg": {
+                "algorithm": "1",
+                "metric": "chebyshev (p=inf)",
+                "normalisation": "none",
+                "added_noise": "none",
+                "theiler_window": "none",
+                "neighbour_index": "kd-tree (scipy cKDTree)",
+                "units": "nats",
+                "noise_note": (
+                    "Adds no random jitter. Jitter (infomeasure 1e-10, JIDT "
+                    "1e-8) helps on duplicate/degenerate samples but costs time "
+                    "inside the timed call."
+                ),
+            },
+        },
         limitations=(
             "Only the sample-based KNN (Kraskov) family is compared: "
             "differential entropy/MI/CMI, k=4, nats. No transfer entropy. "
+            "Adds no random jitter to the data. "
             "Its discrete (distribution-input), Gaussian (covariance-input), "
             "neural and mixed families and its PID/higher-order/temporal "
             "measures are out of scope."

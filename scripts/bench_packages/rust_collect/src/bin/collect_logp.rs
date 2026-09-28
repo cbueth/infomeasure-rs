@@ -143,7 +143,20 @@ fn main() {
         &benchmarks,
         &seeds,
         &rounds,
-        json!({ "base": 2, "library": "logp" }),
+        json!({
+            "log_base": 2,
+            "library": "logp",
+            "ksg": {
+                "algorithm": "1",
+                "metric": "max-norm (chebyshev)",
+                "normalisation": "none",
+                "added_noise": "none",
+                "theiler_window": "none",
+                "neighbour_index": "brute force (O(N^2), no spatial index)",
+                "units": "nats",
+                "noise_note": "Adds no random jitter. Jitter (infomeasure 1e-10, JIDT 1e-8) helps on duplicate/degenerate samples but costs time inside the timed call.",
+            },
+        }),
         "Discrete plug-in MLE (Shannon entropy, MI) and KSG MI. KSG: Algorithm 1 \
          (strict marginal counts), Chebyshev/max-norm metric, no normalisation, \
          no added noise (infomeasure adds 1e-10 jitter), no Theiler window, \
