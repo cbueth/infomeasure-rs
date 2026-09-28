@@ -5,7 +5,7 @@
 """Cross-package collector: pyEntrp (time-series entropy).
 
 Only ``shannon_entropy`` maps to our axis: it is a plug-in MLE estimate over
-the unique-value frequencies of a discrete series (base 2). pyEntrp's other
+the unique-value frequencies of a discrete series (log base 2). pyEntrp's other
 measures (sample/multiscale/permutation entropy) are different notions and are
 out of scope. Writes ``results/pyentrp.json``.
 """
@@ -70,9 +70,9 @@ def main() -> int:
         benchmarks,
         seeds,
         cfg,
-        extra={"base": 2},
+        extra={"log_base": 2},
         limitations=(
-            "Entropy only: plug-in MLE over unique-value frequencies, base 2. "
+            "Entropy only: plug-in MLE over unique-value frequencies, log base 2 (bits). "
             "No MI/CMI/TE; sample/permutation/multiscale entropy are out of "
             "scope."
         ),

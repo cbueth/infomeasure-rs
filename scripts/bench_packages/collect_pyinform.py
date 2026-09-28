@@ -7,7 +7,7 @@
 Times only the estimator call on the shared canonical datasets and writes
 ``results/pyinform.json``. Coverage: entropy, MI, conditional MI (via
 ``shannon.conditional_mutual_info``) and the time-series TE/CTE. Results are in
-bits (base 2); TE/CTE history k=1.
+bits (log base 2); TE/CTE history k=1.
 """
 
 from __future__ import annotations
@@ -56,15 +56,17 @@ def cmi_fn(x, y, z):
     xi = np.asarray(x, dtype=int)
     yi = np.asarray(y, dtype=int)
     zi = np.asarray(z, dtype=int)
-    base = int(max(xi.max(), yi.max(), zi.max())) + 1
+    # `alphabet` is the number of states (radix of the mixed-radix encoding),
+    # NOT a logarithm base.
+    alphabet = int(max(xi.max(), yi.max(), zi.max())) + 1
 
     def counts(code):
         return np.bincount(code, minlength=int(code.max()) + 1)
 
     def call():
-        p_xyz = Dist(counts(xi * base * base + yi * base + zi).tolist())
-        p_xz = Dist(counts(xi * base + zi).tolist())
-        p_yz = Dist(counts(yi * base + zi).tolist())
+        p_xyz = Dist(counts(xi * alphabet * alphabet + yi * alphabet + zi).tolist())
+        p_xz = Dist(counts(xi * alphabet + zi).tolist())
+        p_yz = Dist(counts(yi * alphabet + zi).tolist())
         p_z = Dist(counts(zi).tolist())
         return float(shannon.conditional_mutual_info(p_xyz, p_xz, p_yz, p_z))
 
@@ -149,7 +151,7 @@ def main() -> int:
         benchmarks,
         seeds,
         cfg,
-        extra={"base": 2, "library": "inform (C)"},
+        extra={"log_base": 2, "library": "inform (C)"},
         limitations=(
             "Discrete only; result in bits; TE/CTE history k=1. Entropy/MI/CMI "
             "build the empirical distribution(s) inside the timed call (CMI via "

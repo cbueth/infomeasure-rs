@@ -54,14 +54,14 @@ PROVIDERS = [
         "pyitlib",
         "collect_pyitlib",
         ["entropy", "mi", "cmi"],
-        "Discrete (base 2); no transfer entropy.",
+        "Discrete (log base 2); no transfer entropy.",
     ),
     (
         "dit",
         "dit",
         "collect_dit",
         ["entropy", "mi"],
-        "Discrete (base 2); entropy and MI only.",
+        "Discrete (log base 2); entropy and MI only.",
     ),
     (
         "pyinform",
@@ -75,7 +75,7 @@ PROVIDERS = [
         "pyentrp",
         "collect_pyentrp",
         ["entropy"],
-        "Shannon entropy (base 2) only.",
+        "Shannon entropy (log base 2) only.",
     ),
 ]
 

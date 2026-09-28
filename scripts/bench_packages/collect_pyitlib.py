@@ -89,8 +89,8 @@ def main() -> int:
         benchmarks,
         seeds,
         cfg,
-        extra={"base": 2},
-        limitations="Discrete only (entropy/MI/CMI); no transfer entropy. Base 2.",
+        extra={"log_base": 2},
+        limitations="Discrete only (entropy/MI/CMI); no transfer entropy. Log base 2 (bits).",
     )
     return 0
 

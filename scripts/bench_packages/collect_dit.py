@@ -108,10 +108,10 @@ def main() -> int:
         benchmarks,
         seeds,
         cfg,
-        extra={"base": 2},
+        extra={"log_base": 2},
         limitations=(
             "Discrete only; this version exposes entropy and MI (no conditional "
-            "MI, no transfer entropy). Base 2."
+            "MI, no transfer entropy). Log base 2 (bits)."
         ),
     )
     return 0

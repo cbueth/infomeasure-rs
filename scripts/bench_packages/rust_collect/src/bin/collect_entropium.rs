@@ -70,7 +70,7 @@ fn main() {
         &benchmarks,
         &seeds,
         &rounds,
-        json!({ "base": 2, "library": "entropium" }),
+        json!({ "log_base": 2, "library": "entropium" }),
         "Discrete MLE only (Shannon entropy, MI); values in bits. No native CMI \
          (conditional entropy only), no TE/CTE; unsupported cells are N/A.",
     );
