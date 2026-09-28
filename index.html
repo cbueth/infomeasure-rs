@@ -414,7 +414,7 @@ function buildCrossMeasureBar() {
 }
 function buildCrossPkgList() {
   const el = document.getElementById('c-pkgList');
-  el.innerHTML = CAT.packages.map((p) => {
+  el.innerHTML = [...CAT.packages].sort(pkgSort).map((p) => {
     const has = REP[p.id] && REP[p.id].some((e) => e.measure === CROSS.measure && mainApproach(e) === CROSS.approach);
     const lim = limitsOf(p, CAT.data[p.id]);
     const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
@@ -482,7 +482,9 @@ function covApproach(e) {
 function buildCoverage() {
   document.getElementById('covTitle').textContent =
     `Coverage for ${MEASURE_LABELS[CROSS.measure] || CROSS.measure}`;
-  const rows = CAT.packages.map((p) => {
+  // Ordered like the Packages section (-rs, -python, then release order), not
+  // by registry.json order.
+  const rows = [...CAT.packages].sort(pkgSort).map((p) => {
     const all = (((CAT.data[p.id] || {}).benchmarks) || []).filter(covApproach);
     const frag = CAT.data[p.id];
     const tds = COVERAGE_APPROACHES.map((a) => {
@@ -655,7 +657,7 @@ function buildAlphaUI() {
 }
 function buildAlphaPkgList() {
   const el = document.getElementById('a-pkgList');
-  el.innerHTML = CAT.packages.map((p) => {
+  el.innerHTML = [...CAT.packages].sort(pkgSort).map((p) => {
     const has = ((CAT.alphabet[p.id] || {}).benchmarks || []).some((e) => e.measure === ALPHA.measure && e.params.states === ALPHA.states);
     const style = has ? `color:${PCOL[p.id] || '#333'}` : 'opacity:.45';
     return `<label class="chk" style="${style}" title="${esc(p.limitations || '')}"><input type="checkbox" data-pkg="${p.id}"${ALPHA.langs[p.id] ? ' checked' : ''}${has ? '' : ' disabled'}> ${esc(p.id)}</label>`;

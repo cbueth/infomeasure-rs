@@ -196,26 +196,34 @@
     {
       "id": "tet",
       "language": "matlab",
+      "repo": "https://github.com/shixnya/transfer-entropy-toolbox",
       "reason": "Matlab-only, 2013, binary time series; out of scope."
     },
     {
       "id": "trentool",
       "language": "matlab",
+      "repo": "https://github.com/trentool/TRENTOOL3",
+      "docs": "https://trentool.github.io/TRENTOOL3/",
       "reason": "Matlab-only, 2017, TE only; out of scope."
     },
     {
       "id": "infotheory",
       "language": "python/c++",
+      "repo": "https://github.com/madvn/infotheory",
+      "docs": "http://mcandadai.com/infotheory/",
       "reason": "Defunct (last release 2020); discrete/continuous limited."
     },
     {
       "id": "infotheoryjl",
       "language": "julia",
+      "repo": "https://github.com/robertfeldt/InfoTheory.jl",
       "reason": "Unmaintained since 2016; entropy only."
     },
     {
       "id": "pyentropy",
       "language": "python",
+      "repo": "https://github.com/robince/pyentropy",
+      "docs": "http://robince.github.io/pyentropy/",
       "reason": "Google Code archive; superseded by other packages."
     },
     {
