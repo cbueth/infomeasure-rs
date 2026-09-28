@@ -101,6 +101,19 @@ if selected infomeasure-rs; then
   step infomeasure-rs cargo bench --bench collect_cross_package
   publish
 fi
+# Third-party Rust crates: a standalone collector crate (own workspace) so the
+# comparison targets never enter infomeasure-rs' normal or dev builds.
+RUST_COLLECT="$SCRIPT_DIR/rust_collect/Cargo.toml"
+if selected logp; then
+  echo "=== logp ==="
+  step logp cargo run --release --manifest-path "$RUST_COLLECT" --bin collect_logp
+  publish
+fi
+if selected entropium; then
+  echo "=== entropium ==="
+  step entropium cargo run --release --manifest-path "$RUST_COLLECT" --bin collect_entropium
+  publish
+fi
 if selected infomeasure-python; then
   echo "=== infomeasure-python ==="
   step infomeasure-python "$PY" "$SCRIPT_DIR/collect_infomeasure_python.py"

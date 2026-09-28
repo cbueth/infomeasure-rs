@@ -195,6 +195,22 @@ collected”), and `ci_plan.py` uses the same version to decide staleness.
 Publishing from a development machine is intentionally not done: numbers are
 only comparable when collected on the CI runner.
 
+### Third-party Rust collectors
+
+`logp` and `entropium` are Rust comparison crates. They must never enter the
+infomeasure-rs build (normal or dev), so they live in a standalone workspace
+crate under `scripts/bench_packages/rust_collect/` (own `Cargo.toml` /
+`Cargo.lock`) rather than as benches in the main crate. `run_all.sh` runs it via
+`cargo run --release --manifest-path … --bin collect_logp` / `collect_entropium`.
+It reads the same canonical datasets and writes the same schema-v2 fragments
+(`results/logp.json`, `results/entropium.json`); the registry entries on
+`pages` carry `ecosystem: crates`, so the weekly cron tracks their versions like
+any other package.
+
+Cross-grid coverage: both fill the discrete MLE cells (entropy, MI, CMI);
+`logp` additionally fills KSG MI (`k = 4`, Algorithm 1). Cells a package does
+not implement (e.g. TE/CTE, kernel) render as N/A.
+
 ### Alphabet-scaling family
 
 Alongside the main fragments, the discrete collectors emit one

@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Carlson Büth <code@cbueth.de>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# Standalone collector crate for the cross-package benchmark of third-party
+# Rust information-theory crates (`logp`, `entropium`). Kept out of the
+# infomeasure-rs workspace on purpose: these crates are comparison targets, not
+# dependencies, so they must never enter the library's normal or dev builds.
+#
+# Run from the repo root (datasets in `target/bench-data/`, fragments written to
+# `target/bench-data/results/`):
+#   cargo run --release --manifest-path scripts/bench_packages/rust_collect/Cargo.toml \
+#       --bin collect_logp
+#   cargo run --release --manifest-path scripts/bench_packages/rust_collect/Cargo.toml \
+#       --bin collect_entropium
+
+[package]
+name = "bench-rust-collect"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+entropium = "0.2.0"
+logp = "0.2.3"
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
