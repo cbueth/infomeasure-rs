@@ -9,5 +9,6 @@
 //! id shape, params object, statistics, and `meta.packages` entry.
 
 pub mod datasets;
+pub mod filter;
 pub mod fragment;
 pub mod timing;

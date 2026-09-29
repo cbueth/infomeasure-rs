@@ -15,7 +15,7 @@
 //! estimator, so those cells stay N/A — a measure assembled from several package
 //! calls is not timed (see the benchmark plan's equalisation rule).
 
-use bench_rust_collect::{datasets, fragment, timing};
+use bench_rust_collect::{datasets, filter, fragment, timing};
 use logp::KsgVariant;
 use serde_json::{json, Value};
 
@@ -64,6 +64,9 @@ fn main() {
         ("entropy", "logp::entropy_bits"),
         ("mi", "logp::mutual_information"),
     ] {
+        if !filter::want(measure, "discrete") {
+            continue;
+        }
         for &n in &sizes {
             let mut times = Vec::new();
             let mut value = f64::NAN;
@@ -103,7 +106,12 @@ fn main() {
     }
 
     // --- ksg (MI only) -----------------------------------------------------
-    for &n in &sizes {
+    let ksg_sizes: &[usize] = if filter::want("mi", "ksg") {
+        &sizes
+    } else {
+        &[]
+    };
+    for &n in ksg_sizes {
         let mut times = Vec::new();
         let mut value = f64::NAN;
         for &seed in &seeds {

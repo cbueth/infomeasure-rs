@@ -13,7 +13,7 @@
 //! several package calls is not timed (see the benchmark plan's equalisation
 //! rule).
 
-use bench_rust_collect::{datasets, fragment, timing};
+use bench_rust_collect::{datasets, filter, fragment, timing};
 use serde_json::{json, Value};
 
 const PACKAGE: &str = "entropium";
@@ -28,6 +28,9 @@ fn main() {
         ("entropy", "entropium::entropy"),
         ("mi", "entropium::mutual_information"),
     ] {
+        if !filter::want(measure, "discrete") {
+            continue;
+        }
         for &n in &sizes {
             let mut times = Vec::new();
             let mut value = f64::NAN;
