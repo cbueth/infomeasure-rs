@@ -78,6 +78,17 @@ fn env_f64(key: &str, default: f64) -> f64 {
         .unwrap_or(default)
 }
 
+/// Optional `BENCH_MEASURES` allow-list (comma-separated, case-insensitive).
+fn measure_wanted(measure: &str) -> bool {
+    match std::env::var("BENCH_MEASURES") {
+        Ok(raw) if !raw.trim().is_empty() => raw
+            .split(',')
+            .map(str::trim)
+            .any(|m| m.eq_ignore_ascii_case(measure)),
+        _ => true,
+    }
+}
+
 /// Sizes for the alphabet sweep. `BENCH_ALPHABET_SIZES`, else the generic
 /// `BENCH_SIZES`, else the grid's alphabet sizes.
 fn alphabet_sizes(ab: &AlphabetConfig) -> Vec<usize> {
@@ -238,6 +249,9 @@ fn main() {
 
     let mut coverage: Vec<Value> = Vec::new();
     for measure in ALPHABET_MEASURES {
+        if !measure_wanted(measure) {
+            continue;
+        }
         let states_list = ab.states_for(measure);
         if states_list.is_empty() {
             continue;
