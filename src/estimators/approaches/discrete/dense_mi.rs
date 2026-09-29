@@ -29,14 +29,17 @@ const DENSE_MI_CAP: u128 = 1 << 20;
 const MAX_DENSE_VARS: usize = 16;
 
 /// Layout of a dense MI over contiguous code columns (one column per variable).
+///
+/// Dimensions are stack arrays: the dense path is per-call and was otherwise
+/// dominated by small heap allocations for the tiny per-variable vectors.
 struct DenseMiPlan {
     n: usize,
     n_vars: usize,
-    col_min: Vec<i32>,
-    var_range: Vec<usize>,
-    var_joint_stride: Vec<usize>,
+    col_min: [i32; MAX_DENSE_VARS],
+    var_range: [usize; MAX_DENSE_VARS],
+    var_joint_stride: [usize; MAX_DENSE_VARS],
+    marginal_off: [usize; MAX_DENSE_VARS],
     joint_len: usize,
-    marginal_off: Vec<usize>,
     marginal_len: usize,
 }
 
@@ -50,8 +53,8 @@ impl DenseMiPlan {
             return None;
         }
         let n_vars = cols.len();
-        let mut col_min = vec![0i32; n_vars];
-        let mut var_range = vec![0usize; n_vars];
+        let mut col_min = [0i32; MAX_DENSE_VARS];
+        let mut var_range = [0usize; MAX_DENSE_VARS];
         for (i, col) in cols.iter().enumerate() {
             let (mn, rng) = match alphabet {
                 Some(k) => (0i32, k),
@@ -70,7 +73,7 @@ impl DenseMiPlan {
         }
 
         let mut cap: u128 = 1;
-        for &r in &var_range {
+        for &r in &var_range[..n_vars] {
             cap = cap.checked_mul(r as u128)?;
             if cap > DENSE_MI_CAP {
                 return None;
@@ -78,13 +81,13 @@ impl DenseMiPlan {
         }
         let joint_len = cap as usize;
 
-        let mut var_joint_stride = vec![0usize; n_vars];
+        let mut var_joint_stride = [0usize; MAX_DENSE_VARS];
         let mut acc = 1usize;
         for i in 0..n_vars {
             var_joint_stride[i] = acc;
             acc = acc.saturating_mul(var_range[i]);
         }
-        let mut marginal_off = vec![0usize; n_vars];
+        let mut marginal_off = [0usize; MAX_DENSE_VARS];
         let mut marginal_len = 0usize;
         for i in 0..n_vars {
             marginal_off[i] = marginal_len;
@@ -97,8 +100,8 @@ impl DenseMiPlan {
             col_min,
             var_range,
             var_joint_stride,
-            joint_len,
             marginal_off,
+            joint_len,
             marginal_len,
         })
     }
@@ -254,12 +257,19 @@ fn count_mi_bivariate_global(cols: &[&[i32]], plan: &DenseMiPlan) -> f64 {
     let k1 = plan.var_range[1];
     let stride = plan.var_joint_stride[1];
 
-    // One indexed increment per sample.
+    // One indexed increment per sample. With a declared (0-based) alphabet the
+    // offsets are zero, so skip the per-sample subtraction entirely. Zipping the
+    // two slices lets the compiler drop the per-element bounds checks on the
+    // inputs; the joint index is still checked.
     let mut joint = vec![0u32; plan.joint_len];
-    for t in 0..plan.n {
-        let x = (c0[t] - m0) as usize;
-        let y = (c1[t] - m1) as usize;
-        joint[x + y * stride] += 1;
+    if m0 == 0 && m1 == 0 {
+        for (&a, &b) in c0.iter().zip(c1.iter()) {
+            joint[a as usize + b as usize * stride] += 1;
+        }
+    } else {
+        for (&a, &b) in c0.iter().zip(c1.iter()) {
+            joint[(a - m0) as usize + (b - m1) as usize * stride] += 1;
+        }
     }
 
     // Marginals are sums of the joint rows/columns; `H(joint)` is accumulated in
@@ -315,7 +325,7 @@ pub(crate) fn dense_mi_global(cols: &[&[i32]], alphabet: Option<usize>) -> Optio
 ///
 /// [`MutualInformation::mi_discrete_mle`]: crate::estimators::mutual_information::MutualInformation::mi_discrete_mle
 pub struct DenseMiBuilder<'a> {
-    cols: Vec<Cow<'a, [i32]>>,
+    cols: Vec<&'a [i32]>,
     alphabet: Option<usize>,
 }
 
@@ -323,7 +333,7 @@ impl<'a> DenseMiBuilder<'a> {
     /// Build from flat raw code columns (one variable each).
     pub fn new(series: &[&'a [i32]]) -> Self {
         Self {
-            cols: series.iter().map(|s| Cow::Borrowed(*s)).collect(),
+            cols: series.to_vec(),
             alphabet: None,
         }
     }
@@ -338,8 +348,7 @@ impl<'a> DenseMiBuilder<'a> {
     /// Finish as a global-only estimator (inputs are consumed by the counting
     /// pass and nothing is retained).
     pub fn global_only(self) -> DenseMiGlobal {
-        let refs: Vec<&[i32]> = self.cols.iter().map(|c| &**c).collect();
-        let global = match dense_mi_global(&refs, self.alphabet) {
+        let global = match dense_mi_global(&self.cols, self.alphabet) {
             Some(g) => g,
             None => self.generic_estimate().global_value(),
         };
@@ -348,8 +357,7 @@ impl<'a> DenseMiBuilder<'a> {
 
     /// Finish as the local-value-capable estimator.
     pub fn build(self) -> DiscreteMutualInformation<DiscreteEntropy> {
-        let refs: Vec<&[i32]> = self.cols.iter().map(|c| &**c).collect();
-        match DenseMi::from_columns(&refs, self.alphabet) {
+        match DenseMi::from_columns(&self.cols, self.alphabet) {
             Some(dense) => DiscreteMutualInformation::from_dense(dense),
             None => self.generic_estimate(),
         }
