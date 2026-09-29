@@ -335,3 +335,80 @@ fn mi_independent_is_zero_and_self_is_entropy() {
     let h = infomeasure::estimators::entropy::Entropy::new_discrete_from_slice(&x).global_value();
     assert_close(self_mi, h, "I(x;x)=H(x)");
 }
+
+/// Bivariate dense MI: alphabet sweep — declared alphabet and inferred range both
+/// match the generic constructor across state counts and sizes.
+#[rstest]
+fn mi_bivariate_alphabet_sweep_matches_generic(
+    #[values(5, 10, 25, 50, 200)] states: i32,
+    #[values(50, 400, 5000)] n: usize,
+) {
+    let x = codes(n, states, 101 + states as u64 * 7 + n as u64);
+    let y = codes(n, states, 202 + states as u64 * 13 + n as u64);
+
+    let generic =
+        MutualInformation::new_discrete_mle(&[Array1::from(x.clone()), Array1::from(y.clone())])
+            .global_value();
+    let known = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states as usize)
+        .global_only()
+        .global_value();
+    let inferred = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .global_only()
+        .global_value();
+
+    assert_close(generic, known, "known alphabet");
+    assert_close(generic, inferred, "inferred alphabet");
+}
+
+/// Bivariate dense MI: tie-heavy / degenerate inputs match the generic
+/// constructor (self-MI, constant columns, duplicated patterns, single symbol).
+#[rstest]
+fn mi_bivariate_tie_heavy_matches_generic(#[values(5, 10, 50)] states: i32) {
+    let n = 1000usize;
+    let x = codes(n, states, 300 + states as u64);
+    let duplicated: Vec<i32> = (0..n).map(|i| x[i % 3]).collect();
+
+    let pairs: [(Vec<i32>, Vec<i32>); 4] = [
+        (x.clone(), x.clone()),           // perfect dependence: I(x;x)=H(x)
+        (x.clone(), vec![0; n]),          // constant second column
+        (x.clone(), vec![states - 1; n]), // constant (max symbol)
+        (x.clone(), duplicated),          // duplicated short pattern
+    ];
+
+    for (a, b) in pairs {
+        let generic = MutualInformation::new_discrete_mle(&[
+            Array1::from(a.clone()),
+            Array1::from(b.clone()),
+        ])
+        .global_value();
+        let known = MutualInformation::mi_discrete_mle(&[&a, &b])
+            .with_alphabet(states as usize)
+            .global_only()
+            .global_value();
+        let inferred = MutualInformation::mi_discrete_mle(&[&a, &b])
+            .global_only()
+            .global_value();
+        assert_close(generic, known, "known alphabet (tie)");
+        assert_close(generic, inferred, "inferred (tie)");
+    }
+}
+
+/// The bivariate global path must be bit-for-bit identical to the local-value
+/// dense path (same counts, same summation order).
+#[rstest]
+fn mi_bivariate_global_matches_local_build_exactly(#[values(2, 5, 10, 25)] states: i32) {
+    let n = 2000usize;
+    let x = codes(n, states, 401 + states as u64);
+    let y = codes(n, states, 402 + states as u64);
+
+    let global = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states as usize)
+        .global_only()
+        .global_value();
+    let build = MutualInformation::mi_discrete_mle(&[&x, &y])
+        .with_alphabet(states as usize)
+        .build()
+        .global_value();
+    assert_eq!(global, build);
+}

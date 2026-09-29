@@ -240,10 +240,69 @@ impl DenseMi {
     }
 }
 
+/// Bivariate global MI: count **only the joint** in one tight pass, then recover
+/// the two marginals and `H(joint)` in a single walk over the joint table.
+///
+/// Integer counts are identical to the general path and `H(joint)` is summed in
+/// the same order, so the value is bit-for-bit the same; the hot loop does one
+/// indexed increment per sample instead of three, and no separate data pass is
+/// needed for the marginals.
+fn count_mi_bivariate_global(cols: &[&[i32]], plan: &DenseMiPlan) -> f64 {
+    let (c0, c1) = (cols[0], cols[1]);
+    let (m0, m1) = (plan.col_min[0], plan.col_min[1]);
+    let k0 = plan.var_range[0];
+    let k1 = plan.var_range[1];
+    let stride = plan.var_joint_stride[1];
+
+    // One indexed increment per sample.
+    let mut joint = vec![0u32; plan.joint_len];
+    for t in 0..plan.n {
+        let x = (c0[t] - m0) as usize;
+        let y = (c1[t] - m1) as usize;
+        joint[x + y * stride] += 1;
+    }
+
+    // Marginals are sums of the joint rows/columns; `H(joint)` is accumulated in
+    // the same row-major order the general path uses. One combined buffer keeps
+    // the allocation count identical to the general path.
+    let n = plan.n as f64;
+    let mut marginal = vec![0u32; k0 + k1];
+    let mut h_joint = 0.0_f64;
+    for y in 0..k1 {
+        let row = &joint[y * stride..y * stride + k0];
+        let mut row_sum = 0u32;
+        for (x, &c) in row.iter().enumerate() {
+            if c != 0 {
+                row_sum += c;
+                marginal[x] += c;
+                let p = c as f64 / n;
+                h_joint -= p * p.ln();
+            }
+        }
+        marginal[k0 + y] = row_sum;
+    }
+
+    let entropy = |counts: &[u32]| -> f64 {
+        let mut h = 0.0;
+        for &c in counts {
+            if c > 0 {
+                let p = c as f64 / n;
+                h -= p * p.ln();
+            }
+        }
+        h
+    };
+    entropy(&marginal[..k0]) + entropy(&marginal[k0..]) - h_joint
+}
+
 /// Dense direct MI average without retaining inputs.
 pub(crate) fn dense_mi_global(cols: &[&[i32]], alphabet: Option<usize>) -> Option<f64> {
     let plan = DenseMiPlan::new(cols, alphabet)?;
-    Some(count_mi(cols, &plan).global)
+    Some(if plan.n_vars == 2 {
+        count_mi_bivariate_global(cols, &plan)
+    } else {
+        count_mi(cols, &plan).global
+    })
 }
 
 /// Builder for the dense direct discrete-MLE mutual information.
