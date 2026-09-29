@@ -186,6 +186,18 @@ if selected infomeasure-rs; then
   step infomeasure-rs-alphabet cargo bench --bench collect_alphabet
   publish
 fi
+# Rust comparison crates on the same alphabet grid (their native discrete set:
+# entropy + MI; no CMI/TE/CTE).
+if selected logp; then
+  echo "=== logp (alphabet) ==="
+  step logp-alphabet cargo run --release --manifest-path "$RUST_COLLECT" --bin collect_logp_alphabet
+  publish
+fi
+if selected entropium; then
+  echo "=== entropium (alphabet) ==="
+  step entropium-alphabet cargo run --release --manifest-path "$RUST_COLLECT" --bin collect_entropium_alphabet
+  publish
+fi
 # Sparse GPU overlay: only the kernel variants above the dispatch gate, into
 # `infomeasure-rs_gpu.json`. Non-fatal, so a host without a usable adapter
 # records a failure and everything else still publishes.

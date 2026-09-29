@@ -8,6 +8,7 @@
 //! so `merge_results.py` and the viewer treat the fragments identically: same
 //! id shape, params object, statistics, and `meta.packages` entry.
 
+pub mod alphabet;
 pub mod datasets;
 pub mod filter;
 pub mod fragment;
