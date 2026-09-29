@@ -152,3 +152,7 @@ harness = false
 [[bench]]
 name = "collect_alphabet"
 harness = false
+
+[[bench]]
+name = "composite_measures"
+harness = false
