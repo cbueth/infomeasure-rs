@@ -6,10 +6,10 @@
 name = "infomeasure"
 version = "0.4.1"
 edition = "2024"
-description = "Information theory measures and entropy calculations for Rust"
+description = "Information-theoretic measures and divergences for Rust: entropy, mutual information, transfer entropy, KLD, JSD"
 license = "MIT OR Apache-2.0"
 repository = "https://codeberg.org/cbueth/infomeasure-rs"
-homepage = "https://docs.rs/infomeasure"
+homepage = "https://infomeasure.org/"
 documentation = "https://docs.rs/infomeasure"
 readme = "README.md"
 keywords = ["entropy", "information-theory", "mutual-information", "information-measures", "statistics"]

@@ -6,7 +6,7 @@
 #
 # Single workflow on `main` (Option B). Woodpecker reads the config from the
 # triggering branch, so this file must NOT be mirrored to `pages`; the `pages`
-# branch only carries `registry.json`, the viewer and the data fragments.
+# branch only carries `registry.json` and the data fragments.
 #
 # Stages (sequential steps in one workflow):
 #   checkout     clone `pages` (registry + existing fragments) and the source

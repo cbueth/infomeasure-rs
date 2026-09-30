@@ -7,7 +7,7 @@
 //! Interactive benchmark charts comparing Rust vs Python across all estimators and
 //! approaches are available at:
 //!
-//! **<https://cbueth.codeberg.page/infomeasure-rs/>**
+//! **<https://infomeasure.org/benchmarks/>**
 //!
 //! The viewer includes scaling plots, per-approach parameter filters, log/linear
 //! axes, hardware context, a CPU/GPU toggle, version badges, and a sortable data

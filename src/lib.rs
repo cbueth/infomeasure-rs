@@ -14,14 +14,16 @@
 //! [infomeasure Python package](https://github.com/cbueth/infomeasure)
 //! have been reimplemented in Rust.
 //! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
+//! Project home: <https://infomeasure.org/>.
 //!
 //! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
-//! And check out the [benchmark page](https://cbueth.codeberg.page/infomeasure-rs/).
+//! And check out the [benchmark page](https://infomeasure.org/benchmarks/).
 //!
 //! </div>
 //!
 //! High-performance Rust library for information-theoretic measures including entropy,
-//! mutual information, and transfer entropy with multiple estimation approaches.
+//! mutual information, transfer entropy, and the Kullback–Leibler and Jensen–Shannon
+//! divergences with multiple estimation approaches.
 //!
 //! # Quick Start
 //!
@@ -118,7 +120,7 @@
 //!
 //! Performance benchmarks are documented in the [guide::benchmarks] section.
 //! Interactive charts comparing Rust vs Python are available at
-//! <https://cbueth.codeberg.page/infomeasure-rs/>.
+//! <https://infomeasure.org/benchmarks/>.
 
 pub mod estimators;
 pub mod guide;

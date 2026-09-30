@@ -9,8 +9,9 @@ version: 0.4.1
 title: infomeasure-rs
 abstract: |
   High-performance Rust library for information-theoretic measures
-  including entropy, mutual information, and transfer entropy with
-  multiple estimation approaches (discrete, kernel, ordinal, exponential family).
+  including entropy, mutual information, transfer entropy, and the
+  Kullback-Leibler and Jensen-Shannon divergences, with multiple estimation
+  approaches (discrete, kernel, ordinal, exponential family).
 
 authors:
     - family-names: "Büth"
@@ -19,13 +20,14 @@ authors:
       email: code@cbueth.de
 
 repository-code: "https://codeberg.org/cbueth/infomeasure-rs"
-url: "https://docs.rs/infomeasure"
+url: "https://infomeasure.org/"
 
 keywords:
   - entropy
   - information-theory
   - mutual-information
   - transfer-entropy
+  - divergence
   - statistics
   - rust
 
