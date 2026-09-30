@@ -4,7 +4,7 @@ type: software
 license:
   - MIT
   - Apache-2.0
-version: 0.4.1
+version: 0.5.0
 
 title: infomeasure-rs
 abstract: |
@@ -31,4 +31,4 @@ keywords:
   - statistics
   - rust
 
-date-released: 2026-09-27
+date-released: 2026-09-30

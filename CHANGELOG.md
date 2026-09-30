@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.0) - 2026-09-30
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### ✨ Features
+
+- feat: Add KLD and JSD as first-class composite measures [[#97](https://codeberg.org/cbueth/infomeasure-rs/pulls/97)]
+
+### 📚 Documentation
+
+- docs: point links and metadata at infomeasure.org [[#100](https://codeberg.org/cbueth/infomeasure-rs/pulls/100)]
+
+### ⚡ Performance
+
+- perf: Close the discrete-MI gap vs `logp`; add logp/entropium to the alphabet sweep [[#99](https://codeberg.org/cbueth/infomeasure-rs/pulls/99)]
+
+### Misc
+
+- bench(packages): add logp + entropium collectors and excluded Rust crates [[#96](https://codeberg.org/cbueth/infomeasure-rs/pulls/96)]
+
 ## [0.4.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.4.1) - 2026-09-27
 
 ### ❤️ Thanks to all contributors! ❤️

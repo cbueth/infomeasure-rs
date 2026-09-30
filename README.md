@@ -12,7 +12,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 [![Website](https://img.shields.io/badge/website-infomeasure.org-0f8f8a)](https://infomeasure.org/)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-visit-8A2BE2)](https://infomeasure.org/benchmarks/)
 
-> **v0.4.1 — Now available!**
+> **v0.5.0 — Now available!**
 > All core features of the [infomeasure Python package](https://github.com/cbueth/infomeasure)
 > have been reimplemented in Rust.
 > Try it out with our [Rust Guide](https://docs.rs/infomeasure/latest/infomeasure/guide/index.html)
@@ -37,7 +37,7 @@ High-performance Rust library for information-theoretic measures with multiple e
 
 ```toml
 [dependencies]
-infomeasure = "0.4.1"
+infomeasure = "0.5.0"
 ```
 
 ## Quick Start
@@ -87,9 +87,9 @@ Enable either, or both (when both are on, the GPU gate decides first and
 
 ```toml
 [dependencies]
-infomeasure = { version = "0.4.1", features = ["gpu"] }        # GPU
-# infomeasure = { version = "0.4.1", features = ["parallel"] } # CPU parallelism
-# infomeasure = { version = "0.4.1", features = ["gpu", "parallel"] } # both
+infomeasure = { version = "0.5.0", features = ["gpu"] }        # GPU
+# infomeasure = { version = "0.5.0", features = ["parallel"] } # CPU parallelism
+# infomeasure = { version = "0.5.0", features = ["gpu", "parallel"] } # both
 ```
 
 The API is unchanged — the accelerator is selected internally:
