@@ -6,7 +6,7 @@
       "cores": 12,
       "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
       "gpu": null,
-      "memory_gb": 15.494026184082031,
+      "memory_gb": 15.494022369384766,
       "os": "Linux"
     },
     "runtime": {
@@ -18,12 +18,7 @@
       "max_iters": 10,
       "iter_budget_s": 1.5
     },
-    "seeds": [
-      610418971,
-      2086847849,
-      627358495,
-      1501472984
-    ],
+    "seeds": [],
     "packages": [
       {
         "id": "rtransferentropy",
@@ -39,166 +34,5 @@
       ]
     ]
   },
-  "benchmarks": [
-    {
-      "id": "te/discrete/n100/rtransferentropy",
-      "package": "rtransferentropy",
-      "language": "r",
-      "measure": "te",
-      "approach": "discrete",
-      "function": "calc_te",
-      "params": {
-        "n": 100,
-        "k": null,
-        "bandwidth": null,
-        "order": null,
-        "delay": 1,
-        "alpha": null,
-        "q": null,
-        "dims": 1,
-        "method": "mle",
-        "kernel_type": null
-      },
-      "statistics": {
-        "mean": 0.000925,
-        "stddev": 0.000349908412925,
-        "min": 0,
-        "max": 0.002,
-        "median": 0.001,
-        "samples": 40,
-        "ci_lower": 0.000816562259385,
-        "ci_upper": 0.00103343774062
-      },
-      "value": 0.0635987565539,
-      "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
-    },
-    {
-      "id": "te/discrete/n400/rtransferentropy",
-      "package": "rtransferentropy",
-      "language": "r",
-      "measure": "te",
-      "approach": "discrete",
-      "function": "calc_te",
-      "params": {
-        "n": 400,
-        "k": null,
-        "bandwidth": null,
-        "order": null,
-        "delay": 1,
-        "alpha": null,
-        "q": null,
-        "dims": 1,
-        "method": "mle",
-        "kernel_type": null
-      },
-      "statistics": {
-        "mean": 0.000825,
-        "stddev": 0.000384807644255,
-        "min": 0,
-        "max": 0.001,
-        "median": 0.001,
-        "samples": 40,
-        "ci_lower": 0.000705746875545,
-        "ci_upper": 0.000944253124455
-      },
-      "value": 0.0183248502919,
-      "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
-    },
-    {
-      "id": "te/discrete/n1600/rtransferentropy",
-      "package": "rtransferentropy",
-      "language": "r",
-      "measure": "te",
-      "approach": "discrete",
-      "function": "calc_te",
-      "params": {
-        "n": 1600,
-        "k": null,
-        "bandwidth": null,
-        "order": null,
-        "delay": 1,
-        "alpha": null,
-        "q": null,
-        "dims": 1,
-        "method": "mle",
-        "kernel_type": null
-      },
-      "statistics": {
-        "mean": 0.00165,
-        "stddev": 0.00062223748455,
-        "min": 0.001,
-        "max": 0.004,
-        "median": 0.002,
-        "samples": 40,
-        "ci_lower": 0.00145716660572,
-        "ci_upper": 0.00184283339428
-      },
-      "value": 0.0330998485087,
-      "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
-    },
-    {
-      "id": "te/discrete/n6400/rtransferentropy",
-      "package": "rtransferentropy",
-      "language": "r",
-      "measure": "te",
-      "approach": "discrete",
-      "function": "calc_te",
-      "params": {
-        "n": 6400,
-        "k": null,
-        "bandwidth": null,
-        "order": null,
-        "delay": 1,
-        "alpha": null,
-        "q": null,
-        "dims": 1,
-        "method": "mle",
-        "kernel_type": null
-      },
-      "statistics": {
-        "mean": 0.0037,
-        "stddev": 0.000648469598758,
-        "min": 0.003,
-        "max": 0.006,
-        "median": 0.004,
-        "samples": 40,
-        "ci_lower": 0.00349903718931,
-        "ci_upper": 0.00390096281069
-      },
-      "value": 0.0180070774893,
-      "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
-    },
-    {
-      "id": "te/discrete/n12500/rtransferentropy",
-      "package": "rtransferentropy",
-      "language": "r",
-      "measure": "te",
-      "approach": "discrete",
-      "function": "calc_te",
-      "params": {
-        "n": 12500,
-        "k": null,
-        "bandwidth": null,
-        "order": null,
-        "delay": 1,
-        "alpha": null,
-        "q": null,
-        "dims": 1,
-        "method": "mle",
-        "kernel_type": null
-      },
-      "statistics": {
-        "mean": 0.005675,
-        "stddev": 0.000858964791374,
-        "min": 0.005,
-        "max": 0.009,
-        "median": 0.006,
-        "samples": 40,
-        "ci_lower": 0.00540880405328,
-        "ci_upper": 0.00594119594672
-      },
-      "value": 0.0264312648231,
-      "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
-    }
-  ]
+  "benchmarks": []
 }
