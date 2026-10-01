@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use approx::assert_abs_diff_eq;
 use infomeasure::estimators::mutual_information::MutualInformation;
-use infomeasure::estimators::traits::{GlobalValue, LocalValues};
+use infomeasure::estimators::traits::{GlobalValue, LocalValues, OptionalLocalValues};
 use infomeasure::estimators::transfer_entropy::TransferEntropy;
 use ndarray::Array1;
 use rand::rngs::StdRng;
@@ -14,6 +15,34 @@ use validation::python;
 fn generate_random_data(size: usize, alphabet_size: i32, seed: u64) -> Vec<i32> {
     let mut rng = StdRng::seed_from_u64(seed);
     (0..size).map(|_| rng.gen_range(0..alphabet_size)).collect()
+}
+
+/// The infallible `LocalValues` impl must agree elementwise with the fallible
+/// `OptionalLocalValues` path.
+fn assert_local_matches_opt<L>(est: &L)
+where
+    L: LocalValues + OptionalLocalValues,
+{
+    let local = est.local_values();
+    let opt = est
+        .local_values_opt()
+        .expect("discrete TE/CTE should support local values");
+    assert_eq!(local.len(), opt.len(), "local value length mismatch");
+    for (a, b) in local.iter().zip(opt.iter()) {
+        assert_abs_diff_eq!(*a, *b, epsilon = 1e-12);
+    }
+}
+
+/// For an unbiased mean-of-locals measure the global value is the local mean.
+fn assert_local_mean_is_global<L>(est: &L)
+where
+    L: LocalValues,
+{
+    let mean = est
+        .local_values()
+        .mean()
+        .expect("local values should not be empty");
+    assert_abs_diff_eq!(mean, est.global_value(), epsilon = 1e-10);
 }
 
 #[rstest]
@@ -252,4 +281,117 @@ fn test_discrete_cmi_shrink_parity(
 
     println!("CMI Rust: {cmi_rust}, CMI Python: {cmi_py}");
     assert!((cmi_rust - cmi_py).abs() < 1e-10);
+}
+
+#[rstest]
+// Dense fast path: tiny joint alphabet.
+#[case(
+    generate_random_data(200, 2, 70),
+    generate_random_data(200, 2, 71),
+    1,
+    1
+)]
+#[case(
+    generate_random_data(200, 3, 72),
+    generate_random_data(200, 3, 73),
+    2,
+    2
+)]
+// Generic entropy-summation fallback: wide alphabet forces the marginal cap.
+#[case(
+    generate_random_data(300, 1000, 74),
+    generate_random_data(300, 1000, 75),
+    2,
+    2
+)]
+fn test_discrete_te_mle_local_values(
+    #[case] x_vec: Vec<i32>,
+    #[case] y_vec: Vec<i32>,
+    #[case] src_hist: usize,
+    #[case] dest_hist: usize,
+) {
+    let x = Array1::from(x_vec);
+    let y = Array1::from(y_vec);
+
+    let te = TransferEntropy::new_discrete_mle(&x, &y, src_hist, dest_hist, 1);
+    assert_local_matches_opt(&te);
+    assert_local_mean_is_global(&te);
+}
+
+#[rstest]
+// Dense fast path.
+#[case(
+    generate_random_data(200, 2, 76),
+    generate_random_data(200, 2, 77),
+    generate_random_data(200, 2, 78),
+    1,
+    1,
+    1
+)]
+#[case(
+    generate_random_data(200, 3, 79),
+    generate_random_data(200, 3, 80),
+    generate_random_data(200, 3, 81),
+    2,
+    1,
+    1
+)]
+// Generic fallback via a wide alphabet.
+#[case(
+    generate_random_data(300, 1000, 82),
+    generate_random_data(300, 1000, 83),
+    generate_random_data(300, 1000, 84),
+    2,
+    2,
+    1
+)]
+fn test_discrete_cte_mle_local_values(
+    #[case] x_vec: Vec<i32>,
+    #[case] y_vec: Vec<i32>,
+    #[case] z_vec: Vec<i32>,
+    #[case] src_hist: usize,
+    #[case] dest_hist: usize,
+    #[case] cond_hist: usize,
+) {
+    let x = Array1::from(x_vec);
+    let y = Array1::from(y_vec);
+    let z = Array1::from(z_vec);
+
+    let cte = TransferEntropy::new_cte_discrete_mle(&x, &y, &z, src_hist, dest_hist, cond_hist, 1);
+    assert_local_matches_opt(&cte);
+    assert_local_mean_is_global(&cte);
+}
+
+#[rstest]
+// Generic `Spaces` path (always used by the non-MLE constructors).
+#[case(
+    generate_random_data(150, 5, 85),
+    generate_random_data(150, 5, 86),
+    1,
+    1
+)]
+#[case(
+    generate_random_data(150, 4, 87),
+    generate_random_data(150, 4, 88),
+    2,
+    1
+)]
+#[case(
+    generate_random_data(150, 3, 89),
+    generate_random_data(150, 3, 90),
+    1,
+    2
+)]
+fn test_discrete_te_generic_local_values(
+    #[case] x_vec: Vec<i32>,
+    #[case] y_vec: Vec<i32>,
+    #[case] src_hist: usize,
+    #[case] dest_hist: usize,
+) {
+    let x = Array1::from(x_vec);
+    let y = Array1::from(y_vec);
+
+    let te = TransferEntropy::new_discrete_miller_madow(&x, &y, src_hist, dest_hist, 1);
+    assert_local_matches_opt(&te);
+    assert_local_mean_is_global(&te);
 }

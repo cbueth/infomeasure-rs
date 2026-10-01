@@ -62,7 +62,10 @@
 //! $$T_{X \\to Y \\mid Z}(k, l) = \\langle t_{X \\to Y}(n + 1, k, l) \\rangle$$
 //!
 //! In this crate, local CTE can be accessed via the [`LocalValues`](crate::estimators::traits::LocalValues) trait
-//! on CTE estimators that support it.
+//! for the ordinal, KSG, and kernel estimators, and for the discrete family when the
+//! chosen entropy estimator provides local values. The Rényi, Tsallis, and
+//! Kozachenko-Leonenko families are global-only and expose the fallible
+//! [`OptionalLocalValues`](crate::estimators::traits::OptionalLocalValues) interface instead.
 //!
 //! ## Entropy Combination Form
 //!

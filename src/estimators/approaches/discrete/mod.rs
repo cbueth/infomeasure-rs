@@ -438,6 +438,12 @@ impl<E: GlobalValue> GlobalValue for DiscreteTransferEntropy<E> {
     }
 }
 
+impl<E: LocalValues> LocalValues for DiscreteTransferEntropy<E> {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
+    }
+}
+
 impl DiscreteTransferEntropy<crate::estimators::approaches::discrete::mle::DiscreteEntropy> {
     /// Fused MLE construction: one counting pass per information space, no
     /// intermediate dense-code recounting. Numerics identical to
@@ -548,6 +554,12 @@ impl<E> DiscreteConditionalTransferEntropy<E> {
 impl<E: GlobalValue> GlobalValue for DiscreteConditionalTransferEntropy<E> {
     fn global_value(&self) -> f64 {
         self.inner.global_value()
+    }
+}
+
+impl<E: LocalValues> LocalValues for DiscreteConditionalTransferEntropy<E> {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
     }
 }
 

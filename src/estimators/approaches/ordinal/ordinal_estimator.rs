@@ -254,6 +254,12 @@ impl GlobalValue for OrdinalMutualInformation {
     }
 }
 
+impl LocalValues for OrdinalMutualInformation {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
+    }
+}
+
 impl OptionalLocalValues for OrdinalMutualInformation {
     fn supports_local(&self) -> bool {
         self.inner.supports_local()
@@ -299,6 +305,12 @@ impl OrdinalConditionalMutualInformation {
 impl GlobalValue for OrdinalConditionalMutualInformation {
     fn global_value(&self) -> f64 {
         self.inner.global_value()
+    }
+}
+
+impl LocalValues for OrdinalConditionalMutualInformation {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
     }
 }
 
@@ -348,6 +360,12 @@ impl OrdinalTransferEntropy {
 impl GlobalValue for OrdinalTransferEntropy {
     fn global_value(&self) -> f64 {
         self.inner.global_value()
+    }
+}
+
+impl LocalValues for OrdinalTransferEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
     }
 }
 
@@ -403,6 +421,12 @@ impl OrdinalConditionalTransferEntropy {
 impl GlobalValue for OrdinalConditionalTransferEntropy {
     fn global_value(&self) -> f64 {
         self.inner.global_value()
+    }
+}
+
+impl LocalValues for OrdinalConditionalTransferEntropy {
+    fn local_values(&self) -> Array1<f64> {
+        self.inner.local_values()
     }
 }
 

@@ -35,7 +35,24 @@
 //! Local TE values can be negative, unlike its global counterpart; this means the source
 //! is misleading about the prediction of target's next step.
 //! In this crate, local TE can be accessed via the [`LocalValues`](crate::estimators::traits::LocalValues) trait
-//! on TE estimators that support it.
+//! for the ordinal, KSG, and kernel estimators, and for the discrete family when the
+//! chosen entropy estimator provides local values (e.g. MLE, shrinkage, Miller–Madow):
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::traits::{GlobalValue, LocalValues};
+//! use ndarray::array;
+//! use approx::assert_abs_diff_eq;
+//!
+//! let source = array![0, 1, 0, 1, 0, 1, 0, 1];
+//! let dest = array![0, 0, 1, 0, 1, 0, 1, 0];
+//! let te = TransferEntropy::new_discrete_mle(&source, &dest, 1, 1, 1);
+//! let local = te.local_values();
+//! // The global TE is the mean of the local values.
+//! assert_abs_diff_eq!(te.global_value(), local.mean().unwrap(), epsilon = 1e-10);
+//! ```
+//! The Rényi, Tsallis, and Kozachenko-Leonenko families are global-only and expose
+//! the fallible [`OptionalLocalValues`](crate::estimators::traits::OptionalLocalValues)
+//! interface instead.
 //! ## Effective Transfer Entropy (eTE)
 //! Real world time series data are usually biased due to finite size effects.
 //! Effective TE is defined as the difference between the original TE and TE calculated on
