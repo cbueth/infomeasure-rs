@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.2](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.2) - 2026-10-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### Misc
+
+- chore(release): bump Cargo.lock during release preparation [[#107](https://codeberg.org/cbueth/infomeasure-rs/pulls/107)]
+
 ## [0.5.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.1) - 2026-10-02
 
 ### ❤️ Thanks to all contributors! ❤️
