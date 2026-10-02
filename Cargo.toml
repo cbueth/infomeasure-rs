@@ -138,10 +138,6 @@ name = "cte_discrete_bias_corrected"
 harness = false
 
 [[bench]]
-name = "kernel_gpu_codspeed"
-harness = false
-
-[[bench]]
 name = "gen_datasets"
 harness = false
 

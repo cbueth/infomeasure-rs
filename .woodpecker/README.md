@@ -17,49 +17,52 @@ Fast code quality checks that run on every push and pull request to `main` and `
 - **Clippy Linting**: Runs `clippy` with strict warnings as errors
 - **Documentation Check**: Verifies documentation builds without warnings
 
-### Test Pipeline (`.woodpecker/test.yml`)
-Comprehensive testing with matrix strategy:
+### Runner rules
 
-**Matrix Configuration:**
-- **Toolchains**: `stable`, `beta` (removed nightly per requirement)
-- **Features**:
-  - No features (baseline)
-  - `simd` only
-  - `fast_exp` only
-  - Skip `gpu` (not available in CI)
+Two self-hosted runners, selected by label:
+
+- **CPU runner** (`type: cpu`) — lint and the nightly (`test-nightly.yml`).
+- **GPU runner** (`type: gpu`) — `bench.yml`, `test-gpu.yml`, `bench-packages.yml`.
+
+The PR test jobs (`test.yml`) only request `provider: self-hosted`, so either
+runner takes them: whichever is free grabs the next topic and the rest queue.
+Benchmark jobs must run alone (their numbers are threshold-gated and sensitive to
+contention); both agents run one workflow at a time, and `bench` /
+`bench-packages` share the `gpu-exclusive` concurrency group as a safeguard if
+that cap is ever raised. A floating test job can therefore delay a bench run but
+never overlap it.
+
+### Test Pipeline (`.woodpecker/test.yml`)
+PR gate on either runner. The suite is split by topic (`expfam`, `kernel`,
+`discrete`, `misc`, `ordinal`, `lib`, `noparallel`) as a matrix, so several
+smaller jobs distribute across the two runners; each job builds for itself
+(jobs may land on different runners and don't share a workspace). The heavier
+topics finish sooner on the GPU box.
+
+### Nightly Test Pipeline (`.woodpecker/test-nightly.yml`)
+Triggered by a cron job named `test-nightly` on `main` (repo settings → Cron).
+Runs `beta` on the CPU runner, plus beta `clippy`, so PRs can stay stable-only.
 
 ### GPU Test Pipeline (`.woodpecker/test-gpu.yml`)
-Runs on the dedicated self-hosted GPU runner (`labels: provider=self-hosted, type=gpu`):
-
-- **Toolchain**: `stable` only (conserves the scarce GPU runner)
-- **Feature**: `gpu`
-- Builds the workspace with `--features gpu`, then runs the GPU-accelerated correctness
-  tests (name-filtered to `gpu`) plus the `#[ignore]`d discrete GPU smoke test
-- Software-fallback guard: the GPU tests fail if wgpu only finds a CPU/software adapter
-  (llvmpipe/lavapipe), so they never silently run on the CPU
-
-**Test Steps:**
-1. **Build**: Compile with feature-specific flags using pre-built CI image
-2. **Test**: Run unit tests with appropriate features
-3. **Python Validation**: Run validation tests with micromamba environment
+Runs on the GPU runner with `--features gpu`: the GPU-accelerated correctness
+tests plus the ignored discrete GPU smoke test. A guard fails the run if only a
+software adapter is found.
 
 ### Benchmark Pipeline (`.woodpecker/bench.yml`)
-Runs Criterion benchmarks on the self-hosted GPU runner and reports to
+Runs Criterion benchmarks on the GPU runner and reports to
 [Bencher](https://bencher.dev/perf/infomeasure-rs): a PR comment on pull
-requests, and the threshold baseline on `main`.
+requests, and the threshold baseline on `main`. The suite is collected by
+`scripts/ci/bench_streams.sh`: **3 concurrent non-`*_parallel` streams**, then
+the `*_parallel` groups and the GPU groups alone. Cross-talk on this box stays
+within run-to-run noise at 3 concurrent groups but degrades at 4, and the
+4-thread `*_parallel`/GPU benches are the most sensitive, so they never co-run.
 
 - **Testbed = environment.** Bencher keys comparisons and thresholds on
-  (branch, testbed, measure), so `--testbed` names the machine's power state.
-  Changing the environment means changing the testbed, which starts a fresh
-  baseline instead of comparing/prompting across environments. Current testbed:
-  `self-hosted-gpu i7-8750H base 2.2GHz no-turbo` (earlier `self-hosted-gpu`
-  and VPS `self-hosted` runs stay as separate history).
-- **Pinned CPU clock.** The runner uses TLP as the sole power manager
-  (`power-profiles-daemon` off), `CPU_BOOST_ON_AC = 0`, and
-  `CPU_MIN_PERF_ON_AC = CPU_MAX_PERF_ON_AC = 53` — the base-clock boundary for
-  the i7-8750H (2.2 GHz base / 4.1 GHz turbo) — for a fixed, throttling-free
-  clock. The dGPU is not capped (driver ≥530 dropped laptop power/clock
-  control) and does not get hot enough to trigger the loud fan step here.
+  (branch, testbed, measure), so `--testbed` names the machine's power state (and
+  collection mode). Changing it starts a fresh baseline instead of comparing
+  across environments; the current testbed ends in `parallel3`.
+- **Pinned CPU clock.** The GPU runner runs at a fixed, throttling-free clock
+  (TLP, no turbo) for stable timings.
 - **Alerts fail PRs** (`--error-on-alert`); if the clock or hardware changes,
   bump the testbed name so the old thresholds are not applied.
 - **Dense/sparse guards.** The discrete-MLE benches (`mi/te/cmi/cte`) keep their

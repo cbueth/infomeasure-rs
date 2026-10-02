@@ -51,7 +51,10 @@ steps:
           cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-gpu/ &&
           touch /target/infomeasure-rs-gpu/.seeded;
         fi
-      - cargo build -j 8 --workspace --features gpu
+      # `parallel` lets the forced-CPU baseline in the parity tests use all
+      # threads; the GPU tier dispatches before `parallel`, so the GPU paths are
+      # unchanged (see estimators::gpu gate docs).
+      - cargo build -j 8 --workspace --features gpu,parallel
 
   - name: test
     image: codeberg.org/cbueth/infomeasure-rs:stable
@@ -65,10 +68,12 @@ steps:
     commands:
       - . /usr/local/bin/init-nvidia-vulkan.sh
       # Filter BEFORE `--`, harness args after it. Putting the filter after a
-      # second `--` makes libtest drop the filter and run the FULL suite (823
-      # tests incl. CPU ones) — one of which then segfaults.
-      # --test-threads 1: each GPU test builds its own wgpu device; running them
-      # concurrently (default = one thread per core) crashes the NVIDIA driver
-      # with SIGSEGV. Serialize so only one GPU context exists at a time.
-      - cargo test -j 8 --features gpu --test all_tests gpu -- --test-threads 1
-      - cargo test -j 8 --features gpu --test all_tests discrete_gpu_batch_matches_cpu -- --ignored --test-threads 1
+      # second `--` makes libtest drop the filter and run the FULL suite
+      # (incl. CPU tests) — one of which then segfaults.
+      #
+      # --test-threads 4: the GPU context is a process-wide singleton
+      # (`estimators::gpu`), so concurrent cases share one device. Measured on
+      # the runner: 1 thread 300 s, 4 threads 91 s, 8 threads 79 s, all rc=0 —
+      # the old single-thread restriction (per-test devices) no longer applies.
+      - cargo test -j 8 --features gpu,parallel --test all_tests gpu -- --test-threads 4
+      - cargo test -j 8 --features gpu,parallel --test all_tests discrete_gpu_batch_matches_cpu -- --ignored --test-threads 1

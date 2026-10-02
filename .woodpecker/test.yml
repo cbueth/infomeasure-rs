@@ -6,9 +6,13 @@ workspace:
   base: /build
   path: .
 
+# Only `provider` is requested, so these jobs run on either self-hosted runner
+# (the CPU VPS or the faster GPU box): whichever is free grabs the next topic and
+# the rest queue. Neither agent runs two workflows at once, so a test job can
+# never overlap the GPU-box bench (it may only delay it). Each topic builds its
+# own target dir because the jobs can land on different runners.
 labels:
   provider: self-hosted
-  type: cpu
 
 when:
   - event: [push, pull_request]
@@ -20,56 +24,45 @@ when:
       - tests/**
   - event: manual
 
+# Split the suite by topic so several smaller jobs distribute across the two
+# runners instead of one ~30 min monolith. `lib`/`noparallel` cover the unit
+# tests and the non-`parallel` build; `ordinal` carries the doctests.
 matrix:
-  RUST: [stable, beta]
-  # `parallel` (rayon) is CPU-only, so the normal CPU runners exercise it here.
-  # `gpu` is not tested in this workflow (no adapter) - see test-gpu.yml. Tests
-  # deliberately run with rayon's default thread count (all cores); the timed
-  # benchmark track is the one that pins a fixed number of threads.
-  FEATURES: ["", "parallel"]
+  TOPIC: [expfam, kernel, discrete, misc, ordinal, lib, noparallel]
 
 steps:
-  - name: build
-    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    environment:
-      FEATURES: ${FEATURES}
-      RUST: ${RUST}
-      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
-      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
-      CARGO_MANIFEST_DIR: /build/tests/validation_crate
-    commands:
-      - if [ ! -e /target/infomeasure-rs-${RUST}/.seeded ] && [ -d /usr/local/cargo/target ]; then
-          mkdir -p /target/infomeasure-rs-${RUST} /target/infomeasure-rs-cargo-${RUST} &&
-          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-${RUST}/ &&
-          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-${RUST}/ &&
-          touch /target/infomeasure-rs-${RUST}/.seeded;
-        fi
-      - if [ -n "${FEATURES}" ]; then
-          cargo build -j 4 --workspace --features ${FEATURES};
-        else
-          cargo build -j 4 --workspace;
-        fi
-
   - name: test
-    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
+    image: codeberg.org/cbueth/infomeasure-rs:stable
     environment:
-      FEATURES: ${FEATURES}
-      RUST: ${RUST}
-      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
-      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
+      TOPIC: ${TOPIC}
+      CARGO_HOME: /target/infomeasure-rs-cargo-stable
+      CARGO_TARGET_DIR: /target/infomeasure-rs-stable
       CARGO_MANIFEST_DIR: /build/tests/validation_crate
     commands:
-      - if [ -n "${FEATURES}" ]; then
-          cargo test -j 4 --workspace --features ${FEATURES};
-        else
-          cargo test -j 4 --workspace;
+      - if [ ! -e /target/infomeasure-rs-stable/.seeded ] && [ -d /usr/local/cargo/target ]; then
+          mkdir -p /target/infomeasure-rs-stable /target/infomeasure-rs-cargo-stable &&
+          cp -an /usr/local/cargo/target/. /target/infomeasure-rs-stable/ &&
+          cp -an /usr/local/cargo/. /target/infomeasure-rs-cargo-stable/ &&
+          touch /target/infomeasure-rs-stable/.seeded;
         fi
-
-  - name: doctest
-    image: codeberg.org/cbueth/infomeasure-rs:${RUST}
-    environment:
-      CARGO_HOME: /target/infomeasure-rs-cargo-${RUST}
-      CARGO_TARGET_DIR: /target/infomeasure-rs-${RUST}
-      CARGO_MANIFEST_DIR: /build/tests/validation_crate
-    commands:
-      - cargo test --doc
+      - |
+        set -e
+        F="--features parallel"
+        case "$TOPIC" in
+          expfam)   cargo test --test all_tests $F -- expfam:: ;;
+          kernel)   cargo test --test all_tests $F -- kernel:: ;;
+          discrete)
+            cargo test --test all_tests $F -- discrete:: discrete_mi_te::
+            cargo test --test python_validation_discrete_estimators $F ;;
+          misc)
+            cargo test --test all_tests $F -- composite_measures:: utils:: common_nd::
+            cargo test --test python_interface_test $F ;;
+          ordinal)
+            cargo test --test all_tests $F -- ordinal::
+            cargo test --doc ;;
+          lib)      cargo test --workspace --lib $F ;;
+          noparallel)
+            cargo build --workspace
+            cargo test --test all_tests -- discrete:: ;;
+          *) echo "unknown TOPIC=$TOPIC" >&2; exit 1 ;;
+        esac

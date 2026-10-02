@@ -10,12 +10,14 @@ labels:
   provider: self-hosted
   type: cpu
 
+# Stable-only on pushes/PRs (`test.yml`, `test-gpu-offload.yml` run stable too).
+# Beta lint runs in `test-nightly.yml` on the VPS cron instead.
 when:
   - event: [push, pull_request]
     branch: [main, develop]
 
 matrix:
-  RUST: [stable, beta]
+  RUST: [stable]
 
 steps:
   - name: fmt

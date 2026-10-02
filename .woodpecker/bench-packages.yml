@@ -30,6 +30,14 @@ labels:
   provider: self-hosted
   type: gpu
 
+# Shares `gpu-exclusive` with `bench`, so the two never run at once (the
+# benchmark baseline and the collected numbers must be uncontended). This is a
+# no-op while the GPU agent runs one workflow at a time; it is the safeguard if
+# WOODPECKER_MAX_WORKFLOWS is ever raised.
+concurrency:
+  group: gpu-exclusive
+  limit: 1
+
 when:
   - event: manual
   - event: tag
@@ -115,6 +123,9 @@ steps:
   - name: collect-and-publish
     image: codeberg.org/cbueth/infomeasure-rs:bench
     environment:
+      # The collectors compile release benches at opt-level 3; keep rustc's
+      # LLVM codegen threads off the default 8 MiB stack (SIGSEGV otherwise).
+      RUST_MIN_STACK: "67108864"
       # The GPU overlay collector needs the same Vulkan/NVIDIA setup as the
       # GPU test pipeline; `:bench` extends `:stable`, which carries the hook.
       NVIDIA_DRIVER_CAPABILITIES: all

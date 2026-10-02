@@ -16,6 +16,14 @@ labels:
   provider: self-hosted
   type: gpu
 
+# Shares `gpu-exclusive` with `bench-packages`, so the two never run at once.
+# The benchmark numbers are threshold-gated, so they must be collected on an
+# uncontended box. No-op while the GPU agent runs one workflow at a time; the
+# safeguard if WOODPECKER_MAX_WORKFLOWS is ever raised.
+concurrency:
+  group: gpu-exclusive
+  limit: 1
+
 when:
   # Normal code/benchmark changes on the active branches. PRs coming from the
   # release-plz branch are excluded here and handled by the next clause.
@@ -45,6 +53,10 @@ steps:
   - name: build
     image: codeberg.org/cbueth/infomeasure-rs:stable
     environment:
+      # rustc's LLVM codegen thread intermittently stack-overflows (SIGSEGV)
+      # when compiling the heavy benches at opt-level 3; rustc's own hint is to
+      # raise the thread stack. The runner's ulimit -s is 8 MiB.
+      RUST_MIN_STACK: "67108864"
       CARGO_HOME: /target/infomeasure-rs-cargo-bench
       CARGO_TARGET_DIR: /target/infomeasure-rs-bench
     commands:
@@ -55,7 +67,7 @@ steps:
           touch /target/infomeasure-rs-bench/.seeded;
         fi
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed --bench gpu_crossover --bench composite_measures"
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures"
         cargo bench --no-run --features gpu,parallel $BENCH_ARGS
 
   - name: bench
@@ -68,6 +80,8 @@ steps:
       # zero benchmarks, so reinstall whenever the version differs (the
       # installer honours BENCHER_VERSION).
       BENCHER_VERSION: "0.6.13"
+      # See the build step: keep rustc's codegen threads off the default stack.
+      RUST_MIN_STACK: "67108864"
       CARGO_HOME: /target/infomeasure-rs-cargo-bench
       CARGO_TARGET_DIR: /target/infomeasure-rs-bench
       BENCH_SIZES: "1000"
@@ -77,6 +91,12 @@ steps:
       BENCH_ORDERS: "3"
       BENCH_ALPHAS: "1.2"
       BENCH_Q_VALUES: "1.2"
+      # The bench suite is run by scripts/ci/bench_streams.sh: 3 concurrent
+      # non-`*_parallel` streams, then the *_parallel groups and the GPU groups
+      # alone. 4 concurrent groups measured outside the noise band on this box.
+      BENCH_ARGS: "--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures"
+      CRIT_FLAGS: "--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
+      GPU_TARGETS: "kernel_gpu gpu_crossover"
       # The build enables `parallel`, but the global rayon pool is pinned to 1 so
       # every existing benchmark stays single-threaded (comparable history, and
       # matches the cross-package protocol in scripts/bench_packages). The new
@@ -98,8 +118,6 @@ steps:
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
       - bencher --version
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed --bench gpu_crossover --bench composite_measures"
-        CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
         if [ "$CI_PIPELINE_EVENT" = "pull_request" ]; then
           bencher run \
             --adapter rust_criterion \
@@ -109,16 +127,16 @@ steps:
             --start-point "$CI_COMMIT_TARGET_BRANCH" \
             --start-point-clone-thresholds \
             --start-point-reset \
-            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo" \
+            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo parallel3" \
             --error-on-alert \
-            cargo bench --features gpu,parallel $BENCH_ARGS -- $CRIT_FLAGS
+            bash scripts/ci/bench_streams.sh
         else
           bencher run \
             --adapter rust_criterion \
             --project infomeasure-rs \
             --branch "$CI_COMMIT_BRANCH" \
             --hash "$CI_COMMIT_SHA" \
-            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo" \
+            --testbed "self-hosted-gpu i7-8750H base 2.2GHz no-turbo parallel3" \
             --threshold-measure latency \
             --threshold-test t_test \
             --threshold-min-sample-size 10 \
@@ -126,7 +144,7 @@ steps:
             --threshold-upper-boundary 0.99 \
             --thresholds-reset \
             --error-on-alert \
-            cargo bench --features gpu,parallel $BENCH_ARGS -- $CRIT_FLAGS
+            bash scripts/ci/bench_streams.sh
         fi
 
   - name: comment
