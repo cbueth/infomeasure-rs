@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.1) - 2026-10-02
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### Misc
+
+- ci(test): stable PRs, GPU-offloaded parallel suite, beta nightly [[#106](https://codeberg.org/cbueth/infomeasure-rs/pulls/106)]
+- ci(bench): pin Bencher CLI to the API server, lower extended size floor [[#105](https://codeberg.org/cbueth/infomeasure-rs/pulls/105)]
+- chore(te): expose infallible `LocalValues` for discrete and ordinal estimators [[#102](https://codeberg.org/cbueth/infomeasure-rs/pulls/102)]
+
 ## [0.5.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.0) - 2026-09-30
 
 ### ❤️ Thanks to all contributors! ❤️

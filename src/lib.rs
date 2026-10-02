@@ -8,7 +8,7 @@
 
 //! <div class="warning">
 //!
-//! **v0.5.0 — Now available!**
+//! **v0.5.1 — Now available!**
 //!
 //! All core features of the
 //! [infomeasure Python package](https://github.com/cbueth/infomeasure)
