@@ -63,10 +63,15 @@ steps:
     environment:
       BENCHER_API_KEY:
         from_secret: BENCHER_API_KEY
+      # Keep the CLI in lockstep with the Bencher API server. Adapter options
+      # are server-version dependent; a stale cached CLI can silently parse
+      # zero benchmarks, so reinstall whenever the version differs (the
+      # installer honours BENCHER_VERSION).
+      BENCHER_VERSION: "0.6.13"
       CARGO_HOME: /target/infomeasure-rs-cargo-bench
       CARGO_TARGET_DIR: /target/infomeasure-rs-bench
       BENCH_SIZES: "1000"
-      BENCH_SIZES_EXTENDED: "5000"
+      BENCH_SIZES_EXTENDED: "2000"
       BENCH_K_VALUES: "3"
       BENCH_BANDWIDTHS: "0.9"
       BENCH_ORDERS: "3"
@@ -81,10 +86,17 @@ steps:
       NVIDIA_VISIBLE_DEVICES: all
     commands:
       - . /usr/local/bin/init-nvidia-vulkan.sh
-      - if [ ! -x "$CARGO_HOME/bin/bencher" ]; then
+      - |
+        INSTALLED=""
+        if [ -x "$CARGO_HOME/bin/bencher" ]; then
+          INSTALLED="$("$CARGO_HOME/bin/bencher" --version 2>/dev/null | grep -o '[0-9][0-9.]*' | head -n1)"
+        fi
+        if [ "$INSTALLED" != "$BENCHER_VERSION" ]; then
+          echo "Bencher CLI '$INSTALLED' != '$BENCHER_VERSION'; installing $BENCHER_VERSION"
           curl --proto '=https' --tlsv1.2 -sSfL https://bencher.dev/download/install-cli.sh | sh;
         fi
       - ln -sf "$CARGO_HOME/bin/bencher" /usr/local/bin/bencher
+      - bencher --version
       - |
         BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench kernel_gpu_codspeed --bench gpu_crossover --bench composite_measures"
         CRIT_FLAGS="--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
