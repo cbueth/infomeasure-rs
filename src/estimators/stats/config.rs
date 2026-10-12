@@ -95,3 +95,33 @@ impl Default for StatisticalTestConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn method_strings_match_python() {
+        assert_eq!(TestMethod::Permutation.as_str(), "permutation_test");
+        assert_eq!(TestMethod::Bootstrap.as_str(), "bootstrap");
+    }
+
+    #[test]
+    fn default_is_python_compatible() {
+        let cfg = StatisticalTestConfig::default();
+        assert_eq!(cfg.n_tests, 100);
+        assert_eq!(cfg.method, TestMethod::Permutation);
+        assert_eq!(cfg.seed, None);
+    }
+
+    #[test]
+    fn builders_set_fields() {
+        let cfg = StatisticalTestConfig::bootstrap(7)
+            .with_method(TestMethod::Permutation)
+            .seed(3);
+        assert_eq!(cfg.n_tests, 7);
+        assert_eq!(cfg.method, TestMethod::Permutation);
+        assert_eq!(cfg.seed, Some(3));
+        assert_eq!(StatisticalTestConfig::permutation(2).n_tests, 2);
+    }
+}

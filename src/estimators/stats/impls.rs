@@ -324,7 +324,7 @@ mod tests {
     use crate::estimators::mutual_information::MutualInformation;
     use crate::estimators::stats::{EffectiveValue, StatisticalTest, StatisticalTestConfig};
     use crate::estimators::transfer_entropy::TransferEntropy;
-    use ndarray::Array1;
+    use ndarray::{Array1, Axis};
 
     fn ramp(n: usize) -> Array1<f64> {
         Array1::from((0..n).map(|i| i as f64).collect::<Vec<_>>())
@@ -400,6 +400,31 @@ mod tests {
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
-        assert!(res.t_score.is_finite() || res.t_score.is_nan());
+        assert!(res.observed_value.is_finite());
+    }
+
+    #[test]
+    fn dependent_kernel_cmi_is_significant() {
+        let cmi = MutualInformation::new_cmi_kernel(&[ramp(40), ramp(40)], &wave(40), 2.0);
+        let res = cmi
+            .statistical_test(&StatisticalTestConfig::permutation(30).seed(1))
+            .unwrap();
+        assert!(
+            res.p_value <= 0.1,
+            "expected a significant result, got p = {}",
+            res.p_value
+        );
+    }
+
+    #[test]
+    fn ksg_cmi_resamples_and_runs() {
+        let series = [ramp(30).insert_axis(Axis(1)), ramp(30).insert_axis(Axis(1))];
+        let cond = wave(30).insert_axis(Axis(1));
+        let cmi =
+            KsgConditionalMutualInformation::<1, 1, 1, 3, 2, 2>::new(&series, &cond, 4, 1e-10);
+        let res = cmi
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
     }
 }

@@ -137,6 +137,7 @@ pub(crate) fn resample_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn too_few_tests_is_an_error() {
@@ -200,5 +201,43 @@ mod tests {
         // Drawing two rows from two values can repeat a value.
         let out = bootstrap_rows(&data, &mut rng);
         assert_eq!(out.dim(), (2, 1));
+    }
+
+    #[rstest]
+    #[case(TestMethod::Permutation)]
+    #[case(TestMethod::Bootstrap)]
+    fn result_shape_follows_config(#[case] method: TestMethod) {
+        let cfg = StatisticalTestConfig::new(10, method).seed(1);
+        let res = run_resample_test(0.5, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
+        assert_eq!(res.n_tests, 10);
+        assert_eq!(res.test_values.len(), 10);
+        assert_eq!(res.method, method);
+        assert!((0.0..=1.0).contains(&res.p_value));
+        assert!(res.observed_value == 0.5);
+    }
+
+    #[rstest]
+    #[case(2)]
+    #[case(5)]
+    #[case(50)]
+    fn n_tests_determines_length(#[case] n: usize) {
+        let cfg = StatisticalTestConfig::new(n, TestMethod::Permutation).seed(0);
+        let res = run_resample_test(0.0, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
+        assert_eq!(res.test_values.len(), n);
+        assert_eq!(res.n_tests, n);
+    }
+
+    #[test]
+    fn p_value_counts_strictly_greater() {
+        // Observed equal to every null value ⇒ nothing is greater ⇒ p = 0.
+        let cfg = StatisticalTestConfig::new(5, TestMethod::Permutation);
+        let res = run_resample_test(1.0, &cfg, |_| 1.0).unwrap();
+        assert_eq!(res.p_value, 0.0);
+    }
+
+    #[test]
+    fn error_display_mentions_the_count() {
+        let msg = StatsError::TooFewTests(1).to_string();
+        assert!(msg.contains("at least 2"), "unexpected message: {msg}");
     }
 }
