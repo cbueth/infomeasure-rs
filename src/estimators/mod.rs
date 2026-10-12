@@ -54,6 +54,7 @@
 
 pub mod approaches;
 pub mod composite_measures;
+pub mod stats;
 #[macro_use]
 pub(crate) mod doc_macros;
 pub mod entropy;
