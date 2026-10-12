@@ -138,6 +138,21 @@ estimation approaches:
 [^1]: Discrete cross-entropy is available for MLE, Miller-Madow, and Bayesian estimators only.
 [^2]: JSD needs a mixture distribution: available for estimators exposing a normalized pmf (discrete MLE, Bayes, shrinkage, ordinal) and for kernel by pooling the samples. Differential/generalized-entropy estimators (Kozachenko-Leonenko, Rényi, Tsallis) are mathematically excluded.
 
+## Statistical Significance
+
+Mutual-information and transfer-entropy estimators support permutation and
+bootstrap significance tests, and transfer entropy exposes an *effective* value
+(eTE):
+
+```rust
+use infomeasure::estimators::stats::{StatisticalTest, StatisticalTestConfig};
+
+let res = mi.statistical_test(&StatisticalTestConfig::permutation(200).seed(1)).unwrap();
+println!("p = {:.4}, t = {:.2}", res.p_value, res.t_score);
+```
+
+See the [Statistical Tests guide](https://docs.rs/infomeasure/latest/infomeasure/guide/statistical_tests/index.html).
+
 ## Documentation
 
 - **[Rust Guide](https://docs.rs/infomeasure/latest/infomeasure/guide/index.html)** — Comprehensive walkthrough of all estimators with mathematical background
