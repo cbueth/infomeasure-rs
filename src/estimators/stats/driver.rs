@@ -204,9 +204,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case(TestMethod::Permutation)]
-    #[case(TestMethod::Bootstrap)]
-    fn result_shape_follows_config(#[case] method: TestMethod) {
+    fn result_shape_follows_config(
+        #[values(TestMethod::Permutation, TestMethod::Bootstrap)] method: TestMethod,
+    ) {
         let cfg = StatisticalTestConfig::new(10, method).seed(1);
         let res = run_resample_test(0.5, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
         assert_eq!(res.n_tests, 10);
@@ -217,10 +217,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(2)]
-    #[case(5)]
-    #[case(50)]
-    fn n_tests_determines_length(#[case] n: usize) {
+    fn n_tests_determines_length(#[values(2, 5, 50)] n: usize) {
         let cfg = StatisticalTestConfig::new(n, TestMethod::Permutation).seed(0);
         let res = run_resample_test(0.0, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
         assert_eq!(res.test_values.len(), n);
