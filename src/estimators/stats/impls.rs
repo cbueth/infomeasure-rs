@@ -19,9 +19,13 @@ use crate::estimators::approaches::kernel::{
     KernelMutualInformation3, KernelMutualInformation4, KernelMutualInformation5,
     KernelMutualInformation6, KernelTransferEntropy,
 };
+use crate::estimators::approaches::ordinal::ordinal_estimator::{
+    OrdinalConditionalMutualInformation, OrdinalConditionalTransferEntropy,
+    OrdinalMutualInformation, OrdinalTransferEntropy,
+};
 
 use super::config::TestMethod;
-use super::driver::resample_rows;
+use super::driver::{resample_1d, resample_rows};
 use super::traits::{EffectiveValueMeasure, Resample};
 
 macro_rules! impl_kernel_mi_resample {
@@ -451,6 +455,58 @@ impl<
 {
 }
 
+impl Resample for OrdinalMutualInformation {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let mut series = self.series.clone();
+        series[0] = resample_1d(&series[0], method, rng);
+        Self::new(&series, self.order, self.step_size, self.stable)
+    }
+}
+
+impl Resample for OrdinalConditionalMutualInformation {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let mut series = self.series.clone();
+        series[0] = resample_1d(&series[0], method, rng);
+        Self::new(&series, &self.cond, self.order, self.step_size, self.stable)
+    }
+}
+
+impl Resample for OrdinalTransferEntropy {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_1d(&self.source, method, rng);
+        Self::new(
+            &source,
+            &self.dest,
+            self.order,
+            self.src_hist_len,
+            self.dest_hist_len,
+            self.step_size,
+            self.stable,
+        )
+    }
+}
+
+impl EffectiveValueMeasure for OrdinalTransferEntropy {}
+
+impl Resample for OrdinalConditionalTransferEntropy {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_1d(&self.source, method, rng);
+        Self::new(
+            &source,
+            &self.dest,
+            &self.cond,
+            self.order,
+            self.src_hist_len,
+            self.dest_hist_len,
+            self.cond_hist_len,
+            self.step_size,
+            self.stable,
+        )
+    }
+}
+
+impl EffectiveValueMeasure for OrdinalConditionalTransferEntropy {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -582,5 +638,27 @@ mod tests {
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    #[test]
+    fn ordinal_mi_statistical_test_runs() {
+        let mi = MutualInformation::new_ordinal(&[ramp(40), wave(40)], 3, 1, false);
+        let res = mi
+            .statistical_test(&StatisticalTestConfig::permutation(30).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    #[test]
+    fn ordinal_te_statistical_test_and_effective_value() {
+        let te = TransferEntropy::new_ordinal(&ramp(40), &wave(40), 3, 1, 1, 1, false);
+        let res = te
+            .statistical_test(&StatisticalTestConfig::permutation(30).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+        let ete = te
+            .effective_value(&StatisticalTestConfig::permutation(1).seed(1))
+            .unwrap();
+        assert!(ete.is_finite());
     }
 }

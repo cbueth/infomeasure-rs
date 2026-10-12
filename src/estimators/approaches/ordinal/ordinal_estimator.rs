@@ -235,6 +235,14 @@ impl OptionalLocalValues for OrdinalEntropy {
 #[doc = doc_snippets!(mi_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalMutualInformation {
     inner: DiscreteMutualInformation<DiscreteEntropy>,
+    /// Raw input series, retained for resampling (see `estimators::stats`).
+    pub series: Vec<Array1<f64>>,
+    /// Symbolization order.
+    pub order: usize,
+    /// Symbolization step size.
+    pub step_size: usize,
+    /// Tie-handling stability flag.
+    pub stable: bool,
 }
 
 impl OrdinalMutualInformation {
@@ -244,7 +252,13 @@ impl OrdinalMutualInformation {
             .map(|s| symbolize_series_compact(s, order, step_size, stable))
             .collect();
         let inner = DiscreteMutualInformation::new(&code_arrays, DiscreteEntropy::new);
-        Self { inner }
+        Self {
+            inner,
+            series: series.to_vec(),
+            order,
+            step_size,
+            stable,
+        }
     }
 }
 
@@ -278,6 +292,16 @@ impl MutualInformationEstimator for OrdinalMutualInformation {}
 #[doc = doc_snippets!(cmi_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalConditionalMutualInformation {
     inner: DiscreteConditionalMutualInformation<DiscreteEntropy>,
+    /// Raw input series, retained for resampling (see `estimators::stats`).
+    pub series: Vec<Array1<f64>>,
+    /// Raw conditioning series, retained for resampling.
+    pub cond: Array1<f64>,
+    /// Symbolization order.
+    pub order: usize,
+    /// Symbolization step size.
+    pub step_size: usize,
+    /// Tie-handling stability flag.
+    pub stable: bool,
 }
 
 impl OrdinalConditionalMutualInformation {
@@ -298,7 +322,14 @@ impl OrdinalConditionalMutualInformation {
             &cond_codes,
             DiscreteEntropy::new,
         );
-        Self { inner }
+        Self {
+            inner,
+            series: series.to_vec(),
+            cond: cond.clone(),
+            order,
+            step_size,
+            stable,
+        }
     }
 }
 
@@ -332,6 +363,15 @@ impl ConditionalMutualInformationEstimator for OrdinalConditionalMutualInformati
 #[doc = doc_snippets!(te_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalTransferEntropy {
     inner: DiscreteTransferEntropy<DiscreteEntropy>,
+    /// Raw source series, retained for resampling (see `estimators::stats`).
+    pub source: Array1<f64>,
+    /// Raw destination series, retained for resampling.
+    pub dest: Array1<f64>,
+    pub order: usize,
+    pub src_hist_len: usize,
+    pub dest_hist_len: usize,
+    pub step_size: usize,
+    pub stable: bool,
 }
 
 impl OrdinalTransferEntropy {
@@ -353,7 +393,16 @@ impl OrdinalTransferEntropy {
             dest_hist_len,
             step_size,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: dest.clone(),
+            order,
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+            stable,
+        }
     }
 }
 
@@ -387,6 +436,18 @@ impl TransferEntropyEstimator for OrdinalTransferEntropy {}
 #[doc = doc_snippets!(cte_formula "Ordinal", "_{\\mathrm{ord}}", " on permutation patterns")]
 pub struct OrdinalConditionalTransferEntropy {
     inner: DiscreteConditionalTransferEntropy<DiscreteEntropy>,
+    /// Raw source series, retained for resampling (see `estimators::stats`).
+    pub source: Array1<f64>,
+    /// Raw destination series, retained for resampling.
+    pub dest: Array1<f64>,
+    /// Raw conditioning series, retained for resampling.
+    pub cond: Array1<f64>,
+    pub order: usize,
+    pub src_hist_len: usize,
+    pub dest_hist_len: usize,
+    pub cond_hist_len: usize,
+    pub step_size: usize,
+    pub stable: bool,
 }
 
 impl OrdinalConditionalTransferEntropy {
@@ -414,7 +475,18 @@ impl OrdinalConditionalTransferEntropy {
             cond_hist_len,
             step_size,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: dest.clone(),
+            cond: cond.clone(),
+            order,
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+            stable,
+        }
     }
 }
 
