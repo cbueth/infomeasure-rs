@@ -11,8 +11,8 @@
 use rand::rngs::SmallRng;
 
 use crate::estimators::approaches::expfam::ksg::{
-    KsgConditionalMutualInformation, KsgMutualInformation2, KsgMutualInformation3,
-    KsgMutualInformation4,
+    KsgConditionalMutualInformation, KsgConditionalTransferEntropy, KsgMutualInformation2,
+    KsgMutualInformation3, KsgMutualInformation4, KsgTransferEntropy,
 };
 use crate::estimators::approaches::kernel::{
     KernelConditionalMutualInformation, KernelConditionalTransferEntropy, KernelMutualInformation2,
@@ -318,6 +318,139 @@ impl<
 {
 }
 
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> Resample
+    for KsgTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_rows(&self.source, method, rng);
+        Self::new(
+            &source,
+            &self.dest,
+            self.internal_cmi.k,
+            self.internal_cmi.noise_level,
+        )
+        .with_type(self.internal_cmi.ksg_type)
+        .with_base(self.internal_cmi.base)
+        .with_chebyshev(self.internal_cmi.use_chebyshev)
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> EffectiveValueMeasure
+    for KsgTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> Resample
+    for KsgConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_rows(&self.source, method, rng);
+        Self::new(
+            &source,
+            &self.dest,
+            &self.cond,
+            self.internal_cmi.k,
+            self.internal_cmi.noise_level,
+        )
+        .with_type(self.internal_cmi.ksg_type)
+        .with_base(self.internal_cmi.base)
+        .with_chebyshev(self.internal_cmi.use_chebyshev)
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> EffectiveValueMeasure
+    for KsgConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -423,6 +556,29 @@ mod tests {
         let cmi =
             KsgConditionalMutualInformation::<1, 1, 1, 3, 2, 2>::new(&series, &cond, 4, 1e-10);
         let res = cmi
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    #[test]
+    fn ksg_te_statistical_test_and_effective_value() {
+        let te = TransferEntropy::new_ksg(&ramp(30), &wave(30), 1, 1, 1, 4, 1e-10);
+        let res = te
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+        let ete = te
+            .effective_value(&StatisticalTestConfig::permutation(1).seed(1))
+            .unwrap();
+        assert!(ete.is_finite());
+    }
+
+    #[test]
+    fn ksg_cte_resamples_and_runs() {
+        let cte =
+            TransferEntropy::new_cte_ksg(&ramp(30), &wave(30), &wave(30), 1, 1, 1, 1, 4, 1e-10);
+        let res = cte
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));

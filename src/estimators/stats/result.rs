@@ -7,6 +7,7 @@
 use ndarray::Array1;
 
 use super::config::TestMethod;
+use super::driver::StatsError;
 
 /// Outcome of a permutation or bootstrap test.
 ///
@@ -42,12 +43,18 @@ impl StatisticalTestResult {
         percentile(&self.test_values, q)
     }
 
-    /// Confidence interval for `confidence_level` percent (must be in `0..100`).
+    /// Confidence interval for `confidence_level` percent.
     ///
-    /// Returns `(lower, upper)` bounds as percentiles of the null distribution.
-    pub fn confidence_interval(&self, confidence_level: f64) -> (f64, f64) {
+    /// Returns `(lower, upper)` bounds as percentiles of the null distribution,
+    /// or [`StatsError::InvalidConfidenceLevel`] if the level is not in the open
+    /// interval `(0, 100)` — matching the Python package, which raises for the
+    /// same condition.
+    pub fn confidence_interval(&self, confidence_level: f64) -> Result<(f64, f64), StatsError> {
+        if !(confidence_level > 0.0 && confidence_level < 100.0) {
+            return Err(StatsError::InvalidConfidenceLevel(confidence_level));
+        }
         let y = (100.0 - confidence_level) / 2.0;
-        (self.percentile(y), self.percentile(100.0 - y))
+        Ok((self.percentile(y), self.percentile(100.0 - y)))
     }
 }
 
@@ -112,8 +119,17 @@ mod tests {
     #[test]
     fn confidence_interval_is_symmetric_percentiles() {
         let r = result((0..=100).map(|i| i as f64).collect());
-        let (lo, hi) = r.confidence_interval(90.0);
+        let (lo, hi) = r.confidence_interval(90.0).unwrap();
         assert!((lo - r.percentile(5.0)).abs() < 1e-12);
         assert!((hi - r.percentile(95.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn confidence_interval_rejects_out_of_range() {
+        let r = result(vec![1.0, 2.0, 3.0]);
+        assert!(r.confidence_interval(0.0).is_err());
+        assert!(r.confidence_interval(100.0).is_err());
+        assert!(r.confidence_interval(-5.0).is_err());
+        assert!(r.confidence_interval(95.0).is_ok());
     }
 }

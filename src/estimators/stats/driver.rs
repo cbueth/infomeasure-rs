@@ -13,11 +13,13 @@ use super::config::{StatisticalTestConfig, TestMethod};
 use super::result::StatisticalTestResult;
 
 /// Error returned by a statistical test.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StatsError {
     /// Fewer than two resamples were requested; the sample standard deviation
     /// (and hence the t-score) is undefined below two samples.
     TooFewTests(usize),
+    /// A confidence level outside the open interval `(0, 100)` was requested.
+    InvalidConfidenceLevel(f64),
 }
 
 impl std::fmt::Display for StatsError {
@@ -25,6 +27,9 @@ impl std::fmt::Display for StatsError {
         match self {
             StatsError::TooFewTests(n) => {
                 write!(f, "statistical test needs at least 2 resamples, got {n}")
+            }
+            StatsError::InvalidConfidenceLevel(level) => {
+                write!(f, "confidence level must be in (0, 100), got {level}")
             }
         }
     }

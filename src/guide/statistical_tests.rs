@@ -57,7 +57,7 @@
 //!     .statistical_test(&StatisticalTestConfig::permutation(200).seed(1))
 //!     .unwrap();
 //! println!("I = {}, p = {:.4}, t = {:.2}", res.observed_value, res.p_value, res.t_score);
-//! let (lo, hi) = res.confidence_interval(95.0);
+//! let (lo, hi) = res.confidence_interval(95.0).unwrap();
 //! println!("95% CI = {lo:.3}..{hi:.3}");
 //! ```
 //!

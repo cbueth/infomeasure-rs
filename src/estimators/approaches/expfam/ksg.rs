@@ -842,6 +842,11 @@ pub struct KsgTransferEntropy<
 > {
     pub internal_cmi:
         KsgConditionalMutualInformation<D_SOURCE, D_TARGET, D_YP, D_JOINT, D_XP_YP, D_YF_YP>,
+    /// Raw source series, retained so the estimator can be rebuilt with a
+    /// resampled source (see `estimators::stats`).
+    pub source: Array2<f64>,
+    /// Raw destination series, retained for rebuilds.
+    pub dest: Array2<f64>,
 }
 
 impl<
@@ -882,7 +887,11 @@ impl<
         >(source, dest, false);
 
         let cmi = KsgConditionalMutualInformation::new(&[xp, yf], &yp, k, noise_level);
-        Self { internal_cmi: cmi }
+        Self {
+            internal_cmi: cmi,
+            source: source.clone(),
+            dest: dest.clone(),
+        }
     }
 
     pub fn with_type(mut self, ksg_type: KsgType) -> Self {
@@ -1042,6 +1051,13 @@ pub struct KsgConditionalTransferEntropy<
         D_XP_YP_ZP,
         D_YF_YP_ZP,
     >,
+    /// Raw source series, retained so the estimator can be rebuilt with a
+    /// resampled source (see `estimators::stats`).
+    pub source: Array2<f64>,
+    /// Raw destination series, retained for rebuilds.
+    pub dest: Array2<f64>,
+    /// Raw conditioning series, retained for rebuilds.
+    pub cond: Array2<f64>,
 }
 
 impl<
@@ -1096,7 +1112,12 @@ impl<
         let yp_zp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
 
         let cmi = KsgConditionalMutualInformation::new(&[xp, yf], &yp_zp, k, noise_level);
-        Self { internal_cmi: cmi }
+        Self {
+            internal_cmi: cmi,
+            source: source.clone(),
+            dest: dest.clone(),
+            cond: cond.clone(),
+        }
     }
 
     pub fn with_type(mut self, ksg_type: KsgType) -> Self {
