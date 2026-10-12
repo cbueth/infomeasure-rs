@@ -11,16 +11,18 @@
 use rand::rngs::SmallRng;
 
 use crate::estimators::approaches::expfam::ksg::{
-    KsgMutualInformation2, KsgMutualInformation3, KsgMutualInformation4,
+    KsgConditionalMutualInformation, KsgMutualInformation2, KsgMutualInformation3,
+    KsgMutualInformation4,
 };
 use crate::estimators::approaches::kernel::{
-    KernelMutualInformation2, KernelMutualInformation3, KernelMutualInformation4,
-    KernelMutualInformation5, KernelMutualInformation6,
+    KernelConditionalMutualInformation, KernelConditionalTransferEntropy, KernelMutualInformation2,
+    KernelMutualInformation3, KernelMutualInformation4, KernelMutualInformation5,
+    KernelMutualInformation6, KernelTransferEntropy,
 };
 
 use super::config::TestMethod;
 use super::driver::resample_rows;
-use super::traits::Resample;
+use super::traits::{EffectiveValueMeasure, Resample};
 
 macro_rules! impl_kernel_mi_resample {
     ($name:ident, $($d:ident),+) => {
@@ -65,11 +67,263 @@ impl_ksg_mi_resample!(KsgMutualInformation2, D1, D2);
 impl_ksg_mi_resample!(KsgMutualInformation3, D1, D2, D3);
 impl_ksg_mi_resample!(KsgMutualInformation4, D1, D2, D3, D4);
 
+macro_rules! impl_kernel_cmi_resample {
+    ($name:ident, $($d:ident),+) => {
+        impl<const D1: usize, $(const $d: usize),+> Resample for $name<D1, $($d),+> {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut series = self.series.clone();
+                series[0] = resample_rows(&series[0], method, rng);
+                let mut est = Self::new(
+                    &series,
+                    &self.cond,
+                    self.kernel_type.clone(),
+                    self.bandwidth,
+                );
+                est.force_cpu = self.force_cpu;
+                est
+            }
+        }
+    };
+}
+
+macro_rules! impl_ksg_cmi_resample {
+    ($name:ident, $($d:ident),+) => {
+        impl<const D1: usize, $(const $d: usize),+> Resample for $name<D1, $($d),+> {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut data = self.data.clone();
+                data[0] = resample_rows(&data[0], method, rng);
+                let mut est = Self::new(&data, &self.cond, self.k, 0.0);
+                est.ksg_type = self.ksg_type;
+                est.base = self.base;
+                est.noise_level = self.noise_level;
+                est.use_chebyshev = self.use_chebyshev;
+                est
+            }
+        }
+    };
+}
+
+impl_kernel_cmi_resample!(
+    KernelConditionalMutualInformation,
+    D2,
+    D_COND,
+    D_JOINT,
+    D1_COND,
+    D2_COND
+);
+impl_ksg_cmi_resample!(
+    KsgConditionalMutualInformation,
+    D2,
+    D_COND,
+    D_JOINT,
+    D1_COND,
+    D2_COND
+);
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+>
+    KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn rebuild(&self, source: &ndarray::Array2<f64>) -> Self {
+        Self::new(
+            source,
+            &self.dest,
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+>
+    KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn rebuild(&self, source: &ndarray::Array2<f64>) -> Self {
+        Self::new(
+            source,
+            &self.dest,
+            &self.cond,
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> Resample
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_rows(&self.source, method, rng);
+        let mut est = self.rebuild(&source);
+        est.force_cpu = self.force_cpu;
+        est
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_JOINT: usize,
+    const D_XP_YP: usize,
+    const D_YP: usize,
+    const D_YF_YP: usize,
+> EffectiveValueMeasure
+    for KernelTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_JOINT,
+        D_XP_YP,
+        D_YP,
+        D_YF_YP,
+    >
+{
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> Resample
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        let source = resample_rows(&self.source, method, rng);
+        let mut est = self.rebuild(&source);
+        est.force_cpu = self.force_cpu;
+        est
+    }
+}
+
+impl<
+    const SRC_HIST: usize,
+    const DEST_HIST: usize,
+    const COND_HIST: usize,
+    const STEP_SIZE: usize,
+    const D_SOURCE: usize,
+    const D_TARGET: usize,
+    const D_COND: usize,
+    const D_JOINT: usize,
+    const D_XP_YP_ZP: usize,
+    const D_YP_ZP: usize,
+    const D_YF_YP_ZP: usize,
+> EffectiveValueMeasure
+    for KernelConditionalTransferEntropy<
+        SRC_HIST,
+        DEST_HIST,
+        COND_HIST,
+        STEP_SIZE,
+        D_SOURCE,
+        D_TARGET,
+        D_COND,
+        D_JOINT,
+        D_XP_YP_ZP,
+        D_YP_ZP,
+        D_YF_YP_ZP,
+    >
+{
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::estimators::mutual_information::MutualInformation;
-    use crate::estimators::stats::{StatisticalTest, StatisticalTestConfig};
+    use crate::estimators::stats::{EffectiveValue, StatisticalTest, StatisticalTestConfig};
+    use crate::estimators::transfer_entropy::TransferEntropy;
     use ndarray::Array1;
 
     fn ramp(n: usize) -> Array1<f64> {
@@ -123,5 +377,29 @@ mod tests {
             .unwrap();
         assert_eq!(res.method, TestMethod::Bootstrap);
         assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    fn wave(n: usize) -> Array1<f64> {
+        Array1::from((0..n).map(|i| (i as f64 * 0.5).sin()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn kernel_te_effective_value_is_reproducible() {
+        let te = TransferEntropy::new_kernel(&ramp(30), &wave(30), 1, 1, 1, 0.5);
+        let cfg = StatisticalTestConfig::permutation(1).seed(5);
+        let a = te.effective_value(&cfg).unwrap();
+        let b = te.effective_value(&cfg).unwrap();
+        assert!(a.is_finite());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn kernel_te_statistical_test_runs() {
+        let te = TransferEntropy::new_kernel(&ramp(30), &wave(30), 1, 1, 1, 0.5);
+        let res = te
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+        assert!(res.t_score.is_finite() || res.t_score.is_nan());
     }
 }
