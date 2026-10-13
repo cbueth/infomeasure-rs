@@ -37,6 +37,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vulkan-tools \
     && rm -rf /var/lib/apt/lists/*
 
+# GCC 14's loop vectorizer intermittently ICEs ("internal compiler error:
+# Segmentation fault" in vect_analyze_data_refs) while compiling OpenBLAS from
+# source via openblas-src (ndarray-linalg's openblas-static default), which has
+# failed CI jobs like gemv.c / trmm_lncopy_8.c. openblas-src passes OPENBLAS_CC
+# to OpenBLAS's make as CC, so wrap cc to append the flag *last* (after the
+# source file) where it reliably overrides -O2's implied -ftree-vectorize. Only
+# that build is affected; the linked BLAS is numerically identical.
+RUN printf '#!/bin/sh\nexec cc "$@" -fno-tree-vectorize\n' > /usr/local/bin/cc-no-vec \
+    && chmod +x /usr/local/bin/cc-no-vec
+ENV OPENBLAS_CC=cc-no-vec
+ENV OPENBLAS_HOSTCC=cc-no-vec
+
 # Install uv for Python package management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN ln -sf /root/.local/bin/uv /usr/local/bin/uv
