@@ -162,6 +162,29 @@ pub(crate) fn resample_1d(
     }
 }
 
+/// Resample an `i32` series (discrete symbols) with the given method.
+pub(crate) fn resample_1d_i32(
+    data: &Array1<i32>,
+    method: TestMethod,
+    rng: &mut SmallRng,
+) -> Array1<i32> {
+    let n = data.len();
+    match method {
+        TestMethod::Permutation => {
+            let mut order: Vec<usize> = (0..n).collect();
+            order.shuffle(rng);
+            Array1::from_iter(order.iter().map(|&i| data[i]))
+        }
+        TestMethod::Bootstrap => {
+            let mut out = Array1::zeros(n);
+            for value in out.iter_mut() {
+                *value = data[rng.gen_range(0..n)];
+            }
+            out
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

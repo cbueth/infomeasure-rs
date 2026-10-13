@@ -83,6 +83,15 @@ impl ProbabilityMass for BayesEntropy {
     }
 }
 
+impl crate::estimators::approaches::discrete::ResampleData for BayesEntropy {
+    fn raw_data(&self) -> &Array1<i32> {
+        &self.dataset.data
+    }
+    fn with_data(&self, data: Array1<i32>) -> Self {
+        Self::new(data, self.alpha.clone(), self.k_override)
+    }
+}
+
 impl BayesEntropy {
     pub fn new(data: Array1<i32>, alpha: AlphaParam, k_override: Option<usize>) -> Self {
         let dataset = DiscreteDataset::from_data(data);

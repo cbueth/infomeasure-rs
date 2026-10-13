@@ -27,6 +27,15 @@ pub struct GrassbergerEntropy {
     dataset: DiscreteDataset,
 }
 
+impl crate::estimators::approaches::discrete::ResampleData for GrassbergerEntropy {
+    fn raw_data(&self) -> &Array1<i32> {
+        &self.dataset.data
+    }
+    fn with_data(&self, data: Array1<i32>) -> Self {
+        Self::new(data)
+    }
+}
+
 impl GrassbergerEntropy {
     pub fn new(data: Array1<i32>) -> Self {
         let dataset = DiscreteDataset::from_data(data);

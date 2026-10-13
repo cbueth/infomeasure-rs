@@ -80,11 +80,13 @@ use crate::estimators::approaches::discrete::discrete_utils::{
     reduce_joint_space_compact, reduce_views_compact,
 };
 use crate::estimators::doc_macros::doc_snippets;
+use crate::estimators::stats::{Resample, TestMethod, resample_1d_i32};
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
 };
 use ndarray::{Array1, ArrayView1};
+use rand::rngs::SmallRng;
 
 /// Discrete Mutual Information estimator using the entropy-summation formula.
 ///
@@ -203,6 +205,49 @@ impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteMutualInformation<E
 impl<E: GlobalValue + OptionalLocalValues> MutualInformationEstimator
     for DiscreteMutualInformation<E>
 {
+}
+
+/// Internal: a discrete entropy estimator that retains its raw symbols and can
+/// be rebuilt with a new sequence, so statistical resampling can permute the
+/// source without storing a (non-`Send`) boxed constructor.
+pub(crate) trait ResampleData {
+    /// The raw symbol sequence (present for `new`-built estimators).
+    fn raw_data(&self) -> &Array1<i32>;
+    /// Rebuild with the same parameters but a new symbol sequence.
+    fn with_data(&self, data: Array1<i32>) -> Self;
+}
+
+impl<E: ResampleData + GlobalValue> Resample for DiscreteMutualInformation<E> {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        match &self.inner {
+            MiInner::Spaces { marginals, joint } => {
+                let mut series: Vec<Array1<i32>> =
+                    marginals.iter().map(|m| m.raw_data().clone()).collect();
+                series[0] = resample_1d_i32(&series[0], method, rng);
+                let new_joint = joint.with_data(reduce_joint_space_compact(&series));
+                let new_marginals = marginals
+                    .iter()
+                    .map(|m| m.with_data(m.raw_data().clone()))
+                    .collect();
+                Self {
+                    inner: MiInner::Spaces {
+                        marginals: new_marginals,
+                        joint: new_joint,
+                    },
+                }
+            }
+            MiInner::Dense(dense) => {
+                let mut cols = dense.columns();
+                cols[0] = resample_1d_i32(&cols[0], method, rng);
+                let refs: Vec<&[i32]> = cols.iter().map(|c| c.as_slice().unwrap()).collect();
+                let new_dense =
+                    DenseMi::from_columns(&refs, None).expect("resampled dense MI is small");
+                Self {
+                    inner: MiInner::Dense(Box::new(new_dense)),
+                }
+            }
+        }
+    }
 }
 
 /// Discrete Conditional Mutual Information estimator using the entropy-summation formula.

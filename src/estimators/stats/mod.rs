@@ -52,3 +52,7 @@ pub use config::{StatisticalTestConfig, TestMethod};
 pub use driver::{StatsError, run_resample_test};
 pub use result::StatisticalTestResult;
 pub use traits::{EffectiveValue, StatisticalTest};
+
+// Internal glue reused by the approach modules' `Resample` impls.
+pub(crate) use driver::resample_1d_i32;
+pub(crate) use traits::Resample;

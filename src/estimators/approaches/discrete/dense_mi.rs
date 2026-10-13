@@ -222,6 +222,13 @@ impl DenseMi {
         self.global
     }
 
+    /// The input columns (one per variable), recovered for resampling.
+    pub(crate) fn columns(&self) -> Vec<Array1<i32>> {
+        (0..self.plan.n_vars)
+            .map(|i| Array1::from(self.vals[i * self.plan.n..(i + 1) * self.plan.n].to_vec()))
+            .collect()
+    }
+
     fn local_at(&self, t: usize) -> f64 {
         let mut jidx = 0usize;
         let mut denom = 0.0;

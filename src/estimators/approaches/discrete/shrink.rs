@@ -33,6 +33,15 @@ pub struct ShrinkEntropy {
     dataset: DiscreteDataset,
 }
 
+impl crate::estimators::approaches::discrete::ResampleData for ShrinkEntropy {
+    fn raw_data(&self) -> &Array1<i32> {
+        &self.dataset.data
+    }
+    fn with_data(&self, data: Array1<i32>) -> Self {
+        Self::new(data)
+    }
+}
+
 impl ShrinkEntropy {
     pub fn new(data: Array1<i32>) -> Self {
         let dataset = DiscreteDataset::from_data(data);

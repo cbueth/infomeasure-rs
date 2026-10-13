@@ -661,4 +661,33 @@ mod tests {
             .unwrap();
         assert!(ete.is_finite());
     }
+
+    fn symbols(n: usize, alphabet: i32) -> Array1<i32> {
+        Array1::from((0..n).map(|i| (i as i32) % alphabet).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn discrete_mi_is_significant() {
+        // y = x: the joint is perfectly dependent, so the observed MI is high and
+        // permuting the source collapses it.
+        let mi = MutualInformation::new_discrete_mle(&[symbols(40, 5), symbols(40, 5)]);
+        let res = mi
+            .statistical_test(&StatisticalTestConfig::permutation(50).seed(1))
+            .unwrap();
+        assert!(
+            res.p_value <= 0.05,
+            "expected a significant result, got p = {}",
+            res.p_value
+        );
+        assert!(res.observed_value > res.null_mean);
+    }
+
+    #[test]
+    fn discrete_bias_corrected_mi_runs() {
+        let mi = MutualInformation::new_discrete_miller_madow(&[symbols(40, 5), symbols(40, 7)]);
+        let res = mi
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(2))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+    }
 }

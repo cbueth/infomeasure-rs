@@ -47,6 +47,15 @@ pub struct AnsbEntropy {
     undersampled_threshold: f64,
 }
 
+impl crate::estimators::approaches::discrete::ResampleData for AnsbEntropy {
+    fn raw_data(&self) -> &Array1<i32> {
+        &self.dataset.data
+    }
+    fn with_data(&self, data: Array1<i32>) -> Self {
+        Self::new(data, self.k_override, self.undersampled_threshold)
+    }
+}
+
 impl AnsbEntropy {
     /// Default maximum allowed ratio N/K for the undersampled-regime check.
     ///
