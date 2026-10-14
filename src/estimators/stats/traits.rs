@@ -26,10 +26,14 @@ pub trait StatisticalTest {
 
 /// Effective value of a measure (e.g. effective transfer entropy).
 ///
-/// The observed value minus the value under a single permutation of the source.
+/// The observed value minus the value under a **single** resample of the source
+/// — matching the Python package's `effective_val`, which uses exactly one draw.
+/// Because one draw is the definition, the number of resamples is deliberately
+/// not configurable here (a mean over many draws would be a different quantity).
 pub trait EffectiveValue {
-    /// Compute the effective value with the method in `cfg`.
-    fn effective_value(&self, cfg: &StatisticalTestConfig) -> Result<f64, StatsError>;
+    /// Compute the effective value with the given resampling `method`, seeded
+    /// with `seed` (`None` for a non-deterministic draw).
+    fn effective_value(&self, method: TestMethod, seed: Option<u64>) -> f64;
 }
 
 /// Internal: an estimator that can rebuild itself with its source resampled.
@@ -59,10 +63,9 @@ impl<T: Resample> StatisticalTest for T {
 pub(crate) trait EffectiveValueMeasure: Resample {}
 
 impl<T: EffectiveValueMeasure> EffectiveValue for T {
-    fn effective_value(&self, cfg: &StatisticalTestConfig) -> Result<f64, StatsError> {
+    fn effective_value(&self, method: TestMethod, seed: Option<u64>) -> f64 {
         let observed = self.global_value();
-        let mut rng = make_rng(cfg.seed);
-        let permuted = self.resampled(cfg.method, &mut rng).global_value();
-        Ok(observed - permuted)
+        let mut rng = make_rng(seed);
+        observed - self.resampled(method, &mut rng).global_value()
     }
 }

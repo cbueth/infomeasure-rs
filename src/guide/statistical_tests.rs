@@ -64,15 +64,13 @@
 //! ```
 //! use ndarray::{array, Array1};
 //! use infomeasure::estimators::transfer_entropy::TransferEntropy;
-//! use infomeasure::estimators::stats::{EffectiveValue, StatisticalTestConfig};
+//! use infomeasure::estimators::stats::{EffectiveValue, TestMethod};
 //!
 //! let src: Array1<f64> = array![0., 1., 0., 1., 0., 1., 0., 1., 0., 1.];
 //! let dst: Array1<f64> = array![0., 0., 1., 0., 1., 0., 1., 0., 1., 0.];
 //! let te = TransferEntropy::new_kernel(&src, &dst, 1, 1, 1, 0.5);
 //!
-//! let ete = te
-//!     .effective_value(&StatisticalTestConfig::permutation(1).seed(1))
-//!     .unwrap();
+//! let ete = te.effective_value(TestMethod::Permutation, Some(1));
 //! println!("effective TE = {ete}");
 //! ```
 //!

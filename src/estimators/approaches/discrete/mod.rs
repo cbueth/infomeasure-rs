@@ -257,6 +257,12 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteMutualInformation<E> {
 #[doc = doc_snippets!(cmi_formula "Discrete", "", "")]
 pub struct DiscreteConditionalMutualInformation<E> {
     inner: CmiInner<E>,
+    /// Raw input series, retained for the generic (`Spaces`) path so the source
+    /// can be permuted for significance testing. Empty for the dense path, which
+    /// rebuilds from its own columns.
+    data: Vec<Array1<i32>>,
+    /// Raw conditioning series (generic path; empty for the dense path).
+    cond: Array1<i32>,
 }
 
 /// Backing representation: generic per-space entropy estimators, or the dense
@@ -303,6 +309,8 @@ impl<E> DiscreteConditionalMutualInformation<E> {
                 joint_cond,
                 cond_only,
             },
+            data: series.to_vec(),
+            cond: cond.clone(),
         }
     }
 }
@@ -342,6 +350,58 @@ impl<E> DiscreteConditionalMutualInformation<E> {
     pub(crate) fn from_dense(dense: DenseCmi) -> Self {
         Self {
             inner: CmiInner::Dense(Box::new(dense)),
+            data: Vec::new(),
+            cond: Array1::zeros(0),
+        }
+    }
+}
+
+impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalMutualInformation<E> {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        match &self.inner {
+            CmiInner::Spaces {
+                marginal_conds,
+                joint_cond,
+                cond_only,
+            } => {
+                let mut data = self.data.clone();
+                data[0] = resample_1d_i32(&data[0], method, rng);
+                let cond = self.cond.clone();
+                let new_marginals = (0..data.len())
+                    .map(|i| {
+                        let pair = [data[i].view(), cond.view()];
+                        marginal_conds[i].with_data(reduce_views_compact(&pair))
+                    })
+                    .collect();
+                let mut stack: Vec<ArrayView1<i32>> = data.iter().map(|s| s.view()).collect();
+                stack.push(cond.view());
+                let new_joint = joint_cond.with_data(reduce_views_compact(&stack));
+                let new_cond = cond_only.with_data(cond_only.raw_data().clone());
+                Self {
+                    inner: CmiInner::Spaces {
+                        marginal_conds: new_marginals,
+                        joint_cond: new_joint,
+                        cond_only: new_cond,
+                    },
+                    data,
+                    cond,
+                }
+            }
+            CmiInner::Dense(dense) => {
+                let var_cols = dense.var_cols().to_vec();
+                let mut cols = dense.columns();
+                for &c in &var_cols[0] {
+                    cols[c] = resample_1d_i32(&cols[c], method, rng);
+                }
+                let refs: Vec<&[i32]> = cols.iter().map(|c| c.as_slice().unwrap()).collect();
+                let new_dense = DenseCmi::from_columns(&refs, &var_cols, None)
+                    .expect("resampled dense CMI is small");
+                Self {
+                    inner: CmiInner::Dense(Box::new(new_dense)),
+                    data: Vec::new(),
+                    cond: Array1::zeros(0),
+                }
+            }
         }
     }
 }

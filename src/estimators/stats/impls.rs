@@ -511,7 +511,9 @@ impl EffectiveValueMeasure for OrdinalConditionalTransferEntropy {}
 mod tests {
     use super::*;
     use crate::estimators::mutual_information::MutualInformation;
-    use crate::estimators::stats::{EffectiveValue, StatisticalTest, StatisticalTestConfig};
+    use crate::estimators::stats::{
+        EffectiveValue, StatisticalTest, StatisticalTestConfig, TestMethod,
+    };
     use crate::estimators::transfer_entropy::TransferEntropy;
     use ndarray::{Array1, Axis};
 
@@ -575,9 +577,8 @@ mod tests {
     #[test]
     fn kernel_te_effective_value_is_reproducible() {
         let te = TransferEntropy::new_kernel(&ramp(30), &wave(30), 1, 1, 1, 0.5);
-        let cfg = StatisticalTestConfig::permutation(1).seed(5);
-        let a = te.effective_value(&cfg).unwrap();
-        let b = te.effective_value(&cfg).unwrap();
+        let a = te.effective_value(TestMethod::Permutation, Some(5));
+        let b = te.effective_value(TestMethod::Permutation, Some(5));
         assert!(a.is_finite());
         assert_eq!(a, b);
     }
@@ -624,9 +625,7 @@ mod tests {
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
-        let ete = te
-            .effective_value(&StatisticalTestConfig::permutation(1).seed(1))
-            .unwrap();
+        let ete = te.effective_value(TestMethod::Permutation, Some(1));
         assert!(ete.is_finite());
     }
 
@@ -656,9 +655,7 @@ mod tests {
             .statistical_test(&StatisticalTestConfig::permutation(30).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
-        let ete = te
-            .effective_value(&StatisticalTestConfig::permutation(1).seed(1))
-            .unwrap();
+        let ete = te.effective_value(TestMethod::Permutation, Some(1));
         assert!(ete.is_finite());
     }
 
@@ -686,6 +683,34 @@ mod tests {
     fn discrete_bias_corrected_mi_runs() {
         let mi = MutualInformation::new_discrete_miller_madow(&[symbols(40, 5), symbols(40, 7)]);
         let res = mi
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(2))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    #[test]
+    fn discrete_cmi_is_significant() {
+        // Y = X, Z independent: I(X; Y | Z) is large, and permuting the source
+        // collapses it.
+        let x = symbols(40, 5);
+        let cmi = MutualInformation::new_cmi_discrete_mle(&[x.clone(), x], &symbols(40, 7));
+        let res = cmi
+            .statistical_test(&StatisticalTestConfig::permutation(40).seed(1))
+            .unwrap();
+        assert!(
+            res.p_value <= 0.1,
+            "expected a significant result, got p = {}",
+            res.p_value
+        );
+    }
+
+    #[test]
+    fn discrete_bias_corrected_cmi_runs() {
+        let cmi = MutualInformation::new_cmi_discrete_miller_madow(
+            &[symbols(40, 5), symbols(40, 7)],
+            &symbols(40, 3),
+        );
+        let res = cmi
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(2))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));

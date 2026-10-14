@@ -707,6 +707,19 @@ impl DenseCmi {
         self.global
     }
 
+    /// The input columns, recovered for resampling.
+    pub(crate) fn columns(&self) -> Vec<Array1<i32>> {
+        let n = self.plan.n;
+        (0..self.vals.len() / n)
+            .map(|c| Array1::from(self.vals[c * n..(c + 1) * n].to_vec()))
+            .collect()
+    }
+
+    /// The column indices forming each variable (series 0.., then condition).
+    pub(crate) fn var_cols(&self) -> &[Vec<usize>] {
+        &self.var_cols
+    }
+
     fn code_at(&self, v: usize, t: usize) -> usize {
         let mut code = 0usize;
         for &c in &self.var_cols[v] {
