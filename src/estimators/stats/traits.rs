@@ -46,13 +46,13 @@ pub(crate) trait Resample: GlobalValue {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self;
 }
 
-impl<T: Resample> StatisticalTest for T {
+impl<T: Resample + Sync> StatisticalTest for T {
     fn statistical_test(
         &self,
         cfg: &StatisticalTestConfig,
     ) -> Result<StatisticalTestResult, StatsError> {
         let observed = self.global_value();
-        run_resample_test(observed, cfg, |rng| {
+        run_resample_test(observed, cfg, |_, rng| {
             self.resampled(cfg.method, rng).global_value()
         })
     }

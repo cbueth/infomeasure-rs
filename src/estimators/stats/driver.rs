@@ -8,6 +8,8 @@ use ndarray::{Array1, Array2};
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 use super::config::{StatisticalTestConfig, TestMethod};
 use super::result::StatisticalTestResult;
@@ -45,30 +47,46 @@ pub(crate) fn make_rng(seed: Option<u64>) -> SmallRng {
     }
 }
 
+/// A 64-bit mixing function (SplitMix64). Derives independent per-draw seeds
+/// from a single master seed so the draws do not depend on execution order.
+fn splitmix64(seed: u64) -> u64 {
+    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
 /// Draw `n_tests` resampled values from `sample` and summarise the null
 /// distribution against `observed`.
 ///
-/// This is the whole computation of a statistical test; the per-measure glue
-/// only has to provide a closure that recomputes the measure on a resampled
-/// estimator. The draws are independent, so this is where future parallelism
-/// across resamples (and invariant caching) would plug in.
+/// `sample` is called as `sample(index, rng)`; the index lets a caller derive
+/// an order-independent result. This is the whole computation of a statistical
+/// test; the per-measure glue only has to provide a closure that recomputes the
+/// measure on a resampled estimator. Each draw is seeded deterministically from
+/// a master seed (the configured `seed`, or one drawn from entropy), so the
+/// result does not depend on execution order and the draws can run in parallel
+/// under the `parallel` feature while matching the serial run exactly.
 pub fn run_resample_test<S>(
     observed: f64,
     cfg: &StatisticalTestConfig,
-    mut sample: S,
+    sample: S,
 ) -> Result<StatisticalTestResult, StatsError>
 where
-    S: FnMut(&mut SmallRng) -> f64,
+    S: Fn(usize, &mut SmallRng) -> f64 + Sync,
 {
     if cfg.n_tests < 2 {
         return Err(StatsError::TooFewTests(cfg.n_tests));
     }
-    let mut rng = make_rng(cfg.seed);
-    let mut test_values = Array1::zeros(cfg.n_tests);
-    for value in test_values.iter_mut() {
-        *value = sample(&mut rng);
-    }
-    Ok(summarise(observed, test_values, cfg.method))
+    let master = cfg.seed.unwrap_or_else(rand::random::<u64>);
+    let draw = |i: usize| {
+        let mut rng = SmallRng::seed_from_u64(splitmix64(master.wrapping_add(i as u64)));
+        sample(i, &mut rng)
+    };
+    #[cfg(feature = "parallel")]
+    let values: Vec<f64> = (0..cfg.n_tests).into_par_iter().map(draw).collect();
+    #[cfg(not(feature = "parallel"))]
+    let values: Vec<f64> = (0..cfg.n_tests).map(draw).collect();
+    Ok(summarise(observed, Array1::from(values), cfg.method))
 }
 
 fn summarise(observed: f64, test_values: Array1<f64>, method: TestMethod) -> StatisticalTestResult {
@@ -194,7 +212,7 @@ mod tests {
     fn too_few_tests_is_an_error() {
         let cfg = StatisticalTestConfig::new(1, TestMethod::Permutation);
         assert!(matches!(
-            run_resample_test(0.0, &cfg, |_| 0.0),
+            run_resample_test(0.0, &cfg, |_, _| 0.0),
             Err(StatsError::TooFewTests(1))
         ));
     }
@@ -203,16 +221,16 @@ mod tests {
     fn p_value_is_strict_greater_fraction() {
         // Half the null values (1.0, 2.0) are greater than the observed 1.5.
         let cfg = StatisticalTestConfig::new(4, TestMethod::Permutation);
-        let mut values = [0.0, 1.0, 2.0, 3.0].into_iter();
-        let res = run_resample_test(1.5, &cfg, |_| values.next().unwrap()).unwrap();
+        let values = [0.0, 1.0, 2.0, 3.0];
+        let res = run_resample_test(1.5, &cfg, |i, _| values[i]).unwrap();
         assert!((res.p_value - 0.5).abs() < 1e-12);
     }
 
     #[test]
     fn t_score_uses_ddof_one() {
         let cfg = StatisticalTestConfig::new(3, TestMethod::Permutation);
-        let mut values = [0.0, 2.0, 4.0].into_iter();
-        let res = run_resample_test(3.0, &cfg, |_| values.next().unwrap()).unwrap();
+        let values = [0.0, 2.0, 4.0];
+        let res = run_resample_test(3.0, &cfg, |i, _| values[i]).unwrap();
         // mean = 2, sample std (ddof=1) = 2, t = (3 - 2) / 2.
         assert!((res.null_mean - 2.0).abs() < 1e-12);
         assert!((res.null_std - 2.0).abs() < 1e-12);
@@ -222,17 +240,40 @@ mod tests {
     #[test]
     fn zero_spread_gives_nan_t_score() {
         let cfg = StatisticalTestConfig::new(3, TestMethod::Permutation);
-        let res = run_resample_test(1.0, &cfg, |_| 1.0).unwrap();
+        let res = run_resample_test(1.0, &cfg, |_, _| 1.0).unwrap();
         assert!(res.t_score.is_nan());
     }
 
     #[test]
     fn seeded_runs_are_reproducible() {
         let cfg = StatisticalTestConfig::new(16, TestMethod::Permutation).seed(42);
-        let draw = |rng: &mut SmallRng| rng.r#gen::<f64>();
+        let draw = |_: usize, rng: &mut SmallRng| rng.r#gen::<f64>();
         let a = run_resample_test(0.0, &cfg, draw).unwrap();
         let b = run_resample_test(0.0, &cfg, draw).unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn draws_are_prefix_stable() {
+        // Each draw is seeded from (master, index), so the first draws do not
+        // change when more are requested: this is what makes the resampling
+        // independent of execution order (and thus of parallel scheduling).
+        let draw = |_: usize, rng: &mut SmallRng| rng.r#gen::<f64>();
+        let a = run_resample_test(
+            0.0,
+            &StatisticalTestConfig::new(4, TestMethod::Permutation).seed(9),
+            draw,
+        )
+        .unwrap();
+        let b = run_resample_test(
+            0.0,
+            &StatisticalTestConfig::new(8, TestMethod::Permutation).seed(9),
+            draw,
+        )
+        .unwrap();
+        for (x, y) in a.test_values.iter().zip(b.test_values.iter()) {
+            assert_eq!(x, y);
+        }
     }
 
     #[test]
@@ -259,7 +300,7 @@ mod tests {
         #[values(TestMethod::Permutation, TestMethod::Bootstrap)] method: TestMethod,
     ) {
         let cfg = StatisticalTestConfig::new(10, method).seed(1);
-        let res = run_resample_test(0.5, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
+        let res = run_resample_test(0.5, &cfg, |_, rng| rng.r#gen::<f64>()).unwrap();
         assert_eq!(res.n_tests, 10);
         assert_eq!(res.test_values.len(), 10);
         assert_eq!(res.method, method);
@@ -270,7 +311,7 @@ mod tests {
     #[rstest]
     fn n_tests_determines_length(#[values(2, 5, 50)] n: usize) {
         let cfg = StatisticalTestConfig::new(n, TestMethod::Permutation).seed(0);
-        let res = run_resample_test(0.0, &cfg, |rng| rng.r#gen::<f64>()).unwrap();
+        let res = run_resample_test(0.0, &cfg, |_, rng| rng.r#gen::<f64>()).unwrap();
         assert_eq!(res.test_values.len(), n);
         assert_eq!(res.n_tests, n);
     }
@@ -279,7 +320,7 @@ mod tests {
     fn p_value_counts_strictly_greater() {
         // Observed equal to every null value ⇒ nothing is greater ⇒ p = 0.
         let cfg = StatisticalTestConfig::new(5, TestMethod::Permutation);
-        let res = run_resample_test(1.0, &cfg, |_| 1.0).unwrap();
+        let res = run_resample_test(1.0, &cfg, |_, _| 1.0).unwrap();
         assert_eq!(res.p_value, 0.0);
     }
 
