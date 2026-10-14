@@ -140,9 +140,11 @@ estimation approaches:
 
 ## Statistical Significance
 
-Mutual-information and transfer-entropy estimators support permutation and
-bootstrap significance tests, and transfer entropy exposes an *effective* value
-(eTE):
+Every mutual-information, conditional-mutual-information, transfer-entropy and
+conditional-transfer-entropy estimator, across the discrete, kernel, ordinal and
+all four exponential-family (kNN) approaches, supports permutation and bootstrap
+significance tests, and every transfer-entropy estimator exposes an *effective*
+value (eTE):
 
 ```rust
 use infomeasure::estimators::stats::{StatisticalTest, StatisticalTestConfig};
@@ -151,7 +153,8 @@ let res = mi.statistical_test(&StatisticalTestConfig::permutation(200).seed(1)).
 println!("p = {:.4}, t = {:.2}", res.p_value, res.t_score);
 ```
 
-See the [Statistical Tests guide](https://docs.rs/infomeasure/latest/infomeasure/guide/statistical_tests/index.html).
+Single-variable entropy is intentionally excluded. See the
+[Statistical Tests guide](https://docs.rs/infomeasure/latest/infomeasure/guide/statistical_tests/index.html).
 
 ## Documentation
 

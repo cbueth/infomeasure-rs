@@ -38,9 +38,12 @@
 //! ## Effective transfer entropy
 //!
 //! For transfer-entropy measures, [`EffectiveValue::effective_value`] returns
-//! the observed value minus the value under a single permutation of the source
-//! — the *effective transfer entropy*. This removes the finite-sample bias that
-//! can make an uncoupled estimator appear to transmit information.
+//! the effective value: the observed value minus the value under a **single**
+//! resample of the source, which removes the finite-sample bias that can make an
+//! uncoupled estimator appear to transmit information. Because the definition is
+//! one draw, the number of resamples is not configurable; the call is
+//! `effective_value(method, seed)`, for example
+//! `te.effective_value(TestMethod::Permutation, Some(42))`.
 //!
 //! ## Usage
 //!
@@ -76,10 +79,33 @@
 //!
 //! ## Which measures?
 //!
-//! The test is only defined where permuting the source is meaningful, i.e. the
-//! mutual-information and transfer-entropy measures. It is a compile error to
-//! call it on a single-variable entropy estimator, rather than a runtime panic
-//! as in the Python package.
+//! The test is defined wherever permuting the source is meaningful, that is the
+//! mutual-information and transfer-entropy measures, and it is implemented for
+//! every estimator family:
+//!
+//! | Approach | MI | CMI | TE | CTE |
+//! |----------|----|-----|----|-----|
+//! | Discrete | yes | yes | yes | yes |
+//! | Kernel | yes | yes | yes | yes |
+//! | Ordinal | yes | yes | yes | yes |
+//! | kNN: KSG | yes | yes | yes | yes |
+//! | kNN: Rényi | yes | yes | yes | yes |
+//! | kNN: Tsallis | yes | yes | yes | yes |
+//! | kNN: Kozachenko-Leonenko | yes | yes | yes | yes |
+//!
+//! Calling it on a single-variable entropy estimator is a compile error, rather
+//! than the runtime error the Python package raises. The value-only
+//! `DenseMiGlobal` and `DenseCmiGlobal` results returned by the `.global_only()`
+//! dense builders are the exception: they deliberately retain no inputs, so use
+//! `.build()` (or the `new_discrete_*` constructors) when you need the test.
+//!
+//! ## Reproducibility and parallelism
+//!
+//! Each draw is seeded deterministically from the configured `seed` (or from
+//! entropy when none is given) together with the draw index, so a seeded test is
+//! reproducible and independent of execution order. With the `parallel` feature
+//! the draws run on a thread pool and produce exactly the same result as the
+//! sequential build.
 //!
 //! [`statistical_test`]: crate::estimators::stats::StatisticalTest::statistical_test
 //! [`StatisticalTestResult`]: crate::estimators::stats::StatisticalTestResult
