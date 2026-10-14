@@ -80,7 +80,7 @@ use crate::estimators::approaches::discrete::discrete_utils::{
     reduce_joint_space_compact, reduce_views_compact,
 };
 use crate::estimators::doc_macros::doc_snippets;
-use crate::estimators::stats::{Resample, TestMethod, resample_1d_i32};
+use crate::estimators::stats::{EffectiveValueMeasure, Resample, TestMethod, resample_1d_i32};
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
@@ -359,33 +359,11 @@ impl<E> DiscreteConditionalMutualInformation<E> {
 impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalMutualInformation<E> {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
         match &self.inner {
-            CmiInner::Spaces {
-                marginal_conds,
-                joint_cond,
-                cond_only,
-            } => {
+            CmiInner::Spaces { .. } => {
                 let mut data = self.data.clone();
                 data[0] = resample_1d_i32(&data[0], method, rng);
-                let cond = self.cond.clone();
-                let new_marginals = (0..data.len())
-                    .map(|i| {
-                        let pair = [data[i].view(), cond.view()];
-                        marginal_conds[i].with_data(reduce_views_compact(&pair))
-                    })
-                    .collect();
-                let mut stack: Vec<ArrayView1<i32>> = data.iter().map(|s| s.view()).collect();
-                stack.push(cond.view());
-                let new_joint = joint_cond.with_data(reduce_views_compact(&stack));
-                let new_cond = cond_only.with_data(cond_only.raw_data().clone());
-                Self {
-                    inner: CmiInner::Spaces {
-                        marginal_conds: new_marginals,
-                        joint_cond: new_joint,
-                        cond_only: new_cond,
-                    },
-                    data,
-                    cond,
-                }
+                self.rebuild_from_codes(&data, &self.cond)
+                    .expect("spaces CMI rebuilds from codes")
             }
             CmiInner::Dense(dense) => {
                 let var_cols = dense.var_cols().to_vec();
@@ -402,6 +380,47 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalMutualInform
                     cond: Array1::zeros(0),
                 }
             }
+        }
+    }
+}
+
+#[allow(private_bounds)]
+impl<E: ResampleData> DiscreteConditionalMutualInformation<E> {
+    /// Rebuild the generic `Spaces` representation from per-variable code
+    /// columns, keeping every entropy estimator's parameters. Returns `None` for
+    /// the dense representation, which callers rebuild from its own columns.
+    pub(crate) fn rebuild_from_codes(
+        &self,
+        series: &[Array1<i32>],
+        cond: &Array1<i32>,
+    ) -> Option<Self> {
+        if let CmiInner::Spaces {
+            marginal_conds,
+            joint_cond,
+            cond_only,
+        } = &self.inner
+        {
+            let new_marginals = (0..series.len())
+                .map(|i| {
+                    let pair = [series[i].view(), cond.view()];
+                    marginal_conds[i].with_data(reduce_views_compact(&pair))
+                })
+                .collect();
+            let mut stack: Vec<ArrayView1<i32>> = series.iter().map(|s| s.view()).collect();
+            stack.push(cond.view());
+            let new_joint = joint_cond.with_data(reduce_views_compact(&stack));
+            let new_cond = cond_only.with_data(cond_only.raw_data().clone());
+            Some(Self {
+                inner: CmiInner::Spaces {
+                    marginal_conds: new_marginals,
+                    joint_cond: new_joint,
+                    cond_only: new_cond,
+                },
+                data: series.to_vec(),
+                cond: cond.clone(),
+            })
+        } else {
+            None
         }
     }
 }
@@ -502,6 +521,12 @@ impl<E: GlobalValue + OptionalLocalValues> ConditionalMutualInformationEstimator
 #[doc = doc_snippets!(te_formula "Discrete", "", "")]
 pub struct DiscreteTransferEntropy<E> {
     inner: DiscreteConditionalMutualInformation<E>,
+    /// Raw source series, retained for resampling (see `estimators::stats`).
+    source: Array1<i32>,
+    dest: Array1<i32>,
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    step_size: usize,
 }
 
 impl<E> DiscreteTransferEntropy<E> {
@@ -533,7 +558,14 @@ impl<E> DiscreteTransferEntropy<E> {
             &dest_past_codes,
             constructor,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: destination.clone(),
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+        }
     }
 }
 
@@ -576,6 +608,11 @@ impl DiscreteTransferEntropy<crate::estimators::approaches::discrete::mle::Discr
         if let Some(dense) = DenseCmi::new(&series, &views.dest_past_cols) {
             return Self {
                 inner: DiscreteConditionalMutualInformation::from_dense(dense),
+                source: source.clone(),
+                dest: destination.clone(),
+                src_hist_len,
+                dest_hist_len,
+                step_size,
             };
         }
         // Large joint: reduce histories to codes and use the generic engine.
@@ -586,7 +623,14 @@ impl DiscreteTransferEntropy<crate::estimators::approaches::discrete::mle::Discr
             &dest_past,
             DiscreteEntropy::new,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: destination.clone(),
+            src_hist_len,
+            dest_hist_len,
+            step_size,
+        }
     }
 }
 
@@ -600,6 +644,48 @@ impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteTransferEntropy<E> 
     }
 }
 
+impl<E: ResampleData + GlobalValue> Resample for DiscreteTransferEntropy<E> {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        use crate::estimators::approaches::discrete::discrete_utils::reduce_hist_columns_compact;
+        use crate::estimators::utils::te_slicing::te_embedding_views;
+
+        let source = resample_1d_i32(&self.source, method, rng);
+        let views = te_embedding_views(
+            &source,
+            &self.dest,
+            self.src_hist_len,
+            self.dest_hist_len,
+            self.step_size,
+        );
+        let inner = {
+            let src_past = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+            let dest_past = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+            let dest_future = views.dest_future.to_owned();
+            self.inner
+                .rebuild_from_codes(&[src_past, dest_future], &dest_past)
+                .unwrap_or_else(|| {
+                    let series: [&[ArrayView1<i32>]; 2] = [
+                        &views.src_past_cols,
+                        std::slice::from_ref(&views.dest_future),
+                    ];
+                    let dense = DenseCmi::new(&series, &views.dest_past_cols)
+                        .expect("resampled dense TE is small");
+                    DiscreteConditionalMutualInformation::from_dense(dense)
+                })
+        };
+        Self {
+            inner,
+            source,
+            dest: self.dest.clone(),
+            src_hist_len: self.src_hist_len,
+            dest_hist_len: self.dest_hist_len,
+            step_size: self.step_size,
+        }
+    }
+}
+
+impl<E: ResampleData + GlobalValue> EffectiveValueMeasure for DiscreteTransferEntropy<E> {}
+
 /// Discrete Conditional Transfer Entropy estimator using the entropy-summation formula (via CMI).
 ///
 /// ## Theory
@@ -607,6 +693,14 @@ impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteTransferEntropy<E> 
 #[doc = doc_snippets!(cte_formula "Discrete", "", "")]
 pub struct DiscreteConditionalTransferEntropy<E> {
     inner: DiscreteConditionalMutualInformation<E>,
+    /// Raw inputs, retained for resampling (see `estimators::stats`).
+    source: Array1<i32>,
+    dest: Array1<i32>,
+    cond: Array1<i32>,
+    src_hist_len: usize,
+    dest_hist_len: usize,
+    cond_hist_len: usize,
+    step_size: usize,
 }
 
 impl<E> DiscreteConditionalTransferEntropy<E> {
@@ -652,7 +746,16 @@ impl<E> DiscreteConditionalTransferEntropy<E> {
             &joint_cond_codes,
             constructor,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: destination.clone(),
+            cond: condition.clone(),
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+        }
     }
 }
 
@@ -712,6 +815,13 @@ impl
         if let Some(dense) = DenseCmi::new(&series, &cond_cols) {
             return Self {
                 inner: DiscreteConditionalMutualInformation::from_dense(dense),
+                source: source.clone(),
+                dest: destination.clone(),
+                cond: condition.clone(),
+                src_hist_len,
+                dest_hist_len,
+                cond_hist_len,
+                step_size,
             };
         }
         // Large joint: reduce histories to codes and use the generic engine.
@@ -724,8 +834,71 @@ impl
             &joint_cond,
             DiscreteEntropy::new,
         );
-        Self { inner }
+        Self {
+            inner,
+            source: source.clone(),
+            dest: destination.clone(),
+            cond: condition.clone(),
+            src_hist_len,
+            dest_hist_len,
+            cond_hist_len,
+            step_size,
+        }
     }
+}
+
+impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalTransferEntropy<E> {
+    fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+        use crate::estimators::approaches::discrete::discrete_utils::{
+            reduce_hist_columns_compact, reduce_joint_space_compact,
+        };
+        use crate::estimators::utils::te_slicing::cte_embedding_views;
+
+        let source = resample_1d_i32(&self.source, method, rng);
+        let views = cte_embedding_views(
+            &source,
+            &self.dest,
+            &self.cond,
+            self.src_hist_len,
+            self.dest_hist_len,
+            self.cond_hist_len,
+            self.step_size,
+        );
+        let inner = {
+            let src_past = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+            let dest_past = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+            let cond_past = reduce_hist_columns_compact(views.cond_past_cols.iter().copied());
+            let joint_cond = reduce_joint_space_compact(&[dest_past, cond_past]);
+            self.inner
+                .rebuild_from_codes(&[src_past, views.dest_future.to_owned()], &joint_cond)
+                .unwrap_or_else(|| {
+                    let mut cond_cols: Vec<ArrayView1<i32>> = views.dest_past_cols.clone();
+                    cond_cols.extend(views.cond_past_cols.iter().copied());
+                    let series: [&[ArrayView1<i32>]; 2] = [
+                        &views.src_past_cols,
+                        std::slice::from_ref(&views.dest_future),
+                    ];
+                    let dense =
+                        DenseCmi::new(&series, &cond_cols).expect("resampled dense CTE is small");
+                    DiscreteConditionalMutualInformation::from_dense(dense)
+                })
+        };
+        Self {
+            inner,
+            source,
+            dest: self.dest.clone(),
+            cond: self.cond.clone(),
+            src_hist_len: self.src_hist_len,
+            dest_hist_len: self.dest_hist_len,
+            cond_hist_len: self.cond_hist_len,
+            step_size: self.step_size,
+        }
+    }
+}
+
+impl<E: ResampleData + GlobalValue> EffectiveValueMeasure
+    for DiscreteConditionalTransferEntropy<E>
+{
 }
 
 impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteConditionalTransferEntropy<E> {

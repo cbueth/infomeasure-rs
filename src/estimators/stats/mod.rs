@@ -55,4 +55,4 @@ pub use traits::{EffectiveValue, StatisticalTest};
 
 // Internal glue reused by the approach modules' `Resample` impls.
 pub(crate) use driver::resample_1d_i32;
-pub(crate) use traits::Resample;
+pub(crate) use traits::{EffectiveValueMeasure, Resample};

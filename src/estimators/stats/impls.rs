@@ -715,4 +715,32 @@ mod tests {
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
     }
+
+    #[test]
+    fn discrete_te_statistical_test_and_effective_value() {
+        let te = TransferEntropy::new_discrete_mle(&symbols(60, 3), &symbols(60, 3), 1, 1, 1);
+        let res = te
+            .statistical_test(&StatisticalTestConfig::permutation(30).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+        let ete = te.effective_value(TestMethod::Permutation, Some(1));
+        assert!(ete.is_finite());
+    }
+
+    #[test]
+    fn discrete_cte_resamples_and_runs() {
+        let cte = TransferEntropy::new_cte_discrete_mle(
+            &symbols(60, 3),
+            &symbols(60, 3),
+            &symbols(60, 5),
+            1,
+            1,
+            1,
+            1,
+        );
+        let res = cte
+            .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
+            .unwrap();
+        assert!((0.0..=1.0).contains(&res.p_value));
+    }
 }
