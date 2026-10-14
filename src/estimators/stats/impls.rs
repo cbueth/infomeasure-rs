@@ -10,9 +10,25 @@
 
 use rand::rngs::SmallRng;
 
+use crate::estimators::approaches::expfam::kozachenko_leonenko::{
+    KozachenkoLeonenkoConditionalMutualInformation, KozachenkoLeonenkoConditionalTransferEntropy,
+    KozachenkoLeonenkoMutualInformation2, KozachenkoLeonenkoMutualInformation3,
+    KozachenkoLeonenkoMutualInformation4, KozachenkoLeonenkoMutualInformation5,
+    KozachenkoLeonenkoMutualInformation6, KozachenkoLeonenkoTransferEntropy,
+};
 use crate::estimators::approaches::expfam::ksg::{
     KsgConditionalMutualInformation, KsgConditionalTransferEntropy, KsgMutualInformation2,
     KsgMutualInformation3, KsgMutualInformation4, KsgTransferEntropy,
+};
+use crate::estimators::approaches::expfam::renyi::{
+    RenyiConditionalMutualInformation, RenyiConditionalTransferEntropy, RenyiMutualInformation2,
+    RenyiMutualInformation3, RenyiMutualInformation4, RenyiMutualInformation5,
+    RenyiMutualInformation6, RenyiTransferEntropy,
+};
+use crate::estimators::approaches::expfam::tsallis::{
+    TsallisConditionalMutualInformation, TsallisConditionalTransferEntropy,
+    TsallisMutualInformation2, TsallisMutualInformation3, TsallisMutualInformation4,
+    TsallisMutualInformation5, TsallisMutualInformation6, TsallisTransferEntropy,
 };
 use crate::estimators::approaches::kernel::{
     KernelConditionalMutualInformation, KernelConditionalTransferEntropy, KernelMutualInformation2,
@@ -507,6 +523,190 @@ impl Resample for OrdinalConditionalTransferEntropy {
 
 impl EffectiveValueMeasure for OrdinalConditionalTransferEntropy {}
 
+macro_rules! impl_expfam_mi_resample {
+    ($name:ident, $($d:ident),+) => {
+        impl<const D_JOINT: usize, $(const $d: usize),+> Resample for $name<D_JOINT, $($d),+> {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut out = self.clone();
+                out.data[0] = resample_rows(&out.data[0], method, rng);
+                out
+            }
+        }
+    };
+}
+
+impl_expfam_mi_resample!(RenyiMutualInformation2, D1, D2);
+impl_expfam_mi_resample!(RenyiMutualInformation3, D1, D2, D3);
+impl_expfam_mi_resample!(RenyiMutualInformation4, D1, D2, D3, D4);
+impl_expfam_mi_resample!(RenyiMutualInformation5, D1, D2, D3, D4, D5);
+impl_expfam_mi_resample!(RenyiMutualInformation6, D1, D2, D3, D4, D5, D6);
+impl_expfam_mi_resample!(TsallisMutualInformation2, D1, D2);
+impl_expfam_mi_resample!(TsallisMutualInformation3, D1, D2, D3);
+impl_expfam_mi_resample!(TsallisMutualInformation4, D1, D2, D3, D4);
+impl_expfam_mi_resample!(TsallisMutualInformation5, D1, D2, D3, D4, D5);
+impl_expfam_mi_resample!(TsallisMutualInformation6, D1, D2, D3, D4, D5, D6);
+impl_expfam_mi_resample!(KozachenkoLeonenkoMutualInformation2, D1, D2);
+impl_expfam_mi_resample!(KozachenkoLeonenkoMutualInformation3, D1, D2, D3);
+impl_expfam_mi_resample!(KozachenkoLeonenkoMutualInformation4, D1, D2, D3, D4);
+impl_expfam_mi_resample!(KozachenkoLeonenkoMutualInformation5, D1, D2, D3, D4, D5);
+impl_expfam_mi_resample!(KozachenkoLeonenkoMutualInformation6, D1, D2, D3, D4, D5, D6);
+
+macro_rules! impl_expfam_cmi_resample {
+    ($name:ident) => {
+        impl<
+            const D1: usize,
+            const D2: usize,
+            const DZ: usize,
+            const D_JOINT: usize,
+            const D1Z: usize,
+            const D2Z: usize,
+        > Resample for $name<D1, D2, DZ, D_JOINT, D1Z, D2Z>
+        {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut out = self.clone();
+                out.data[0] = resample_rows(&out.data[0], method, rng);
+                out
+            }
+        }
+    };
+}
+
+impl_expfam_cmi_resample!(RenyiConditionalMutualInformation);
+impl_expfam_cmi_resample!(TsallisConditionalMutualInformation);
+impl_expfam_cmi_resample!(KozachenkoLeonenkoConditionalMutualInformation);
+
+macro_rules! impl_expfam_te_resample {
+    ($name:ident) => {
+        impl<
+            const SRC_HIST: usize,
+            const DEST_HIST: usize,
+            const STEP_SIZE: usize,
+            const D_SOURCE: usize,
+            const D_TARGET: usize,
+            const D_JOINT: usize,
+            const D_XP_YP: usize,
+            const D_YP: usize,
+            const D_YF_YP: usize,
+        > Resample
+            for $name<
+                SRC_HIST,
+                DEST_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_JOINT,
+                D_XP_YP,
+                D_YP,
+                D_YF_YP,
+            >
+        {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut out = self.clone();
+                out.source = resample_rows(&out.source, method, rng);
+                out
+            }
+        }
+        impl<
+            const SRC_HIST: usize,
+            const DEST_HIST: usize,
+            const STEP_SIZE: usize,
+            const D_SOURCE: usize,
+            const D_TARGET: usize,
+            const D_JOINT: usize,
+            const D_XP_YP: usize,
+            const D_YP: usize,
+            const D_YF_YP: usize,
+        > EffectiveValueMeasure
+            for $name<
+                SRC_HIST,
+                DEST_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_JOINT,
+                D_XP_YP,
+                D_YP,
+                D_YF_YP,
+            >
+        {
+        }
+    };
+}
+
+impl_expfam_te_resample!(RenyiTransferEntropy);
+impl_expfam_te_resample!(TsallisTransferEntropy);
+impl_expfam_te_resample!(KozachenkoLeonenkoTransferEntropy);
+
+macro_rules! impl_expfam_cte_resample {
+    ($name:ident) => {
+        impl<
+            const SRC_HIST: usize,
+            const DEST_HIST: usize,
+            const COND_HIST: usize,
+            const STEP_SIZE: usize,
+            const D_SOURCE: usize,
+            const D_TARGET: usize,
+            const D_COND: usize,
+            const D_JOINT: usize,
+            const D_XP_YP_ZP: usize,
+            const D_YP_ZP: usize,
+            const D_YF_YP_ZP: usize,
+        > Resample
+            for $name<
+                SRC_HIST,
+                DEST_HIST,
+                COND_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_COND,
+                D_JOINT,
+                D_XP_YP_ZP,
+                D_YP_ZP,
+                D_YF_YP_ZP,
+            >
+        {
+            fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
+                let mut out = self.clone();
+                out.source = resample_rows(&out.source, method, rng);
+                out
+            }
+        }
+        impl<
+            const SRC_HIST: usize,
+            const DEST_HIST: usize,
+            const COND_HIST: usize,
+            const STEP_SIZE: usize,
+            const D_SOURCE: usize,
+            const D_TARGET: usize,
+            const D_COND: usize,
+            const D_JOINT: usize,
+            const D_XP_YP_ZP: usize,
+            const D_YP_ZP: usize,
+            const D_YF_YP_ZP: usize,
+        > EffectiveValueMeasure
+            for $name<
+                SRC_HIST,
+                DEST_HIST,
+                COND_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_COND,
+                D_JOINT,
+                D_XP_YP_ZP,
+                D_YP_ZP,
+                D_YF_YP_ZP,
+            >
+        {
+        }
+    };
+}
+
+impl_expfam_cte_resample!(RenyiConditionalTransferEntropy);
+impl_expfam_cte_resample!(TsallisConditionalTransferEntropy);
+impl_expfam_cte_resample!(KozachenkoLeonenkoConditionalTransferEntropy);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -742,5 +942,57 @@ mod tests {
             .statistical_test(&StatisticalTestConfig::permutation(20).seed(1))
             .unwrap();
         assert!((0.0..=1.0).contains(&res.p_value));
+    }
+
+    macro_rules! expfam_smoke {
+        ($mi:expr, $cmi:expr, $te:expr, $cte:expr $(,)?) => {{
+            let cfg = StatisticalTestConfig::permutation(15).seed(1);
+            let mi = $mi;
+            assert!((0.0..=1.0).contains(&mi.statistical_test(&cfg).unwrap().p_value));
+            let cmi = $cmi;
+            assert!((0.0..=1.0).contains(&cmi.statistical_test(&cfg).unwrap().p_value));
+            let te = $te;
+            assert!((0.0..=1.0).contains(&te.statistical_test(&cfg).unwrap().p_value));
+            assert!(
+                te.effective_value(TestMethod::Permutation, Some(1))
+                    .is_finite()
+            );
+            let cte = $cte;
+            assert!((0.0..=1.0).contains(&cte.statistical_test(&cfg).unwrap().p_value));
+            assert!(
+                cte.effective_value(TestMethod::Permutation, Some(1))
+                    .is_finite()
+            );
+        }};
+    }
+
+    #[test]
+    fn renyi_family_significance_smoke() {
+        expfam_smoke!(
+            MutualInformation::new_renyi(&[wave(50), wave(50)], 4, 0.9, 1e-10),
+            MutualInformation::new_cmi_renyi(&[wave(50), wave(50)], &ramp(50), 4, 0.9, 1e-10),
+            TransferEntropy::new_renyi(&ramp(50), &wave(50), 4, 0.9, 1e-10),
+            TransferEntropy::new_cte_renyi(&ramp(50), &wave(50), &ramp(50), 4, 0.9, 1e-10),
+        );
+    }
+
+    #[test]
+    fn tsallis_family_significance_smoke() {
+        expfam_smoke!(
+            MutualInformation::new_tsallis(&[wave(50), wave(50)], 4, 1.1, 1e-10),
+            MutualInformation::new_cmi_tsallis(&[wave(50), wave(50)], &ramp(50), 4, 1.1, 1e-10),
+            TransferEntropy::new_tsallis(&ramp(50), &wave(50), 4, 1.1, 1e-10),
+            TransferEntropy::new_cte_tsallis(&ramp(50), &wave(50), &ramp(50), 4, 1.1, 1e-10),
+        );
+    }
+
+    #[test]
+    fn kl_family_significance_smoke() {
+        expfam_smoke!(
+            MutualInformation::new_kl(&[wave(50), wave(50)], 4, 1e-10),
+            MutualInformation::new_cmi_kl(&[wave(50), wave(50)], &ramp(50), 4, 1e-10),
+            TransferEntropy::new_kl(&ramp(50), &wave(50), 4, 1e-10),
+            TransferEntropy::new_cte_kl(&ramp(50), &wave(50), &ramp(50), 4, 1e-10),
+        );
     }
 }

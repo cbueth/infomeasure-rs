@@ -326,6 +326,7 @@ macro_rules! impl_tsallis_mi {
         /// ## Theory
         ///
         #[doc = doc_snippets!(mi_formula "Tsallis", "_q", "", "H")]
+        #[derive(Clone)]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub q: f64,
@@ -405,6 +406,7 @@ impl_tsallis_mi!(
 /// ## Theory
 ///
 #[doc = doc_snippets!(cmi_formula "Tsallis", "_q", "", "H")]
+#[derive(Clone)]
 pub struct TsallisConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -529,6 +531,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(te_formula "Tsallis", "_q", "", "H")]
+#[derive(Clone)]
 pub struct TsallisTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -717,6 +720,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(cte_formula "Tsallis", "_q", "", "H")]
+#[derive(Clone)]
 pub struct TsallisConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

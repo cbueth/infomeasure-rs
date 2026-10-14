@@ -327,6 +327,7 @@ macro_rules! impl_renyi_mi {
         /// ## Theory
         ///
         #[doc = doc_snippets!(mi_formula "Rényi", r"_{\alpha}", "")]
+        #[derive(Clone)]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub alpha: f64,
@@ -406,6 +407,7 @@ impl_renyi_mi!(
 /// ## Theory
 ///
 #[doc = doc_snippets!(cmi_formula "Rényi", r"_{\alpha}", "")]
+#[derive(Clone)]
 pub struct RenyiConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -530,6 +532,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(te_formula "Rényi", r"_{\alpha}", "")]
+#[derive(Clone)]
 pub struct RenyiTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -718,6 +721,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(cte_formula "Rényi", r"_{\alpha}", "")]
+#[derive(Clone)]
 pub struct RenyiConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,

@@ -341,6 +341,7 @@ macro_rules! impl_kl_mi {
         /// ## Theory
         ///
         #[doc = doc_snippets!(mi_formula "KL-based", r"_{\mathrm{KL}}", "")]
+        #[derive(Clone)]
         pub struct $name<const D_JOINT: usize, $(const $d_param: usize),*> {
             pub k: usize,
             pub ksg_type: KsgType,
@@ -446,6 +447,7 @@ impl_kl_mi!(
 /// ## Theory
 ///
 #[doc = doc_snippets!(cmi_formula "KL-based", r"_{\mathrm{KL}}", "")]
+#[derive(Clone)]
 pub struct KozachenkoLeonenkoConditionalMutualInformation<
     const D1: usize,
     const D2: usize,
@@ -585,6 +587,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(te_formula "KL-based", r"_{\mathrm{KL}}", "")]
+#[derive(Clone)]
 pub struct KozachenkoLeonenkoTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
@@ -787,6 +790,7 @@ impl<
 /// ## Theory
 ///
 #[doc = doc_snippets!(cte_formula "KL-based", r"_{\mathrm{KL}}", "")]
+#[derive(Clone)]
 pub struct KozachenkoLeonenkoConditionalTransferEntropy<
     const SRC_HIST: usize,
     const DEST_HIST: usize,
