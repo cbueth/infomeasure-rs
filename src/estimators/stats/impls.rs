@@ -711,11 +711,23 @@ impl_expfam_cte_resample!(KozachenkoLeonenkoConditionalTransferEntropy);
 mod tests {
     use super::*;
     use crate::estimators::mutual_information::MutualInformation;
+    use crate::estimators::stats::driver::{make_rng, resample_1d_i32};
     use crate::estimators::stats::{
-        EffectiveValue, StatisticalTest, StatisticalTestConfig, TestMethod,
+        EffectiveValue, Resample, StatisticalTest, StatisticalTestConfig, TestMethod,
     };
+    use crate::estimators::traits::GlobalValue;
     use crate::estimators::transfer_entropy::TransferEntropy;
     use ndarray::{Array1, Axis};
+
+    fn permuted_i32(series: &Array1<i32>, seed: u64) -> Array1<i32> {
+        let mut rng = make_rng(Some(seed));
+        resample_1d_i32(series, TestMethod::Permutation, &mut rng)
+    }
+
+    fn permuted_f64(series: &Array1<f64>, seed: u64) -> Array1<f64> {
+        let mut rng = make_rng(Some(seed));
+        resample_1d(series, TestMethod::Permutation, &mut rng)
+    }
 
     fn ramp(n: usize) -> Array1<f64> {
         Array1::from((0..n).map(|i| i as f64).collect::<Vec<_>>())
@@ -993,6 +1005,110 @@ mod tests {
             MutualInformation::new_cmi_kl(&[wave(50), wave(50)], &ramp(50), 4, 1e-10),
             TransferEntropy::new_kl(&ramp(50), &wave(50), 4, 1e-10),
             TransferEntropy::new_cte_kl(&ramp(50), &wave(50), &ramp(50), 4, 1e-10),
+        );
+    }
+
+    macro_rules! assert_resample_matches_rebuild {
+        ($seed:expr, $estimator:expr, $rebuilt:expr $(,)?) => {{
+            let estimator = $estimator;
+            let mut rng = make_rng(Some($seed));
+            let got = estimator
+                .resampled(TestMethod::Permutation, &mut rng)
+                .global_value();
+            let expected = $rebuilt;
+            assert!(
+                (got - expected).abs() < 1e-12,
+                "resampled {got} != explicit rebuild {expected}"
+            );
+        }};
+    }
+
+    #[test]
+    fn discrete_mi_resample_matches_explicit_rebuild() {
+        let x = symbols(40, 5);
+        let y = symbols(40, 7);
+        assert_resample_matches_rebuild!(
+            3,
+            MutualInformation::new_discrete_mle(&[x.clone(), y.clone()]),
+            MutualInformation::new_discrete_mle(&[permuted_i32(&x, 3), y]).global_value()
+        );
+    }
+
+    #[test]
+    fn discrete_cmi_resample_matches_explicit_rebuild() {
+        let x = symbols(40, 5);
+        let y = symbols(40, 7);
+        let z = symbols(40, 3);
+        assert_resample_matches_rebuild!(
+            4,
+            MutualInformation::new_cmi_discrete_mle(&[x.clone(), y.clone()], &z),
+            MutualInformation::new_cmi_discrete_mle(&[permuted_i32(&x, 4), y], &z).global_value()
+        );
+    }
+
+    #[test]
+    fn discrete_te_resample_matches_explicit_rebuild() {
+        let src = symbols(60, 3);
+        let dst = symbols(60, 5);
+        assert_resample_matches_rebuild!(
+            5,
+            TransferEntropy::new_discrete_mle(&src.clone(), &dst.clone(), 1, 1, 1),
+            TransferEntropy::new_discrete_mle(&permuted_i32(&src, 5), &dst, 1, 1, 1).global_value()
+        );
+    }
+
+    #[test]
+    fn discrete_cte_resample_matches_explicit_rebuild() {
+        let src = symbols(60, 3);
+        let dst = symbols(60, 5);
+        let cond = symbols(60, 2);
+        assert_resample_matches_rebuild!(
+            6,
+            TransferEntropy::new_cte_discrete_mle(
+                &src.clone(),
+                &dst.clone(),
+                &cond.clone(),
+                1,
+                1,
+                1,
+                1
+            ),
+            TransferEntropy::new_cte_discrete_mle(&permuted_i32(&src, 6), &dst, &cond, 1, 1, 1, 1)
+                .global_value()
+        );
+    }
+
+    #[test]
+    fn kernel_mi_resample_matches_explicit_rebuild() {
+        let x = ramp(40);
+        let y = wave(40);
+        assert_resample_matches_rebuild!(
+            7,
+            MutualInformation::new_kernel(&[x.clone(), y.clone()], 0.5),
+            MutualInformation::new_kernel(&[permuted_f64(&x, 7), y], 0.5).global_value()
+        );
+    }
+
+    #[test]
+    fn ordinal_mi_resample_matches_explicit_rebuild() {
+        let x = ramp(40);
+        let y = wave(40);
+        assert_resample_matches_rebuild!(
+            8,
+            MutualInformation::new_ordinal(&[x.clone(), y.clone()], 3, 1, false),
+            MutualInformation::new_ordinal(&[permuted_f64(&x, 8), y], 3, 1, false).global_value()
+        );
+    }
+
+    #[test]
+    fn ordinal_te_resample_matches_explicit_rebuild() {
+        let src = ramp(40);
+        let dst = wave(40);
+        assert_resample_matches_rebuild!(
+            9,
+            TransferEntropy::new_ordinal(&src.clone(), &dst.clone(), 3, 1, 1, 1, false),
+            TransferEntropy::new_ordinal(&permuted_f64(&src, 9), &dst, 3, 1, 1, 1, false)
+                .global_value()
         );
     }
 }
