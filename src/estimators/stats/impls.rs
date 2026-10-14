@@ -710,8 +710,11 @@ impl_expfam_cte_resample!(KozachenkoLeonenkoConditionalTransferEntropy);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::estimators::approaches::discrete::DiscreteMutualInformation;
     use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
+    use crate::estimators::approaches::discrete::{
+        DiscreteConditionalMutualInformation, DiscreteConditionalTransferEntropy,
+        DiscreteMutualInformation, DiscreteTransferEntropy,
+    };
     use crate::estimators::mutual_information::MutualInformation;
     use crate::estimators::stats::driver::{make_rng, resample_1d_i32};
     use crate::estimators::stats::{
@@ -1132,6 +1135,69 @@ mod tests {
         assert!(
             (got - expected).abs() < 1e-12,
             "got {got}, expected {expected}"
+        );
+    }
+
+    macro_rules! assert_prepared_matches_resampled {
+        ($seed:expr, $estimator:expr $(,)?) => {{
+            let estimator = $estimator;
+            let prepared = estimator
+                .prepared(TestMethod::Permutation)
+                .expect("generic representation caches its invariant terms");
+            let mut rng = make_rng(Some($seed));
+            let got = prepared(0, &mut rng);
+            let mut rng = make_rng(Some($seed));
+            let expected = estimator
+                .resampled(TestMethod::Permutation, &mut rng)
+                .global_value();
+            assert!(
+                (got - expected).abs() < 1e-12,
+                "prepared {got} != resampled {expected}"
+            );
+        }};
+    }
+
+    #[test]
+    fn discrete_cmi_prepared_matches_resampled() {
+        assert_prepared_matches_resampled!(
+            4,
+            DiscreteConditionalMutualInformation::new(
+                &[symbols(40, 5), symbols(40, 7)],
+                &symbols(40, 3),
+                DiscreteEntropy::new,
+            )
+        );
+    }
+
+    #[test]
+    fn discrete_te_prepared_matches_resampled() {
+        assert_prepared_matches_resampled!(
+            5,
+            DiscreteTransferEntropy::new(
+                &symbols(60, 3),
+                &symbols(60, 5),
+                1,
+                1,
+                1,
+                DiscreteEntropy::new
+            )
+        );
+    }
+
+    #[test]
+    fn discrete_cte_prepared_matches_resampled() {
+        assert_prepared_matches_resampled!(
+            6,
+            DiscreteConditionalTransferEntropy::new(
+                &symbols(60, 3),
+                &symbols(60, 5),
+                &symbols(60, 2),
+                1,
+                1,
+                1,
+                1,
+                DiscreteEntropy::new
+            )
         );
     }
 }

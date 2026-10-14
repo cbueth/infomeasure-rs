@@ -378,7 +378,7 @@ impl<E> DiscreteConditionalMutualInformation<E> {
     }
 }
 
-impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalMutualInformation<E> {
+impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteConditionalMutualInformation<E> {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
         match &self.inner {
             CmiInner::Spaces { .. } => {
@@ -402,6 +402,39 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalMutualInform
                     cond: Array1::zeros(0),
                 }
             }
+        }
+    }
+
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        if let CmiInner::Spaces {
+            marginal_conds,
+            joint_cond,
+            cond_only,
+        } = &self.inner
+        {
+            // `H(Xi, Z)` for `i >= 1` and `H(Z)` are invariant under a
+            // permutation of the source; only `H(X0, Z)` and the joint change.
+            let n = marginal_conds.len() as f64;
+            let invariant: f64 = marginal_conds[1..].iter().map(|m| m.global_value()).sum();
+            let h_cond = cond_only.global_value();
+            let marginal0 = &marginal_conds[0];
+            let joint = joint_cond;
+            let data = self.data.clone();
+            let cond = self.cond.clone();
+            Some(Box::new(move |_i, rng| {
+                let mut permuted = data.clone();
+                permuted[0] = resample_1d_i32(&permuted[0], method, rng);
+                let pair = [permuted[0].view(), cond.view()];
+                let h_m0 = marginal0
+                    .with_data(reduce_views_compact(&pair))
+                    .global_value();
+                let mut stack: Vec<ArrayView1<i32>> = permuted.iter().map(|s| s.view()).collect();
+                stack.push(cond.view());
+                let h_joint = joint.with_data(reduce_views_compact(&stack)).global_value();
+                h_m0 + invariant - h_joint - (n - 1.0) * h_cond
+            }))
+        } else {
+            None
         }
     }
 }
@@ -666,7 +699,7 @@ impl<E: OptionalLocalValues> OptionalLocalValues for DiscreteTransferEntropy<E> 
     }
 }
 
-impl<E: ResampleData + GlobalValue> Resample for DiscreteTransferEntropy<E> {
+impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteTransferEntropy<E> {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
         use crate::estimators::approaches::discrete::discrete_utils::reduce_hist_columns_compact;
         use crate::estimators::utils::te_slicing::te_embedding_views;
@@ -704,9 +737,49 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteTransferEntropy<E> {
             step_size: self.step_size,
         }
     }
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        use crate::estimators::approaches::discrete::discrete_utils::reduce_hist_columns_compact;
+        use crate::estimators::utils::te_slicing::te_embedding_views;
+
+        if let CmiInner::Spaces {
+            marginal_conds,
+            joint_cond,
+            cond_only,
+        } = &self.inner.inner
+        {
+            // Inner CMI: series = [X_past, Y_future], cond = Y_past. Under a
+            // permutation of the source only the X_past terms change, so
+            // `H(Y_future, Y_past)` and `H(Y_past)` are cached.
+            let invariant = marginal_conds[1].global_value();
+            let h_cond = cond_only.global_value();
+            let marginal0 = &marginal_conds[0];
+            let joint = joint_cond;
+            let source = self.source.clone();
+            let dest = self.dest.clone();
+            let (src_hist, dest_hist, step) =
+                (self.src_hist_len, self.dest_hist_len, self.step_size);
+            Some(Box::new(move |_i, rng| {
+                let permuted = resample_1d_i32(&source, method, rng);
+                let views = te_embedding_views(&permuted, &dest, src_hist, dest_hist, step);
+                let src_past = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+                let dest_past = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+                let dest_future = views.dest_future.to_owned();
+                let pair = [src_past.view(), dest_past.view()];
+                let h_m0 = marginal0
+                    .with_data(reduce_views_compact(&pair))
+                    .global_value();
+                let stack: Vec<ArrayView1<i32>> =
+                    vec![src_past.view(), dest_future.view(), dest_past.view()];
+                let h_joint = joint.with_data(reduce_views_compact(&stack)).global_value();
+                h_m0 + invariant - h_joint - h_cond
+            }))
+        } else {
+            None
+        }
+    }
 }
 
-impl<E: ResampleData + GlobalValue> EffectiveValueMeasure for DiscreteTransferEntropy<E> {}
+impl<E: ResampleData + GlobalValue + Sync> EffectiveValueMeasure for DiscreteTransferEntropy<E> {}
 
 /// Discrete Conditional Transfer Entropy estimator using the entropy-summation formula (via CMI).
 ///
@@ -869,7 +942,7 @@ impl
     }
 }
 
-impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalTransferEntropy<E> {
+impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteConditionalTransferEntropy<E> {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
         use crate::estimators::approaches::discrete::discrete_utils::{
             reduce_hist_columns_compact, reduce_joint_space_compact,
@@ -916,9 +989,70 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteConditionalTransferEntr
             step_size: self.step_size,
         }
     }
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        use crate::estimators::approaches::discrete::discrete_utils::{
+            reduce_hist_columns_compact, reduce_joint_space_compact,
+        };
+        use crate::estimators::utils::te_slicing::cte_embedding_views;
+
+        if let CmiInner::Spaces {
+            marginal_conds,
+            joint_cond,
+            cond_only,
+        } = &self.inner.inner
+        {
+            // Inner CMI: series = [X_past, Y_future], cond = (Y_past, Z_past) as
+            // a reduced code column. Only the X_past terms change, so
+            // `H(Y_future, Y_past, Z_past)`, `H(Y_past, Z_past)` and the
+            // conditioning code column are cached.
+            let invariant = marginal_conds[1].global_value();
+            let h_cond = cond_only.global_value();
+            let views = cte_embedding_views(
+                &self.source,
+                &self.dest,
+                &self.cond,
+                self.src_hist_len,
+                self.dest_hist_len,
+                self.cond_hist_len,
+                self.step_size,
+            );
+            let dest_past = reduce_hist_columns_compact(views.dest_past_cols.iter().copied());
+            let cond_past = reduce_hist_columns_compact(views.cond_past_cols.iter().copied());
+            let cond_codes = reduce_joint_space_compact(&[dest_past, cond_past]);
+            let marginal0 = &marginal_conds[0];
+            let joint = joint_cond;
+            let source = self.source.clone();
+            let dest = self.dest.clone();
+            let cond = self.cond.clone();
+            let (src_hist, dest_hist, cond_hist, step) = (
+                self.src_hist_len,
+                self.dest_hist_len,
+                self.cond_hist_len,
+                self.step_size,
+            );
+            Some(Box::new(move |_i, rng| {
+                let permuted = resample_1d_i32(&source, method, rng);
+                let views = cte_embedding_views(
+                    &permuted, &dest, &cond, src_hist, dest_hist, cond_hist, step,
+                );
+                let src_past = reduce_hist_columns_compact(views.src_past_cols.iter().copied());
+                let dest_future = views.dest_future.to_owned();
+                let pair = [src_past.view(), cond_codes.view()];
+                let h_m0 = marginal0
+                    .with_data(reduce_views_compact(&pair))
+                    .global_value();
+                let stack: Vec<ArrayView1<i32>> =
+                    vec![src_past.view(), dest_future.view(), cond_codes.view()];
+                let h_joint = joint.with_data(reduce_views_compact(&stack)).global_value();
+                h_m0 + invariant - h_joint - h_cond
+            }))
+        } else {
+            None
+        }
+    }
 }
 
-impl<E: ResampleData + GlobalValue> EffectiveValueMeasure
+impl<E: ResampleData + GlobalValue + Sync> EffectiveValueMeasure
     for DiscreteConditionalTransferEntropy<E>
 {
 }
