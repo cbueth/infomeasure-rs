@@ -36,6 +36,11 @@ pub trait EffectiveValue {
     fn effective_value(&self, method: TestMethod, seed: Option<u64>) -> f64;
 }
 
+/// A prepared, order-independent draw function returned by
+/// [`Resample::prepared`]: it takes the draw index and an RNG and returns the
+/// resampled measure value.
+pub(crate) type PreparedDraw<'a> = Box<dyn Fn(usize, &mut SmallRng) -> f64 + Sync + 'a>;
+
 /// Internal: an estimator that can rebuild itself with its source resampled.
 ///
 /// This is the only per-family glue a new measure needs to add to gain
@@ -44,6 +49,14 @@ pub(crate) trait Resample: GlobalValue {
     /// Rebuild this estimator with the source variable resampled according to
     /// `method`.
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self;
+
+    /// Optional fast path: a draw function that caches the work invariant across
+    /// resamples, for example the permutation-invariant marginal terms, and only
+    /// recomputes what changes per draw. Returning `None` falls back to
+    /// [`Resample::resampled`], which rebuilds the whole estimator each draw.
+    fn prepared(&self, _method: TestMethod) -> Option<PreparedDraw<'_>> {
+        None
+    }
 }
 
 impl<T: Resample + Sync> StatisticalTest for T {
@@ -52,9 +65,12 @@ impl<T: Resample + Sync> StatisticalTest for T {
         cfg: &StatisticalTestConfig,
     ) -> Result<StatisticalTestResult, StatsError> {
         let observed = self.global_value();
-        run_resample_test(observed, cfg, |_, rng| {
-            self.resampled(cfg.method, rng).global_value()
-        })
+        match self.prepared(cfg.method) {
+            Some(draw) => run_resample_test(observed, cfg, draw),
+            None => run_resample_test(observed, cfg, |_, rng| {
+                self.resampled(cfg.method, rng).global_value()
+            }),
+        }
     }
 }
 

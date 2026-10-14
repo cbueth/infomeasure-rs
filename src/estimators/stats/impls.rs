@@ -710,6 +710,8 @@ impl_expfam_cte_resample!(KozachenkoLeonenkoConditionalTransferEntropy);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::estimators::approaches::discrete::DiscreteMutualInformation;
+    use crate::estimators::approaches::discrete::mle::DiscreteEntropy;
     use crate::estimators::mutual_information::MutualInformation;
     use crate::estimators::stats::driver::{make_rng, resample_1d_i32};
     use crate::estimators::stats::{
@@ -1109,6 +1111,27 @@ mod tests {
             TransferEntropy::new_ordinal(&src.clone(), &dst.clone(), 3, 1, 1, 1, false),
             TransferEntropy::new_ordinal(&permuted_f64(&src, 9), &dst, 3, 1, 1, 1, false)
                 .global_value()
+        );
+    }
+
+    #[test]
+    fn discrete_mi_prepared_matches_resampled() {
+        // Force the generic `Spaces` representation so the cached-marginal fast
+        // path is exercised.
+        let mi =
+            DiscreteMutualInformation::new(&[symbols(40, 5), symbols(40, 7)], DiscreteEntropy::new);
+        let prepared = mi
+            .prepared(TestMethod::Permutation)
+            .expect("spaces MI caches its marginals");
+        let mut rng = make_rng(Some(11));
+        let got = prepared(0, &mut rng);
+        let mut rng = make_rng(Some(11));
+        let expected = mi
+            .resampled(TestMethod::Permutation, &mut rng)
+            .global_value();
+        assert!(
+            (got - expected).abs() < 1e-12,
+            "got {got}, expected {expected}"
         );
     }
 }

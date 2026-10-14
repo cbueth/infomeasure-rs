@@ -80,7 +80,9 @@ use crate::estimators::approaches::discrete::discrete_utils::{
     reduce_joint_space_compact, reduce_views_compact,
 };
 use crate::estimators::doc_macros::doc_snippets;
-use crate::estimators::stats::{EffectiveValueMeasure, Resample, TestMethod, resample_1d_i32};
+use crate::estimators::stats::{
+    EffectiveValueMeasure, PreparedDraw, Resample, TestMethod, resample_1d_i32,
+};
 use crate::estimators::traits::{
     ConditionalMutualInformationEstimator, GlobalValue, LocalValues, MutualInformationEstimator,
     OptionalLocalValues,
@@ -217,7 +219,7 @@ pub(crate) trait ResampleData {
     fn with_data(&self, data: Array1<i32>) -> Self;
 }
 
-impl<E: ResampleData + GlobalValue> Resample for DiscreteMutualInformation<E> {
+impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteMutualInformation<E> {
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self {
         match &self.inner {
             MiInner::Spaces { marginals, joint } => {
@@ -246,6 +248,26 @@ impl<E: ResampleData + GlobalValue> Resample for DiscreteMutualInformation<E> {
                     inner: MiInner::Dense(Box::new(new_dense)),
                 }
             }
+        }
+    }
+
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        if let MiInner::Spaces { marginals, joint } = &self.inner {
+            // The per-variable marginals are invariant under a permutation of the
+            // source, so their entropies are computed once; only the joint is
+            // rebuilt per draw.
+            let h_marginals: f64 = marginals.iter().map(|m| m.global_value()).sum();
+            let series: Vec<Array1<i32>> = marginals.iter().map(|m| m.raw_data().clone()).collect();
+            Some(Box::new(move |_i, rng| {
+                let mut permuted = series.clone();
+                permuted[0] = resample_1d_i32(&permuted[0], method, rng);
+                h_marginals
+                    - joint
+                        .with_data(reduce_joint_space_compact(&permuted))
+                        .global_value()
+            }))
+        } else {
+            None
         }
     }
 }
