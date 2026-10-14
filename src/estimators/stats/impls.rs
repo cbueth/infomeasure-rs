@@ -42,7 +42,7 @@ use crate::estimators::approaches::ordinal::ordinal_estimator::{
 
 use super::config::TestMethod;
 use super::driver::{resample_1d, resample_rows};
-use super::traits::{EffectiveValueMeasure, Resample};
+use super::traits::{EffectiveValueMeasure, PreparedDraw, Resample};
 
 macro_rules! impl_kernel_mi_resample {
     ($name:ident, $($d:ident),+) => {
@@ -53,6 +53,10 @@ macro_rules! impl_kernel_mi_resample {
                 let mut est = Self::new(&data, self.kernel_type.clone(), self.bandwidth);
                 est.force_cpu = self.force_cpu;
                 est
+            }
+
+            fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+                self.prepared_draw(method)
             }
         }
     };
@@ -101,6 +105,10 @@ macro_rules! impl_kernel_cmi_resample {
                 );
                 est.force_cpu = self.force_cpu;
                 est
+            }
+
+            fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+                self.prepared_draw(method)
             }
         }
     };
@@ -247,6 +255,10 @@ impl<
         est.force_cpu = self.force_cpu;
         est
     }
+
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        self.prepared_draw(method)
+    }
 }
 
 impl<
@@ -306,6 +318,10 @@ impl<
         let mut est = self.rebuild(&source);
         est.force_cpu = self.force_cpu;
         est
+    }
+
+    fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
+        self.prepared_draw(method)
     }
 }
 
@@ -1199,5 +1215,79 @@ mod tests {
                 DiscreteEntropy::new
             )
         );
+    }
+
+    #[test]
+    fn kernel_mi_prepared_matches_resampled() {
+        let mut mi = MutualInformation::new_kernel(&[ramp(40), wave(40)], 0.5);
+        mi.set_force_cpu(true);
+        assert_prepared_matches_resampled!(7, mi);
+    }
+
+    #[test]
+    fn knn_prepared_falls_back_to_resampled() {
+        let mi = crate::new_ksg_mi!(
+            &[ramp(40).insert_axis(Axis(1)), wave(40).insert_axis(Axis(1))],
+            3,
+            1e-6,
+            1,
+            1
+        );
+        assert!(mi.prepared(TestMethod::Permutation).is_none());
+    }
+
+    #[test]
+    fn kernel_cmi_prepared_matches_resampled() {
+        let s0 = Array1::from((0..60).map(|i| (i as f64 * 0.31).sin()).collect::<Vec<_>>());
+        let s1 = Array1::from((0..60).map(|i| (i as f64 * 0.53).cos()).collect::<Vec<_>>());
+        let c = Array1::from((0..60).map(|i| (i as f64 * 0.17).sin()).collect::<Vec<_>>());
+        let mut cmi = crate::new_kernel_cmi!(
+            &[s0.insert_axis(Axis(1)), s1.insert_axis(Axis(1))],
+            &c.insert_axis(Axis(1)),
+            "gaussian".to_string(),
+            1.0,
+            1,
+            1,
+            1
+        );
+        cmi.set_force_cpu(true);
+        assert_prepared_matches_resampled!(8, cmi);
+    }
+
+    #[test]
+    fn kernel_te_prepared_matches_resampled() {
+        let mut te = crate::new_kernel_te!(
+            &ramp(60).insert_axis(Axis(1)),
+            &wave(60).insert_axis(Axis(1)),
+            1,
+            1,
+            1,
+            1,
+            1,
+            "gaussian".to_string(),
+            0.5
+        );
+        te.set_force_cpu(true);
+        assert_prepared_matches_resampled!(9, te);
+    }
+
+    #[test]
+    fn kernel_cte_prepared_matches_resampled() {
+        let mut cte = crate::new_kernel_cte!(
+            &ramp(60).insert_axis(Axis(1)),
+            &wave(60).insert_axis(Axis(1)),
+            &ramp(60).mapv(|v| (v * 0.37).sin()).insert_axis(Axis(1)),
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            "gaussian".to_string(),
+            0.5
+        );
+        cte.set_force_cpu(true);
+        assert_prepared_matches_resampled!(10, cte);
     }
 }

@@ -238,6 +238,80 @@ impl<
         est.set_force_cpu(self.force_cpu);
         est
     }
+
+    /// A reusable draw function that caches the permutation-invariant marginal
+    /// densities `p(Ypast)` and `p(Yfuture, Ypast)` and recomputes the joint and
+    /// `p(Xpast, Ypast)` for each reshuffled source.
+    pub(crate) fn prepared_draw(
+        &self,
+        method: crate::estimators::stats::TestMethod,
+    ) -> Option<crate::estimators::stats::PreparedDraw<'_>> {
+        let (yf, yp, _xp) = te_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_JOINT,
+            D_XP_YP,
+            D_YP,
+            D_YF_YP,
+        >(&self.source, &self.dest, false);
+        let p_yp = self.new_est::<D_YP>(yp.clone()).kde_probability_density();
+        let yf_yp = concatenate(Axis(1), &[yf.view(), yp.view()]).unwrap();
+        let p_yf_yp = self.new_est::<D_YF_YP>(yf_yp).kde_probability_density();
+
+        let kernel_type = self.kernel_type.clone();
+        let bandwidth = self.bandwidth;
+        let force_cpu = self.force_cpu;
+        let source = self.source.clone();
+        let dest = self.dest.clone();
+        Some(Box::new(move |_i, rng| {
+            let source0 = crate::estimators::stats::resample_rows(&source, method, rng);
+            let (yf, yp, xp) = te_observations_const::<
+                f64,
+                SRC_HIST,
+                DEST_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_JOINT,
+                D_XP_YP,
+                D_YP,
+                D_YF_YP,
+            >(&source0, &dest, false);
+            let joint_all = concatenate(Axis(1), &[yf.view(), xp.view(), yp.view()]).unwrap();
+            let xp_yp = concatenate(Axis(1), &[xp.view(), yp.view()]).unwrap();
+
+            let mut joint_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                joint_all,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            joint_est.set_force_cpu(force_cpu);
+            let p_joint_all = joint_est.kde_probability_density();
+
+            let mut xp_yp_est = KernelEntropy::<D_XP_YP>::new_with_kernel_type(
+                xp_yp,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            xp_yp_est.set_force_cpu(force_cpu);
+            let p_xp_yp = xp_yp_est.kde_probability_density();
+
+            let n = p_joint_all.len();
+            let mut acc = 0.0;
+            for i in 0..n {
+                let num = p_joint_all[i] * p_yp[i];
+                let den = p_xp_yp[i] * p_yf_yp[i];
+                if num > 0.0 && den > 0.0 {
+                    acc += (num / den).ln();
+                }
+            }
+            acc / n as f64
+        }))
+    }
 }
 
 impl<
@@ -509,6 +583,89 @@ impl<
         est.set_force_cpu(self.force_cpu);
         est
     }
+
+    /// A reusable draw function that caches the permutation-invariant marginal
+    /// densities `p(Ypast, Zpast)` and `p(Yfuture, Ypast, Zpast)` and recomputes
+    /// the joint and `p(Xpast, Ypast, Zpast)` for each reshuffled source.
+    pub(crate) fn prepared_draw(
+        &self,
+        method: crate::estimators::stats::TestMethod,
+    ) -> Option<crate::estimators::stats::PreparedDraw<'_>> {
+        let (yf, yp, _xp, zp) = cte_observations_const::<
+            f64,
+            SRC_HIST,
+            DEST_HIST,
+            COND_HIST,
+            STEP_SIZE,
+            D_SOURCE,
+            D_TARGET,
+            D_COND,
+            D_JOINT,
+            D_XP_YP_ZP,
+            D_YP_ZP,
+            D_YF_YP_ZP,
+        >(&self.source, &self.dest, &self.cond, false);
+        let yp_zp = concatenate(Axis(1), &[yp.view(), zp.view()]).unwrap();
+        let p_yp_zp = self.new_est::<D_YP_ZP>(yp_zp).kde_probability_density();
+        let yf_yp_zp = concatenate(Axis(1), &[yf.view(), yp.view(), zp.view()]).unwrap();
+        let p_yf_yp_zp = self
+            .new_est::<D_YF_YP_ZP>(yf_yp_zp)
+            .kde_probability_density();
+
+        let kernel_type = self.kernel_type.clone();
+        let bandwidth = self.bandwidth;
+        let force_cpu = self.force_cpu;
+        let source = self.source.clone();
+        let dest = self.dest.clone();
+        let cond = self.cond.clone();
+        Some(Box::new(move |_i, rng| {
+            let source0 = crate::estimators::stats::resample_rows(&source, method, rng);
+            let (yf, yp, xp, zp) = cte_observations_const::<
+                f64,
+                SRC_HIST,
+                DEST_HIST,
+                COND_HIST,
+                STEP_SIZE,
+                D_SOURCE,
+                D_TARGET,
+                D_COND,
+                D_JOINT,
+                D_XP_YP_ZP,
+                D_YP_ZP,
+                D_YF_YP_ZP,
+            >(&source0, &dest, &cond, false);
+            let joint_all =
+                concatenate(Axis(1), &[yf.view(), xp.view(), yp.view(), zp.view()]).unwrap();
+            let xp_yp_zp = concatenate(Axis(1), &[xp.view(), yp.view(), zp.view()]).unwrap();
+
+            let mut joint_est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                joint_all,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            joint_est.set_force_cpu(force_cpu);
+            let p_joint_all = joint_est.kde_probability_density();
+
+            let mut xp_yp_zp_est = KernelEntropy::<D_XP_YP_ZP>::new_with_kernel_type(
+                xp_yp_zp,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            xp_yp_zp_est.set_force_cpu(force_cpu);
+            let p_xp_yp_zp = xp_yp_zp_est.kde_probability_density();
+
+            let n = p_joint_all.len();
+            let mut acc = 0.0;
+            for i in 0..n {
+                let num = p_joint_all[i] * p_yp_zp[i];
+                let den = p_xp_yp_zp[i] * p_yf_yp_zp[i];
+                if num > 0.0 && den > 0.0 {
+                    acc += (num / den).ln();
+                }
+            }
+            acc / n as f64
+        }))
+    }
 }
 
 impl<
@@ -746,6 +903,58 @@ macro_rules! impl_kernel_mi {
             pub fn set_force_cpu(&mut self, force_cpu: bool) {
                 self.force_cpu = force_cpu;
             }
+
+            /// A reusable draw function that caches the permutation-invariant
+            /// marginal densities and recomputes only the joint density per draw.
+            pub(crate) fn prepared_draw(
+                &self,
+                method: crate::estimators::stats::TestMethod,
+            ) -> Option<crate::estimators::stats::PreparedDraw<'_>> {
+                let n = self.data[0].nrows();
+                let mut sum_log_marginals = Array1::<f64>::zeros(n);
+                $(
+                    let density = KernelEntropy::<$d_param>::new_with_kernel_type(
+                        self.data[$d_idx].clone(),
+                        self.kernel_type.clone(),
+                        self.bandwidth,
+                    )
+                    .kde_probability_density();
+                    for (acc, p) in sum_log_marginals.iter_mut().zip(density.iter()) {
+                        if *p > 0.0 {
+                            *acc += p.ln();
+                        }
+                    }
+                )*
+                let kernel_type = self.kernel_type.clone();
+                let bandwidth = self.bandwidth;
+                let force_cpu = self.force_cpu;
+                let data = self.data.clone();
+                Some(Box::new(move |_i, rng| {
+                    let mut permuted = data.clone();
+                    permuted[0] =
+                        crate::estimators::stats::resample_rows(&permuted[0], method, rng);
+                    let joint_data = concatenate(
+                        Axis(1),
+                        &permuted.iter().map(|d| d.view()).collect::<Vec<_>>(),
+                    )
+                    .unwrap();
+                    let mut est = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                        joint_data,
+                        kernel_type.clone(),
+                        bandwidth,
+                    );
+                    est.set_force_cpu(force_cpu);
+                    let joint = est.kde_probability_density();
+                    let n = joint.len();
+                    let mut acc = 0.0;
+                    for i in 0..n {
+                        if joint[i] > 0.0 {
+                            acc += joint[i].ln() - sum_log_marginals[i];
+                        }
+                    }
+                    acc / n as f64
+                }))
+            }
         }
 
         impl<const D_JOINT: usize, $(const $d_param: usize),*> GlobalValue for $name<D_JOINT, $($d_param),*> {
@@ -877,6 +1086,65 @@ impl<
     /// Sets whether to force CPU implementation even if GPU support is available.
     pub fn set_force_cpu(&mut self, force_cpu: bool) {
         self.force_cpu = force_cpu;
+    }
+
+    /// A reusable draw function that caches the permutation-invariant marginal
+    /// densities `p(Z)` and `p(Y, Z)` and recomputes only the joint and `p(X, Z)`.
+    pub(crate) fn prepared_draw(
+        &self,
+        method: crate::estimators::stats::TestMethod,
+    ) -> Option<crate::estimators::stats::PreparedDraw<'_>> {
+        let p_cond = KernelEntropy::<D_COND>::new_with_kernel_type(
+            self.cond.clone(),
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+        let xi_z2 = concatenate(Axis(1), &[self.series[1].view(), self.cond.view()]).unwrap();
+        let p_marg2 = KernelEntropy::<D2_COND>::new_with_kernel_type(
+            xi_z2,
+            self.kernel_type.clone(),
+            self.bandwidth,
+        )
+        .kde_probability_density();
+
+        let kernel_type = self.kernel_type.clone();
+        let bandwidth = self.bandwidth;
+        let force_cpu = self.force_cpu;
+        let series0 = self.series[0].clone();
+        let series1 = self.series[1].clone();
+        let cond = self.cond.clone();
+        Some(Box::new(move |_i, rng| {
+            let x0 = crate::estimators::stats::resample_rows(&series0, method, rng);
+            let all_data = concatenate(Axis(1), &[x0.view(), series1.view(), cond.view()]).unwrap();
+            let mut joint = KernelEntropy::<D_JOINT>::new_with_kernel_type(
+                all_data,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            joint.set_force_cpu(force_cpu);
+            let p_joint_all = joint.kde_probability_density();
+
+            let xi_z1 = concatenate(Axis(1), &[x0.view(), cond.view()]).unwrap();
+            let mut marg1 = KernelEntropy::<D1_COND>::new_with_kernel_type(
+                xi_z1,
+                kernel_type.clone(),
+                bandwidth,
+            );
+            marg1.set_force_cpu(force_cpu);
+            let p_marg1 = marg1.kde_probability_density();
+
+            let n = p_joint_all.len();
+            let mut acc = 0.0;
+            for i in 0..n {
+                let num = p_joint_all[i] * p_cond[i];
+                let den = p_marg1[i] * p_marg2[i];
+                if p_joint_all[i] > 0.0 && p_cond[i] > 0.0 && den > 0.0 {
+                    acc += (num / den).ln();
+                }
+            }
+            acc / n as f64
+        }))
     }
 }
 

@@ -54,6 +54,12 @@ pub(crate) trait Resample: GlobalValue {
     /// resamples, for example the permutation-invariant marginal terms, and only
     /// recomputes what changes per draw. Returning `None` falls back to
     /// [`Resample::resampled`], which rebuilds the whole estimator each draw.
+    ///
+    /// Kernel estimators cache their invariant marginal densities. kNN
+    /// estimators leave this as `None`: their marginal neighbour counts depend
+    /// on the joint k-th neighbour radius `epsilon`, which changes on every
+    /// permutation, so only the untouched marginals' sort order would be
+    /// reusable, which is not worth the duplicated per-family formula.
     fn prepared(&self, _method: TestMethod) -> Option<PreparedDraw<'_>> {
         None
     }
