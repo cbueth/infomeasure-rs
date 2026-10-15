@@ -152,3 +152,7 @@ harness = false
 [[bench]]
 name = "composite_measures"
 harness = false
+
+[[bench]]
+name = "statistical_test"
+harness = false

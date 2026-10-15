@@ -67,7 +67,7 @@ steps:
           touch /target/infomeasure-rs-bench/.seeded;
         fi
       - |
-        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures"
+        BENCH_ARGS="--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures --bench statistical_test"
         cargo bench --no-run --features gpu,parallel $BENCH_ARGS
 
   - name: bench
@@ -94,7 +94,7 @@ steps:
       # The bench suite is run by scripts/ci/bench_streams.sh: 3 concurrent
       # non-`*_parallel` streams, then the *_parallel groups and the GPU groups
       # alone. 4 concurrent groups measured outside the noise band on this box.
-      BENCH_ARGS: "--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures"
+      BENCH_ARGS: "--bench entropy_discrete --bench entropy_discrete_bias_corrected --bench mi_discrete_bias_corrected --bench te_discrete_bias_corrected --bench cmi_discrete_bias_corrected --bench cte_discrete_bias_corrected --bench entropy_ordinal --bench entropy_expfam --bench mi --bench mi_expfam --bench te --bench cmi --bench cte --bench kernel_gpu --bench gpu_crossover --bench composite_measures --bench statistical_test"
       CRIT_FLAGS: "--warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot"
       GPU_TARGETS: "kernel_gpu gpu_crossover"
       # The build enables `parallel`, but the global rayon pool is pinned to 1 so
