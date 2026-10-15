@@ -17,6 +17,8 @@ mod expfam;
 mod kernel;
 #[path = "ordinal/mod.rs"]
 mod ordinal;
+#[path = "stats/mod.rs"]
+mod stats;
 #[path = "test_helpers.rs"]
 pub mod test_helpers;
 #[path = "utils/mod.rs"]

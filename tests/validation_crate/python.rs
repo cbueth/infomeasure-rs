@@ -1152,7 +1152,107 @@ print(timer.timeit(number={num})/{num})
     output
         .trim()
         .parse::<f64>()
-        .map_err(|e| format!("Failed to parse output as float: {}", e))
+        .map_err(|e| format!("Failed to parse output as f64: {} (output='{}')", e, output))
+}
+
+/// Runs the Python `statistical_test` for mutual information with an injected,
+/// recorded permutation sequence.
+///
+/// The estimator's RNG is replaced by a recorder wrapping
+/// `numpy.random.default_rng(seed)` whose `permutation`/`choice` calls are captured
+/// and returned. This makes the resampling deterministic and lets the Rust side
+/// replay the exact same permutations, so the two implementations can be compared
+/// without needing to match their RNG streams.
+///
+/// Returns a JSON object with `observed_value`, `p_value`, `t_score` (`null` when
+/// the null spread is zero), `test_values` and `permutations`.
+pub fn statistical_test_mi<T: Serialize>(
+    series: &[Vec<T>],
+    approach: &str,
+    kwargs: &[(String, String)],
+    n_tests: usize,
+    seed: u64,
+    method: &str,
+) -> Result<serde_json::Value, String> {
+    if !ensure_environment() {
+        return Err("Failed to ensure uv virtual environment exists".into());
+    }
+    let data_file = save_data_to_temp_file(series)?;
+    let temp_dir = std::env::temp_dir();
+    let uid = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        thread_rng().r#gen::<u64>()
+    );
+    let script_path = temp_dir.join(format!("statistical_test_mi_{}.py", uid));
+    let kwargs_str = kwargs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let script = format!(
+        r#"
+import infomeasure as im, json, numpy as np
+
+class _Recorder:
+    def __init__(self, rng):
+        self._rng = rng
+        self.permutations = []
+    def _record(self, idx):
+        self.permutations.append([int(i) for i in idx])
+        return idx
+    def permutation(self, a, axis=0):
+        idx = self._record(self._rng.permutation(a.shape[axis]))
+        return np.take(a, idx, axis=axis)
+    def choice(self, a, size=None, replace=True, axis=0):
+        idx = self._record(self._rng.choice(a.shape[axis], size=size, replace=replace))
+        return np.take(a, idx, axis=axis)
+
+with open("{df}", "r") as f:
+    data = json.load(f)
+data_arrays = []
+for s in data:
+    arr = np.array(s)
+    is_continuous = "{ap}" in ["kernel", "metric", "kl", "ksg", "renyi", "tsallis"]
+    if is_continuous and arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    data_arrays.append(arr)
+kwargs_dict = dict({kw})
+if 'base' not in kwargs_dict:
+    kwargs_dict['base'] = 'e'
+EstimatorClass = im.get_estimator_class(measure="mi", approach="{ap}")
+est = EstimatorClass(*data_arrays, **kwargs_dict)
+recorder = _Recorder(np.random.default_rng({seed}))
+est.rng = recorder
+res = est.statistical_test(n_tests={n}, method="{m}")
+print(json.dumps({{
+    "observed_value": float(res.observed_value),
+    "p_value": float(res.p_value),
+    "t_score": (None if np.isnan(res.t_score) else float(res.t_score)),
+    "test_values": np.asarray(res.test_values).tolist(),
+    "permutations": recorder.permutations,
+}}))
+"#,
+        df = data_file.to_str().unwrap(),
+        ap = approach,
+        kw = kwargs_str,
+        seed = seed,
+        n = n_tests,
+        m = method
+    );
+    std::fs::write(&script_path, script).map_err(|e| format!("Failed to write script: {}", e))?;
+    let output = run_in_environment(&[script_path.to_str().unwrap()])?;
+    let _ = std::fs::remove_file(script_path);
+    let _ = std::fs::remove_file(data_file);
+    serde_json::from_str::<serde_json::Value>(output.trim()).map_err(|e| {
+        format!(
+            "Failed to parse output as JSON: {} (output='{}')",
+            e, output
+        )
+    })
 }
 
 /// Benchmarks the entropy computation for multi-dimensional float data using a specified approach.
