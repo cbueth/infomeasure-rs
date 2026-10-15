@@ -14,7 +14,9 @@
 use approx::assert_relative_eq;
 use infomeasure::estimators::GlobalValue;
 use infomeasure::estimators::mutual_information::MutualInformation;
-use ndarray::Array1;
+use infomeasure::estimators::transfer_entropy::TransferEntropy;
+use infomeasure::new_kernel_te;
+use ndarray::{Array1, Axis};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::rstest;
@@ -85,6 +87,15 @@ fn assert_statistical_test_parity(
     }
 }
 
+/// Asserts that Python's statistical test produced a degenerate null: every
+/// draw equals the observed value.
+fn assert_python_test_is_degenerate(json: &serde_json::Value) {
+    let observed = json["observed_value"].as_f64().expect("observed_value");
+    for value in json["test_values"].as_array().expect("test_values") {
+        assert_relative_eq!(value.as_f64().unwrap(), observed, epsilon = 1e-12);
+    }
+}
+
 fn continuous(n: usize) -> (Array1<f64>, Array1<f64>) {
     let mut rng = StdRng::seed_from_u64(11);
     let x: Vec<f64> = (0..n).map(|_| rng.gen_range(-3.0..3.0)).collect();
@@ -108,8 +119,25 @@ fn symbols(n: usize) -> (Array1<i32>, Array1<i32>) {
     (Array1::from(x), Array1::from(y))
 }
 
+fn uniform(n: usize, seed: u64) -> Array1<f64> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    Array1::from((0..n).map(|_| rng.gen_range(-3.0..3.0)).collect::<Vec<_>>())
+}
+
 fn permuted(src: &Array1<f64>, idx: &[usize]) -> Array1<f64> {
     Array1::from(idx.iter().map(|&i| src[i]).collect::<Vec<_>>())
+}
+
+/// Python shuffles the embedded source-history rows. For a single source-history
+/// sample per window (`SRC_HIST = 1`, `STEP_SIZE = 1`) the shuffled row `i` reads
+/// `source[idx[i]]`, so the same null is reproduced by reordering the raw source
+/// with `perm[i] = idx[i]`.
+fn te_shuffle_to_source_permutation(idx: &[usize], n: usize) -> Vec<usize> {
+    let mut perm: Vec<usize> = (0..n).collect();
+    for (i, &j) in idx.iter().enumerate() {
+        perm[i] = j;
+    }
+    perm
 }
 
 type NullDraw = Box<dyn Fn(&[usize]) -> f64>;
@@ -201,6 +229,208 @@ fn statistical_test_mi_matches_python(#[case] approach: &str) {
     assert_statistical_test_parity(&json, observed, null_fn);
 }
 
+#[rstest]
+#[case("kernel")]
+#[case("discrete")]
+fn statistical_test_cmi_matches_python(#[case] approach: &str) {
+    const N_TESTS: usize = 16;
+    const SEED: u64 = 42;
+
+    let (json, observed, null_fn): (_, f64, NullDraw) = match approach {
+        "kernel" => {
+            let (x, y) = continuous(48);
+            let z = uniform(48, 21);
+            let zv = z.to_vec();
+            let kwargs = [
+                ("kernel".to_string(), "\"gaussian\"".to_string()),
+                ("bandwidth".to_string(), "1.0".to_string()),
+            ];
+            let observed = MutualInformation::new_cmi_kernel_with_type(
+                &[x.clone(), y.clone()],
+                &z,
+                "gaussian".to_string(),
+                1.0,
+            )
+            .global_value();
+            let json = python::statistical_test(
+                "cmi",
+                &[x.to_vec(), y.to_vec()],
+                Some(zv.as_slice()),
+                "kernel",
+                &kwargs,
+                N_TESTS,
+                SEED,
+                "permutation_test",
+            )
+            .unwrap();
+            let null: NullDraw = Box::new(move |idx: &[usize]| {
+                MutualInformation::new_cmi_kernel_with_type(
+                    &[permuted(&x, idx), y.clone()],
+                    &z,
+                    "gaussian".to_string(),
+                    1.0,
+                )
+                .global_value()
+            });
+            (json, observed, null)
+        }
+        "discrete" => {
+            let (x, y) = symbols(48);
+            let z = Array1::from((0..48).map(|i| i % 4).collect::<Vec<_>>());
+            let zv = z.to_vec();
+            let observed =
+                MutualInformation::new_cmi_discrete_mle(&[x.clone(), y.clone()], &z).global_value();
+            let json = python::statistical_test(
+                "cmi",
+                &[x.to_vec(), y.to_vec()],
+                Some(zv.as_slice()),
+                "discrete",
+                &[],
+                N_TESTS,
+                SEED,
+                "permutation_test",
+            )
+            .unwrap();
+            let null: NullDraw = Box::new(move |idx: &[usize]| {
+                let src = Array1::from(idx.iter().map(|&i| x[i]).collect::<Vec<_>>());
+                MutualInformation::new_cmi_discrete_mle(&[src, y.clone()], &z).global_value()
+            });
+            (json, observed, null)
+        }
+        other => panic!("unknown approach {other}"),
+    };
+
+    assert_statistical_test_parity(&json, observed, null_fn);
+}
+
+// Transfer entropy and conditional transfer entropy parity is checked for a
+// single source-history sample per window (`SRC_HIST = 1`, `STEP_SIZE = 1`).
+// There, Python's row shuffle of the embedded source history is equivalent to
+// reordering the raw source, so `te_shuffle_to_source_permutation` reproduces
+// it. For `SRC_HIST > 1` Rust resamples the raw source before embedding while
+// Python permutes the embedded windows, so the two null distributions differ;
+// that case is not covered here.
+#[rstest]
+#[case("kernel")]
+#[case("discrete")]
+fn statistical_test_te_matches_python(#[case] approach: &str) {
+    const N_TESTS: usize = 16;
+    const SEED: u64 = 42;
+
+    let (json, observed, null_fn): (_, f64, NullDraw) = match approach {
+        "kernel" => {
+            let (s, d) = continuous(48);
+            let s2 = s.clone().insert_axis(Axis(1));
+            let d2 = d.clone().insert_axis(Axis(1));
+            let kwargs = [
+                ("kernel".to_string(), "\"gaussian\"".to_string()),
+                ("bandwidth".to_string(), "1.0".to_string()),
+            ];
+            let observed =
+                new_kernel_te!(&s2, &d2, 1, 1, 1, 1, 1, "gaussian".to_string(), 1.0).global_value();
+            let json = python::statistical_test(
+                "te",
+                &[s.to_vec(), d.to_vec()],
+                None,
+                "kernel",
+                &kwargs,
+                N_TESTS,
+                SEED,
+                "permutation_test",
+            )
+            .unwrap();
+            let n = s.len();
+            let null: NullDraw = Box::new(move |idx: &[usize]| {
+                let perm = te_shuffle_to_source_permutation(idx, n);
+                let ps = Array1::from(perm.iter().map(|&i| s[i]).collect::<Vec<_>>())
+                    .insert_axis(Axis(1));
+                new_kernel_te!(&ps, &d2, 1, 1, 1, 1, 1, "gaussian".to_string(), 1.0).global_value()
+            });
+            (json, observed, null)
+        }
+        "discrete" => {
+            let (s, d) = symbols(48);
+            let observed = TransferEntropy::new_discrete_mle(&s, &d, 1, 1, 1).global_value();
+            let json = python::statistical_test(
+                "te",
+                &[s.to_vec(), d.to_vec()],
+                None,
+                "discrete",
+                &[],
+                N_TESTS,
+                SEED,
+                "permutation_test",
+            )
+            .unwrap();
+            let n = s.len();
+            let null: NullDraw = Box::new(move |idx: &[usize]| {
+                let perm = te_shuffle_to_source_permutation(idx, n);
+                let ps = Array1::from(perm.iter().map(|&i| s[i]).collect::<Vec<_>>());
+                TransferEntropy::new_discrete_mle(&ps, &d, 1, 1, 1).global_value()
+            });
+            (json, observed, null)
+        }
+        other => panic!("unknown approach {other}"),
+    };
+
+    assert_statistical_test_parity(&json, observed, null_fn);
+}
+
+// Conditional transfer entropy is not compared for the same reason as the
+// ordinal family: Python's kernel and discrete CTE estimators call
+// `cte_observations` without forwarding `permute_src`, so `_test_te` sets the
+// RNG but the source is never permuted and the null is degenerate.
+#[rstest]
+#[case("kernel")]
+#[case("discrete")]
+fn python_cte_statistical_test_is_degenerate(#[case] approach: &str) {
+    let json = match approach {
+        "kernel" => {
+            let (s, d) = continuous(48);
+            let c = uniform(48, 31);
+            python::statistical_test(
+                "cte",
+                &[s.to_vec(), d.to_vec()],
+                Some(c.as_slice().unwrap()),
+                "kernel",
+                &[
+                    ("kernel".to_string(), "\"gaussian\"".to_string()),
+                    ("bandwidth".to_string(), "1.0".to_string()),
+                ],
+                8,
+                42,
+                "permutation_test",
+            )
+            .unwrap()
+        }
+        "discrete" => {
+            let (s, d) = symbols(48);
+            let c = Array1::from((0..48).map(|i| i % 4).collect::<Vec<_>>());
+            python::statistical_test(
+                "cte",
+                &[s.to_vec(), d.to_vec()],
+                Some(c.as_slice().unwrap()),
+                "discrete",
+                &[],
+                8,
+                42,
+                "permutation_test",
+            )
+            .unwrap()
+        }
+        other => panic!("unknown approach {other}"),
+    };
+
+    assert!(
+        json["permutations"]
+            .as_array()
+            .expect("permutations")
+            .is_empty(),
+        "expected no recorded resampling for CTE"
+    );
+    assert_python_test_is_degenerate(&json);
+}
+
 // The ordinal family is intentionally not covered here: Python's
 // `statistical_test` symbolizes once in `__init__` and `_calculate` reuses that
 // cached `symbols` array, so permuting `self.data` in `_test_mi` never changes
@@ -222,9 +452,5 @@ fn python_ordinal_statistical_test_is_degenerate() {
         "permutation_test",
     )
     .unwrap();
-    let test_values = json["test_values"].as_array().unwrap();
-    let observed = json["observed_value"].as_f64().unwrap();
-    for value in test_values {
-        assert_relative_eq!(value.as_f64().unwrap(), observed, epsilon = 1e-12);
-    }
+    assert_python_test_is_degenerate(&json);
 }
