@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.6.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.6.0) - 2026-10-15
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### ✨ Features
+
+- feat(stats): significance tests for the Rényi, Tsallis and Kozachenko-Leonenko families [[#114](https://codeberg.org/cbueth/infomeasure-rs/pulls/114)]
+- feat(stats): significance tests for discrete CMI and transfer entropy [[#113](https://codeberg.org/cbueth/infomeasure-rs/pulls/113)]
+- feat(stats): significance tests for discrete mutual information [[#112](https://codeberg.org/cbueth/infomeasure-rs/pulls/112)]
+- feat(stats): significance tests for the KSG and ordinal families, effective value, and confidence-interval validation [[#111](https://codeberg.org/cbueth/infomeasure-rs/pulls/111)]
+- feat(stats): permutation/bootstrap significance tests and effective value [[#109](https://codeberg.org/cbueth/infomeasure-rs/pulls/109)]
+
+### ⚡ Performance
+
+- perf(stats): prepare kernel marginal densities for resampling [[#120](https://codeberg.org/cbueth/infomeasure-rs/pulls/120)]
+- perf(stats): prepare resamples for discrete CMI, TE and CTE [[#119](https://codeberg.org/cbueth/infomeasure-rs/pulls/119)]
+- perf(stats): prepare resamples by caching permutation-invariant marginals [[#117](https://codeberg.org/cbueth/infomeasure-rs/pulls/117)]
+- perf(stats): parallelise resamples with order-independent per-draw seeding [[#115](https://codeberg.org/cbueth/infomeasure-rs/pulls/115)]
+
+### 📚 Documentation
+
+- docs(stats): document test coverage, effective-value signature and parallelism [[#118](https://codeberg.org/cbueth/infomeasure-rs/pulls/118)]
+
+### Misc
+
+- test(stats): cross-check significance tests against Python [[#121](https://codeberg.org/cbueth/infomeasure-rs/pulls/121)]
+- test(stats): cross-check resampling against explicit rebuilds [[#116](https://codeberg.org/cbueth/infomeasure-rs/pulls/116)]
+- ci(docker): avoid GCC 14 vectorizer ICE when compiling OpenBLAS [[#110](https://codeberg.org/cbueth/infomeasure-rs/pulls/110)]
+- chore(release): bump Cargo.lock during release preparation [[#107](https://codeberg.org/cbueth/infomeasure-rs/pulls/107)]
+
 ## [0.5.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.5.1) - 2026-10-02
 
 ### ❤️ Thanks to all contributors! ❤️
