@@ -27,6 +27,9 @@
 //!   the kernel and k-NN (exponential-family) estimators
 //! - **Type Safety**: Compile-time checked estimators
 //! - **Multiple Approaches**: Discrete, kernel, ordinal, and k-NN based estimators
+//! - **Model-Agnostic Evaluation**: Global and local (pointwise) MI/CMI/TE can
+//!   score externally trained representations and act as classical baselines
+//!   against neural MI estimators (MINE, InfoNCE/NWJ, Donsker–Varadhan)
 //!
 //! ## Getting Started
 //!

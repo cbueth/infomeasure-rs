@@ -33,6 +33,12 @@ High-performance Rust library for information-theoretic measures with multiple e
 - **Ordinal**: For time series using permutation patterns
 - **Exponential Family**: For high-dimensional data using k-NN
 
+It also works as a **model-agnostic evaluation layer** for representation
+learning: feed in embeddings from an external encoder and use the global and
+pointwise (local) MI/CMI/TE estimators to measure how much information they
+retain, alongside the classical estimators as baselines against neural MI
+estimators such as MINE, InfoNCE/NWJ, and Donsker–Varadhan.
+
 ## Installation
 
 ```toml

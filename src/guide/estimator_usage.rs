@@ -699,6 +699,35 @@
 //! assert!(positive_count > 0);
 //! ```
 //!
+//! ### Evaluating Learned Representations
+//!
+//! Beyond estimating measures from raw observations, the same estimators act as
+//! a **model-agnostic evaluation layer** for representation learning: take the
+//! embeddings produced by an external encoder and quantify how much information
+//! they retain. Because the estimators are non-parametric, they can score any
+//! encoder's outputs and serve as classical baselines against neural MI
+//! estimators (MINE, InfoNCE/NWJ, Donsker–Varadhan).
+//!
+//! The global value gives the retained information, while the local (pointwise)
+//! values expose which samples are informative or misinforming.
+//!
+//! ```rust
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//! use infomeasure::estimators::traits::{GlobalValue, LocalValues};
+//! use ndarray::array;
+//!
+//! // Externally produced arrays: a latent factor and an embedding dimension.
+//! let latent = array![0.10, -0.40, 0.70, 1.20, -0.90, 0.30, 1.50, -0.20];
+//! let embedding = array![0.12, -0.37, 0.66, 1.31, -0.85, 0.28, 1.44, -0.25];
+//!
+//! // k-NN (KSG) estimate of the shared information, plus per-sample values.
+//! let est = MutualInformation::new_ksg(&[latent, embedding], 3, 1e-10);
+//! let retained = est.global_value();
+//! let pointwise = est.local_values();
+//! assert!(retained > 0.0);
+//! assert_eq!(pointwise.len(), 8);
+//! ```
+//!
 //! ### Feature Flags
 //!
 //! - `gpu`: GPU acceleration (wgpu) for the kernel estimators, the discrete
