@@ -1,9 +1,15 @@
 {
   "meta": {
     "schema": 2,
-    "run_id": "fragment_1792108139",
+    "run_id": "fragment_1792136265",
     "fingerprint": "49bb491508235ad7",
-    "hardware": null,
+    "hardware": {
+      "cores": 12,
+      "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+      "gpu": null,
+      "memory_gb": 15.4940185546875,
+      "os": "Linux"
+    },
     "runtime": {
       "threads": 1,
       "adaptive": true,
