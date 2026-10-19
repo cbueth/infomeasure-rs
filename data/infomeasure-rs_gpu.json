@@ -5124,7 +5124,7 @@
   "meta": {
     "features": "gpu",
     "fingerprint": "c6022e770c044dcc",
-    "generated": 1792136777,
+    "generated": 1792420906,
     "gpu": {
       "adapter": "NVIDIA GeForce GTX 1060",
       "backend": "Vulkan",
@@ -5160,7 +5160,7 @@
         "version": "0.6.0"
       }
     ],
-    "run_id": "infomeasure-rs_gpu_1792136777",
+    "run_id": "infomeasure-rs_gpu_1792420906",
     "runtime": {
       "adaptive": true,
       "detailed": {

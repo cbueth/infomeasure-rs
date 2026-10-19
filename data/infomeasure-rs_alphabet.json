@@ -95,7 +95,7 @@
         "median": 1.6605e-6,
         "min": 1.633e-6,
         "samples": 40,
-        "stddev": 7.0837028561230675e-9
+        "stddev": 7.083702856123067e-9
       },
       "value": 1.6080211167515446
     },
@@ -491,7 +491,7 @@
         "median": 0.0000122095,
         "min": 0.000012096,
         "samples": 40,
-        "stddev": 4.890293892904015e-8
+        "stddev": 4.8902938929040154e-8
       },
       "value": 3.2172684820719883
     },
@@ -788,7 +788,7 @@
         "median": 8.5365e-6,
         "min": 8.43e-6,
         "samples": 40,
-        "stddev": 3.9189218820931724e-8
+        "stddev": 3.918921882093173e-8
       },
       "value": 5.286086672177277
     },
@@ -1679,7 +1679,7 @@
         "median": 3.165e-6,
         "min": 3.112e-6,
         "samples": 40,
-        "stddev": 7.098593215632634e-8
+        "stddev": 7.098593215632635e-8
       },
       "value": 0.468107662735474
     },
@@ -3985,7 +3985,7 @@
       ]
     ],
     "fingerprint": "df715ae4b6f73460",
-    "generated": 1792136750,
+    "generated": 1792420877,
     "hardware": {
       "cores": 12,
       "cpu": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
@@ -4000,7 +4000,7 @@
         "version": "0.6.0"
       }
     ],
-    "run_id": "infomeasure-rs_alphabet_1792136750",
+    "run_id": "infomeasure-rs_alphabet_1792420877",
     "runtime": {
       "adaptive": true,
       "family": "alphabet",

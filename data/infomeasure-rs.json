@@ -18204,7 +18204,7 @@
         "median": 9.685e-7,
         "min": 9.44e-7,
         "samples": 10,
-        "stddev": 8.796091303654266e-8
+        "stddev": 8.796091303654267e-8
       },
       "value": 2.2957761827799583
     },
@@ -45316,7 +45316,7 @@
   "meta": {
     "features": "",
     "fingerprint": "37c7f43711f4c499",
-    "generated": 1792136045,
+    "generated": 1792420173,
     "gpu": null,
     "hardware": {
       "cores": 12,
@@ -45344,7 +45344,7 @@
         "version": "0.6.0"
       }
     ],
-    "run_id": "infomeasure-rs_1792136044",
+    "run_id": "infomeasure-rs_1792420173",
     "runtime": {
       "adaptive": true,
       "detailed": {
