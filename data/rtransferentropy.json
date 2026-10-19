@@ -60,14 +60,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.0009,
-        "stddev": 0.000496138938357,
+        "mean": 0.000925,
+        "stddev": 0.000349908412925,
         "min": 0,
-        "max": 0.003,
+        "max": 0.002,
         "median": 0.001,
         "samples": 40,
-        "ci_lower": 0.000746244950052,
-        "ci_upper": 0.00105375504995
+        "ci_lower": 0.000816562259385,
+        "ci_upper": 0.00103343774062
       },
       "value": 0.0635987565539,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
@@ -92,14 +92,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.000925,
-        "stddev": 0.000266746782837,
-        "min": 0,
+        "mean": 0.001,
+        "stddev": 0,
+        "min": 0.001,
         "max": 0.001,
         "median": 0.001,
         "samples": 40,
-        "ci_lower": 0.000842334315556,
-        "ci_upper": 0.00100766568444
+        "ci_lower": 0.001,
+        "ci_upper": 0.001
       },
       "value": 0.0183248502919,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
@@ -124,14 +124,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.001675,
-        "stddev": 0.000615504795957,
+        "mean": 0.00165,
+        "stddev": 0.000533493565674,
         "min": 0.001,
-        "max": 0.004,
+        "max": 0.003,
         "median": 0.002,
         "samples": 40,
-        "ci_lower": 0.00148425308753,
-        "ci_upper": 0.00186574691247
+        "ci_lower": 0.00148466863111,
+        "ci_upper": 0.00181533136889
       },
       "value": 0.0330998485087,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
@@ -188,14 +188,14 @@
         "kernel_type": null
       },
       "statistics": {
-        "mean": 0.005675,
-        "stddev": 0.000797029742391,
+        "mean": 0.005625,
+        "stddev": 0.000740322175189,
         "min": 0.005,
         "max": 0.008,
-        "median": 0.006,
+        "median": 0.0055,
         "samples": 40,
-        "ci_lower": 0.00542799792381,
-        "ci_upper": 0.00592200207619
+        "ci_lower": 0.00539557178096,
+        "ci_upper": 0.00585442821904
       },
       "value": 0.0264312648231,
       "notes": "Quantile-binned discrete estimator; nearest equivalent to the plug-in TE."
