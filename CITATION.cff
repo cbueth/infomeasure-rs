@@ -30,3 +30,38 @@ keywords:
   - rust
 
 date-released: "2026-10-15"
+
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Büth"
+      given-names: "Carlson Moses"
+      orcid: "https://orcid.org/0000-0003-2298-8438"
+  doi: "10.48550/arXiv.2610.27951"
+  url: "https://arxiv.org/abs/2610.27951"
+  title: "infomeasure-rs: A High-Performance Rust Library for Information-Theoretic Measures and Estimators"
+  year: 2026
+  month: 10
+  abstract: |
+    Information theory has become a standard tool across the natural and social
+    sciences, yet practical use is limited by estimator choice, fragmented
+    software, reproducibility, and computational cost. We present
+    infomeasure-rs, an open-source Rust library that brings a broad set of
+    information-theoretic measures and estimators into one self-contained,
+    type-safe package. It covers entropy, mutual information, conditional
+    mutual information, transfer entropy, conditional transfer entropy,
+    cross-entropy, and the Kullback-Leibler and Jensen-Shannon divergences, with
+    discrete (plug-in and bias-corrected), kernel, ordinal, and
+    nearest-neighbour estimators, including the Rényi and Tsallis families, and
+    exposes local and global values and significance testing through a
+    consistent trait interface. It ships as a single portable binary with no
+    runtime dependency and is continuously validated against a reference
+    implementation. On a single central processing unit (CPU) core, and even
+    without its GPU or parallel paths, it is the fastest of the packages we
+    compared across languages, matching the closest packages only for plug-in
+    discrete entropy and substantially faster for mutual information, the
+    conditional and transfer measures, and the kernel, ordinal, and
+    generalised-entropy estimators. The optional GPU and multi-threaded paths
+    accelerate selected continuous estimators further. The library is open
+    source and, to our knowledge, the most complete information-theory package
+    for Rust.

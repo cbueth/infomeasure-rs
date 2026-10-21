@@ -31,6 +31,14 @@
 //!   score externally trained representations and act as classical baselines
 //!   against neural MI estimators (MINE, InfoNCE/NWJ, Donsker–Varadhan)
 //!
+//! ## Citation
+//!
+//! If you use this crate in your work, please cite the preprint:
+//!
+//! > Büth, C. M. (2026). *infomeasure-rs: A High-Performance Rust Library for
+//! > Information-Theoretic Measures and Estimators*. arXiv:2610.27951.
+//! > <https://arxiv.org/abs/2610.27951>
+//!
 //! ## Getting Started
 //!
 //! See the [Estimator Usage Guide](super::estimator_usage) for code examples

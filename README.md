@@ -19,6 +19,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 > and [report issues or suggestions](https://codeberg.org/cbueth/infomeasure-rs/issues).
 > Find the [benchmark and interactive Rust vs Python performance comparison here](https://infomeasure.org/benchmarks/).
 > Project home: <https://infomeasure.org/>.
+> Preprint: [arXiv:2610.27951](https://arxiv.org/abs/2610.27951).
 
 # infomeasure-rs
 
@@ -253,6 +254,14 @@ cargo bench
 ## Contributing
 
 Contributions welcome! Please feel free to submit a Pull Request.
+
+## Citation
+
+If you use `infomeasure-rs` in your work, please cite the preprint:
+
+> Büth, C. M. (2026). *infomeasure-rs: A High-Performance Rust Library for
+> Information-Theoretic Measures and Estimators*. arXiv:2610.27951.
+> <https://arxiv.org/abs/2610.27951>
 
 ## License
 

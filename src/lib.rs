@@ -15,6 +15,7 @@
 //! have been reimplemented in Rust.
 //! [Report issues or suggestions here](https://codeberg.org/cbueth/infomeasure-rs/issues).
 //! Project home: <https://infomeasure.org/>.
+//! Preprint: [arXiv:2610.27951](https://arxiv.org/abs/2610.27951).
 //!
 //! See the [Rust vs Python section in the guide](crate::guide) for a detailed comparison.
 //! And check out the [benchmark page](https://infomeasure.org/benchmarks/).
