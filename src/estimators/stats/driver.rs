@@ -22,6 +22,9 @@ pub enum StatsError {
     TooFewTests(usize),
     /// A confidence level outside the open interval `(0, 100)` was requested.
     InvalidConfidenceLevel(f64),
+    /// A block-based resampling method was configured with a block length of
+    /// zero; blocks must contain at least one sample.
+    InvalidBlockLength(usize),
 }
 
 impl std::fmt::Display for StatsError {
@@ -32,6 +35,9 @@ impl std::fmt::Display for StatsError {
             }
             StatsError::InvalidConfidenceLevel(level) => {
                 write!(f, "confidence level must be in (0, 100), got {level}")
+            }
+            StatsError::InvalidBlockLength(len) => {
+                write!(f, "block length must be at least 1, got {len}")
             }
         }
     }
@@ -76,6 +82,11 @@ where
 {
     if cfg.n_tests < 2 {
         return Err(StatsError::TooFewTests(cfg.n_tests));
+    }
+    if let Some(block_len) = cfg.method.block_len()
+        && block_len == 0
+    {
+        return Err(StatsError::InvalidBlockLength(block_len));
     }
     let master = cfg.seed.unwrap_or_else(rand::random::<u64>);
     let draw = |i: usize| {
@@ -145,15 +156,89 @@ pub(crate) fn bootstrap_rows(data: &Array2<f64>, rng: &mut SmallRng) -> Array2<f
     out
 }
 
+/// Return source indices for a block permutation of `n` samples.
+///
+/// The indices are the concatenation of shuffled contiguous blocks of
+/// `block_len` (the last block may be shorter). A `block_len` of zero is
+/// treated defensively as one; statistical tests reject it before reaching
+/// here. Values `>= n` produce a single block, i.e. the identity order.
+fn block_permutation_indices(n: usize, block_len: usize, rng: &mut SmallRng) -> Vec<usize> {
+    if n == 0 {
+        return Vec::new();
+    }
+    let block_len = block_len.max(1);
+    let mut starts: Vec<usize> = (0..n).step_by(block_len).collect();
+    starts.shuffle(rng);
+    let mut order = Vec::with_capacity(n);
+    for start in starts {
+        order.extend(start..(start + block_len).min(n));
+    }
+    order
+}
+
+/// Return source indices for a uniformly random circular shift of `n` samples.
+fn circular_shift_indices(n: usize, rng: &mut SmallRng) -> Vec<usize> {
+    if n == 0 {
+        return Vec::new();
+    }
+    let offset = rng.gen_range(0..n);
+    (0..n).map(|i| (i + offset) % n).collect()
+}
+
+/// Return source indices for a block bootstrap of `n` samples.
+///
+/// Contiguous blocks of `block_len` are drawn with replacement from the
+/// non-wrapping starts `0..=n - block_len` until at least `n` indices are
+/// collected, then truncated to `n`. A `block_len` of zero is treated
+/// defensively as one; values `>= n` reduce to a single full-length block.
+fn block_bootstrap_indices(n: usize, block_len: usize, rng: &mut SmallRng) -> Vec<usize> {
+    if n == 0 {
+        return Vec::new();
+    }
+    let block_len = block_len.max(1).min(n);
+    let n_blocks = n.div_ceil(block_len);
+    let max_start = n - block_len;
+    let mut order = Vec::with_capacity(n_blocks * block_len);
+    for _ in 0..n_blocks {
+        let start = rng.gen_range(0..=max_start);
+        order.extend(start..start + block_len);
+    }
+    order.truncate(n);
+    order
+}
+
+/// Gather rows of `data` in `order`, where output row `i` copies source row
+/// `order[i]`.
+fn take_rows(data: &Array2<f64>, order: &[usize]) -> Array2<f64> {
+    let mut out = Array2::zeros((order.len(), data.ncols()));
+    for (row, &src) in order.iter().enumerate() {
+        out.row_mut(row).assign(&data.row(src));
+    }
+    out
+}
+
+/// Gather values of a 1D series in `order`.
+fn take_1d<T: Copy>(data: &Array1<T>, order: &[usize]) -> Array1<T> {
+    Array1::from_iter(order.iter().map(|&i| data[i]))
+}
+
 /// Resample the rows of `data` with the given method.
 pub(crate) fn resample_rows(
     data: &Array2<f64>,
     method: TestMethod,
     rng: &mut SmallRng,
 ) -> Array2<f64> {
+    let n = data.nrows();
     match method {
         TestMethod::Permutation => permute_rows(data, rng),
         TestMethod::Bootstrap => bootstrap_rows(data, rng),
+        TestMethod::BlockPermutation { block_len } => {
+            take_rows(data, &block_permutation_indices(n, block_len, rng))
+        }
+        TestMethod::CircularShift => take_rows(data, &circular_shift_indices(n, rng)),
+        TestMethod::BlockBootstrap { block_len } => {
+            take_rows(data, &block_bootstrap_indices(n, block_len, rng))
+        }
     }
 }
 
@@ -177,6 +262,13 @@ pub(crate) fn resample_1d(
             }
             out
         }
+        TestMethod::BlockPermutation { block_len } => {
+            take_1d(data, &block_permutation_indices(n, block_len, rng))
+        }
+        TestMethod::CircularShift => take_1d(data, &circular_shift_indices(n, rng)),
+        TestMethod::BlockBootstrap { block_len } => {
+            take_1d(data, &block_bootstrap_indices(n, block_len, rng))
+        }
     }
 }
 
@@ -199,6 +291,13 @@ pub(crate) fn resample_1d_i32(
                 *value = data[rng.gen_range(0..n)];
             }
             out
+        }
+        TestMethod::BlockPermutation { block_len } => {
+            take_1d(data, &block_permutation_indices(n, block_len, rng))
+        }
+        TestMethod::CircularShift => take_1d(data, &circular_shift_indices(n, rng)),
+        TestMethod::BlockBootstrap { block_len } => {
+            take_1d(data, &block_bootstrap_indices(n, block_len, rng))
         }
     }
 }
@@ -328,5 +427,277 @@ mod tests {
     fn error_display_mentions_the_count() {
         let msg = StatsError::TooFewTests(1).to_string();
         assert!(msg.contains("at least 2"), "unexpected message: {msg}");
+    }
+
+    // ---- Time-series-aware surrogates -------------------------------------
+
+    fn ramp(n: usize) -> Array1<f64> {
+        Array1::from((0..n).map(|i| i as f64).collect::<Vec<_>>())
+    }
+
+    /// Map a unique-valued series back to its source indices.
+    fn as_indices(series: &Array1<f64>) -> Vec<usize> {
+        series
+            .iter()
+            .map(|&v| {
+                assert!(v >= 0.0 && v.fract() == 0.0, "not an index: {v}");
+                v as usize
+            })
+            .collect()
+    }
+
+    /// Assert that `order` is a concatenation of the original contiguous
+    /// blocks, each appearing exactly once and in its original order.
+    fn assert_blocks_intact(order: &[usize], n: usize, block_len: usize) {
+        let block_len = block_len.max(1);
+        let n_blocks = n.div_ceil(block_len);
+        let mut seen = vec![false; n_blocks];
+        let mut i = 0;
+        while i < order.len() {
+            let start = order[i];
+            assert_eq!(
+                start % block_len,
+                0,
+                "block must start at a block boundary, got {start}"
+            );
+            let block = start / block_len;
+            let expected: Vec<usize> = (start..(start + block_len).min(n)).collect();
+            assert_eq!(
+                &order[i..i + expected.len()],
+                expected.as_slice(),
+                "block {block} was not preserved verbatim"
+            );
+            assert!(!seen[block], "block {block} appeared twice");
+            seen[block] = true;
+            i += expected.len();
+        }
+        assert!(seen.iter().all(|&s| s), "a block was dropped");
+    }
+
+    fn sorted(mut values: Vec<f64>) -> Vec<f64> {
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values
+    }
+
+    #[rstest]
+    #[case(10, 1)]
+    #[case(10, 3)]
+    #[case(10, 4)]
+    #[case(10, 10)]
+    #[case(10, 17)]
+    fn block_permutation_preserves_the_exact_multiset(#[case] n: usize, #[case] block_len: usize) {
+        let x = ramp(n);
+        let mut rng = make_rng(Some(17));
+        let out = resample_1d(&x, TestMethod::BlockPermutation { block_len }, &mut rng);
+        assert_eq!(out.len(), n);
+        assert_eq!(sorted(out.to_vec()), sorted(x.to_vec()));
+        if block_len < n {
+            assert_ne!(out, x, "expected a non-identity block permutation");
+        }
+
+        // Discrete symbols take the same path.
+        let symbols: Array1<i32> = Array1::from((0..n).map(|i| (i % 3) as i32).collect::<Vec<_>>());
+        let mut rng = make_rng(Some(17));
+        let out_i32 = resample_1d_i32(
+            &symbols,
+            TestMethod::BlockPermutation { block_len },
+            &mut rng,
+        );
+        let mut got: Vec<i32> = out_i32.to_vec();
+        got.sort_unstable();
+        let mut expected: Vec<i32> = symbols.to_vec();
+        expected.sort_unstable();
+        assert_eq!(got, expected);
+    }
+
+    #[rstest]
+    #[case(10, 1)]
+    #[case(10, 3)]
+    #[case(10, 4)]
+    #[case(10, 10)]
+    #[case(10, 17)]
+    fn block_permutation_preserves_within_block_order(#[case] n: usize, #[case] block_len: usize) {
+        let x = ramp(n);
+        let mut rng = make_rng(Some(23));
+        let out = resample_1d(&x, TestMethod::BlockPermutation { block_len }, &mut rng);
+        // With unique values the output indexes the source exactly.
+        assert_blocks_intact(&as_indices(&out), n, block_len);
+    }
+
+    #[test]
+    fn block_permutation_keeps_rows_intact() {
+        let data = Array2::from_shape_fn((12, 2), |(i, j)| (i * 10 + j) as f64);
+        let mut rng = make_rng(Some(5));
+        let out = resample_rows(
+            &data,
+            TestMethod::BlockPermutation { block_len: 4 },
+            &mut rng,
+        );
+        assert_eq!(out.dim(), data.dim());
+        for row in out.rows() {
+            assert!(
+                data.rows().into_iter().any(|candidate| candidate == row),
+                "row {row:?} is not an original row"
+            );
+        }
+        // Duplicated rows would weaken the check above; all rows are unique
+        // here, so gathering whole rows is exact.
+        let first_column: Vec<usize> = out.column(0).iter().map(|&v| v as usize / 10).collect();
+        assert_blocks_intact(&first_column, 12, 4);
+    }
+
+    /// Deterministic AR(1) series with uniform innovations in `[-1, 1)`.
+    fn ar1(n: usize, phi: f64, seed: u64) -> Array1<f64> {
+        let mut rng = make_rng(Some(seed));
+        let mut x = Vec::with_capacity(n);
+        let mut prev = 0.0;
+        for _ in 0..n {
+            let innovation = 2.0 * rng.r#gen::<f64>() - 1.0;
+            prev = phi * prev + innovation;
+            x.push(prev);
+        }
+        Array1::from(x)
+    }
+
+    fn lag1_autocorrelation(x: &Array1<f64>) -> f64 {
+        let n = x.len();
+        let mean = x.mean().unwrap();
+        let numerator: f64 = (1..n).map(|i| (x[i] - mean) * (x[i - 1] - mean)).sum();
+        let denominator: f64 = x.iter().map(|v| (v - mean).powi(2)).sum();
+        numerator / denominator
+    }
+
+    #[test]
+    fn block_permutation_retains_lag1_autocorrelation_of_ar1() {
+        // Fixed data and seeds make this a deterministic regression test.
+        let x = ar1(500, 0.8, 12_345);
+        let rho = lag1_autocorrelation(&x);
+        assert!(
+            rho > 0.6,
+            "test data should be strongly autocorrelated: {rho}"
+        );
+
+        // A block length of ~20 exceeds the AR(1) decorrelation time at
+        // phi = 0.8 (1 / (1 - phi) = 5), so only block boundaries break the
+        // serial dependence.
+        let block_len = 20;
+        let mut rng = make_rng(Some(7));
+        let block_permuted = resample_1d(&x, TestMethod::BlockPermutation { block_len }, &mut rng);
+        let rho_block = lag1_autocorrelation(&block_permuted);
+        assert!(
+            (rho_block - rho).abs() <= 0.1,
+            "block permutation changed lag-1 autocorrelation: {rho} -> {rho_block}"
+        );
+
+        // An iid shuffle destroys the serial dependence.
+        let mut rng = make_rng(Some(8));
+        let iid = resample_1d(&x, TestMethod::Permutation, &mut rng);
+        let rho_iid = lag1_autocorrelation(&iid);
+        assert!(
+            rho_iid.abs() < 0.1,
+            "iid permutation should destroy autocorrelation, got {rho_iid}"
+        );
+    }
+
+    #[test]
+    fn circular_shift_is_an_exact_rotation() {
+        let x = ramp(17);
+        let n = x.len();
+        let mut rng = make_rng(Some(3));
+        let out = resample_1d(&x, TestMethod::CircularShift, &mut rng);
+        assert_eq!(out.len(), n);
+        assert_eq!(sorted(out.to_vec()), sorted(x.to_vec()));
+
+        let offset = (0..n)
+            .find(|&k| (0..n).all(|i| out[i] == x[(i + k) % n]))
+            .expect("output is not a rotation of the input");
+        assert!(offset < n);
+
+        // The i32 path rotates identically.
+        let symbols: Array1<i32> = Array1::from((0..n).map(|i| (i as i32) * 2).collect::<Vec<_>>());
+        let mut rng = make_rng(Some(3));
+        let out_i32 = resample_1d_i32(&symbols, TestMethod::CircularShift, &mut rng);
+        let offset_i32 = (0..n)
+            .find(|&k| (0..n).all(|i| out_i32[i] == symbols[(i + k) % n]))
+            .expect("i32 output is not a rotation of the input");
+        assert!(offset_i32 < n);
+    }
+
+    #[test]
+    fn block_bootstrap_preserves_length_and_block_structure() {
+        let n = 23;
+        let block_len = 5;
+        let x = ramp(n);
+        let mut rng = make_rng(Some(11));
+        let out = resample_1d(&x, TestMethod::BlockBootstrap { block_len }, &mut rng);
+        assert_eq!(out.len(), n);
+
+        let indices = as_indices(&out);
+        for (chunk, values) in indices.chunks(block_len).enumerate() {
+            // Every (possibly truncated) block is contiguous and increasing.
+            assert!(
+                values.windows(2).all(|w| w[1] == w[0] + 1),
+                "chunk {chunk} is not contiguous: {values:?}"
+            );
+            let start = values[0];
+            // Full blocks start at a valid non-wrapping offset.
+            assert!(start + values.len() <= n);
+        }
+
+        // Seeded draws are reproducible.
+        let mut rng = make_rng(Some(11));
+        let again = resample_1d(&x, TestMethod::BlockBootstrap { block_len }, &mut rng);
+        assert_eq!(out, again);
+    }
+
+    #[test]
+    fn block_bootstrap_with_large_block_is_identity() {
+        let x = ramp(8);
+        let mut rng = make_rng(Some(1));
+        let out = resample_1d(&x, TestMethod::BlockBootstrap { block_len: 50 }, &mut rng);
+        assert_eq!(out, x);
+    }
+
+    #[rstest]
+    fn time_series_methods_are_seeded_and_order_independent(
+        #[values(
+            TestMethod::BlockPermutation { block_len: 4 },
+            TestMethod::CircularShift,
+            TestMethod::BlockBootstrap { block_len: 4 }
+        )]
+        method: TestMethod,
+    ) {
+        // Each draw is seeded from (master, index), so this also guarantees the
+        // parallel build reproduces the sequential draw order exactly.
+        let x = ramp(20);
+        let cfg = StatisticalTestConfig::new(12, method).seed(99);
+        // A position-weighted sum distinguishes surrogates whose mean is
+        // invariant (all of them preserve the marginal multiset or structure).
+        let draw = |_: usize, rng: &mut SmallRng| {
+            resample_1d(&x, method, rng)
+                .iter()
+                .enumerate()
+                .map(|(i, v)| v * (i + 1) as f64)
+                .sum()
+        };
+        let a = run_resample_test(0.0, &cfg, draw).unwrap();
+        let b = run_resample_test(0.0, &cfg, draw).unwrap();
+        assert_eq!(a, b);
+        assert_eq!(a.method, method);
+        assert_eq!(a.test_values.len(), 12);
+    }
+
+    #[test]
+    fn zero_block_length_is_rejected() {
+        for method in [
+            TestMethod::BlockPermutation { block_len: 0 },
+            TestMethod::BlockBootstrap { block_len: 0 },
+        ] {
+            let cfg = StatisticalTestConfig::new(4, method).seed(1);
+            assert!(matches!(
+                run_resample_test(0.0, &cfg, |_, _| 0.0),
+                Err(StatsError::InvalidBlockLength(0))
+            ));
+        }
     }
 }

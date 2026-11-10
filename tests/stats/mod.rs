@@ -3,4 +3,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Module containing tests for the statistical significance testing.
+mod block_surrogate_calibration;
 mod statistical_test_parity;

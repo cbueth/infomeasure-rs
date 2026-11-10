@@ -239,7 +239,7 @@ impl<
         est
     }
 
-    /// A reusable draw function that caches the permutation-invariant marginal
+    /// A reusable draw function that caches the reorder-invariant marginal
     /// densities `p(Ypast)` and `p(Yfuture, Ypast)` and recomputes the joint and
     /// `p(Xpast, Ypast)` for each reshuffled source.
     pub(crate) fn prepared_draw(
@@ -584,7 +584,7 @@ impl<
         est
     }
 
-    /// A reusable draw function that caches the permutation-invariant marginal
+    /// A reusable draw function that caches the reorder-invariant marginal
     /// densities `p(Ypast, Zpast)` and `p(Yfuture, Ypast, Zpast)` and recomputes
     /// the joint and `p(Xpast, Ypast, Zpast)` for each reshuffled source.
     pub(crate) fn prepared_draw(
@@ -904,7 +904,7 @@ macro_rules! impl_kernel_mi {
                 self.force_cpu = force_cpu;
             }
 
-            /// A reusable draw function that caches the permutation-invariant
+            /// A reusable draw function that caches the reorder-invariant
             /// marginal densities and recomputes only the joint density per draw.
             pub(crate) fn prepared_draw(
                 &self,
@@ -1088,7 +1088,7 @@ impl<
         self.force_cpu = force_cpu;
     }
 
-    /// A reusable draw function that caches the permutation-invariant marginal
+    /// A reusable draw function that caches the reorder-invariant marginal
     /// densities `p(Z)` and `p(Y, Z)` and recomputes only the joint and `p(X, Z)`.
     pub(crate) fn prepared_draw(
         &self,

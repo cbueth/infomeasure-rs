@@ -227,9 +227,14 @@ impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteMutualInformatio
                     marginals.iter().map(|m| m.raw_data().clone()).collect();
                 series[0] = resample_1d_i32(&series[0], method, rng);
                 let new_joint = joint.with_data(reduce_joint_space_compact(&series));
+                // Rebuild every marginal from the possibly resampled series.
+                // Under permutation this is value-identical (the multiset is
+                // unchanged), but bootstrap must not reuse the old source
+                // marginal.
                 let new_marginals = marginals
                     .iter()
-                    .map(|m| m.with_data(m.raw_data().clone()))
+                    .zip(series.iter())
+                    .map(|(m, s)| m.with_data(s.clone()))
                     .collect();
                 Self {
                     inner: MiInner::Spaces {
@@ -253,9 +258,11 @@ impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteMutualInformatio
 
     fn prepared(&self, method: TestMethod) -> Option<PreparedDraw<'_>> {
         if let MiInner::Spaces { marginals, joint } = &self.inner {
-            // The per-variable marginals are invariant under a permutation of the
-            // source, so their entropies are computed once; only the joint is
-            // rebuilt per draw.
+            // The per-variable marginals are invariant under any reordering of
+            // the source (permutation, block permutation, circular shift), so
+            // their entropies are computed once; only the joint is rebuilt per
+            // draw. These caches are not valid for with-replacement bootstrap,
+            // which changes the source marginal.
             let h_marginals: f64 = marginals.iter().map(|m| m.global_value()).sum();
             let series: Vec<Array1<i32>> = marginals.iter().map(|m| m.raw_data().clone()).collect();
             Some(Box::new(move |_i, rng| {
@@ -413,7 +420,7 @@ impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteConditionalMutua
         } = &self.inner
         {
             // `H(Xi, Z)` for `i >= 1` and `H(Z)` are invariant under a
-            // permutation of the source; only `H(X0, Z)` and the joint change.
+            // reordering of the source; only `H(X0, Z)` and the joint change.
             let n = marginal_conds.len() as f64;
             let invariant: f64 = marginal_conds[1..].iter().map(|m| m.global_value()).sum();
             let h_cond = cond_only.global_value();
@@ -748,7 +755,7 @@ impl<E: ResampleData + GlobalValue + Sync> Resample for DiscreteTransferEntropy<
         } = &self.inner.inner
         {
             // Inner CMI: series = [X_past, Y_future], cond = Y_past. Under a
-            // permutation of the source only the X_past terms change, so
+            // reordering of the source only the X_past terms change, so
             // `H(Y_future, Y_past)` and `H(Y_past)` are cached.
             let invariant = marginal_conds[1].global_value();
             let h_cond = cond_only.global_value();

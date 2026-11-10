@@ -17,6 +17,23 @@
 //! - **Bootstrap** ([`TestMethod::Bootstrap`]): resample the source with
 //!   replacement.
 //!
+//! For **autocorrelated time series**, the independent shuffle of
+//! [`TestMethod::Permutation`] destroys the serial dependence as well as the
+//! source–target coupling, which makes the null distribution too narrow and
+//! the test anti-conservative. Three Rust-only, opt-in surrogates retain the
+//! serial structure:
+//!
+//! - **Block permutation** ([`TestMethod::BlockPermutation`]): shuffle
+//!   contiguous blocks of the source, preserving within-block order.
+//! - **Circular shift** ([`TestMethod::CircularShift`]): rotate the source by
+//!   a random offset, preserving the full circular autocorrelation.
+//! - **Block bootstrap** ([`TestMethod::BlockBootstrap`]): resample contiguous
+//!   blocks of the source with replacement. This is a source-resampling null,
+//!   not a joint bootstrap or a confidence interval.
+//!
+//! See the [statistical tests guide](crate::guide::statistical_tests) for how
+//! to choose among them and how to pick a block length.
+//!
 //! The result carries the **p-value** (the fraction of null values strictly
 //! greater than the observed value), the standardized **t-score**, the null
 //! distribution, and helpers for percentiles and confidence intervals

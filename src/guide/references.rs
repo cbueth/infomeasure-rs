@@ -147,6 +147,22 @@
 //! <dd><span class="ref-authors">Lizier, Joseph T.</span> "JIDT: An Information-Theoretic Toolkit for Studying the Dynamics of Complex Systems." <span class="ref-title">Frontiers in Robotics and AI</span> 1 (2014). <a href="https://doi.org/10.3389/frobt.2014.00011" target="_blank" rel="noopener">doi:10.3389/frobt.2014.00011</a></dd>
 //! </dl>
 //!
+//! ## Surrogate Data and Resampling
+//!
+//! <dl class="ref-list">
+//! <dt><span class="ref-key" id="theiler1992">theiler1992</span></dt>
+//! <dd><span class="ref-authors">Theiler, James, Stephen Eubank, André Longtin, Bryan Galdrikian, and J. Doyne Farmer.</span> "Testing for nonlinearity in time series: the method of surrogate data." <span class="ref-title">Physica D: Nonlinear Phenomena</span> 58, no. 1–4 (1992): 77–94. <a href="https://doi.org/10.1016/0167-2789(92)90102-S" target="_blank" rel="noopener">doi:10.1016/0167-2789(92)90102-S</a></dd>
+//!
+//! <dt><span class="ref-key" id="schreiber_schmitz2000">schreiber_schmitz2000</span></dt>
+//! <dd><span class="ref-authors">Schreiber, Thomas, and Andreas Schmitz.</span> "Surrogate time series." <span class="ref-title">Physica D: Nonlinear Phenomena</span> 142, no. 3–4 (2000): 346–382. <a href="https://doi.org/10.1016/S0167-2789(00)00043-9" target="_blank" rel="noopener">doi:10.1016/S0167-2789(00)00043-9</a></dd>
+//!
+//! <dt><span class="ref-key" id="kunsch1989">kunsch1989</span></dt>
+//! <dd><span class="ref-authors">Künsch, Hans R.</span> "The jackknife and the bootstrap for general stationary observations." <span class="ref-title">The Annals of Statistics</span> 17, no. 3 (1989): 1217–1241. <a href="https://doi.org/10.1214/aos/1176347265" target="_blank" rel="noopener">doi:10.1214/aos/1176347265</a></dd>
+//!
+//! <dt><span class="ref-key" id="politis1994">politis1994</span></dt>
+//! <dd><span class="ref-authors">Politis, Dimitris N., and Joseph P. Romano.</span> "The stationary bootstrap." <span class="ref-title">Journal of the American Statistical Association</span> 89, no. 428 (1994): 1303–1313. <a href="https://doi.org/10.1080/01621459.1994.10476870" target="_blank" rel="noopener">doi:10.1080/01621459.1994.10476870</a></dd>
+//! </dl>
+//!
 //! ## Conditional Measures
 //!
 //! <dl class="ref-list">

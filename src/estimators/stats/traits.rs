@@ -16,6 +16,13 @@ use super::result::StatisticalTestResult;
 /// Implemented only for the mutual-information and transfer-entropy measures
 /// (which have a well-defined "shuffle the source" null hypothesis); calling it
 /// on a single-variable entropy estimator is a compile error.
+///
+/// Reordering methods ([`TestMethod::Permutation`],
+/// [`TestMethod::BlockPermutation`], [`TestMethod::CircularShift`]) may reuse
+/// cached marginal terms because they preserve the source's marginal multiset.
+/// [`TestMethod::Bootstrap`] and [`TestMethod::BlockBootstrap`] rebuild the
+/// estimator from the resampled data on every draw, since with-replacement
+/// resampling changes the empirical marginal and invalidates those caches.
 pub trait StatisticalTest {
     /// Run the test described by `cfg` against this estimator's observed value.
     fn statistical_test(
@@ -50,10 +57,16 @@ pub(crate) trait Resample: GlobalValue {
     /// `method`.
     fn resampled(&self, method: TestMethod, rng: &mut SmallRng) -> Self;
 
-    /// Optional fast path: a draw function that caches the work invariant across
-    /// resamples, for example the permutation-invariant marginal terms, and only
-    /// recomputes what changes per draw. Returning `None` falls back to
+    /// Optional fast path: a draw function that caches work invariant under a
+    /// reordering of the source, for example per-variable marginal terms, and
+    /// only recomputes what changes per draw. Returning `None` falls back to
     /// [`Resample::resampled`], which rebuilds the whole estimator each draw.
+    ///
+    /// These caches are **reorder-invariant, not bootstrap-invariant**: a
+    /// permutation, block permutation, or circular shift leaves the source's
+    /// marginal multiset unchanged, but resampling with replacement does not.
+    /// [`StatisticalTest`] therefore calls this fast path only for methods for
+    /// which [`TestMethod::preserves_marginal_multiset`] is true.
     ///
     /// Kernel estimators cache their invariant marginal densities. kNN
     /// estimators leave this as `None`: their marginal neighbour counts depend
@@ -71,7 +84,16 @@ impl<T: Resample + Sync> StatisticalTest for T {
         cfg: &StatisticalTestConfig,
     ) -> Result<StatisticalTestResult, StatsError> {
         let observed = self.global_value();
-        match self.prepared(cfg.method) {
+        // The prepared fast paths cache reorder-invariant marginal terms. Both
+        // bootstrap variants resample with replacement, which changes the
+        // empirical source marginal, so they must rebuild the estimator on
+        // every draw instead of reusing those caches.
+        let prepared = if cfg.method.preserves_marginal_multiset() {
+            self.prepared(cfg.method)
+        } else {
+            None
+        };
+        match prepared {
             Some(draw) => run_resample_test(observed, cfg, draw),
             None => run_resample_test(observed, cfg, |_, rng| {
                 self.resampled(cfg.method, rng).global_value()

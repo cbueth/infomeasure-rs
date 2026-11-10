@@ -19,10 +19,87 @@
 //!   variable's marginal distribution, so it tests the null hypothesis of
 //!   independence.
 //! - **Bootstrap** ([`TestMethod::Bootstrap`]): resample the source with
-//!   replacement, giving the sampling variability of the estimate.
+//!   replacement. This breaks the source-target pairing, so it is a null-like
+//!   resampling, not a joint bootstrap.
 //!
 //! [`TestMethod::Permutation`]: crate::estimators::stats::TestMethod::Permutation
 //! [`TestMethod::Bootstrap`]: crate::estimators::stats::TestMethod::Bootstrap
+//!
+//! ## Surrogates for autocorrelated time series
+//!
+//! An iid permutation assumes exchangeable samples. For a time series that
+//! assumption is false: shuffling a serially correlated source destroys its
+//! autocorrelation as well as any coupling to the target, so the null
+//! distribution is too narrow and the test rejects far more often than the
+//! nominal level. Surrogate-data methods instead generate series that keep the
+//! *linear serial structure* while breaking the coupling
+//! [Theiler et al., 1992](super::references#theiler1992). Three opt-in
+//! extensions are available:
+//!
+//! | Method | Builder | Null hypothesis | Keeps |
+//! |--------|---------|-----------------|-------|
+//! | [`BlockPermutation`] | [`StatisticalTestConfig::block_permutation`] | No source–target coupling beyond the serial structure inside a block | Within-block order and the exact marginal multiset |
+//! | [`CircularShift`] | [`StatisticalTestConfig::circular_shift`] | No coupling; the series is stationary | Full circular autocorrelation |
+//! | [`BlockBootstrap`] | [`StatisticalTestConfig::block_bootstrap`] | Source-resampling null, not a joint bootstrap | Contiguous-block structure and sample size |
+//!
+//! ### When to use which
+//!
+//! - **Block permutation** is the default choice for an autocorrelated but not
+//!   strongly periodic source. It is the block analogue of the ordinary
+//!   permutation test: the marginal distribution is preserved exactly, and
+//!   only the ordering of blocks is randomised.
+//! - **Circular shift** is appropriate for stationary series whose
+//!   autocorrelation function is the structure to preserve. It is cheap (only
+//!   $n$ distinct surrogates) and keeps the full circular autocorrelation
+//!   exactly, but it also preserves any periodicity — including a period shared
+//!   with the target, which can produce spurious significance. The identity
+//!   rotation is a valid surrogate, so the observed series may appear in its own
+//!   null distribution.
+//! - **Block bootstrap** is a block-wise source-resampling null. It resamples
+//!   blocks of the source with replacement while holding the target fixed, so
+//!   it preserves short-range source structure but breaks the source-target
+//!   pairing. It is not a joint bootstrap and should not be read as a
+//!   confidence interval for the estimate.
+//!
+//! ### Choosing the block length
+//!
+//! The block length $b$ should be at least the decorrelation time of the
+//! source. A practical recipe is to inspect the sample autocorrelation
+//! $\hat\rho(k)$ and take the first lag where it falls below a small threshold
+//! (for example $1/e$ or $0.05$), or use $b \approx n^{1/3}$ as a starting
+//! point [Künsch, 1989](super::references#kunsch1989). Then check that
+//! $n / b \gtrsim 10$: with only a handful of blocks, block permutation has few
+//! distinct arrangements and the null distribution becomes coarse. Values
+//! $b \ge n$ are clamped to one block, which makes block permutation the
+//! identity and the test degenerate.
+//!
+//! ### Limitations
+//!
+//! - Block permutation breaks dependence on scales **longer** than $b$. If the
+//!   process has long-range dependence, choose $b$ accordingly or use a
+//!   long-range-preserving surrogate.
+//! - Circular shift preserves periodicities exactly. A shared period in source
+//!   and target is not evidence against independence under this null, but it
+//!   will look significant.
+//! - Block bootstrap is a source-resampling null, not a joint bootstrap. It
+//!   does not give a confidence interval for the estimate, and a p-value
+//!   computed from it is not a test of independence.
+//! - All block methods assume approximate stationarity over the block length.
+//!   Trends should be removed first.
+//!
+//! The construction follows the surrogate-data literature
+//! [Theiler et al., 1992](super::references#theiler1992);
+//! [Schreiber & Schmitz, 2000](super::references#schreiber_schmitz2000), with
+//! blocks motivated by the moving-block bootstrap of
+//! [Künsch, 1989](super::references#kunsch1989) and
+//! [Politis & Romano, 1994](super::references#politis1994).
+//!
+//! [`BlockPermutation`]: crate::estimators::stats::TestMethod::BlockPermutation
+//! [`CircularShift`]: crate::estimators::stats::TestMethod::CircularShift
+//! [`BlockBootstrap`]: crate::estimators::stats::TestMethod::BlockBootstrap
+//! [`StatisticalTestConfig::block_permutation`]: crate::estimators::stats::StatisticalTestConfig::block_permutation
+//! [`StatisticalTestConfig::circular_shift`]: crate::estimators::stats::StatisticalTestConfig::circular_shift
+//! [`StatisticalTestConfig::block_bootstrap`]: crate::estimators::stats::StatisticalTestConfig::block_bootstrap
 //!
 //! ## Result
 //!
@@ -77,6 +154,26 @@
 //! println!("effective TE = {ete}");
 //! ```
 //!
+//! For autocorrelated data, pick a time-series-aware surrogate instead of the
+//! iid permutation. The example below uses short blocks purely to keep the
+//! doctest fast; real series need a block length matched to their
+//! decorrelation time.
+//!
+//! ```
+//! use ndarray::{array, Array1};
+//! use infomeasure::estimators::mutual_information::MutualInformation;
+//! use infomeasure::estimators::stats::{StatisticalTest, StatisticalTestConfig};
+//!
+//! let x: Array1<f64> = array![0., 1., 2., 3., 4., 5., 6., 7.];
+//! let y: Array1<f64> = array![0., 1., 2., 3., 4., 5., 6., 7.];
+//! let mi = MutualInformation::new_kernel(&[x, y], 2.0);
+//!
+//! let res = mi
+//!     .statistical_test(&StatisticalTestConfig::block_permutation(20, 2).seed(1))
+//!     .unwrap();
+//! println!("I = {}, p = {:.4}", res.observed_value, res.p_value);
+//! ```
+//!
 //! ## Which measures?
 //!
 //! The test is defined wherever permuting the source is meaningful, that is the
@@ -106,6 +203,16 @@
 //! reproducible and independent of execution order. With the `parallel` feature
 //! the draws run on a thread pool and produce exactly the same result as the
 //! sequential build.
+//!
+//! ## Cached marginal terms
+//!
+//! Permutation, block permutation, and circular shift only reorder the source,
+//! so per-variable marginal terms such as $H(Y)$ are unchanged and can be
+//! computed once and reused across draws. Bootstrap and block bootstrap resample
+//! the source **with replacement**, which changes the empirical marginal; cached
+//! marginal terms would then be stale. Those methods therefore rebuild the
+//! estimator from the resampled data on every draw. The distinction matters for
+//! correctness: reorder-invariant caches are not bootstrap-invariant.
 //!
 //! [`statistical_test`]: crate::estimators::stats::StatisticalTest::statistical_test
 //! [`StatisticalTestResult`]: crate::estimators::stats::StatisticalTestResult

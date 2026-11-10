@@ -732,7 +732,7 @@ mod tests {
         DiscreteMutualInformation, DiscreteTransferEntropy,
     };
     use crate::estimators::mutual_information::MutualInformation;
-    use crate::estimators::stats::driver::{make_rng, resample_1d_i32};
+    use crate::estimators::stats::driver::{make_rng, resample_1d_i32, run_resample_test};
     use crate::estimators::stats::{
         EffectiveValue, Resample, StatisticalTest, StatisticalTestConfig, TestMethod,
     };
@@ -1215,6 +1215,96 @@ mod tests {
                 DiscreteEntropy::new
             )
         );
+    }
+
+    /// A skewed source: a single non-zero symbol out of `n`. Bootstrap changes
+    /// its empirical marginal materially, so a cached `H(X)` would be stale.
+    fn sparse_symbols(n: usize) -> Array1<i32> {
+        Array1::from(
+            (0..n)
+                .map(|i| if i == 0 { 1 } else { 0 })
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    /// `statistical_test` must match an explicit per-draw rebuild. On the old
+    /// code the bootstrap ran through `prepared`, so a cached marginal made the
+    /// two disagree.
+    fn assert_bootstrap_matches_explicit_rebuild<T>(estimator: &T, n_tests: usize, seed: u64)
+    where
+        T: Resample + Sync,
+    {
+        let cfg = StatisticalTestConfig::bootstrap(n_tests).seed(seed);
+        let got = estimator.statistical_test(&cfg).unwrap();
+        let expected = run_resample_test(estimator.global_value(), &cfg, |_, rng| {
+            estimator
+                .resampled(TestMethod::Bootstrap, rng)
+                .global_value()
+        })
+        .unwrap();
+
+        assert_eq!(got.n_tests, expected.n_tests);
+        assert_eq!(got.p_value, expected.p_value);
+        approx::assert_abs_diff_eq!(got.null_mean, expected.null_mean, epsilon = 1e-12);
+        approx::assert_abs_diff_eq!(got.null_std, expected.null_std, epsilon = 1e-12);
+        assert_eq!(got.test_values.len(), expected.test_values.len());
+        for (a, b) in got.test_values.iter().zip(expected.test_values.iter()) {
+            approx::assert_abs_diff_eq!(*a, *b, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn bootstrap_discrete_mi_uses_explicit_rebuild() {
+        // `DiscreteMutualInformation::new` keeps the Spaces representation,
+        // whose `prepared` path caches H(X). The skewed source makes that cache
+        // visibly stale if bootstrap incorrectly reuses it.
+        let mi = DiscreteMutualInformation::new(
+            &[sparse_symbols(60), symbols(60, 5)],
+            DiscreteEntropy::new,
+        );
+        assert_bootstrap_matches_explicit_rebuild(&mi, 24, 17);
+    }
+
+    #[test]
+    fn discrete_mi_bootstrap_resample_rebuilds_source_marginal() {
+        // The explicit rebuild must itself use the resampled source marginal,
+        // not just a fresh joint over the old marginals.
+        let x = sparse_symbols(60);
+        let y = symbols(60, 5);
+        let mi = DiscreteMutualInformation::new(&[x.clone(), y.clone()], DiscreteEntropy::new);
+        let mut rng = make_rng(Some(31));
+        let got = mi.resampled(TestMethod::Bootstrap, &mut rng).global_value();
+        let mut rng = make_rng(Some(31));
+        let resampled_x = resample_1d_i32(&x, TestMethod::Bootstrap, &mut rng);
+        let expected =
+            DiscreteMutualInformation::new(&[resampled_x, y], DiscreteEntropy::new).global_value();
+        assert!(
+            (got - expected).abs() < 1e-12,
+            "resampled MI {got} != fresh rebuild {expected}"
+        );
+    }
+
+    #[test]
+    fn bootstrap_discrete_te_uses_explicit_rebuild() {
+        let te = DiscreteTransferEntropy::new(
+            &symbols(60, 3),
+            &symbols(60, 5),
+            1,
+            1,
+            1,
+            DiscreteEntropy::new,
+        );
+        assert_bootstrap_matches_explicit_rebuild(&te, 24, 19);
+    }
+
+    #[test]
+    fn bootstrap_discrete_cmi_uses_explicit_rebuild() {
+        let cmi = DiscreteConditionalMutualInformation::new(
+            &[symbols(60, 5), symbols(60, 7)],
+            &symbols(60, 3),
+            DiscreteEntropy::new,
+        );
+        assert_bootstrap_matches_explicit_rebuild(&cmi, 24, 23);
     }
 
     #[test]
