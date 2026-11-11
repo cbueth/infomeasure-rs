@@ -8,8 +8,8 @@ use crate::estimators::traits::GlobalValue;
 use rand::rngs::SmallRng;
 
 use super::config::{StatisticalTestConfig, TestMethod};
-use super::driver::{StatsError, make_rng, run_resample_test};
-use super::result::StatisticalTestResult;
+use super::driver::{StatsError, make_rng, run_effective_value_summary, run_resample_test};
+use super::result::{EffectiveValueSummary, StatisticalTestResult};
 
 /// Perform a permutation or bootstrap significance test on a measure.
 ///
@@ -41,6 +41,61 @@ pub trait EffectiveValue {
     /// Compute the effective value with the given resampling `method`, seeded
     /// with `seed` (`None` for a non-deterministic draw).
     fn effective_value(&self, method: TestMethod, seed: Option<u64>) -> f64;
+}
+
+/// Multi-draw effective value with an uncertainty estimate.
+///
+/// [`EffectiveValue::effective_value`] subtracts the value from **one** source
+/// resample, which is exactly what the Python package defines and is therefore
+/// kept unchanged for parity. That single draw is noisy, though: on
+/// high-dimensional or sparse data the surrogate value itself has a large
+/// variance, so the reported effective value can move substantially from draw to
+/// draw.
+///
+/// This trait is the multi-surrogate extension. It draws `n_tests` surrogate
+/// values, subtracts their **mean**, and reports the sample standard deviation
+/// and the standard error of that mean. The result is an
+/// [`EffectiveValueSummary`]. Use it when the uncertainty of the bias correction
+/// matters; use [`EffectiveValue::effective_value`] when you need the
+/// Python-compatible single-draw number.
+///
+/// `n_tests` must be at least one. With `n_tests == 1` the summary reproduces
+/// [`EffectiveValue::effective_value`] under the same seed exactly (the spread
+/// fields are then `NaN`). Draws are seeded deterministically from `seed` and
+/// the draw index, so seeded runs are reproducible and the `parallel` feature
+/// returns exactly the same summary as the serial build.
+///
+/// # Example
+///
+/// ```
+/// use ndarray::array;
+/// use infomeasure::estimators::stats::{EffectiveValueStats, TestMethod};
+/// use infomeasure::estimators::transfer_entropy::TransferEntropy;
+///
+/// let source = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+/// let dest = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+/// let te = TransferEntropy::new_discrete_mle(&source, &dest, 1, 1, 1);
+///
+/// let summary =
+///     te.effective_value_with_resamples(TestMethod::Permutation, Some(7), 50)
+///         .unwrap();
+/// println!(
+///     "eTE = {:.3} ± {:.3} (n = {})",
+///     summary.effective_value, summary.standard_error, summary.n_tests
+/// );
+/// assert!(summary.effective_value.is_finite());
+/// ```
+pub trait EffectiveValueStats {
+    /// Estimate the effective value as the observed value minus the mean of
+    /// `n_tests` surrogate values, together with the surrogate spread.
+    ///
+    /// Returns [`StatsError::NoResamples`] when `n_tests == 0`.
+    fn effective_value_with_resamples(
+        &self,
+        method: TestMethod,
+        seed: Option<u64>,
+        n_tests: usize,
+    ) -> Result<EffectiveValueSummary, StatsError>;
 }
 
 /// A prepared, order-independent draw function returned by
@@ -111,5 +166,21 @@ impl<T: EffectiveValueMeasure> EffectiveValue for T {
         let observed = self.global_value();
         let mut rng = make_rng(seed);
         observed - self.resampled(method, &mut rng).global_value()
+    }
+}
+
+impl<T: EffectiveValueMeasure + Sync> EffectiveValueStats for T {
+    fn effective_value_with_resamples(
+        &self,
+        method: TestMethod,
+        seed: Option<u64>,
+        n_tests: usize,
+    ) -> Result<EffectiveValueSummary, StatsError> {
+        let observed = self.global_value();
+        // Use the `resampled` path (not the `prepared` fast path) so that the
+        // first draw is bit-for-bit the single-draw `effective_value`.
+        run_effective_value_summary(observed, method, seed, n_tests, |_, rng| {
+            self.resampled(method, rng).global_value()
+        })
     }
 }

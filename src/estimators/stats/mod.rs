@@ -39,6 +39,12 @@
 //! distribution, and helpers for percentiles and confidence intervals
 //! ([`StatisticalTestResult`]).
 //!
+//! For transfer entropy, [`EffectiveValue::effective_value`] subtracts the value
+//! from a single source resample (the Python-compatible definition), while
+//! [`EffectiveValueStats::effective_value_with_resamples`] estimates the bias
+//! correction from several draws and reports its mean, standard deviation, and
+//! standard error ([`EffectiveValueSummary`]).
+//!
 //! The test is only defined where permuting the source is meaningful, i.e. the
 //! mutual-information and transfer-entropy measures; the trait is not
 //! implemented for single-variable entropy estimators, so misuse is a compile
@@ -67,8 +73,8 @@ mod traits;
 
 pub use config::{StatisticalTestConfig, TestMethod};
 pub use driver::{StatsError, run_resample_test};
-pub use result::StatisticalTestResult;
-pub use traits::{EffectiveValue, StatisticalTest};
+pub use result::{EffectiveValueSummary, StatisticalTestResult};
+pub use traits::{EffectiveValue, EffectiveValueStats, StatisticalTest};
 
 // Internal glue reused by the approach modules' `Resample` impls.
 pub(crate) use driver::{resample_1d_i32, resample_rows};

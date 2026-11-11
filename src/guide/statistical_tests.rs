@@ -115,12 +115,37 @@
 //! ## Effective transfer entropy
 //!
 //! For transfer-entropy measures, [`EffectiveValue::effective_value`] returns
-//! the effective value: the observed value minus the value under a **single**
-//! resample of the source, which removes the finite-sample bias that can make an
-//! uncoupled estimator appear to transmit information. Because the definition is
-//! one draw, the number of resamples is not configurable; the call is
-//! `effective_value(method, seed)`, for example
+//! the effective value of [Marschinski & Kantz, 2002](super::references#marschinski2002):
+//! the observed value minus the value under a **single** resample of the source,
+//! which removes the finite-sample bias that can make an uncoupled estimator
+//! appear to transmit information. This single-draw definition matches the
+//! Python package exactly: the number of resamples is not configurable, and the
+//! call is `effective_value(method, seed)`, for example
 //! `te.effective_value(TestMethod::Permutation, Some(42))`.
+//!
+//! A single surrogate draw is noisy, though. On high-dimensional or sparse data
+//! the surrogate value itself has a large variance, so the reported effective
+//! value can move substantially from draw to draw. The multi-surrogate
+//! extension [`EffectiveValueStats::effective_value_with_resamples`] draws
+//! `n_tests` surrogates, subtracts their **mean**, and returns an
+//! [`EffectiveValueSummary`]:
+//!
+//! - `effective_value` = observed value − `null_mean`,
+//! - `null_mean` — the mean surrogate value,
+//! - `null_std` — its sample standard deviation (`ddof = 1`),
+//! - `standard_error` — `null_std / sqrt(n_tests)`, the uncertainty of the
+//!   bias correction (`NaN` for `n_tests < 2`),
+//! - `n_tests`, `method`, and the individual `test_values`.
+//!
+//! Use the multi-surrogate form when the uncertainty of the correction matters;
+//! keep `effective_value` for the Python-compatible single-draw number. With
+//! `n_tests == 1` the summary reproduces `effective_value` under the same seed
+//! exactly, and the spread fields are `NaN`.
+//!
+//! Surrogate-data resampling itself goes back to
+//! [Theiler et al., 1992](super::references#theiler1992); here the surrogate is
+//! the source series shuffled or bootstrapped in the same way as the null
+//! distribution of [`statistical_test`].
 //!
 //! ## Usage
 //!
@@ -152,6 +177,28 @@
 //!
 //! let ete = te.effective_value(TestMethod::Permutation, Some(1));
 //! println!("effective TE = {ete}");
+//! ```
+//!
+//! The same estimator with the multi-surrogate summary:
+//!
+//! ```
+//! use ndarray::{array, Array1};
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::stats::{EffectiveValueStats, TestMethod};
+//!
+//! let source: Array1<i32> = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let dest: Array1<i32> = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+//! let te = TransferEntropy::new_discrete_mle(&source, &dest, 1, 1, 1);
+//!
+//! let summary = te
+//!     .effective_value_with_resamples(TestMethod::Permutation, Some(42), 100)
+//!     .unwrap();
+//! println!(
+//!     "eTE = {:.3} ± {:.3} (n = {})",
+//!     summary.effective_value, summary.standard_error, summary.n_tests
+//! );
+//! assert!(summary.effective_value.is_finite());
+//! assert!(summary.standard_error.is_finite());
 //! ```
 //!
 //! For autocorrelated data, pick a time-series-aware surrogate instead of the
@@ -204,6 +251,12 @@
 //! the draws run on a thread pool and produce exactly the same result as the
 //! sequential build.
 //!
+//! The multi-surrogate effective value uses the same scheme, with one detail for
+//! parity: draw zero uses the raw seed, so a one-draw summary is bit-for-bit the
+//! single-draw `effective_value`; later draws use the mixed per-draw seeds. The
+//! draws are prefix-stable, so raising `n_tests` never changes the earlier ones
+//! and the parallel build still matches the serial one exactly.
+//!
 //! ## Cached marginal terms
 //!
 //! Permutation, block permutation, and circular shift only reorder the source,
@@ -219,8 +272,12 @@
 //! [`percentile`]: crate::estimators::stats::StatisticalTestResult::percentile
 //! [`confidence_interval`]: crate::estimators::stats::StatisticalTestResult::confidence_interval
 //! [`EffectiveValue::effective_value`]: crate::estimators::stats::EffectiveValue::effective_value
+//! [`EffectiveValueStats::effective_value_with_resamples`]: crate::estimators::stats::EffectiveValueStats::effective_value_with_resamples
+//! [`EffectiveValueSummary`]: crate::estimators::stats::EffectiveValueSummary
 //!
 //! ## References
 //!
 //! - [Schreiber, 2000](super::references#schreiber2000)
+//! - [Marschinski & Kantz, 2002](super::references#marschinski2002)
+//! - [Theiler et al., 1992](super::references#theiler1992)
 //! - [Lizier, 2014](super::references#lizier2014)

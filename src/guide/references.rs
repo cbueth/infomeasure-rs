@@ -134,6 +134,12 @@
 //! ## Transfer Entropy
 //!
 //! <dl class="ref-list">
+//! <dt><span class="ref-key" id="marschinski2002">marschinski2002</span></dt>
+//! <dd><span class="ref-authors">Marschinski, R., and H. Kantz.</span> "Analysing the information flow between financial time series: An improved estimator for transfer entropy." <span class="ref-title">The European Physical Journal B</span> 30, no. 2 (2002): 275–281. <a href="https://doi.org/10.1140/epjb/e2002-00379-3" target="_blank" rel="noopener">doi:10.1140/epjb/e2002-00379-3</a></dd>
+//!
+//! <dt><span class="ref-key" id="theiler1992">theiler1992</span></dt>
+//! <dd><span class="ref-authors">Theiler, James, Stephen Eubank, André Longtin, Bryan Galdrikian, and J. Doyne Farmer.</span> "Testing for nonlinearity in time series: the method of surrogate data." <span class="ref-title">Physica D: Nonlinear Phenomena</span> 58, no. 1–4 (1992): 77–94. <a href="https://doi.org/10.1016/0167-2789(92)90102-S" target="_blank" rel="noopener">doi:10.1016/0167-2789(92)90102-S</a></dd>
+//!
 //! <dt><span class="ref-key" id="schreiber2000">schreiber2000</span></dt>
 //! <dd><span class="ref-authors">Schreiber, Thomas.</span> "Measuring information transfer." <span class="ref-title">Phys. Rev. Lett.</span> 85, no. 2 (2000): 461–464. <a href="https://doi.org/10.1103/PhysRevLett.85.461" target="_blank" rel="noopener">doi:10.1103/PhysRevLett.85.461</a></dd>
 //!
