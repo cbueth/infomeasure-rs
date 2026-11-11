@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.7.0) - 2026-11-10
+## [0.7.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.7.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### ✨ Features
 
+- feat(stats): add multi-surrogate effective value [[#123](https://codeberg.org/cbueth/infomeasure-rs/pulls/123)]
 - feat(stats): add block and circular-shift surrogates [[#122](https://codeberg.org/cbueth/infomeasure-rs/pulls/122)]
 
 ## [0.6.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.6.0) - 2026-10-15
