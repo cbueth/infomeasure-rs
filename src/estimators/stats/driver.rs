@@ -12,7 +12,7 @@ use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 
 use super::config::{StatisticalTestConfig, TestMethod};
-use super::result::StatisticalTestResult;
+use super::result::{EffectiveValueSummary, StatisticalTestResult};
 
 /// Error returned by a statistical test.
 #[derive(Debug, Clone, PartialEq)]
@@ -20,6 +20,8 @@ pub enum StatsError {
     /// Fewer than two resamples were requested; the sample standard deviation
     /// (and hence the t-score) is undefined below two samples.
     TooFewTests(usize),
+    /// Zero resamples were requested for an effective-value summary.
+    NoResamples,
     /// A confidence level outside the open interval `(0, 100)` was requested.
     InvalidConfidenceLevel(f64),
     /// A block-based resampling method was configured with a block length of
@@ -32,6 +34,12 @@ impl std::fmt::Display for StatsError {
         match self {
             StatsError::TooFewTests(n) => {
                 write!(f, "statistical test needs at least 2 resamples, got {n}")
+            }
+            StatsError::NoResamples => {
+                write!(
+                    f,
+                    "effective value summary needs at least 1 resample, got 0"
+                )
             }
             StatsError::InvalidConfidenceLevel(level) => {
                 write!(f, "confidence level must be in (0, 100), got {level}")
@@ -98,6 +106,76 @@ where
     #[cfg(not(feature = "parallel"))]
     let values: Vec<f64> = (0..cfg.n_tests).map(draw).collect();
     Ok(summarise(observed, Array1::from(values), cfg.method))
+}
+
+/// Draw `n_tests` surrogate values and summarise the resulting effective value.
+///
+/// Draw 0 is seeded with the raw master seed, exactly like
+/// [`super::EffectiveValue::effective_value`], so `n_tests == 1` reproduces that
+/// single-draw value. Subsequent draws reuse the deterministic per-draw scheme
+/// of [`run_resample_test`] (`SplitMix64(master + index)`), which makes them
+/// order-independent and prefix-stable: asking for more draws never changes the
+/// earlier ones, so the serial and `parallel` builds agree exactly.
+pub(crate) fn run_effective_value_summary<S>(
+    observed: f64,
+    method: TestMethod,
+    seed: Option<u64>,
+    n_tests: usize,
+    sample: S,
+) -> Result<EffectiveValueSummary, StatsError>
+where
+    S: Fn(usize, &mut SmallRng) -> f64 + Sync,
+{
+    if n_tests == 0 {
+        return Err(StatsError::NoResamples);
+    }
+    if let Some(block_len) = method.block_len()
+        && block_len == 0
+    {
+        return Err(StatsError::InvalidBlockLength(block_len));
+    }
+    let master = seed.unwrap_or_else(rand::random::<u64>);
+    let draw = |i: usize| {
+        let mut rng = if i == 0 {
+            SmallRng::seed_from_u64(master)
+        } else {
+            SmallRng::seed_from_u64(splitmix64(master.wrapping_add(i as u64)))
+        };
+        sample(i, &mut rng)
+    };
+    #[cfg(feature = "parallel")]
+    let values: Vec<f64> = (0..n_tests).into_par_iter().map(draw).collect();
+    #[cfg(not(feature = "parallel"))]
+    let values: Vec<f64> = (0..n_tests).map(draw).collect();
+    Ok(summarise_effective_value(
+        observed,
+        Array1::from(values),
+        method,
+    ))
+}
+
+fn summarise_effective_value(
+    observed: f64,
+    test_values: Array1<f64>,
+    method: TestMethod,
+) -> EffectiveValueSummary {
+    let n_tests = test_values.len();
+    let null_mean = test_values.mean().unwrap_or(f64::NAN);
+    let null_std = sample_std(&test_values, null_mean);
+    let standard_error = if n_tests < 2 {
+        f64::NAN
+    } else {
+        null_std / (n_tests as f64).sqrt()
+    };
+    EffectiveValueSummary {
+        effective_value: observed - null_mean,
+        null_mean,
+        null_std,
+        standard_error,
+        n_tests,
+        method,
+        test_values,
+    }
 }
 
 fn summarise(observed: f64, test_values: Array1<f64>, method: TestMethod) -> StatisticalTestResult {
@@ -427,6 +505,87 @@ mod tests {
     fn error_display_mentions_the_count() {
         let msg = StatsError::TooFewTests(1).to_string();
         assert!(msg.contains("at least 2"), "unexpected message: {msg}");
+    }
+
+    #[test]
+    fn effective_value_summary_rejects_zero_draws() {
+        let err = run_effective_value_summary(0.0, TestMethod::Permutation, Some(1), 0, |_, _| 0.0);
+        assert_eq!(err, Err(StatsError::NoResamples));
+        assert!(StatsError::NoResamples.to_string().contains("at least 1"));
+
+        // The zero-draw check comes first, even for an invalid block method.
+        let err = run_effective_value_summary(
+            0.0,
+            TestMethod::BlockBootstrap { block_len: 0 },
+            Some(1),
+            0,
+            |_, _| 0.0,
+        );
+        assert_eq!(err, Err(StatsError::NoResamples));
+    }
+
+    #[test]
+    fn effective_value_summary_rejects_zero_block_length() {
+        for method in [
+            TestMethod::BlockPermutation { block_len: 0 },
+            TestMethod::BlockBootstrap { block_len: 0 },
+        ] {
+            let err = run_effective_value_summary(0.0, method, Some(1), 2, |_, _| 0.0);
+            assert_eq!(err, Err(StatsError::InvalidBlockLength(0)));
+        }
+    }
+
+    #[test]
+    fn effective_value_summary_uses_ddof_one() {
+        let values = [0.0, 2.0, 4.0];
+        let summary =
+            run_effective_value_summary(3.0, TestMethod::Permutation, Some(1), 3, |i, _| values[i])
+                .unwrap();
+        // mean = 2, sample std (ddof=1) = 2, SE = 2 / sqrt(3).
+        assert!((summary.null_mean - 2.0).abs() < 1e-12);
+        assert!((summary.null_std - 2.0).abs() < 1e-12);
+        assert!((summary.standard_error - 2.0 / 3.0_f64.sqrt()).abs() < 1e-12);
+        assert!((summary.effective_value - 1.0).abs() < 1e-12);
+        assert_eq!(summary.n_tests, 3);
+    }
+
+    #[test]
+    fn single_draw_summary_has_nan_spread() {
+        let summary =
+            run_effective_value_summary(1.5, TestMethod::Permutation, Some(1), 1, |_, _| 0.5)
+                .unwrap();
+        assert_eq!(summary.effective_value, 1.0);
+        assert_eq!(summary.n_tests, 1);
+        assert_eq!(summary.method, TestMethod::Permutation);
+        assert!(summary.null_std.is_nan());
+        assert!(summary.standard_error.is_nan());
+    }
+
+    #[test]
+    fn first_summary_draw_matches_the_single_draw_rng() {
+        // Draw 0 is seeded with the raw master seed, so a one-draw summary and
+        // the corresponding single-draw closure see the same RNG stream.
+        let single = |rng: &mut SmallRng| rng.r#gen::<f64>();
+        let mut rng = make_rng(Some(7));
+        let expected = single(&mut rng);
+        let summary =
+            run_effective_value_summary(0.0, TestMethod::Permutation, Some(7), 1, |_, rng| {
+                single(rng)
+            })
+            .unwrap();
+        assert_eq!(summary.test_values[0], expected);
+    }
+
+    #[test]
+    fn effective_value_summary_draws_are_prefix_stable() {
+        let draw = |_: usize, rng: &mut SmallRng| rng.r#gen::<f64>();
+        let a =
+            run_effective_value_summary(0.0, TestMethod::Permutation, Some(9), 4, draw).unwrap();
+        let b =
+            run_effective_value_summary(0.0, TestMethod::Permutation, Some(9), 8, draw).unwrap();
+        for (x, y) in a.test_values.iter().zip(b.test_values.iter()) {
+            assert_eq!(x, y);
+        }
     }
 
     // ---- Time-series-aware surrogates -------------------------------------

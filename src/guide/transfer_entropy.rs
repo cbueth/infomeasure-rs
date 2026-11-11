@@ -55,10 +55,46 @@
 //! interface instead.
 //! ## Effective Transfer Entropy (eTE)
 //! Real world time series data are usually biased due to finite size effects.
-//! Effective TE is defined as the difference between the original TE and TE calculated on
-//! surrogate (randomly shuffled) data:
+//! Effective TE [Marschinski & Kantz, 2002](super::references#marschinski2002) is defined as the
+//! difference between the original TE and TE calculated on surrogate (randomly shuffled) data:
 //! $$\\operatorname{eTE} = \\operatorname{T}_{X \\to Y} - \\operatorname{T}_{X_{\\text{shuffled}} \\to Y}$$
-//! This helps correct for bias from finite sample sizes.
+//! This corrects the positive finite-sample bias that can make an uncoupled source look like it
+//! transmits information.
+//!
+//! The crate offers two forms:
+//!
+//! - [`EffectiveValue::effective_value`](crate::estimators::stats::EffectiveValue::effective_value)
+//!   uses exactly **one** surrogate draw. This is the Python-compatible definition, so its
+//!   semantics are fixed: `effective_value(method, seed)`.
+//! - [`EffectiveValueStats::effective_value_with_resamples`](crate::estimators::stats::EffectiveValueStats::effective_value_with_resamples)
+//!   averages `n_tests` surrogate draws and reports the uncertainty of the correction as an
+//!   [`EffectiveValueSummary`](crate::estimators::stats::EffectiveValueSummary): the mean surrogate
+//!   value, its sample standard deviation, and the standard error `null_std / sqrt(n_tests)`.
+//!   With `n_tests == 1` it reproduces `effective_value` under the same seed.
+//!
+//! Prefer the multi-surrogate form when the surrogate variance matters — for example on
+//! high-dimensional embeddings or sparse data, where a single shuffled source can give a
+//! noticeably different correction than the next one. The single-draw form remains the right
+//! choice when you need parity with the Python package or its exact numerical output.
+//!
+//! Surrogate-data testing goes back to [Theiler et al., 1992](super::references#theiler1992).
+//! ```rust
+//! use infomeasure::estimators::transfer_entropy::TransferEntropy;
+//! use infomeasure::estimators::stats::{EffectiveValueStats, TestMethod};
+//! use ndarray::array;
+//!
+//! let source = array![0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+//! let dest = array![0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+//! let te = TransferEntropy::new_discrete_mle(&source, &dest, 1, 1, 1);
+//!
+//! let summary = te
+//!     .effective_value_with_resamples(TestMethod::Permutation, Some(42), 100)
+//!     .unwrap();
+//! println!(
+//!     "eTE = {:.3} ± {:.3}",
+//!     summary.effective_value, summary.standard_error
+//! );
+//! ```
 //! ## Implemented in This Crate
 //! ### Continuous TE: Kraskov-Stögbauer-Grassberger (KSG)
 //! The KSG method [Kraskov et al., 2004](super::references#ksg2004) can be adapted for transfer entropy estimation

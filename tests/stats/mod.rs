@@ -4,4 +4,5 @@
 
 //! Module containing tests for the statistical significance testing.
 mod block_surrogate_calibration;
+mod effective_value_multi;
 mod statistical_test_parity;

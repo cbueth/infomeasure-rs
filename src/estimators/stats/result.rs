@@ -34,6 +34,52 @@ pub struct StatisticalTestResult {
     pub method: TestMethod,
 }
 
+/// Summary of an effective value estimated from several surrogate draws.
+///
+/// This is the multi-draw extension of [`super::EffectiveValue`]: the finite
+/// sample bias correction is estimated as the **mean** surrogate value rather
+/// than from a single draw, and the spread of the surrogate distribution is
+/// reported alongside it.
+///
+/// For a measure $M$ with observed value $M_{\text{obs}}$ and surrogate values
+/// $M^{(1)}, \ldots, M^{(n)}$ (the source resampled under the chosen
+/// [`TestMethod`]), the summary contains
+///
+/// - $\operatorname{eM} = M_{\text{obs}} - \bar{M}$ ([`effective_value`]),
+/// - the surrogate mean $\bar{M}$ ([`null_mean`]),
+/// - the sample standard deviation $s$ of the surrogate values, with
+///   `ddof = 1` ([`null_std`]),
+/// - the standard error $s / \sqrt{n}$ of the surrogate mean
+///   ([`standard_error`], `NaN` for `n < 2`),
+/// - the number of draws $n$ ([`n_tests`]) and the method used,
+/// - the individual surrogate values ([`test_values`]).
+///
+/// [`effective_value`]: EffectiveValueSummary::effective_value
+/// [`null_mean`]: EffectiveValueSummary::null_mean
+/// [`null_std`]: EffectiveValueSummary::null_std
+/// [`standard_error`]: EffectiveValueSummary::standard_error
+/// [`n_tests`]: EffectiveValueSummary::n_tests
+/// [`test_values`]: EffectiveValueSummary::test_values
+#[derive(Debug, Clone, PartialEq)]
+pub struct EffectiveValueSummary {
+    /// Observed value minus the mean surrogate value.
+    pub effective_value: f64,
+    /// Mean of the surrogate values.
+    pub null_mean: f64,
+    /// Sample standard deviation of the surrogate values (`ddof = 1`).
+    /// `NaN` when fewer than two draws were taken.
+    pub null_std: f64,
+    /// Standard error of the surrogate mean, `null_std / sqrt(n_tests)`.
+    /// `NaN` when fewer than two draws were taken.
+    pub standard_error: f64,
+    /// Number of surrogate draws.
+    pub n_tests: usize,
+    /// The resampling method used.
+    pub method: TestMethod,
+    /// The individual surrogate values, in draw order.
+    pub test_values: Array1<f64>,
+}
+
 impl StatisticalTestResult {
     /// The `q`-th percentile (`0..=100`) of the null distribution.
     ///
