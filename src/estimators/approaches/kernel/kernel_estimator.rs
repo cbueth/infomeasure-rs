@@ -79,13 +79,17 @@
 //! acceleration for both Gaussian and Box kernel calculations, providing significant
 //! performance improvements for large datasets:
 //!
-//! - **Gaussian Kernel**: GPU acceleration is used for datasets with 500 or more points,
+//! - **Gaussian Kernel**: GPU acceleration is used for datasets with 1200 or more points,
 //!   providing speedups of up to 340x for large datasets. The adaptive radius for neighbor
 //!   search is larger when using GPU acceleration, especially for small bandwidths.
 //!
-//! - **Box Kernel**: GPU acceleration is used for datasets with 2000 or more points,
+//! - **Box Kernel**: GPU acceleration is used for datasets with 4000 or more points,
 //!   providing speedups of up to 37x for large datasets. For smaller datasets, the CPU
 //!   implementation is faster due to the overhead of GPU setup.
+//!
+//! These are the built-in defaults for integrated GPUs; discrete cards engage earlier
+//! (1000 points for both kernels). All gates can be tuned per machine with
+//! `INFOMEASURE_GPU_MIN_GAUSSIAN` and `INFOMEASURE_GPU_MIN_BOX`.
 
 use crate::estimators::approaches::common_nd::KdTreeKernel;
 use crate::estimators::doc_macros::doc_snippets;
@@ -1307,7 +1311,8 @@ impl From<Array2<f64>> for KernelData {
 /// When compiled with the `gpu` feature flag, this implementation can use GPU
 /// acceleration for both kernel types:
 ///
-/// - **Gaussian Kernel**: GPU acceleration is automatically used for datasets with 500 or more points.
+/// - **Gaussian Kernel**: GPU acceleration is automatically used for datasets with 1200 or more points
+///   on integrated GPUs (1000 on discrete cards).
 ///   The adaptive radius for neighbor search is larger when using GPU acceleration, especially for
 ///   small bandwidths (< 0.5):
 ///   - For large datasets (> 5000 points) with small bandwidths: 4σ radius
@@ -1315,8 +1320,12 @@ impl From<Array2<f64>> for KernelData {
 ///   - For large datasets with normal bandwidths: 3σ radius
 ///   - For smaller datasets with normal bandwidths: 4σ radius
 ///
-/// - **Box Kernel**: GPU acceleration is automatically used for datasets with 2000 or more points.
+/// - **Box Kernel**: GPU acceleration is automatically used for datasets with 4000 or more points
+///   on integrated GPUs (1000 on discrete cards).
 ///   For smaller datasets, the CPU implementation is used as it's faster due to the overhead of GPU setup.
+///
+/// These are built-in defaults, tunable per machine with `INFOMEASURE_GPU_MIN_GAUSSIAN`
+/// and `INFOMEASURE_GPU_MIN_BOX`.
 ///
 /// # Examples
 ///
@@ -2170,11 +2179,13 @@ impl<const K: usize> LocalValues for KernelEntropy<K> {
     /// calculations can use GPU acceleration, which provides significant performance
     /// improvements for large datasets and high-dimensional data:
     ///
-    /// - **Gaussian Kernel**: GPU acceleration is used for datasets with 500 or more points.
+    /// - **Gaussian Kernel**: GPU acceleration is used for datasets with 1200 or more points
+    ///   on integrated GPUs (1000 on discrete cards).
     ///   For smaller datasets, the implementation automatically falls back to the CPU version.
     ///   The adaptive radius for neighbor search is larger when using GPU acceleration.
     ///
-    /// - **Box Kernel**: GPU acceleration is used for datasets with 2000 or more points.
+    /// - **Box Kernel**: GPU acceleration is used for datasets with 4000 or more points
+    ///   on integrated GPUs (1000 on discrete cards).
     ///   For smaller datasets, the implementation automatically falls back to the CPU version
     ///   as the overhead of GPU setup outweighs the benefits for small data sizes.
     fn local_values(&self) -> Array1<f64> {

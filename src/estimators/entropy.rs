@@ -573,8 +573,9 @@ impl Entropy {
     /// # GPU Acceleration
     ///
     /// When compiled with the `gpu` feature flag, this method will use GPU
-    /// acceleration for datasets with 2000 or more points, providing significant
-    /// performance improvements for large datasets.
+    /// acceleration for datasets with 4000 or more points on integrated GPUs
+    /// (1000 on discrete cards), providing significant performance improvements
+    /// for large datasets.
     pub fn new_kernel(
         data: impl Into<kernel::KernelData>,
         bandwidth: f64,
@@ -599,8 +600,13 @@ impl Entropy {
     /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration based on the kernel type and dataset size:
     ///
-    /// - For Gaussian kernel: GPU is used for datasets with 500 or more points
-    /// - For Box kernel: GPU is used for datasets with 2000 or more points
+    /// - For Gaussian kernel: GPU is used for datasets with 1200 or more points
+    ///   on integrated GPUs (1000 on discrete cards)
+    /// - For Box kernel: GPU is used for datasets with 4000 or more points on
+    ///   integrated GPUs (1000 on discrete cards)
+    ///
+    /// These are built-in defaults, tunable per machine with
+    /// `INFOMEASURE_GPU_MIN_GAUSSIAN` and `INFOMEASURE_GPU_MIN_BOX`.
     ///
     /// The Gaussian kernel with GPU acceleration uses an enhanced adaptive radius
     /// calculation, especially for small bandwidths (< 0.5).
@@ -626,8 +632,9 @@ impl Entropy {
     /// # GPU Acceleration
     ///
     /// When compiled with the `gpu` feature flag, this method will use GPU
-    /// acceleration for datasets with 2000 or more points, providing significant
-    /// performance improvements for large datasets and high-dimensional data.
+    /// acceleration for datasets with 4000 or more points on integrated GPUs
+    /// (1000 on discrete cards), providing significant performance improvements
+    /// for large datasets and high-dimensional data.
     pub fn nd_kernel<const K: usize>(
         data: impl Into<kernel::KernelData>,
         bandwidth: f64,
@@ -652,10 +659,14 @@ impl Entropy {
     /// When compiled with the `gpu` feature flag, this method will use GPU
     /// acceleration based on the kernel type and dataset size:
     ///
-    /// - For Gaussian kernel: GPU is used for datasets with 500 or more points, providing
-    ///   speedups of up to 340x for large datasets
-    /// - For Box kernel: GPU is used for datasets with 2000 or more points, providing
-    ///   speedups of up to 37x for large datasets
+    /// - For Gaussian kernel: GPU is used for datasets with 1200 or more points on
+    ///   integrated GPUs (1000 on discrete cards), providing speedups of up to 340x
+    ///   for large datasets
+    /// - For Box kernel: GPU is used for datasets with 4000 or more points on integrated
+    ///   GPUs (1000 on discrete cards), providing speedups of up to 37x for large datasets
+    ///
+    /// These are built-in defaults, tunable per machine with
+    /// `INFOMEASURE_GPU_MIN_GAUSSIAN` and `INFOMEASURE_GPU_MIN_BOX`.
     ///
     /// The GPU implementation is particularly beneficial for high-dimensional data,
     /// where it can complete calculations that would timeout on the CPU.
