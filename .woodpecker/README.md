@@ -236,8 +236,9 @@ and `RTransferEntropy` (quantile-binned continuous) are excluded.
 `infomeasure-rs` has GPU-accelerated kernel estimators (wgpu; Vulkan on the
 runner). Alongside the full CPU fragment, the Rust collector emits a sparse
 overlay, `infomeasure-rs_gpu.json`, containing only the kernel variants above
-the dispatch gate (Gaussian ≥500, box ≥2000 points — resolved from the
-detected adapter, so a software or absent adapter yields an empty overlay).
+the dispatch gate (resolved from the detected adapter: Gaussian ≥1200 and box
+≥4000 points on integrated GPUs, ≥1000 for both on discrete cards; a software
+or absent adapter yields an empty overlay).
 `run_all.sh` runs it as `BENCH_GPU=1 … cargo bench --features gpu --bench
 collect_cross_package`; the CI `collect` step sources `init-nvidia-vulkan.sh`
 and sets the NVIDIA env (mirroring the GPU test pipeline). The overlay is
