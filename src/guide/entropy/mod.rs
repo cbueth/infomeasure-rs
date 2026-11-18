@@ -53,7 +53,6 @@
 //! Rényi entropy is a generalized family of one-parameter entropy that preserves
 //! additivity for independent systems. For $\\alpha > 0$:
 //! $$H_{\alpha}[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
-//! $$H_{\alpha}[\\mathcal{P}] := \\frac{1}{1-\\alpha} \\log \\left( \\sum_{i=1}^{n} p_i^\\alpha \\right)$$
 //! where $\\mathcal{P} = (p_1, ..., p_n)$ is a probability distribution.
 //! For $\\alpha = 1$, Rényi entropy reduces to Shannon entropy.
 //! Small values of probabilities are emphasized for $\\alpha < 1$ and larger probabilities for $\\alpha > 1$.
