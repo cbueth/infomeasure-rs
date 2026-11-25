@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.7.1) - 2026-11-25
+
+### ❤️ Thanks to all contributors! ❤️
+
+@cbueth
+
+### 📚 Documentation
+
+- docs(cff): cite published Entropy article and add Zenodo DOI [[#127](https://codeberg.org/cbueth/infomeasure-rs/pulls/127)]
+
 ## [0.7.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.7.0) - 2026-11-16
 
 ### ❤️ Thanks to all contributors! ❤️
