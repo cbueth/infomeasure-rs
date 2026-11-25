@@ -19,6 +19,7 @@ authors:
 
 repository-code: "https://codeberg.org/cbueth/infomeasure-rs"
 url: "https://infomeasure.org/"
+doi: "10.5281/zenodo.23477339"
 
 keywords:
   - entropy
@@ -37,11 +38,15 @@ preferred-citation:
     - family-names: "Büth"
       given-names: "Carlson Moses"
       orcid: "https://orcid.org/0000-0003-2298-8438"
-  doi: "10.48550/arXiv.2610.27951"
-  url: "https://arxiv.org/abs/2610.27951"
+  doi: "10.3390/e28121309"
+  url: "https://www.mdpi.com/1099-4300/28/12/1309"
   title: "infomeasure-rs: A High-Performance Rust Library for Information-Theoretic Measures and Estimators"
   year: 2026
-  month: 10
+  month: 11
+  journal: "Entropy"
+  volume: 28
+  issue: 12
+  start: 1309
   abstract: |
     Information theory has become a standard tool across the natural and social
     sciences, yet practical use is limited by estimator choice, fragmented
@@ -52,16 +57,16 @@ preferred-citation:
     mutual information, transfer entropy, conditional transfer entropy,
     cross-entropy, and the Kullback-Leibler and Jensen-Shannon divergences, with
     discrete (plug-in and bias-corrected), kernel, ordinal, and
-    nearest-neighbour estimators, including the Rényi and Tsallis families, and
+    nearest-neighbour estimators, including the Rényi and Tsallis entropies, and
     exposes local and global values and significance testing through a
-    consistent trait interface. It ships as a single portable binary with no
-    runtime dependency and is continuously validated against a reference
-    implementation. On a single central processing unit (CPU) core, and even
-    without its GPU or parallel paths, it is the fastest of the packages we
-    compared across languages, matching the closest packages only for plug-in
-    discrete entropy and substantially faster for mutual information, the
-    conditional and transfer measures, and the kernel, ordinal, and
-    generalised-entropy estimators. The optional GPU and multi-threaded paths
-    accelerate selected continuous estimators further. The library is open
-    source and, to our knowledge, the most complete information-theory package
-    for Rust.
+    consistent trait interface. It compiles to self-contained native code with
+    no language runtime dependency and is continuously validated against a
+    reference implementation. On a single central processing unit (CPU) core,
+    and even without its GPU or parallel paths, it is the fastest of the
+    packages we compared across languages, matching the closest packages only
+    for plug-in discrete entropy and substantially faster for mutual
+    information, the conditional and transfer measures, and the kernel, ordinal,
+    and generalised-entropy estimators. The optional GPU and multi-threaded
+    paths accelerate selected estimators further. The library is open source
+    and, to our knowledge, the most complete information-theory package for
+    Rust.
