@@ -8,6 +8,7 @@
 
 ### 📚 Documentation
 
+- docs: cite published Entropy article in README and crate docs [[#129](https://codeberg.org/cbueth/infomeasure-rs/pulls/129)]
 - docs(cff): cite published Entropy article and add Zenodo DOI [[#127](https://codeberg.org/cbueth/infomeasure-rs/pulls/127)]
 
 ## [0.7.0](https://codeberg.org/cbueth/infomeasure-rs/releases/tag/0.7.0) - 2026-11-16
